@@ -19,14 +19,6 @@
 export const PLAYER_FINE_LABEL = "Fine Tune";
 
 /**
- * The eyebrow over the six names in the open. The card already carries the word Cast on the
- * arrangement's own box, where it is the *set* the auto-arranger may draw parts from (0174) — a
- * different grammar under the same six words. So the front says what a press here does instead of
- * repeating that word: these fill every dial on the card now.
- */
-export const PLAYER_FRONT_LABEL = "Sounds Like";
-
-/**
  * What the info press beside a picture is called, where the picture's own name is what it explains.
  * One word, because the button is an icon and its whole job is to be the thing a hand presses when
  * it cannot tell what it is looking at.
@@ -64,3 +56,37 @@ export const PLAYER_BEAT_LABEL = "Beat";
  */
 export const PLAYER_BEAT_TOOLTIP =
   "Round the burst to the nearest whole division of the beat you are hearing, from a whole beat down to a thirty-second of one.";
+
+/**
+ * The eyebrow over the numbers of the landing a hand pressed on the picture. Singular and
+ * demonstrative, because it is about one block and never about the pattern: everything else on the
+ * card says what the walk *tends* to do, and this is the one place that says what one landing did.
+ */
+export const PLAYER_LANDING_LABEL = "This Landing";
+
+/**
+ * What a picked landing says about itself, in the order a hand reads a block: where it opens, how
+ * long it holds, how often it is struck, and which of the loop's own sixteenths it reads. The
+ * fourth is the one the picture no longer draws — the score's height is the count, so where a jump
+ * lands is a number here rather than a band there (0258).
+ *
+ * Lower case and not Titlecase: these are the terms of a readout and never labels of controls, and
+ * 0059's rule is about what a hand can press.
+ */
+export const PLAYER_LANDING_TERMS = {
+  at: "lands at",
+  span: "holds for",
+  repeats: "struck",
+  slot: "reads slot",
+} as const;
+
+/**
+ * The two things a landing can be that are not a number: a hole, which is scheduled and never
+ * opened, and a landing read backwards. Said in words because the picture says them in a hollow
+ * outline and a mirrored gate, neither of which is legible on a block a few pixels wide.
+ */
+export const PLAYER_LANDING_DROPPED = "a hole — placed and never opened";
+export const PLAYER_LANDING_REVERSED = "read backwards";
+
+/** What the picture says where nothing has been pressed on it yet: the gesture, and not an empty box. */
+export const PLAYER_LANDING_NONE = "Press a landing to read it";

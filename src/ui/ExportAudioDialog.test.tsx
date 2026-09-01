@@ -1,11 +1,5 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
-import {
-  EXPORT_AUDIO,
-  EXPORT_TAKES_UNMEASURED,
-  EXPORT_WITH_SESSION,
-  exportTakesSaid,
-  INITIAL_YARD_NAME,
-} from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_WITH_SESSION, exportTakesSaid, INITIAL_YARD_NAME } from "@/lib/copy";
 import { EXPORT_NAME_SEPARATOR, exportNameField } from "@/lib/exportName";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ExportAudioTypes from "@/app/exportAudio";
@@ -157,18 +151,19 @@ describe("the Export Audio dialog", () => {
     expect(labelled).toEqual([
       "Length (Minutes)",
       "Length (Seconds)",
-      "Start (Seconds Ago)",
+      "Start Offset (Seconds Ago)",
       "Fade In (Seconds)",
       "Fade Out (Seconds)",
     ]);
     const fields = tree().flatMap((element) =>
       element.props.id === undefined ? [] : [element.props.id],
     );
+    // No line about how long the render takes: this session has measured no rate, so the box has
+    // no figure to give and stands nothing in its place.
     expect(fields).toEqual([
       "export-audio-name",
       "export-audio-minutes",
       "export-audio-secs",
-      "export-audio-takes",
       "export-audio-back",
       "export-audio-fade-in",
       "export-audio-fade-out",
@@ -232,9 +227,10 @@ describe("the Export Audio dialog", () => {
    * P166: a rate is a measurement of this machine, so a session that has measured none has no
    * figure to give — and a made-up one is worse than a stated unknown (principle 5).
    */
-  it("says the shape of the answer where this session has rendered nothing", () => {
+  it("says nothing at all where this session has rendered nothing", () => {
     seam.rate = null;
-    expect(takes()).toBe(EXPORT_TAKES_UNMEASURED);
+    expect(takes()).toBe("");
+    expect(tree().some((element) => element.props.id === "export-audio-takes")).toBe(false);
   });
 
   /** And once it has measured one, the figure, said as the estimate it is. */

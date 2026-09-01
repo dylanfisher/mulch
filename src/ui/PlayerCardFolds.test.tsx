@@ -41,7 +41,7 @@ import {
   RESEED_LABEL,
 } from "@/lib/copy";
 import { PLAYER_BED_PER_LABEL } from "@/lib/copyGround";
-import { PLAYER_FINE_LABEL, PLAYER_FRONT_LABEL } from "@/lib/copyCard";
+import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerBed } from "@/ui/PlayerBed";
@@ -147,10 +147,10 @@ describe("the mulcher card's folds", () => {
       else expect(shut).not.toContain(label);
     }
     expect(boxes(shut)).toBe(0);
-    // The front is not: a press on a name and a reseed are the shortest road to a pattern worth
+    // The front is not: the cast's pad and a reseed are the shortest road to a pattern worth
     // hearing, and a fold that put them away would be the fold 0197 refused (0152, 0197).
     expect(shut).toContain(RESEED_LABEL);
-    expect(shut).toContain(PLAYER_FRONT_LABEL);
+    expect(shut).toContain('data-slot="player-blend"');
     expect(card({ fine: true }).sent).not.toHaveBeenCalled();
   });
 

@@ -321,6 +321,379 @@ the next feature, and it gets a plan of its own.
 **A seeded fixture.** Two screenshots of one sketch must be the same picture. Every fixture added
 here is written by hand in `sketchWalk.ts` for the reason that file's own `@role` already gives.
 
+# The rack gets the three axes it has none of: dirt, modulation, pitch
+
+## Context
+
+Eight entries stand in `EFFECTS` and between them they cover the spectrum (`filter`, `eq`), the
+envelope (`compressor`, `pop`), time (`delay`, `tape`), the room (`reverb`) and the buffer
+(`scatter`). Three families are missing, and each is missing entirely rather than thinly:
+
+- **Nothing aliases.** Every entry is either linear or softly saturating; `pop`'s air is the
+  hardest edge in the rack and it is still a curve. Quantisation and decimation are a whole
+  character the instrument cannot make at any setting of anything it has.
+- **Nothing modulates a delay.** `delay` holds its time and `tape` wanders around its own by
+  design; neither is a swept one. Chorus, flanger and vibrato are one graph away and there is no
+  graph.
+- **Nothing changes pitch.** `scatter` reads its capture at the rate it wrote it, and the deck's
+  own rate moves time with pitch. A chain entry that transposes what passes through it does not
+  exist, which is the largest single hole in the rack.
+
+Weighed and not here: a freeze (`scatter`'s capture held rather than re-triggered), a rhythmic gate,
+a wavefolder, a width-and-Haas spread (`pop` already owns width), and a tuned comb. Each is a real
+effect and each is a variation on a reading the rack already has; these three each open an axis it
+has no reading of at all.
+
+**The outcome wanted:** three entries, each of which sounds, is automatable, draws a row nothing
+else draws, and renders identically through the offline path.
+
+**Decided before planning:** three steps, one entry each, in the order below; `sway` is built from
+native nodes and adds no processor, which is why it is the middle step rather than the first; and
+nothing here relaxes one declaration per parameter and one value per (instance, parameter)
+([0030](decisions/0030-effects-are-instances.md)) or the reserved profiles.
+
+## The two things every step turns on
+
+1.  **A new entry is a new wave, and there are none spare.** `DRIFT_PROFILES`
+    (src/lib/moireProfiles.ts:24) lists eleven, two of which no effect may claim (0145), and all
+    nine of the rest are taken: slope/filter, peak/eq, flat/compressor, twin/delay, lobe/reverb,
+    split/tape, swarm/automator, swell/pop, grain/scatter. Every step therefore adds one name to
+    that list and one wave to `PROFILE_WAVES`, whose mean is exactly a half and which is a family
+    of its own rather than another wave at a depth ratio — the trap `swell`'s own comment spells
+    out (0122). The file is 160 lines and three waves fit; the profile count is what will
+    eventually split it, and that is a later step's problem.
+2.  **A worklet writes every range twice, and the middle step writes none.** Crush and shift each
+    add a processor, so each range is written again as a `parameterDescriptors` entry and pinned
+    against the declaration in the processor's own test, exactly as pop/scatter/tape are, and each
+    adds a registered name to src/audio/worklet.ts and its `?url` to `MODULES`. Sway is a
+    `DelayNode`, an `OscillatorNode` and two gains: no second copy of anything, and no new module.
+
+## Steps
+
+1.  **Crush — the dirt.** `src/audio/effects/crush.ts` and `src/audio/worklets/crush.js`, behind a
+    `CRUSH_BITS` name. Parameters: `crush.bits` (the levels a sample is quantised to),
+    `crush.rate` (the rate held samples are taken at, log), `crush.mix`. Presence is
+    `{ param: "crush.mix", silent: 0 }`, geometry `linear`, and `settle` is `SETTLE_FLOOR_SECS` —
+    one held sample is its whole memory. Drift: `crush.rate → period`, `crush.mix → depth`, and
+    `crush.bits` gets a dimension or a written `because` (0148). Its wave is a staircase: a cosine
+    quantised to a few levels is the effect drawn as itself, and stepped edges are a family
+    nothing in the list has.
+2.  **Sway — the modulation.** `src/audio/effects/sway.ts`, native graph only: a dry path plus a
+    `DelayNode` whose `delayTime` carries a slow oscillator through a gain, with a feedback path,
+    so one entry covers vibrato, chorus and flanging by depth and feedback rather than three
+    entries covering one each. Parameters: `sway.rate`, `sway.depth`, `sway.feedback`, `sway.mix`;
+    `settle` is `feedbackSettleSecs`, as delay.ts's is. Drift: `sway.rate → period`,
+    `sway.depth → bend`, `sway.mix → depth`, and the feedback into `feedback` or written down. Its
+    wave is a crest whose own position wanders, which is the modulation drawn as modulation — and
+    the one most likely to fail the ratio case, because `split` is tape's wow and that is the same
+    idea at another size. Check that pair first.
+3.  **Shift — the pitch.** `src/audio/effects/shift.ts` and `src/audio/worklets/shift.js`, behind a
+    `SHIFT_PITCH` name: two read heads walking one circular capture at the rate the interval sets,
+    crossfaded so neither is heard arriving. Parameters: `shift.interval` (semitones),
+    `shift.detune` (cents), `shift.window` (the grain a head reads), `shift.mix`; `settle` is the
+    window plus the crossfade. Its wave is a crest heard again a fixed ratio along — the one
+    profile whose shape is a frequency relationship rather than an envelope.
+
+The order is cost. Crush's processor is the smallest one that proves a new wave and a new processor
+together; sway proves the same entry shape with no processor at all; shift is the only one whose
+correctness is a claim about a frequency, so its proof is an offline render through
+`buildDeckChain` rather than a knob, and it is worth the most once the other two have paid for the
+pattern.
+
+## Tests that must fail first
+
+- **src/lib/moire.test.ts needs no new case and must fail per step anyway.** Its profile case
+  iterates `DRIFT_PROFILES` for the mean, for two waves that are one string, and for two that are
+  one wave at a depth ratio (moire.test.ts:450, :526, :534). A wave added to the list without a
+  wave in the record is a compile failure, because `PROFILE_WAVES` is total.
+- **src/audio/effects/registry.test.ts, likewise.** The duplicate profile, the unclaimed value, the
+  unschedulable presence and the silent-at-default cases all run over `EFFECTS` at load, so an
+  entry that forgets a `driftUnreached` reason throws in every file that imports the registry.
+  Nothing new is owed in either file, and that is the point of both.
+- **src/audio/worklets/crush.test.ts and src/audio/worklets/shift.test.ts** are owed, one per
+  processor, in the shape scatter.test.ts has: the declaration against `parameterDescriptors`, the
+  input written straight back out at the presence's silence, and the one thing the processor is for
+  — a quantised block takes a countable number of distinct values; a shifted block's dominant bin
+  is where the interval says it is.
+- **One case per entry in src/audio/effects/rack.test.ts:** built, moved, disposed, and heard.
+
+## Verification
+
+1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
+    it, then `./scripts/check` read whole. Watch each new test fail before the change.
+2.  The picture, per step — `./scripts/drive --dev --shot DIR` on a yard holding the new entry,
+    read from the `{"shot":…}` swing and a 1:1 crop. One question: does its row read as a family of
+    its own beside the entry nearest it — crush beside `flat`, sway beside `split`, shift beside
+    `grain`? The ratio case answers the arithmetic; only a shot answers whether the eye agrees.
+3.  `./scripts/profile` at the end of the feature, against the ~10.4ms frame p95 band: two more
+    processors on the audio thread, in a rack that holds every entry.
+4.  A decision record per step, no longer than the decision is. Next free is 0261.
+
+## Refused
+
+**A separate chorus, a flanger and a vibrato.** One graph and three settings of it. Three entries
+would be three profiles, three icons and three presences for one piece of arithmetic, and the rack
+is a list a hand reads.
+
+**A pitch shifter built on playback rate.** An `AudioBufferSourceNode`'s rate moves time with pitch
+and a chain entry is handed a stream rather than a buffer, so the read-head worklet is not an
+optimisation of a simpler thing — it is the only shape the effect has here.
+
+**The other five effects in the same feature.** A freeze, a gate, a wavefolder, a spread and a comb
+are each a step of their own later. They queue behind these three because none of them opens an
+axis, and a feature that adds eight entries is a feature nobody can shoot.
+
+---
+
+# The picture travels its ink, blows with the tail, opens like a lattice, and shatters on the odds
+
+## Context
+
+Four things the drift does not do, each of which a listener can hear and the picture cannot say:
+
+- **Colour arrives and never travels.** `stepped` (src/ui/moireScreen.ts:435) rounds hue, fringe and
+  disperse onto `DRIFT_STEPS` = 8 (src/lib/moire.ts:329), which is what keeps the tile's pixel loop
+  off the frame path (0129, 0142) and is not the problem. The problem is above it: `screenHue` is
+  `boldest` over the rows (src/ui/moireScreen.ts:425), so an automator retiring the instance holding
+  the boldest claim hands the picture another ink between two frames, and a knob dragged across a
+  stop cuts to it. Every other travel in the picture is rated — `easedCentre` (src/lib/moire.ts:399)
+  is the shape, and it exists because an eased one never arrives.
+- **Nothing reads how long the rack takes to fall silent.** Every entry declares `settle` over its
+  own values — reverb's is decay plus predelay (src/audio/effects/reverb.ts:114), delay's is
+  `feedbackSettleSecs` (src/audio/effects/delay.ts:74) — and nothing outside scheduling reads one.
+  So three reverbs and two delays deep, the picture is the picture a dry yard draws, and washed-out
+  floating is the first thing an ear names about that rack.
+- **The structure opens four-fold and it reads as a swell.** `FRACTAL_OPENING` = 4 across a whole
+  cycle through twelve stops (src/lib/moireFractal.ts:410), widened by the age (`agedOpening`,
+  0251). Under a doubling per half-cycle, against a field of straight gratings, is a breath. The
+  reference the human brought is `#home-hero-gp` at gpuworld.org: a coarse cell lattice — five by
+  five across the whole picture — where every cell redraws the same field at the cell's own scale,
+  every cell's boundary is drawn as a lit contour, and each cell is warped by where it stands in
+  the outer field, so the same structure is legible at two scales at once and the grid itself
+  moves. Ours has the family (`FRACTAL_FOLDS` = 6, `FRACTAL_LEVEL_CYCLES` = 12,
+  src/lib/moireFractal.ts:125) and spends it entirely on filigree: the levels stand a lattice apart
+  and fringe, which was 0246's whole point, and nothing in the picture is cell-sized.
+- **Scatter's whole claim on the picture is one row's pitch.** `scatter.odds → pitch`
+  (src/audio/effects/scatter.ts:143), geometry `linear`. Six scatter instances are six straight rows
+  at six pitches, which is more weave. Six scatters is the yard at its most broken and the picture
+  is at its most orderly.
+
+**The outcome wanted:** ink travels between its stops instead of cutting to them; a rack with a long
+tail blows the whole field in a direction, smoothly, and the direction moves with what else is
+standing; the structure reads as the picture zooming into its own lattice; and a rack of scatters
+reads as a picture coming apart.
+
+**Decided before planning:** four steps in that order, one decision record each. No list anywhere of
+which effects are washy — the reading is `settle`, which every entry already declares and which a
+new entry gets for free. The wind and the shatter belong to the field and to no row, the way the
+wash does (0213) and `runStanding` does; neither is a parameter and neither is durable (0145, 0128).
+
+## The two things every step turns on
+
+1.  **A tile is a bake and a frame is a `fillStyle`.** Everything named here is keyed into either the
+    screen tile (src/ui/moireScreen.ts, `build`) or a curved row's (src/ui/driftTiles.ts). A term
+    may move per frame only on the free side of that line — the pattern's transform, which
+    `inkThrough` (src/ui/moireScreen.ts:651) already sweeps four terms through, or the one
+    `fillStyle` (0070). Anything else moves a stepped key, and a stepped key that moves every frame
+    is the pixel loop 0129 exists to refuse. The ink tween is therefore a rated travel of the
+    _claim_, so the staircase is walked rather than jumped and each stop is baked once and cached;
+    it is not a finer ladder, and it is not an unstepped hue.
+2.  **A reading of the population is the field's, and it goes where the field's readings live.** The
+    rack's tail and its scatter weight are two more of the kind `wash` and `age` already are, so
+    they rest on `MoireRowSet` (src/ui/moireRowsField.ts) beside them, are computed once per read
+    rather than per row, and no registry entry declares either. An effect that reaches these through
+    `driftFrom` would be a second value for one fact (0030, principle 1).
+
+## Steps
+
+1.  **The ink travels.** A rated travel over the three colour terms — hue first, and fringe and
+    disperse with it, since all three are `stepped` and all three jump for the same reason — in
+    `easedCentre`'s shape and not an ease: a whole reach in a stated number of seconds, arriving.
+    The travelled value is what `stepped` rounds, so a two-second travel across the ladder costs
+    eight bakes spread over two seconds and none of them twice (`TILE_CACHE` already holds a whole
+    drag's stops). Where the claim moves because an automator retired a place, the picture walks to
+    the new ink; where a hand is dragging, the drag stays immediate at the knob and the picture
+    catches up behind it.
+2.  **The tail blows the field.** One reading, `rackTail`, in src/lib/moireSound.ts beside
+    `washAmount`: how long the standing rack takes to fall silent, from each instance's own `settle`
+    over its own values, weighted by whatever its presence says it is heard at, and normalised onto
+    a band stated once. That reading buys two things and no more: a **drift**, which is a term on
+    `inkThrough`'s transform that does not come back — the crawl already sweeps one cell and returns,
+    and this is the same axis running one way — and its **direction**, folded off the standing
+    population the way `fractalKind` is (src/lib/moireFractal.ts:373), so adding an effect turns the
+    wind rather than restarting it. Smoothness is the tail itself: a long tail is a slow, wide drift
+    and a short one is none. A direction that changes travels there at a rate, by step 1's clause.
+3.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
+    taken with the depth question the reference asks: the opening's band and how the levels are
+    spent. Three levers and their shot answers, in this order — `FRACTAL_OPENING` past four; the
+    fly-through as a travel through the coordinate rather than a cosine that returns; and the levels
+    drawn at a coarser spacing than `FRACTAL_LEVEL_CYCLES` so a cell is cell-sized, with the level
+    boundary itself lit rather than left as one more fringe. The last is the one that changes what
+    0246 decided, so it carries the decision: the boxes came out of the interference deliberately,
+    and a lit contour is ink laid _over_ the picture unless it is cut as a grating like everything
+    else.
+4.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape as step 2's: how much
+    of the yard is scatter, from the standing instances' own odds and gate. What it buys is the one
+    thing the picture has never done — the field read back through itself displaced, so a share of
+    the picture is drawn from somewhere else in the picture. `lens` is the dimension in that
+    neighbourhood and the slices `moireGeometry` already draws the finished field back through are
+    the mechanism; six scatters is where the slices are wide enough to break every straight row in
+    the picture, and one scatter is where nothing is visibly displaced. The share is bounded like the
+    feedback's is (0250) and for the same reason: an unbounded one is a picture of nothing.
+
+## Tests that must fail first
+
+- **src/ui/moireScreen.test.ts** — the travel: a claim that moves arrives at the new stop and is not
+  there on the next frame; a claim that moves twice inside one travel does not overshoot; a rest
+  yard's key does not move at all, so a still picture still costs no bake.
+- **src/lib/moireSound.test.ts** — `rackTail` and `rackScatter`: silence is neither, a rack of one
+  short entry is near nothing, `settle` is read per instance over its own values and never off a
+  default, and both answer inside their stated bands at every input.
+- **src/ui/moireRowsField.test.ts** — both readings rest on the set beside `wash` and `age`, and are
+  computed once for a whole read rather than per row.
+- **src/lib/moireFractal.test.ts** — the fly-through's own arithmetic, and the level spacing: two
+  stops of one opening are the same structure scaled, and a level boundary is cut as a grating.
+- **src/ui/moireCanvasTiles.test.ts** — the shatter's displacement is a slice of the field and not a
+  second fill over it, and its share is bounded at the ceiling the record states.
+
+## Verification
+
+1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
+    it, then `./scripts/check` read whole. Watch each new test fail before the change.
+2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
+    crop, never the whole-canvas view. One question each: does the ink read as travelling or as
+    stepping (shoot the travel at half, one and two seconds); does a five-effect rack of reverb and
+    delay read as floating rather than as sliding (shoot at one, three and six seconds of tail);
+    does the structure read as a lattice the picture is inside, against the reference; and does a
+    six-scatter yard read as broken rather than as noisy.
+3.  `./scripts/profile` at the end of the feature and again inside step 4's own gate, against the
+    ~10.4ms frame p95 band — steps 1 and 2 spend no bake by construction, and step 4 spends a read
+    of the field per frame, which is the one that can cost.
+4.  A decision record per step, no longer than the decision is. The numbers follow whatever the
+    rack's three steps take; next free today is 0261.
+
+## Refused
+
+**Tinting the screen tile at fill time instead of at the bake.** `build` multiplies every pixel by
+one row ink (src/ui/moireScreen.ts:611), so the tile is separable in its colour and a composite pass
+could recolour it per frame with no bake at all. It is a second full-canvas pass on the frame path to
+save bakes that are already cached and already stepped, and it puts the ink somewhere other than
+where the tile says the ink is. Revisit only if step 1's shot says eight stops still read as a
+staircase after they are walked.
+
+**A `washy` flag, tag or list on the effect registry.** Which effects wash out is a fact about their
+tails, and their tails are declared. A list would be that fact said twice and wrong the first time an
+entry is added (principle 1) — and 0261's own note should name the refusal, since it is the obvious
+thing to propose.
+
+**Giving scatter a `driftFrom` into the new shatter.** The displacement is the whole field's and a
+`driftFrom` is one row's (0030). Six instances each displacing their own row is six broken rows in an
+otherwise orderly picture, which is the picture the step exists to stop drawing.
+
+---
+
+# The bench is cleared, and asks two questions: when the ground moves, and how a song is played
+
+## Context
+
+The bench at `#/sketch` holds thirteen entries — eight whole surfaces and five parts — and every one
+of them argues about the mulcher card as a whole or about one of its folds (src/ui/sketch/SketchPage.tsx).
+They have been drawn, read and decided against or absorbed; what is left on the page is a record of
+finished arguments, and a bench nobody clears stops being a bench. Two questions are open and neither
+has a drawing anywhere:
+
+- **When the ground moves.** `bedEvery` is a period and `bedPer` is what it is counted in — jumps,
+  parts, or whole rounds of the song (src/lib/playerBed.ts, 0192). The unit a hand actually reasons
+  in is missing from all three: _every N times the walk finishes its sequence_. That is a fourth
+  clock, and whether it is worth being one is exactly what a bench decides. The fold's own picture is
+  a strip a hand drags (src/ui/PlayerGround.tsx) with the kept grounds under it
+  (src/ui/PlayerBeds.tsx), and how and when the ground shifts is nowhere on it: the period is a dial
+  in a different box.
+- **How a song is played.** The tier over a part is a run and a cursor over it
+  (src/lib/playerSongs.ts), drawn today as a list (src/ui/PlayerSong.tsx). Playing one is the thing
+  the instrument is for and it is the least visual surface on the card.
+
+**The outcome wanted:** sixteen drawings, in two sections, that make either question answerable by
+looking. Fun, simple and intuitive is the brief, and on this bench that is a measurable thing: a
+drawing that needs its caption read twice has failed.
+
+**Decided before planning:** the current thirteen are deleted rather than kept below the new ones —
+git remembers (principle 6), and the arguments they made are in 0257–0259. Nothing here is wired to
+the store, a command, or a real deck (0247), which is what lets sixteen of them cost what they cost.
+Eight per section, each varying a direction and not a detail: two that are the same picture with a
+different palette are one sketch and a wasted slot.
+
+## The two things every step turns on
+
+1.  **A bench entry is an argument or it is wallpaper.** `SketchEntry` carries a `thesis` and a
+    `trades` beside the drawing, written in the same file that mounts it, so the argument cannot
+    drift from the picture. Sixteen new entries are sixteen honest `trades` lines, and the one that
+    cannot write its own is the one to cut before it is drawn.
+2.  **The fixtures are shared and the drawings are not.** src/ui/sketch/sketchWalk.ts already holds
+    the sixteen passes every parts sketch is drawn off; a ground sketch and a playback sketch are
+    two more readings of that same run, not two more fixtures. Two sketches disagreeing about what
+    the walk did is the one failure that makes a bench useless.
+
+## Steps
+
+1.  **Clear the bench, and draw when the ground moves.** The thirteen entries and their files go, the
+    frame, the nav and `SketchEntry` stay. Eight in their place, all about the one seam — a hand's
+    gesture → _when the ground shifts and where to_: the walk's own sequence drawn as the clock, with
+    the shift falling on every Nth completion; the source strip with the next few grounds queued
+    ahead of the playhead; the grounds as a ring the walk advances one notch per pass; a ladder where
+    the ground steps down a rung each sequence; the beds as a deck cut every N; a lane over the
+    walk's own strip where a mark is the move; the ground as a place a hand throws the loop to, with
+    the throw landing at the sequence boundary; and the count itself as the drawing, N pips filling
+    as the walk goes round. Every one of them lights the ground the loop is standing on.
+2.  **Draw how a song is played.** A second section under an `<hr>` and a heading of its own, mounted
+    from its own list beside the first. Eight readings of the tier over a part and the cursor
+    walking it (src/lib/playerSongs.ts): the run as a track the cursor rides; the parts as a hand of
+    cards played one at a time; the song as a wheel with the repeats as teeth; a launch grid where a
+    press queues the next part for the boundary; the run as a route across a map of parts; the
+    repeats drawn as the thing being spent, counting down; a stack a part is pulled off and pushed
+    back onto; and the whole song as one long strip with the cursor as the only moving thing. Each
+    draws the cursor standing somewhere, because a song is a run and a cursor over it and that is
+    the fact both the list and every alternative have to carry.
+
+## Tests that must fail first
+
+- **src/ui/sketch/SketchPage.test.tsx** — the nav names every entry in both lists and no entry the
+  page does not mount; the deleted thirteen are named nowhere; the second section is under its own
+  heading and its own rule; every entry carries a non-empty `thesis` and `trades`.
+- **A parts-shaped case file per section**, in src/ui/sketch/SketchParts.test.tsx's shape: each
+  drawing renders from the shared fixture, and the ground eight all light the same standing ground
+  from one fixture while the playback eight all draw the cursor at the same place in one run.
+- **src/ui/sketch/sketchGround.ts and its test** carry whatever arithmetic the eight share — the
+  count of completed sequences, and which ground the Nth lands on — so no two drawings derive it
+  twice (principle 1).
+
+## Verification
+
+1.  Per step: `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole.
+2.  The page itself — `./scripts/drive --shot DIR` against a build and not the dev server, since new
+    files mean new Tailwind classes, and `#/sketch` is a hash route, so shoot `dist/` with a wait and
+    reap the server after. Read each drawing at 1:1: the question is whether the caption is needed,
+    and a drawing that needs it is the one to redraw.
+3.  A decision record per step only where a drawing changes what a fold _is_ — the fourth clock is
+    one such, if step 1 says it should exist. The clearing itself is not a decision; it is a bench
+    doing what a bench is for.
+
+## Refused
+
+**Keeping the thirteen below the new ones.** A bench with twenty-nine entries is a gallery, and a
+gallery is the thing this page was built instead of. The arguments are recorded; the drawings are in
+git.
+
+**Wiring any of the sixteen to a real deck.** Still 0247's rule, and it is the rule that makes a
+sketch cost an afternoon instead of a feature. A fourth clock, if one is taken, is a step of its own
+against src/lib/playerBed.ts with its own decision, its own validator case and its own dial.
+
+**Sixteen sketches in one step.** Two sections are two arguments and two gates. Sixteen drawings
+landed together is one review nobody can hold in their head, which is the same reason the rack's
+three effects are three steps.
+
+---
+
 ## 2. Rules for every feature
 
 - `src/app` remains the only writer of session state. UI, workers, keyboard, and agent JSONL call

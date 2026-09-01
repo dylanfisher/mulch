@@ -164,10 +164,15 @@ describe("exportAudio", () => {
     const spec = { name: "take", secs: 1, fadeInSecs: 0, fadeOutSecs: 0, session: true };
     const unsaid = { ...spec, backSecs: 0 };
     Reflect.deleteProperty(unsaid, "backSecs");
-    await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/begins here or behind it/u);
-    await expect(exportAudio(instrument, { ...spec, backSecs: -1 })).rejects.toThrow(
-      /begins here or behind it/u,
-    );
+    await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/begins within/u);
+    // An offset either side of the ear is a take, and one further out than the cap can render is
+    // not: the field reaches both ways and the door bounds both (`refuse`).
+    await expect(
+      exportAudio(instrument, { ...spec, backSecs: -(EXPORT_MAX_SECS + 1) }),
+    ).rejects.toThrow(/begins within/u);
+    await expect(
+      exportAudio(instrument, { ...spec, backSecs: EXPORT_MAX_SECS + 1 }),
+    ).rejects.toThrow(/begins within/u);
   });
 });
 
@@ -185,6 +190,26 @@ describe("where a take begins", () => {
     expect(exportTake(0, { backSecs: 0, secs: 30 })).toEqual({
       beginsSecs: 0,
       warmSecs: 0,
+      secs: 30,
+      clamped: false,
+    });
+  });
+
+  /**
+   * The offset reaches past the ear as well as behind it: a negative one asks for a stretch the
+   * performance has not played yet, which is a longer run forward and nothing else. It settles
+   * the way a take at the ear does, because a window nobody has heard has nothing to reproduce.
+   */
+  it("runs on past the ear for a take the offset puts in front of it", () => {
+    expect(exportTake(90, { backSecs: -30, secs: 30 })).toEqual({
+      beginsSecs: 120,
+      warmSecs: 120,
+      secs: 30,
+      clamped: false,
+    });
+    expect(exportTake(90, { backSecs: -30, secs: 30 }, 8)).toEqual({
+      beginsSecs: 120,
+      warmSecs: 8,
       secs: 30,
       clamped: false,
     });

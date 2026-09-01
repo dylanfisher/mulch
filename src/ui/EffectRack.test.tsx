@@ -16,13 +16,13 @@ import { describe, expect, it, vi } from "vitest";
 import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
-import { EFFECTS_LABEL } from "@/lib/copy";
+import { EFFECTS_CLEAR_LABEL, effectsClearTitle, EFFECTS_LABEL } from "@/lib/copy";
 import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
 import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, WEIGHT_LABEL } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { drawnParamIds } from "@/audio/effects/automator";
-import { effectById, isBoundableParam } from "@/audio/effects/registry";
-import { PARAMS } from "@/audio/params";
+import { effectById, isBoundableParam, type EffectId } from "@/audio/effects/registry";
+import { effectParamIds, PARAMS, type ParamId } from "@/audio/params";
 import { PoolEntry, WeightRow } from "@/ui/PoolEntries";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
@@ -105,10 +105,11 @@ const headControl = (
   label: string,
   control: string,
   bypassed = false,
+  effect: EffectId = "filter",
 ): Labelled => {
   let head: ReactNode = null;
   function Probe(): null {
-    head = SlotControls({ instrument, deck: "a", instance, label, bypassed });
+    head = SlotControls({ instrument, deck: "a", instance, effect, label, bypassed });
     return null;
   }
   renderToStaticMarkup(<Probe />);
@@ -320,6 +321,110 @@ describe("copying a card", () => {
     // The copy's id is minted at the press the way an add's is, and it is never the original's:
     // the card it grows reads a name and an ordinal of its own out of it (0076, 0081).
     expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ id: "one" }));
+  });
+});
+
+/** The commands one `history.group` carries, or a throw naming what arrived instead. */
+const groupOf = (input: Command | Envelope | undefined): Command[] => {
+  const command = input === undefined || "cmd" in input ? input?.cmd : input;
+  if (command?.t !== "history.group") throw new Error(`not a group: ${String(command?.t)}`);
+  return [...command.commands];
+};
+
+/** One `param.set` of such a group, read as the pair it is: which knob, and what it was drawn to. */
+const setOf = (command: Command): { param: ParamId; value: number } => {
+  if (command.t !== "param.set") throw new Error(`not a value: ${command.t}`);
+  return { param: command.param, value: command.value };
+};
+
+describe("the die on a card's head", () => {
+  /**
+   * One press, one entry in history: every knob the card draws is drawn again, as a `param.set`
+   * apiece inside one group, so what the card was is one undo away (0067). What is asserted here
+   * is what the control sends, the way the copy above is — that a group of edits is one entry is
+   * the reducer's claim and src/app/effects.test.ts makes it.
+   */
+  it("sends one group of draws, one per knob the card declares", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    const sent = vi.spyOn(instrument, "send");
+
+    headControl(instrument, "one", "Filter 1", "Randomize Filter 1 on Yard A").onClick?.();
+
+    const commands = groupOf(sent.mock.calls[0]?.[0]);
+    expect(commands.map((command) => setOf(command).param)).toEqual(effectParamIds("filter"));
+    // Every draw is a value a hand could have dialled: inside the range its own declaration gives
+    // it, which is the registry's claim and `effectParamDraws`' to keep (0030).
+    for (const command of commands) {
+      expect(command).toMatchObject({ t: "param.set", deck: "a", instance: "one" });
+      const { param, value } = setOf(command);
+      expect(value).toBeGreaterThanOrEqual(PARAMS[param].min);
+      expect(value).toBeLessThanOrEqual(PARAMS[param].max);
+    }
+    // And the gesture is ended after it, which is what a plugin holding a `rebuild` is waiting
+    // for — the same ending a knob's own drag sends (P63, 0090).
+    expect(sent).toHaveBeenLastCalledWith({ t: "gesture.end" });
+  });
+
+  // Two presses are two draws: the die is `Math.random()` at the gesture, so nothing about it is
+  // a function of the card it is pressed on (0089).
+  it("draws again on every press", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    const sent = vi.spyOn(instrument, "send");
+    const press = (): Command[] => {
+      headControl(instrument, "one", "Filter 1", "Randomize Filter 1 on Yard A").onClick?.();
+      return groupOf(sent.mock.calls.at(-2)?.[0]);
+    };
+    expect(press()).not.toEqual(press());
+  });
+});
+
+describe("emptying the rack", () => {
+  /**
+   * The one gesture on the heading that is about the rack rather than about a card: every effect
+   * off at once, in one entry, because a rack is built by trying things and unpicking a dozen of
+   * them one bin at a time is the gesture this replaces (0067).
+   */
+  it("sends every card's removal as one group, in the rack's own order", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
+    const sent = vi.spyOn(instrument, "send");
+
+    // The press asks first: the trigger carries no command at all, and the confirmation — which
+    // says how many cards are going — is what sends the group (src/ui/DeckRemove.tsx).
+    const tree = rackTree(instrument);
+    expect(
+      findLabelled(tree, `${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick,
+    ).toBeUndefined();
+    expect(sent).not.toHaveBeenCalled();
+
+    findLabelled(tree, `Confirm ${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick?.();
+
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(groupOf(sent.mock.calls[0]?.[0])).toEqual([
+      { t: "effect.remove", deck: "a", instance: "one" },
+      { t: "effect.remove", deck: "a", instance: "two" },
+    ]);
+  });
+
+  // The question is worth asking only if it says how much is at stake, so it counts the cards.
+  it("counts the cards the press would take in the question it asks", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    expect(textOf(rackTree(instrument))).toContain(effectsClearTitle(1));
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
+    expect(textOf(rackTree(instrument))).toContain(effectsClearTitle(2));
+  });
+
+  // A control for a rack with nothing in it is a word that does nothing, so it is not there
+  // (P73). The fold beside it stays, because a section says what it is whether or not it is full.
+  it("offers nothing to clear where the rack holds nothing", () => {
+    const instrument = createInstrument(manualClock());
+    expect(markupOf(instrument)).not.toContain(EFFECTS_CLEAR_LABEL);
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    expect(markupOf(instrument)).toContain(EFFECTS_CLEAR_LABEL);
   });
 });
 

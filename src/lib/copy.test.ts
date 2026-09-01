@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyName,
   EXPORT_BUSY,
-  EXPORT_TAKES_UNMEASURED,
   exportBusySaid,
   exportTakesSaid,
   failedMessage,
@@ -225,10 +224,11 @@ describe("what an export says about how long it will take", () => {
     expect(exportBusySaid({ renderedSecs: 61, totalSecs: 60, wallSecs: 2 })).toBe("0s left");
   });
 
-  it("says the shape and not a number where this session has measured nothing", () => {
-    expect(exportTakesSaid(600, null)).toBe(EXPORT_TAKES_UNMEASURED);
-    expect(exportTakesSaid(600, 0)).toBe(EXPORT_TAKES_UNMEASURED);
-    expect(exportTakesSaid(600, null)).not.toMatch(/\d/u);
+  // A rate is a fact about the machine it ran on, so a session that has measured none has no
+  // figure to give — and nothing at all is what it says, rather than a line about the box.
+  it("says nothing where this session has measured nothing", () => {
+    expect(exportTakesSaid(600, null)).toBe("");
+    expect(exportTakesSaid(600, 0)).toBe("");
   });
 
   it("says a figure as what it is where it has measured one", () => {

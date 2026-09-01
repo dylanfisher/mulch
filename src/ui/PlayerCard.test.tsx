@@ -47,12 +47,20 @@ import {
   type Control,
 } from "@/ui/playerCardDouble";
 import { createInstrument } from "@/app/facade";
+import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import { PLAYER_PART_DEFAULTS, type SongPartId } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
-import { PLAYER_LABEL, PLANT_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
+import {
+  PLAYER_CHARACTER_LABELS,
+  PLAYER_LABEL,
+  PLANT_LABEL,
+  RESEED_LABEL,
+  SEED_LABEL,
+} from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerBeds } from "@/ui/PlayerBeds";
+import { PlayerBlend } from "@/ui/PlayerBlend";
 import { PlayerFront } from "@/ui/PlayerFront";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -143,7 +151,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , gate, drop, spark, sparkLevel, sparkDelay, reverse] = handlers(element);
+    const [, , , gate, drop, spark, sparkLevel, sparkDelay, reverse] = handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -199,7 +207,7 @@ describe("the jumps card", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
     const player = { ...PLAYER, songs: oneSong([held]) };
     const { element, sent } = strip({ player }, false, held.id);
-    const [, , , , gate] = handlers(element);
+    const [, , , gate] = handlers(element);
     gate?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -247,7 +255,7 @@ describe("the jumps card", () => {
     // The second song is the one open, and the selection names a part of the first.
     const { element, sent } = strip({ player }, false, held.id, false, false, false, "song-2");
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
-    const [, , , , gate] = handlers(element);
+    const [, , , gate] = handlers(element);
     gate?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -268,7 +276,7 @@ describe("the jumps card", () => {
     const player = { ...PLAYER, songs: oneSong([held]), arrange: 3 };
     const { element, sent } = strip({ player }, false, held.id);
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
-    const [, , , , gate] = handlers(element);
+    const [, , , gate] = handlers(element);
     gate?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -282,7 +290,7 @@ describe("the jumps card", () => {
     // Nine dials before it: the Ground box is the song's since 0184, so it stands with the
     // arrangement *below* the three boxes a part carries rather than between How It Sounds and
     // How It Is Timed — and nothing of it is ahead of the burst any more.
-    const [, , , , , , , , , , burst] = handlers(element);
+    const [, , , , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -395,6 +403,25 @@ describe("the jumps card", () => {
   });
 
   /**
+   * The cast is one control on the front, and it stands beside the walk rather than under it: the
+   * walk is what the cast came out as, so a hand dragging the puck watches the score redraw under
+   * the very same glance (0259). It writes one `deck.player` carrying the whole spec, which is the
+   * card's own business and not the pad's (0089).
+   */
+  it("stands the pad beside the walk, with every name in the cast on it", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+    const walk = markup.indexOf('data-slot="player-scope"');
+    const blend = markup.indexOf('data-slot="player-blend"');
+    expect(walk).toBeGreaterThan(-1);
+    expect(blend).toBeGreaterThan(walk);
+    // And every name is reachable by that name: the pad's corners are the road a hand takes to
+    // ask for one character whole, now that the six buttons under it are gone (0259).
+    for (const character of PLAYER_CHARACTERS) {
+      expect(markup).toContain(`aria-label="${PLAYER_CHARACTER_LABELS[character]}"`);
+    }
+  });
+
+  /**
    * A fold is not undone by a pattern going away. A spec cleared from somewhere else — the
    * palette, a restore, a clip — leaves the card folded, and the switch that can turn it back on
    * is on the heading the fold is, above everything the fold takes (0173).
@@ -451,9 +478,11 @@ describe("the jumps card", () => {
   /**
    * One action, one icon, one sentence: reseed borrowed the copy's picture as well as its words,
    * and a control that borrows the picture borrows the words with it (0055, src/lib/copy.ts). It
-   * now carries its own of each, so the copy's picture may not appear on this card at all.
+   * carries its own of each now, so the copy's picture may not appear on this card at all — and
+   * the picture it does carry is asserted where it is drawn, on the pad's own button row
+   * (src/ui/PlayerBlend.test.tsx).
    */
-  it("draws its reseed with its own picture rather than the copy's", () => {
+  it("hands its reseed to the pad and leaves the copy's picture off the card", () => {
     const drawn = new Set<unknown>();
     const walk = (node: unknown): void => {
       if (Array.isArray(node)) {
@@ -462,8 +491,8 @@ describe("the jumps card", () => {
       }
       if (!isValidElement<{ children?: unknown }>(node)) return;
       drawn.add(node.type);
-      // The front holds the reseed now, and it takes no hooks — so it is called rather than left
-      // as an element whose contents this walk never reaches (src/ui/PlayerFront.tsx).
+      // The front hands the reseed on to the pad, and it takes no hooks — so it is called rather
+      // than left as an element whose contents this walk never reaches (src/ui/PlayerFront.tsx).
       if (node.type === PlayerFront) {
         // oxlint-disable-next-line no-unsafe-type-assertion
         walk((node.type as (props: unknown) => unknown)(node.props));
@@ -472,7 +501,7 @@ describe("the jumps card", () => {
       walk(node.props.children);
     };
     walk(strip({ player: PLAYER }).element);
-    expect(drawn.has(ACTION_ICONS.reseed)).toBe(true);
+    expect(drawn.has(PlayerBlend)).toBe(true);
     expect(drawn.has(ACTION_ICONS.duplicate)).toBe(false);
   });
 

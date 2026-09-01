@@ -73,8 +73,13 @@ export type ExportSpec = {
   secs: number;
   /**
    * How far behind the live performance the take begins. Nought is from here — where the ear is,
-   * which is the whole of the performance so far played through and thrown away — and a number is
-   * from that many seconds ago. Longer than the performance has been running is its beginning.
+   * which is the whole of the performance so far played through and thrown away — and a positive
+   * number is from that many seconds ago. Longer than the performance has been running is its
+   * beginning.
+   *
+   * An offset rather than a lookback, so a negative number is as good an answer: it begins the
+   * take that far *past* the ear, which is the only way to ask for a stretch the performance has
+   * not reached yet. Either way the cap bounds it (`refuse`).
    */
   backSecs: number;
   fadeInSecs: number;
@@ -140,9 +145,9 @@ export type ExportTake = {
 
 /**
  * Where a take begins, given how long the live performance has been running. The warm-up is that
- * elapsed time less the lookback, so nought lands the take at the live playhead and a lookback
- * lands it that far behind — and a lookback longer than the performance lands it at the beginning
- * rather than before it.
+ * elapsed time less the offset, so nought lands the take at the live playhead, a positive offset
+ * lands it that far behind and a negative one that far past it — and an offset longer than the
+ * performance lands it at the beginning rather than before it.
  *
  * `EXPORT_MAX_SECS` bounds `warmSecs + secs` together and not the length alone: an offline context
  * allocates its whole output up front, so a warm-up costs exactly what a take of the same length
@@ -195,13 +200,15 @@ export function exportTake(
   const asked = elapsedSecs - backSecs;
   const room = EXPORT_MAX_SECS - secs;
   const beginsSecs = clamp(asked, 0, room);
-  // **The settle shortens a take begun at the ear and no other.** A render is a replay from the
-  // performance's own beginning and there is no seek into one, so the only way to reach a window a
+  // **The settle shortens a take begun at the ear or past it, and no other.** A render is a
+  // replay from the performance's own beginning and there is no seek into one, so the only way to reach a window a
   // lookback names is to render up to it: shortening that warm-up would not render the same window
   // more cheaply, it would render a different window. A take at the ear has no such window — it
   // begins where the performance has got to and runs forward — so past the rack's longest memory
-  // the instrument it starts from is the instrument it would have started from (0239).
-  const warmSecs = backSecs === 0 ? Math.min(beginsSecs, settleSecs) : beginsSecs;
+  // the instrument it starts from is the instrument it would have started from (0239). A take
+  // begun past the ear is that same take with further to run: the window it names has not been
+  // played either, so there is nothing there to reproduce.
+  const warmSecs = backSecs <= 0 ? Math.min(beginsSecs, settleSecs) : beginsSecs;
   return { beginsSecs, warmSecs, secs, clamped: asked > room };
 }
 
@@ -410,8 +417,10 @@ function refuse(spec: ExportSpec): void {
   if (!Number.isFinite(spec.secs) || spec.secs <= 0 || spec.secs > EXPORT_MAX_SECS) {
     throw new RangeError(`an export is between 0 and ${EXPORT_MAX_SECS} seconds: ${spec.secs}`);
   }
-  if (!Number.isFinite(spec.backSecs) || spec.backSecs < 0) {
-    throw new RangeError(`an export begins here or behind it: ${String(spec.backSecs)}`);
+  if (!Number.isFinite(spec.backSecs) || Math.abs(spec.backSecs) > EXPORT_MAX_SECS) {
+    throw new RangeError(
+      `an export begins within ${EXPORT_MAX_SECS} seconds of here: ${String(spec.backSecs)}`,
+    );
   }
 }
 

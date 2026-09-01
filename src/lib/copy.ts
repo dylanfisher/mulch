@@ -76,15 +76,6 @@ export const EXPORT_WITH_SESSION = "Include Session";
 export const EXPORT_BUSY = "Exporting…";
 
 /**
- * What the Export Audio dialog says about how long a take will take when this session has never
- * measured a render: the shape of the answer and not a number. A rate is a fact about the machine
- * it ran on (0051), so a figure shipped here would be measuring the author's laptop on everyone
- * else's — and a made-up figure is worse than a stated unknown (principle 5, 0208, 0210).
- */
-export const EXPORT_TAKES_UNMEASURED =
-  "Renders as fast as this machine manages — the first export measures it";
-
-/**
  * What a render has done so far, as the two clocks it is measured between: how many seconds of
  * audio exist, how many were asked for, and how long the machine has been at it. Declared beside
  * the words rather than with the harness that fills it in (`RenderSpec.onProgress`,
@@ -125,10 +116,14 @@ export function exportBusySaid(progress: RenderProgress | null): string {
 
 /**
  * What the dialog says a take of `secs` will take before anything is pressed — a figure only
- * where this session has already measured one, said as what it is rather than as a promise.
+ * where this session has already measured one, said as what it is rather than as a promise, and
+ * nothing at all until then. A rate is a fact about the machine it ran on (0051), so there is no
+ * figure to give before one has been measured — and a line saying so is a line about this box
+ * rather than about the take, which is a sentence a hand reads once and then reads past
+ * (principle 5, 0208).
  */
 export function exportTakesSaid(secs: number, rate: number | null): string {
-  if (rate === null || rate <= 0) return EXPORT_TAKES_UNMEASURED;
+  if (rate === null || rate <= 0) return "";
   return `About ${growthLeft(secs / rate)}, at the speed this session last managed`;
 }
 
@@ -313,6 +308,8 @@ export const ACTION_TOOLTIPS = {
   character:
     "Set every dial at once to something that sounds like a name you pick, and say how much of it to take. The seed stays where it is, so this changes what the pattern is like rather than which performance it is.",
   redraw: "Draw a character nobody picked into this part. Press it until you like what you hear.",
+  randomize:
+    "Draw every knob on this effect somewhere new, across the whole range each of them has. One press, one undo — what it was is one step back.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -405,7 +402,7 @@ export const PLAYER_SCOPE_LABEL = "The Walk";
  * landing can be in that a shape rather than a colour says. The picture is fine enough that
  * nobody reads it right at a glance, which is exactly the case a sentence is for (0080, P65).
  */
-export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing, on the slot of the loop it reads: its width is how long it sounds, its splits are its repeats, a hollow one is a hole, a ghost is a spark and the line joining two of them is the wait between. The lit one is sounding, and the sheet holds still while the playhead crosses it: what is to the right is what the pattern has already decided to play next, and at the end the sheet turns over.`;
+export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing on the loop: its width is how long it sounds, its splits are its repeats, and it stands as tall as it is struck often — one rung per doubling, ruled at 1, 2, 4 and up. The rules across are where the loop comes round. A hollow block is a hole, a ghost is a spark, a hairline at the foot is a wait and a dashed one standing up is the ground moving. The lit one is sounding, and the sheet holds still while the playhead crosses it: what is to the right is what the pattern has already decided to play next, and at the end the sheet turns over. Press a landing — or step the arrows across it — to read its own numbers underneath; it changes nothing.`;
 
 /**
  * How long the wait the clock is standing in has left, as prose around the clock. `growthLeft`
@@ -435,6 +432,27 @@ export const PLAYER_REACH_TOOLTIP = `How far the next jump can go from wherever 
  */
 export const EFFECTS_LABEL = "Effects";
 export const CLIPS_LABEL = "Clips";
+
+/**
+ * The one gesture the effects heading carries beside the fold: every card off the rack at once,
+ * for a rack built by trying things that is quicker to empty than to unpick. A word rather than a
+ * picture, because it is the one destructive control on this instrument that is not about one
+ * named thing — a bare bin at the end of a heading says nothing about how much it takes (0055).
+ * Titlecase per (0059), and the sentence says both what goes and what brings it back.
+ */
+export const EFFECTS_CLEAR_LABEL = "Clear All";
+export const EFFECTS_CLEAR_TOOLTIP =
+  "Take every effect off this yard's rack. One press, one undo — the whole rack comes back a step back.";
+
+/**
+ * The question that press is asked first: it is the one control that takes a dozen named things
+ * at once, so it says how many are going and waits to be told again, the way a playing deck is
+ * asked before it is removed (src/ui/DeckRemove.tsx). The count is the whole point of the
+ * sentence, so it is minted here beside the label rather than at the surface that shows it.
+ */
+export const effectsClearTitle = (held: number): string =>
+  `${held} ${held === 1 ? "Effect" : "Effects"} On The Rack`;
+export const EFFECTS_CLEAR_CONFIRM_LABEL = "Clear The Rack";
 
 /**
  * A fresh clip's name: the noun and its ordinal, minted where the yard's name is minted rather
@@ -543,6 +561,25 @@ export const PLAYER_CHARACTER_TOOLTIPS: Record<PlayerCharacter, string> = {
  * either, and a picture beside one word that is already a verb says nothing twice (0055, 0152).
  */
 export const PLAYER_AGAIN_LABEL = "Again";
+
+/**
+ * What the pad beside the walk is called: the card's road into the cast, names and places at
+ * once. Not "Cast" — the card already carries that word on the arrangement's own box, where
+ * it is the *set* a drawn arrangement may pick parts from (0174) — and not "Character", which
+ * names the road that presses one name (`PLAYER_CHARACTER_LABEL`). What this one is, and what
+ * neither of those is, is a place *between* the six. Titlecase per (0059).
+ */
+export const PLAYER_BLEND_LABEL = "The Blend";
+
+/** What the pad is, and what a hand does with it — the sentence its own `Explains` carries. */
+export const PLAYER_BLEND_TOOLTIP = `Every character is a corner. Press a name and the pattern is drawn as that character whole; drag the puck and it is weighed out of all six at once, heaviest at the corners it stands nearest — the number beside each name is its share. Either way the same dials are written.`;
+
+/**
+ * What the button beside the pad is called. The pad blends six draws rather than drawing on every
+ * frame — that would be a die with a thousand faces and not a control (0152) — so a second draw of
+ * the same six is a press, exactly as `PLAYER_AGAIN_LABEL` is under a pressed name.
+ */
+export const PLAYER_REDRAW_LABEL = "Redraw The Six";
 
 /**
  * What the arrangement is called: the section's own heading, which is the fold that opens it

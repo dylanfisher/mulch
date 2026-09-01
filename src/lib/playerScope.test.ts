@@ -9,7 +9,8 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
-import { PLAYER_SCOPE_LANDINGS, scopeGeometry } from "./playerScope.ts";
+import { blockAt, PLAYER_SCOPE_LANDINGS, pickOnSheet, scopeGeometry } from "./playerScope.ts";
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence } from "./playerWalk.ts";
 import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { PlayerStep } from "./playerWalk.ts";
@@ -143,9 +144,42 @@ describe("the scope's geometry", () => {
 
   /** A sheet with nothing in it is no blocks, rather than a division by a length of zero. */
   it("draws nothing for a sheet with no landings in it", () => {
-    expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 0 });
+    expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 0, bars: [] });
     // And a sheet nothing has been walked onto yet, whichever landing the clock says it is on.
-    expect(scopeGeometry([], 7, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 7 });
+    expect(scopeGeometry([], 7, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 7, bars: [] });
+  });
+});
+
+/**
+ * A reading survives the walk. The picture is redrawn at every landing and the sheet turns over
+ * whole at its end (0187), and a pick that could not outlive either would be a gesture nobody can
+ * use on a pattern that is playing — which is the only pattern there is (0257).
+ */
+describe("a landing a hand picked", () => {
+  it("keeps its place while the clock steps along the sheet it is on", () => {
+    const steps = playerSequence({ seed: 3, ...PLAYER_DEFAULTS }, 40);
+    // The same sheet, drawn twice with the clock a landing further on: the geometry is a new
+    // object either way, and the fourth landing of the sheet is still the fourth.
+    const first = scopeGeometry(steps, 5, SLOT_SECS);
+    const later = scopeGeometry(steps, 6, SLOT_SECS);
+    expect(pickOnSheet(first, 0, 3)).toBe(3);
+    expect(pickOnSheet(later, 0, 3)).toBe(3);
+    expect(later.blocks[3]?.slot).toBe(first.blocks[3]?.slot);
+  });
+
+  it("moves back by a whole sheet when the sheet turns over, and off the end when it passes", () => {
+    const steps = playerSequence({ seed: 3, ...PLAYER_DEFAULTS }, 60);
+    const turned = scopeGeometry(steps.slice(PLAYER_SCOPE_LANDINGS), 0, SLOT_SECS);
+    // A landing picked two thirds of the way through the first sheet is that much less than a
+    // sheet from the start of the next one.
+    const ordinal = 20;
+    expect(pickOnSheet(turned, PLAYER_SCOPE_LANDINGS, ordinal)).toBeNull();
+    expect(pickOnSheet(turned, PLAYER_SCOPE_LANDINGS, ordinal + PLAYER_SCOPE_LANDINGS)).toBe(
+      ordinal,
+    );
+    // And a sheet the landing is not on at all drops it rather than reading a neighbour: a
+    // readout about a landing nobody picked is worse than no readout (principle 5).
+    expect(pickOnSheet(turned, PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_LANDINGS * 3)).toBeNull();
   });
 });
 
@@ -252,5 +286,54 @@ describe("a boundary between two rounds", () => {
       SLOT_SECS,
     );
     expect(blocks.map((block) => block.edge)).toEqual([null, "part", "song", null]);
+  });
+});
+
+/**
+ * The two things the score reads that the slot-banded picture did not: where the loop comes round
+ * across the sheet, which is the only beat a sheet of wall seconds has to be read against, and
+ * which landing a press at a given fraction of it lands on (0257, 0258).
+ */
+describe("the score's own two readings", () => {
+  /** One loop of this grid, in seconds — the length the bars are counted in. */
+  const LOOP_SECS = SLOT_SECS * PLAYER_SLOTS;
+
+  it("rules the loop's own turnovers across the sheet, and never a made-up division of it", () => {
+    // Four landings of a quarter-loop each: one whole loop, so the sheet comes round exactly once
+    // at its own end and there is no turnover *inside* it to rule.
+    const quarter = landing({ burst: LOOP_SECS / 4 });
+    const one = scopeGeometry([quarter, quarter, quarter, quarter], 0, SLOT_SECS);
+    expect(one.secs).toBeCloseTo(LOOP_SECS, 10);
+    expect(one.bars).toEqual([]);
+    // Eight of them is two loops, which turns over once across the sheet — halfway.
+    const two = scopeGeometry(
+      Array.from({ length: 8 }, () => quarter),
+      0,
+      SLOT_SECS,
+    );
+    expect(two.bars).toHaveLength(1);
+    expect(two.bars[0]).toBeCloseTo(0.5, 10);
+  });
+
+  it("finds the landing under a press, and gives a landing its own wait", () => {
+    const geometry = scopeGeometry(
+      [landing({ burst: 1, rest: 16 }), landing({ burst: 1, slot: 3 })],
+      0,
+      SLOT_SECS,
+    );
+    const [first, second] = geometry.blocks;
+    if (first === undefined || second === undefined) throw new Error("the sheet drew no landings");
+    expect(blockAt(geometry, first.from)).toBe(0);
+    // Inside the first landing's own wait, which is the first landing's and not a gap between two.
+    expect(blockAt(geometry, (first.to + second.from) / 2)).toBe(0);
+    expect(blockAt(geometry, second.from + 0.01)).toBe(1);
+    // The sheet's own right-hand edge is the last landing turning over, and not a press on nothing.
+    expect(blockAt(geometry, 1)).toBe(geometry.blocks.length - 1);
+  });
+
+  it("answers nothing where there is no landing to press", () => {
+    expect(blockAt(scopeGeometry([], 0, SLOT_SECS), 0.5)).toBeNull();
+    expect(blockAt(scopeGeometry([landing()], 0, SLOT_SECS), -0.2)).toBeNull();
+    expect(blockAt(scopeGeometry([landing()], 0, SLOT_SECS), 1.4)).toBeNull();
   });
 });

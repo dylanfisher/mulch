@@ -1,16 +1,16 @@
 /**
- * @role The door that sets a whole spec at once — in the jumps card's corner, and on every row of
- *   its song, where the spec it fills is that part's (0189): the characters a
- *   spec may be drawn as, the Amount slider saying how far from plain each draw is taken, and —
- *   once a name has been pressed — the dials that name is about, so the draw can be shaped where
- *   it was asked for (0152, 0153). One `deck.player` per gesture, each carrying the whole spec and
- *   the seed it already had, so a character changes what the pattern is like and never which
- *   performance it is (0089).
- * @instead What each character is, and the arithmetic an amount moves by →
- *   src/lib/playerCharacter.ts. The die beside this one on a part's row, which is this menu with
- *   the name left out → src/ui/PlayerPart.tsx. Arranging several of them in order →
- *   src/ui/PlayerSong.tsx. The
- *   dials a press moves, and the command they all patch → src/ui/PlayerCard.tsx.
+ * @role The door that sets a whole spec at once, on every row of the card's song, where the spec
+ *   it fills is that part's (0189): the characters a spec may be drawn as, the Amount slider
+ *   saying how far from plain each draw is taken, and — once a name has been pressed — the dials
+ *   that name is about, so the draw can be shaped where it was asked for (0152, 0153). One
+ *   `deck.player` per gesture, each carrying the whole spec and the seed it already had, so a
+ *   character changes what the pattern is like and never which performance it is (0089).
+ * @instead The same six on the card's own front, where they are the corners of a pad and a press
+ *   takes one whole (0259) → src/ui/PlayerBlend.tsx. What each character is, and the arithmetic an
+ *   amount moves by → src/lib/playerCharacter.ts. The die beside this one on a part's row, which
+ *   is this menu with the name left out → src/ui/PlayerPart.tsx. Arranging several of them in
+ *   order → src/ui/PlayerSong.tsx. The dials a press moves, and the command they all patch →
+ *   src/ui/PlayerCard.tsx.
  */
 // Over the dependency cap by one, and the one is the slider: this component says six words, draws
 // a popover, an icon button and a control that is not a knob, and every import below is one of
@@ -20,7 +20,6 @@ import { useCallback, useState } from "react";
 
 import { type PlayerSpec, type PlayerVoice } from "@/lib/player";
 import { PLAYER_CHARACTERS, type PlayerCharacter as CharacterName } from "@/lib/playerCast";
-import { PLAYER_SONG_KNOBS } from "@/lib/playerKnobs";
 import {
   blendCharacter,
   characterKnobs,
@@ -29,6 +28,7 @@ import {
   PLAYER_AMOUNT_MIN,
   PLAYER_AMOUNT_STEP,
   PLAYER_DEFAULTS,
+  shapedSpec,
 } from "@/lib/playerCharacter";
 import {
   ACTION_TOOLTIPS,
@@ -41,7 +41,6 @@ import {
   yardLabel,
 } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import { fromIds } from "@/lib/records";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
@@ -84,19 +83,6 @@ function CharacterItem({
   );
 }
 
-/**
- * What a character press writes: everything the blend shaped, and the song's own four amounts left
- * exactly where the hand left them. A character sets what the pattern is *like*, and which
- * arrangement is playing is not a likeness — a blend from `PLAYER_DEFAULTS` would carry
- * `arrange: 0` into every press, so pressing a name while a drawn arrangement played would
- * silently swap the author of the song (0152, 0158). It is the exclusion `song` itself gets by not
- * being a voice at all, said for the four that are.
- */
-const shaped = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
-  ...voice,
-  ...fromIds(PLAYER_SONG_KNOBS, (knob) => held[knob]),
-});
-
 // One state cell and one handler per gesture, plus a popover that draws its own trigger: the
 // length is how many controls this menu offers rather than how much it decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -104,23 +90,12 @@ const shaped = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
 export function PlayerCharacter({
   deck,
   named = "",
-  layout = "menu",
   player,
   patch,
   selected = false,
   disabled = false,
 }: {
   deck: DeckId;
-  /**
-   * Whether this is the card's own door, laid out in the open, or one of the song's — a row per
-   * part, each of which would be this whole block repeated down the page.
-   *
-   * `inline` is the card's front: the six names are the first thing a hand meets on the mulcher,
-   * because a press fills every dial under them and watching that happen is how the module is
-   * learned (0197). `menu` is what a part's row keeps, and what the card's corner was — a trigger
-   * and a popover, which is the only shape that fits eight of them stacked (0176).
-   */
-  layout?: "menu" | "inline";
   /**
    * What this menu's controls are named after, where the yard alone would not tell them from
    * another on screen: a song's rows each carry one of these now, so eight menus on one card would
@@ -164,7 +139,6 @@ export function PlayerCharacter({
   const [showing, setShowing] = useState<CharacterName | null>(null);
   /** Who these controls belong to: the part whose row this menu is on, or the yard itself. */
   const prefix = named === "" ? yardLabel(deck) : named;
-  const inline = layout === "inline";
 
   const press = useCallback(
     (character: CharacterName) => {
@@ -173,7 +147,7 @@ export function PlayerCharacter({
       const next = drawCharacter(character, Math.random);
       setDrawn(next);
       setShowing(character);
-      patch(shaped(blendCharacter(next, amount), player));
+      patch(shapedSpec(blendCharacter(next, amount), player));
     },
     [patch, amount, player],
   );
@@ -192,19 +166,17 @@ export function PlayerCharacter({
       // Nothing drawn yet is a slider with nowhere to travel: it sets what the next press takes
       // and says nothing to the instrument, rather than blending the card toward a character
       // nobody has named.
-      if (drawn !== null) patch(shaped(blendCharacter(drawn, next), player));
+      if (drawn !== null) patch(shapedSpec(blendCharacter(drawn, next), player));
     },
     [patch, drawn, player],
   );
 
   const body = (
     <>
-      {/* Three across in the menu, so the six read as one block a hand crosses rather than a list
-          it descends; one row across in the open, where there is width for six and where they are
-          the card's first offer rather than a menu's contents (0197). A press is an action and not
-          a state — nothing here reports which character the card is on, because after the first
-          turned dial there is no true answer to that. */}
-      <div className={inline ? "flex flex-wrap items-center gap-1" : "grid grid-cols-3 gap-1"}>
+      {/* Three across, so the six read as one block a hand crosses rather than a list it
+          descends. A press is an action and not a state — nothing here reports which character the
+          part is on, because after the first turned dial there is no true answer to that. */}
+      <div className="grid grid-cols-3 gap-1">
         {PLAYER_CHARACTERS.map((character) => (
           <CharacterItem key={character} character={character} press={press} disabled={disabled} />
         ))}
@@ -270,10 +242,6 @@ export function PlayerCharacter({
       )}
     </>
   );
-
-  // In the open, the six names and the amount are the card's front and nothing wraps them: no
-  // trigger to find, no popup to keep open while the dials behind it move (0195, 0197).
-  if (inline) return <div className="flex w-full flex-col gap-2">{body}</div>;
 
   return (
     <Popover>

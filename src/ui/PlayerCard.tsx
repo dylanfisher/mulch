@@ -547,7 +547,6 @@ export function PlayerCard({
               patch={burst.patch}
               reseed={onReseed}
               reseedLabel={`${RESEED_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
-              selected={part !== undefined}
               disabled={off}
             />
             {/* Boxes rather than one row: thirty-odd controls at one distance from each other

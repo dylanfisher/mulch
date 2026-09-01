@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { snapToStep } from "@/lib/range";
 import { TONE_REF_HZ } from "@/lib/waveform";
 import { EFFECTS } from "./effects/registry";
 import {
@@ -6,6 +7,9 @@ import {
   DECK_PARAM_DEFAULTS,
   DECK_PARAM_IDS,
   effectParamDefaults,
+  effectParamDraws,
+  effectParamIds,
+  isDeckParam,
   instanceHalf,
   PARAM_IDS,
   PARAMS,
@@ -54,6 +58,50 @@ describe("parameter registry", () => {
     expect(one).toBeLessThanOrEqual(seed.max);
     // Every other parameter of the same entry is still exactly what its plugin declared.
     expect(effectParamDefaults("automator", "a1")["auto.most"]).toBe(PARAMS["auto.most"].default);
+  });
+
+  /**
+   * The die on a card's head fills an instance from the same declarations its defaults come from:
+   * every parameter the plugin declares, each inside its own range, on its own curve and on its
+   * own step. A draw is a value a hand could have dialled and never one it could not (0030).
+   */
+  it("draws every parameter an effect declares inside that parameter's own range", () => {
+    // The two ends of the unit interval and a place between them, so the mapping is asserted
+    // rather than sampled: a fixed draw is what makes a range claim a claim (0089).
+    for (const at of [0, 1, 0.5]) {
+      const drawn = effectParamDraws("filter", () => at);
+      expect(Object.keys(drawn)).toEqual(effectParamIds("filter"));
+      for (const id of effectParamIds("filter")) {
+        const spec = PARAMS[id];
+        expect(drawn[id]).toBeGreaterThanOrEqual(spec.min);
+        expect(drawn[id]).toBeLessThanOrEqual(spec.max);
+      }
+    }
+    // Nought and one are the ends themselves, and a logarithmic parameter's middle is its
+    // geometric middle rather than its arithmetic one — the curve the knob is read on (0064).
+    const cutoff = PARAMS["filter.cutoff"];
+    expect(effectParamDraws("filter", () => 0)["filter.cutoff"]).toBeCloseTo(cutoff.min, 6);
+    expect(effectParamDraws("filter", () => 1)["filter.cutoff"]).toBeCloseTo(cutoff.max, 6);
+    expect(effectParamDraws("filter", () => 0.5)["filter.cutoff"]).toBeCloseTo(
+      Math.sqrt(cutoff.min * cutoff.max),
+      6,
+    );
+  });
+
+  // A stepped parameter is drawn onto its own steps: the die may only land where a hand could
+  // have put the knob, which for a discrete choice is one of the choices (0030).
+  it("draws a stepped parameter onto one of its steps", () => {
+    const stepped = PARAM_IDS.filter((id) => PARAMS[id].step !== undefined);
+    expect(stepped.length).toBeGreaterThan(0);
+    for (const id of stepped) {
+      if (isDeckParam(id)) continue;
+      const { min, max, step } = PARAMS[id];
+      const owner = paramOwner(id);
+      if (owner === null || step === undefined) continue;
+      const value = effectParamDraws(owner, () => 0.37)[id];
+      expect(value).toBeDefined();
+      expect(value).toBe(snapToStep(value ?? 0, min, max, step));
+    }
   });
 
   it("declares the tone's pitch once, as the deck's own parameter in hertz", () => {

@@ -1,23 +1,38 @@
 /** @role One deck's registry-rendered ordered effect rack and its performance commands. */
+// Over the soft cap: what is here is one card's head, one card's body and the rack around them,
+// and the file grows with how many things a card offers rather than with how much it decides —
+// the die, the copy, the bin and the switch are four of them. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // Every import is either a registry the rack renders from or a control it renders with, so the
 // count tracks the rack's surface rather than this file's complexity. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { useCallback, type ComponentType } from "react";
 
-import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, yardLabel } from "@/lib/copy";
+import {
+  ACTION_TOOLTIPS,
+  BYPASS_TOOLTIP,
+  EFFECTS_CLEAR_CONFIRM_LABEL,
+  EFFECTS_CLEAR_LABEL,
+  EFFECTS_CLEAR_TOOLTIP,
+  effectsClearTitle,
+  EFFECTS_LABEL,
+  yardLabel,
+} from "@/lib/copy";
 import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
-import { effectById } from "@/audio/effects/registry";
+import { effectById, type EffectId } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Switch } from "@/ui/components/switch";
 import { Toggle } from "@/ui/components/toggle";
-import { duplicateEffectCommand } from "@/ui/actions";
+import { clearEffectsCommand, duplicateEffectCommand, randomizeEffectCommand } from "@/ui/actions";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -41,12 +56,16 @@ export function SlotControls({
   instrument,
   deck,
   instance,
+  effect,
   label,
   bypassed,
 }: {
   instrument: Instrument;
   deck: DeckId;
   instance: EffectInstanceId;
+  /** Which registry entry this instance is, which is what says how many knobs a draw fills and
+   *  what each of them may be drawn to (`effectParamDraws`, src/audio/params.ts). */
+  effect: EffectId;
   label: string;
   bypassed: boolean;
 }) {
@@ -65,10 +84,33 @@ export function SlotControls({
     instrument.send(duplicateEffectCommand(deck, instance));
   }, [instrument, deck, instance]);
 
+  /**
+   * Every knob on this card somewhere new, as one entry in history — the draw is the command
+   * builder's and what a parameter may be drawn to is the registry's (`randomizeEffectCommand`).
+   * The gesture is ended after it for the reason a knob ends its own drag: a plugin holding a
+   * `rebuild` has just been handed its move and pays for it there (P63, 0090).
+   */
+  const randomize = useCallback(() => {
+    instrument.send(randomizeEffectCommand(deck, instance, effect));
+    instrument.send({ t: "gesture.end" });
+  }, [instrument, deck, instance, effect]);
+
   return (
     <>
-      {/* Copy, then trash, then the on switch, reading left to right along the card's head — the
-          same order and the same icons the yard's own group carries (0055, 0078). */}
+      {/* The die, then copy, then trash, then the on switch, reading left to right along the
+          card's head — the same order and the same icons the yard's own group carries (0055,
+          0078). The draw leads because it is the one of them that changes what this card sounds
+          like rather than how many of it there are. */}
+      <Says what={ACTION_TOOLTIPS.randomize}>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Randomize ${label} on ${yardLabel(deck)}`}
+          onClick={randomize}
+        >
+          <ACTION_ICONS.randomize />
+        </Button>
+      </Says>
       <Says what={ACTION_TOOLTIPS.duplicate}>
         <Button
           size="icon-sm"
@@ -226,6 +268,7 @@ function EffectCard({
             instrument={instrument}
             deck={deck}
             instance={entry.id}
+            effect={entry.effect}
             label={label}
             bypassed={entry.bypassed}
           />
@@ -322,6 +365,17 @@ export function EffectRack({
     [abandon, setFolded],
   );
 
+  /**
+   * The whole rack off at once, in the order it is holding, as one entry in history — a rack is
+   * built by trying things, and unpicking a dozen of them one bin at a time is the gesture this
+   * replaces (0067). A drag in flight is dropped first for the fold's own reason: the list the
+   * gesture captured on is about to have nothing in it (src/ui/listDrag.ts).
+   */
+  const clear = useCallback(() => {
+    abandon();
+    instrument.send(clearEffectsCommand(deck, order()));
+  }, [abandon, instrument, deck, order]);
+
   return (
     // One instance per card, each declaring its own width: two halves lay abreast on a wide
     // viewport and stack on a narrow one, and either way a card is one labelled thing a person
@@ -339,15 +393,54 @@ export function EffectRack({
           name, so no label here repeats it. */}
       {/* The muted colour is the control's rather than the word's, so the primitive's own hover
           lifts the heading and the caret together instead of half of each. */}
-      <Toggle
-        size="sm"
-        className="-ml-2.5 text-muted-foreground"
-        pressed={folded}
-        onPressedChange={onFold}
-      >
-        <span className="type-eyebrow">{EFFECTS_LABEL}</span>
-        <FoldCaret />
-      </Toggle>
+      {/* The heading holds the whole row, so the one gesture that is about the rack rather than
+          about a card in it stands at the far end of it: emptying a rack is the fold's neighbour,
+          not a card's (0055). It is there only while there is something to take — a control for a
+          rack with no cards in it is a word that does nothing (P73). */}
+      <div className="flex w-full items-center justify-between gap-2">
+        <Toggle
+          size="sm"
+          className="-ml-2.5 text-muted-foreground"
+          pressed={folded}
+          onPressedChange={onFold}
+        >
+          <span className="type-eyebrow">{EFFECTS_LABEL}</span>
+          <FoldCaret />
+        </Toggle>
+        {/* The press asks first. It is the one control that takes a dozen named things at once,
+            and the undo it costs is a step a performer has to know they can take — so the trigger
+            carries no command at all and the confirmation, which says how many are going, carries
+            it, exactly as a playing deck is asked before it is removed (src/ui/DeckRemove.tsx). */}
+        {state.effects.length === 0 ? null : (
+          <Popover>
+            <Says what={EFFECTS_CLEAR_TOOLTIP}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    aria-label={`${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                  >
+                    {EFFECTS_CLEAR_LABEL}
+                  </Button>
+                }
+              />
+            </Says>
+            <PopoverContent side="bottom" align="end" className="w-56">
+              <PopoverTitle>{effectsClearTitle(state.effects.length)}</PopoverTitle>
+              <Button
+                size="xs"
+                variant="destructive"
+                aria-label={`Confirm ${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                onClick={clear}
+              >
+                {EFFECTS_CLEAR_CONFIRM_LABEL}
+              </Button>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
       {folded ? null : (
         <>
           {/* Exactly the cards, in order, plus the one placeholder they are dropped onto — which is

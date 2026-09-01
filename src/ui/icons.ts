@@ -104,6 +104,11 @@ export const ACTION_ICONS = {
   // keeps the settings and draws another performance of them, and this picks the name too. Three
   // gestures on one row, so three pictures (0055, 0152).
   redraw: DiceFiveIcon,
+  // The same die, deliberately: drawing a character nobody picked and drawing every knob on a rack
+  // card are one act said of two things, and one act is one picture (0055). They never stand on
+  // one row — the die on a card's head is the only one in the rack — so nothing has to tell them
+  // apart by their shape; what differs is the sentence each says.
+  randomize: DiceFiveIcon,
   apply: ArrowLineRightIcon,
   // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
   // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).

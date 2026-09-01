@@ -65,12 +65,16 @@ const EXPORT_MAX_MINUTES = EXPORT_MAX_SECS / EXPORT_SECS_PER_MINUTE;
 function NumberField({
   id,
   label,
+  min = 0,
   max,
   value,
   onInput,
 }: {
   id: string;
   label: string;
+  /** The smallest the field advises, which is nought for every length and the whole hour behind
+   *  nought for the one field that is an offset rather than a length. */
+  min?: number;
   max: number;
   value: number;
   onInput: (value: number) => void;
@@ -88,7 +92,7 @@ function NumberField({
         id={id}
         type="number"
         className="type-readout"
-        min={0}
+        min={min}
         max={max}
         step="any"
         defaultValue={value}
@@ -98,15 +102,23 @@ function NumberField({
   );
 }
 
-/** One length in seconds: a fade at either end, or how far behind the ear a take begins. */
+/**
+ * One number of seconds: a fade at either end, or how far behind the ear a take begins — which is
+ * the one of them that is an offset rather than a length, so it reaches either side of nought
+ * (`floor`).
+ */
 function SecondsField({
   id,
   label,
+  floor = 0,
   value,
   onCommit,
 }: {
   id: string;
   label: string;
+  /** The far end of the range on the near side of nought: nought for a fade, and the whole hour
+   *  for the offset, where a negative number begins the take that far past the ear. */
+  floor?: number;
   value: number;
   onCommit: (value: number) => void;
 }) {
@@ -115,12 +127,19 @@ function SecondsField({
       // An empty field reads as NaN while it is being retyped, and `min` on a number input is
       // advice a typed value ignores. Neither is a fade, so neither is committed — the spec
       // keeps the last number that was one, and the button reads that.
-      if (Number.isFinite(next) && next >= 0 && next <= EXPORT_MAX_SECS) onCommit(next);
+      if (Number.isFinite(next) && next >= floor && next <= EXPORT_MAX_SECS) onCommit(next);
     },
-    [onCommit],
+    [floor, onCommit],
   );
   return (
-    <NumberField id={id} label={label} max={EXPORT_MAX_SECS} value={value} onInput={onInput} />
+    <NumberField
+      id={id}
+      label={label}
+      min={floor}
+      max={EXPORT_MAX_SECS}
+      value={value}
+      onInput={onInput}
+    />
   );
 }
 
@@ -149,7 +168,8 @@ export function ExportAudioForm({
   );
   const [secs, setSecs] = useState(defaultExportSecs());
   /**
-   * How far behind the ear the take begins, and how long the performance has been running — the
+   * How far behind the ear the take begins — negative to begin it that far past the ear — and how
+   * long the performance has been running, the
    * second of which is what the first is subtracted from. The elapsed seconds are read as the
    * dialog is built, the way the date in the offered name is (P95): the export reads them again
    * when the button is pressed, so the line below says which seconds a take asked for now would
@@ -248,6 +268,7 @@ export function ExportAudioForm({
    * reach back over, is a take of a different part and not an error (principle 5).
    */
   const take = exportTake(elapsedSecs, { backSecs, secs }, settleSecs);
+  const takesSaid = exportTakesSaid(renderSecsOf(take), lastRate);
   const begins = exportLengthFields(Math.round(take.beginsSecs));
   const said =
     `Begins ${begins.minutes}m ${begins.seconds}s into the performance` +
@@ -280,14 +301,22 @@ export function ExportAudioForm({
       {/* oxlint-enable react/refs */}
       {/* The whole render and not the length that was typed: an export renders the warm-up in
           front of the take and drops it (0216), through the same one expression the door renders
-          by, so the figure cannot drift from the render it is about. */}
-      <p id="export-audio-takes" className="type-readout text-muted-foreground">
-        {exportTakesSaid(renderSecsOf(take), lastRate)}
-      </p>
+          by, so the figure cannot drift from the render it is about. A session that has measured
+          no rate has no figure to give and says nothing, rather than standing a line here that is
+          about the box instead of the take. */}
+      {takesSaid === "" ? null : (
+        <p id="export-audio-takes" className="type-readout text-muted-foreground">
+          {takesSaid}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4">
+        {/* The one field here that is an offset rather than a length: a positive number begins the
+            take that far behind the ear and a negative one that far past it, which is the only way
+            to ask for a stretch of the performance that has not been played yet. */}
         <SecondsField
           id="export-audio-back"
-          label="Start (Seconds Ago)"
+          label="Start Offset (Seconds Ago)"
+          floor={-EXPORT_MAX_SECS}
           value={backSecs}
           onCommit={setBackSecs}
         />

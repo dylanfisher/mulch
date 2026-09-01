@@ -10,6 +10,7 @@ import { assertPlayer } from "./playerWire.ts";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS } from "./playerCast.ts";
 import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
+  blendCast,
   blendCharacter,
   drawAnyCharacter,
   drawCharacter,
@@ -19,9 +20,10 @@ import {
   PLAYER_CHARACTER_REGIONS,
   PLAYER_DEFAULTS,
   PLAYER_SIGNATURE_MAX,
+  shapedSpec,
 } from "./playerCharacter.ts";
 import { partVoice } from "./player.ts";
-import { PLAYER_KNOB_DIALS } from "./playerKnobs.ts";
+import { PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 
 /** The generator plain may not reach for: it names no knob, so it draws no number. */
 const refuse = (): number => {
@@ -213,5 +215,70 @@ describe("a part's signature", () => {
    */
   it("names nothing for a part sitting exactly at plain", () => {
     expect(partSignature(partVoice(PLAYER_DEFAULTS))).toEqual([]);
+  });
+});
+
+/** All of a blend on one corner: the place a pad stands when it is standing on a character. */
+const alone = (index: number) => PLAYER_CHARACTERS.map((_, one) => (one === index ? 1 : 0));
+
+/**
+ * The whole cast at once, which is the other road into it: a place among the six rather than one
+ * name and an amount (0252's claim, wired). The weighing itself is src/lib/playerBlend.ts's; what
+ * is pinned here is what six weights are *spent* on.
+ */
+// One case per claim a blend makes, so the file's length is how many claims there are. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a blend of the whole cast", () => {
+  /** One draw per character, taken at the middle of every span so a case reads one number. */
+  const SIX = PLAYER_CHARACTERS.map((character) => drawCharacter(character, at(0.5)));
+  const EVEN = PLAYER_CHARACTERS.map(() => 1 / PLAYER_CHARACTERS.length);
+
+  it("is one corner's own draw exactly where that corner carries all of it", () => {
+    for (const [index, draw] of SIX.entries()) expect(blendCast(SIX, alone(index))).toEqual(draw);
+  });
+
+  it("draws a spec the one validator accepts, at every place a pad can stand", () => {
+    for (const weights of [EVEN, alone(0), alone(3), [0.5, 0.2, 0.1, 0.1, 0.05, 0.05]]) {
+      expect(() => assertPlayer(spec(blendCast(SIX, weights)), "a blend")).not.toThrow();
+    }
+  });
+
+  it("keeps a counted knob whole and a measured one between the six it blends", () => {
+    const blended = blendCast(SIX, EVEN);
+    expect(Number.isInteger(blended.repeats)).toBe(true);
+    const bursts = SIX.map((draw) => draw.burst);
+    expect(blended.burst).toBeGreaterThan(Math.min(...bursts));
+    expect(blended.burst).toBeLessThan(Math.max(...bursts));
+  });
+
+  /**
+   * The burst is the one knob whose dial is logarithmic, so an even blend of it is the geometric
+   * mean and not the arithmetic one — the same reading `at` takes halfway between two of them.
+   */
+  it("takes a log knob by the ear rather than by the number line", () => {
+    const bursts = SIX.map((draw) => draw.burst);
+    const geometric = Math.exp(bursts.reduce((sum, one) => sum + Math.log(one), 0) / bursts.length);
+    expect(PLAYER_KNOB_DIALS.burst.curve).toBe("log");
+    expect(blendCast(SIX, EVEN).burst).toBeCloseTo(geometric, 12);
+    expect(geometric).toBeLessThan(bursts.reduce((sum, one) => sum + one, 0) / bursts.length);
+  });
+
+  /** A log curve cannot pass through nought, and every knob drawn on one has a floor above it. */
+  it("refuses a log knob at nothing rather than blending toward negative infinity", () => {
+    const broken = SIX.map((draw, index) => (index === 0 ? { ...draw, burst: 0 } : draw));
+    expect(() => blendCast(broken, EVEN)).toThrow(/log curve/u);
+  });
+
+  it("refuses a cast whose draws and weights are not the same list", () => {
+    expect(() => blendCast(SIX, [1, 0])).toThrow(/weights/u);
+  });
+
+  /** Both roads into the cast leave the song's own amounts where the hand put them (0152, 0158). */
+  it("writes no song knob, whichever gesture shaped it", () => {
+    const held = spec({ ...PLAYER_DEFAULTS, arrange: 1, bed: -2, bedEvery: 3 });
+    const written = shapedSpec(blendCast(SIX, EVEN), held);
+    for (const knob of PLAYER_SONG_KNOBS) expect(written[knob]).toBe(held[knob]);
+    expect(written.repeats).toBe(blendCast(SIX, EVEN).repeats);
   });
 });

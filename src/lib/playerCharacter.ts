@@ -22,6 +22,7 @@ import {
   type PlayerDefaults,
   type PlayerKnob,
   type PlayerPartKnob,
+  type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS, type PlayerCharacter } from "./playerCast.ts";
@@ -435,6 +436,62 @@ export function blendCharacter(
 ): PlayerVoice {
   return fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
 }
+
+/**
+ * The same draw taken from every one of the six at once, weighed by where a hand is standing among
+ * them: `at`'s two-ended blend generalised to the whole cast, so a place on the pad and a dial on
+ * the card cannot disagree about what a curve is (`PLAYER_KNOB_DIALS`, principle 1).
+ *
+ * Geometric along a log curve and arithmetic along a linear one, which is the same rule `at`
+ * follows and for the same reason — halfway from 250ms to 10ms is 50ms by the ear and by the dial.
+ * A weight of one on one corner is that corner's draw exactly, the way `at` returns both of its
+ * ends by name: `w` is compared to one before any arithmetic runs.
+ *
+ * `plain`'s corner needs no case: its region names no knob, so its draw *is* `PLAYER_DEFAULTS` and
+ * the identity falls out of the weighing.
+ */
+export function blendCast(draws: readonly PlayerVoice[], weights: readonly number[]): PlayerVoice {
+  if (draws.length !== weights.length) {
+    throw new Error(`A blend of ${draws.length} draws was handed ${weights.length} weights.`);
+  }
+  return fromIds(PLAYER_KNOBS, (knob) => {
+    const whole = weights.findIndex((weight) => weight === PLAYER_AMOUNT_MAX);
+    // A corner carrying all of it is that corner's own draw, untouched by any arithmetic — the
+    // ends `at` promises exactly, said for six.
+    const alone = draws[whole];
+    if (alone !== undefined) return alone[knob];
+    const log = PLAYER_KNOB_DIALS[knob].curve === "log";
+    let value = 0;
+    for (const [index, draw] of draws.entries()) {
+      const weight = weights[index] ?? 0;
+      const held = draw[knob];
+      // A log curve cannot pass through nought, and every knob drawn on one has a floor above it
+      // (`PLAYER_BURST_MIN`, `PLAYER_BED_DISTANCE_MIN`). One at nought is a broken build rather
+      // than a case to fall back from (principle 5).
+      if (log && held <= 0)
+        throw new Error(`${knob} is drawn on a log curve and cannot be ${held}.`);
+      value += weight * (log ? Math.log(held) : held);
+    }
+    const blended = log ? Math.exp(value) : value;
+    return isWholeKnob(knob) ? Math.round(blended) : blended;
+  });
+}
+
+/**
+ * What a gesture on the cast writes: everything the blend shaped, and the song's own amounts left
+ * exactly where the hand left them. A character says what the pattern is *like*, and which
+ * arrangement is playing is not a likeness — a blend carrying `arrange: 0` into every press would
+ * silently swap the author of the song (0152, 0158). It is the exclusion `songs` itself gets by not
+ * being a voice at all, said for the ones that are.
+ *
+ * Here rather than beside either gesture that spends it: the six names and the pad are two roads to
+ * one spec, and two copies of this would be two answers to which knobs a cast gesture may touch
+ * (principle 1).
+ */
+export const shapedSpec = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
+  ...voice,
+  ...fromIds(PLAYER_SONG_KNOBS, (knob) => held[knob]),
+});
 
 /**
  * A draw from a name nobody picked: one of the characters at full strength, chosen by the same

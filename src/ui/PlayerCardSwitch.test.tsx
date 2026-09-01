@@ -36,6 +36,7 @@ import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX } from "@/lib/player";
 import { oneSong } from "@/lib/playerSongs";
 import { PLAYER_BED_PERS } from "@/lib/playerBed";
+import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
@@ -93,8 +94,9 @@ describe("the jumps card's switch", () => {
     // Every dial the module declares is refused — all of them, because none of them is behind
     // anything any more (0195) — and each is painted from the switch's own values rather than from
     // a spec the card invented: the gate a press of that switch would send is 0. The presses
-    // beyond them are the clock the ground's period is counted on, one per word (0192, P158).
-    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length;
+    // beyond them are the clock the ground's period is counted on, one per word (0192, P158), and
+    // the six names on the cast's own pad, which are presses drawn inside a picture (0259).
+    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length + PLAYER_CHARACTERS.length;
     expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);
     expect(off).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
@@ -151,7 +153,7 @@ describe("the jumps card's switch", () => {
   // values under them are the held ones, which is what the press above sends back (P164, 0173).
   it("draws a bypassed pattern exactly as it draws no pattern at all", () => {
     const bypassed = renderToStaticMarkup(strip({ player: { ...PLAYER, bypassed: true } }).element);
-    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length;
+    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length + PLAYER_CHARACTERS.length;
     expect(bypassed.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(bypassed).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
     // And the pattern's own one-line facts go with it: a seed nothing is unfolding is a readout of

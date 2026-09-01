@@ -1,6 +1,7 @@
 /**
- * @role The scope's geometry: one sheet of `PlayerStep`s folded into blocks on the slot grid —
- *   where each begins, how wide it is, how it is split, and which of them the clock is inside.
+ * @role The score's geometry: one sheet of `PlayerStep`s folded into blocks on the loop — where
+ *   each begins, how wide it is, how it is split, where the loop turns over across it, which of
+ *   them the clock is inside and which one a press at a given fraction lands on.
  *   Pure maths: no canvas, no clock, no React.
  * @instead What a painting of it is made of, in device pixels → src/ui/playerScopeCanvas.ts. The
  *   surface that keeps the sheet fed and asks for the paintings → src/ui/PlayerScope.tsx. How
@@ -9,6 +10,7 @@
  *   never where it goes → src/lib/playerDrift.ts.
  */
 import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 import type { SongPlace } from "./playerSongs.ts";
 import type { PlayerStep } from "./playerWalk.ts";
 
@@ -123,7 +125,64 @@ export type ScopeGeometry = {
   blocks: ScopeBlock[];
   secs: number;
   at: number;
+  /**
+   * Where the loop turns over across the sheet, as fractions of it — the picture's own bar lines.
+   * The sheet's across is wall seconds and its landings are any length, so without these there is
+   * nothing on it to read a beat against: a cluster and a long hold look the same width whatever
+   * the loop under them did.
+   *
+   * The loop's own length and never a made-up division of the sheet: it is `slotSecs` times
+   * `PLAYER_SLOTS`, which is the same grid the walk jumps around (principle 1). A sheet shorter
+   * than one loop draws none, which is a picture saying the loop has not come round rather than a
+   * rule at nought.
+   */
+  bars: number[];
 };
+
+/** Where the loop comes round across a sheet of `secs` seconds, as fractions of it. */
+const barsOf = (secs: number, slotSecs: number): number[] => {
+  const loop = slotSecs * PLAYER_SLOTS;
+  if (loop <= 0) return [];
+  const bars: number[] = [];
+  for (let bar = loop; bar < secs; bar += loop) bars.push(bar / secs);
+  return bars;
+};
+
+/**
+ * Which landing a fraction across the sheet falls in, or null where the sheet draws none. A
+ * landing owns its wait as well as its sounding, because the wait is the landing's own (`paintWait`,
+ * src/ui/playerScopeCanvas.ts) — so the blocks tile the sheet exactly and a press between two of
+ * them belongs to the one it followed rather than to nothing.
+ *
+ * Pure, and here rather than in the component, for the reason the layout above it is: what a press
+ * on the picture *means* is geometry, and geometry is the tested layer.
+ */
+export function blockAt(geometry: ScopeGeometry, x: number): number | null {
+  for (const [index, block] of geometry.blocks.entries()) {
+    if (x >= block.from && x < (block.wait?.to ?? block.to)) return index;
+  }
+  // The last landing owns the sheet's own right-hand edge: a press exactly at one is the sheet
+  // turning over, and the block it turns over from is the one that was standing.
+  return geometry.blocks.length === 0 || x < 0 || x > 1 ? null : geometry.blocks.length - 1;
+}
+
+/**
+ * Where a landing a hand picked sits on the sheet being drawn now, or null where the walk has
+ * carried it off one end. `ordinal` is that landing's own place in the run — the sheet it was
+ * picked on plus its index in it — and `base` is the ordinal the sheet now begins at, so a pick
+ * survives the two things that happen to a sheet while a hand is reading it: the clock stepping
+ * along it, which redraws the geometry at every landing, and the sheet turning over, which shifts
+ * every index by a whole sheet (0187). A reading taken off the picture is a view preference and
+ * the one kind of state a component may hold (plan §2, 0257) — losing it at the next jump made the
+ * gesture unusable on a pattern that is playing, which is the only pattern there is.
+ *
+ * Pure and here rather than in the component, for the reason `blockAt` above is: which landing a
+ * press is about is geometry, and geometry is the tested layer.
+ */
+export function pickOnSheet(geometry: ScopeGeometry, base: number, ordinal: number): number | null {
+  const index = ordinal - base;
+  return geometry.blocks[index] === undefined ? null : index;
+}
 
 /**
  * How long one landing occupies the sheet, in wall seconds: the landing itself, through the one
@@ -186,7 +245,7 @@ export function scopeGeometry(
   const secs = sheet.reduce((total, step) => total + stepSecs(step, slotSecs), 0);
   // A sheet of nothing, and a sheet whose every landing is at the floor of nothing: neither can be
   // laid out, and both are the picture drawing no blocks rather than dividing by zero.
-  if (secs <= 0) return { blocks: [], secs: 0, at };
+  if (secs <= 0) return { blocks: [], secs: 0, at, bars: [] };
   const blocks: ScopeBlock[] = [];
   let began = 0;
   /** The ground the landing before this one read on, so a block can say it changed underneath.
@@ -236,5 +295,5 @@ export function scopeGeometry(
     began += whole;
     previous = step.bed;
   }
-  return { blocks, secs, at };
+  return { blocks, secs, at, bars: barsOf(secs, slotSecs) };
 }

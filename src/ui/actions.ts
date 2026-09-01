@@ -7,7 +7,8 @@
  */
 import type { Command } from "@/app/commands";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import type { EffectId } from "@/audio/effects/registry";
+import type { EffectId, EffectParamId } from "@/audio/effects/registry";
+import { effectParamDraws } from "@/audio/params";
 import { mintClipName, mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { SongPartId } from "@/lib/playerSong";
@@ -134,6 +135,48 @@ export function addEffectCommand(deck: DeckId, effect: EffectId): Command {
  */
 export function duplicateEffectCommand(deck: DeckId, instance: EffectInstanceId): Command {
   return { t: "effect.duplicate", deck, instance, id: mintInstanceId() };
+}
+
+/**
+ * Draw every parameter one rack instance holds, as one history entry: a `param.set` apiece, in
+ * the registry's own order, grouped so the die is one press and one undo (0067). What a draw of a
+ * parameter *is* — its curve, its step, its range — is the registry's and is asked for there
+ * (`effectParamDraws`, principle 1).
+ *
+ * `Math.random()` is exactly right here and exactly wrong a layer down, for the reason a seed's
+ * mint above is: this runs on a press and its result travels in the commands (0089).
+ */
+export function randomizeEffectCommand(
+  deck: DeckId,
+  instance: EffectInstanceId,
+  effect: EffectId,
+): Command {
+  const drawn = effectParamDraws(effect, Math.random);
+  return {
+    t: "history.group",
+    commands: Object.entries(drawn).map(([param, value]) => ({
+      t: "param.set",
+      deck,
+      instance,
+      // The keys are the registry's own ids, which `Object.entries` widens to `string`.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      param: param as EffectParamId,
+      value,
+    })),
+  };
+}
+
+/**
+ * Take every effect off one rack, as one history entry: an `effect.remove` apiece, so a rack
+ * cleared in one press comes back in one undo (0067). The order is the rack's own, read at the
+ * press by the control that has it — a command naming an instance keeps meaning the same thing
+ * whatever the removals before it did (0023).
+ */
+export function clearEffectsCommand(deck: DeckId, instances: readonly EffectInstanceId[]): Command {
+  return {
+    t: "history.group",
+    commands: instances.map((instance) => ({ t: "effect.remove", deck, instance })),
+  };
 }
 
 /** Play or pause one yard — the toggle the transport, the Space key and the palette all send. */

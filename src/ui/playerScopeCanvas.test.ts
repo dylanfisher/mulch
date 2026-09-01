@@ -1,17 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
-import { PLAYER_SLOTS } from "@/lib/playerSlots";
+import { PLAYER_REPEATS_MAX } from "@/lib/playerRepeats";
 
-import { paintScope } from "./playerScopeCanvas";
+import { paintScope, rungOf, SCOPE_RUNGS } from "./playerScopeCanvas";
 
 /** One rectangle the painter laid down, and the ink it was at when it did. */
 type Mark = { x: number; y: number; w: number; h: number; alpha: number; hollow: boolean };
 
 const WIDTH = 320;
 const HEIGHT = 160;
-/** One slot's band, at the size every case here paints at. */
-const DEEP = HEIGHT / PLAYER_SLOTS;
 
 /**
  * The painter's stand-in canvas: every fill and stroke it made, in order, with the alpha it was
@@ -55,12 +53,12 @@ function recorder() {
   return { canvas, marks, lines };
 }
 
-/** A landing on its slot, filling the whole sheet unless a case says otherwise. */
-const blockAt = (slot: number, over: Partial<ScopeBlock> = {}): ScopeBlock => ({
-  slot,
+/** A landing struck `repeats` times, filling the whole sheet unless a case says otherwise. */
+const blockOf = (repeats: number, over: Partial<ScopeBlock> = {}): ScopeBlock => ({
+  slot: 0,
   from: 0,
   to: 1,
-  splits: [1],
+  splits: Array.from({ length: repeats }, (_unused, one) => (one + 1) / repeats),
   gate: 1,
   dropped: false,
   reversed: false,
@@ -71,44 +69,88 @@ const blockAt = (slot: number, over: Partial<ScopeBlock> = {}): ScopeBlock => ({
   ...over,
 });
 
-const sheet = (blocks: ScopeBlock[], at = 0): ScopeGeometry => ({ blocks, secs: 1, at });
+const sheet = (blocks: ScopeBlock[], at = 0, bars: number[] = []): ScopeGeometry => ({
+  blocks,
+  secs: 1,
+  at,
+  bars,
+});
 
-/** Every mark that is a landing rather than the playhead or a rule, in the order it was laid. */
-const landings = (marks: Mark[]) => marks.filter((mark) => mark.h < HEIGHT);
+/** How tall a landing struck `repeats` times stands, in this picture's own pixels. */
+const tallOf = (repeats: number) => rungOf(repeats) * HEIGHT;
+
+/**
+ * Every mark that is a landing rather than a rule under it or the playhead over it. The rules are
+ * laid first — one per rung and one per bar — and the playhead last, so the landings are what is
+ * between them, which is the order `paintScope` itself is written in.
+ */
+const landings = (marks: Mark[], bars = 0) => marks.slice(SCOPE_RUNGS.length + bars, -1);
 
 beforeEach(() => {
   vi.stubGlobal("devicePixelRatio", 1);
 });
 
-// Eleven cases against one painter, each three lines long. The length is the picture's shape and
+// Twelve cases against one painter, each three lines long. The length is the picture's shape and
 // not this function's: split into two describes they would be two names for "what paintScope
 // draws". See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("paintScope", () => {
-  it("reads the loop up the picture: slot 0 at the bottom, the top slot at the top", () => {
-    const low = recorder();
-    paintScope(low.canvas, sheet([blockAt(0)]), 0, "ink");
-    const high = recorder();
-    paintScope(high.canvas, sheet([blockAt(PLAYER_SLOTS - 1)]), 0, "ink");
-    expect(landings(low.marks)[0]?.y).toBeGreaterThan(Number(landings(high.marks)[0]?.y));
-    expect(landings(low.marks)[0]?.y).toBeCloseTo(HEIGHT - DEEP + 1, 6);
-    expect(landings(high.marks)[0]?.y).toBeCloseTo(1, 6);
+  it("stands a landing on the floor, as tall as the count it is struck (0258)", () => {
+    const once = recorder();
+    paintScope(once.canvas, sheet([blockOf(1)]), 0, "ink");
+    const often = recorder();
+    paintScope(often.canvas, sheet([blockOf(16)]), 0, "ink");
+    // Both feet on the floor, and the tall one's top well above the short one's.
+    expect(Number(landings(once.marks)[0]?.y) + Number(landings(once.marks)[0]?.h)).toBeCloseTo(
+      HEIGHT,
+      6,
+    );
+    expect(landings(often.marks)[0]?.y).toBeLessThan(Number(landings(once.marks)[0]?.y));
+    expect(landings(once.marks)[0]?.y).toBeCloseTo(HEIGHT - tallOf(1), 6);
   });
 
-  it("gives every slot the same band, so a sheet is a ladder and not a taper", () => {
-    const tops = Array.from({ length: PLAYER_SLOTS }, (_unused, slot) => {
-      const drawn = recorder();
-      paintScope(drawn.canvas, sheet([blockAt(slot)]), 0, "ink");
-      return Number(landings(drawn.marks)[0]?.y);
-    });
-    for (let slot = 1; slot < tops.length; slot++) {
-      expect(Number(tops[slot - 1]) - Number(tops[slot])).toBeCloseTo(DEEP, 6);
+  /**
+   * Logarithmic and against the dial's own ceiling, which is what keeps one pattern one picture on
+   * two sheets (0098): doubling the count is one rung up, whichever two counts are doubled.
+   */
+  it("reads the count by the ear: each doubling is one rung, up to the dial's own ceiling", () => {
+    const rungs = SCOPE_RUNGS.map((count) => rungOf(count));
+    for (let step = 1; step < rungs.length; step++) {
+      expect(Number(rungs[step]) - Number(rungs[step - 1])).toBeCloseTo(
+        Number(rungs[1]) - Number(rungs[0]),
+        6,
+      );
     }
+    expect(rungOf(PLAYER_REPEATS_MAX)).toBeCloseTo(1, 10);
+    // And the floor is one rung and never nothing: a landing struck once happened, and a block of
+    // no height is a landing the picture did not draw.
+    expect(rungOf(1)).toBeCloseTo(1 / SCOPE_RUNGS.length, 10);
+  });
+
+  it("rules the picture at the counts themselves, so a height reads as a number", () => {
+    const drawn = recorder();
+    paintScope(drawn.canvas, sheet([blockOf(1)]), 0, "ink");
+    const rules = drawn.marks.slice(0, SCOPE_RUNGS.length);
+    expect(rules.map((rule) => rule.w)).toEqual(SCOPE_RUNGS.map(() => WIDTH));
+    for (const [index, rule] of rules.entries()) {
+      expect(rule.y).toBeCloseTo(HEIGHT - tallOf(Number(SCOPE_RUNGS[index])), 6);
+    }
+  });
+
+  /** And across, at the loop's own turnovers: without them a cluster and a long hold read alike. */
+  it("rules the loop's turnovers across the sheet, at the sheet's own fade", () => {
+    const drawn = recorder();
+    paintScope(drawn.canvas, sheet([blockOf(1)], 0, [0.25, 0.75]), 0, "ink");
+    const bars = drawn.marks.slice(SCOPE_RUNGS.length, SCOPE_RUNGS.length + 2);
+    expect(bars.map((bar) => bar.h)).toEqual([HEIGHT, HEIGHT]);
+    expect(bars[0]?.x).toBeCloseTo(WIDTH / 4 - 0.5, 6);
+    expect(bars[1]?.x).toBeCloseTo((WIDTH * 3) / 4 - 0.5, 6);
+    expect(bars[0]?.alpha).toBeLessThan(1);
   });
 
   it("draws the landing the clock is inside at full ink and the rest of the sheet faint (0187)", () => {
     const drawn = recorder();
-    paintScope(drawn.canvas, sheet([blockAt(0), blockAt(1)], 1), 0, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(1), blockOf(1)], 1), 0, "ink");
     const inks = landings(drawn.marks).map((mark) => mark.alpha);
     expect(inks[0]).toBeLessThan(1);
     expect(inks.at(-1)).toBe(1);
@@ -116,18 +158,18 @@ describe("paintScope", () => {
 
   it("draws a hole hollow and a repeat solid, which is what the transport does with one", () => {
     const drawn = recorder();
-    paintScope(drawn.canvas, sheet([blockAt(0, { dropped: true })]), 0, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(1, { dropped: true })]), 0, "ink");
     expect(landings(drawn.marks)[0]?.hollow).toBe(true);
     const solid = recorder();
-    paintScope(solid.canvas, sheet([blockAt(0)]), 0, "ink");
+    paintScope(solid.canvas, sheet([blockOf(1)]), 0, "ink");
     expect(landings(solid.marks)[0]?.hollow).toBe(false);
   });
 
   it("cuts a gated repeat at the near end, and a reversed one at the far end (P121)", () => {
     const forward = recorder();
-    paintScope(forward.canvas, sheet([blockAt(0, { gate: 0.5 })]), 0, "ink");
+    paintScope(forward.canvas, sheet([blockOf(1, { gate: 0.5 })]), 0, "ink");
     const backward = recorder();
-    paintScope(backward.canvas, sheet([blockAt(0, { gate: 0.5, reversed: true })]), 0, "ink");
+    paintScope(backward.canvas, sheet([blockOf(1, { gate: 0.5, reversed: true })]), 0, "ink");
     const near = landings(forward.marks)[0];
     const far = landings(backward.marks)[0];
     expect(near?.x).toBe(0);
@@ -136,27 +178,27 @@ describe("paintScope", () => {
     expect(far?.w).toBeCloseTo(WIDTH / 2, 6);
   });
 
-  it("breaks the thread where the ground moved, on the thread and not on either landing (0183)", () => {
+  /**
+   * The ground moving was a break in the thread between two slot bands while the picture had one.
+   * The score has no such thread, and the fact is still the one a glance needs — so it is a dashed
+   * hairline standing exactly where the window the slots are cut from changed (0183, 0258).
+   */
+  it("stands a dashed mark where the ground moved, and none where it did not", () => {
     const still = recorder();
-    paintScope(still.canvas, sheet([blockAt(0), blockAt(3)]), 0, "ink");
-    expect(still.lines[0]?.dashed).toBe(false);
+    paintScope(still.canvas, sheet([blockOf(1), blockOf(1, { from: 0.5 })]), 0, "ink");
+    expect(still.lines).toEqual([]);
     const moved = recorder();
-    paintScope(moved.canvas, sheet([blockAt(0), blockAt(3, { moved: true })]), 0, "ink");
+    paintScope(moved.canvas, sheet([blockOf(1), blockOf(1, { from: 0.5, moved: true })]), 0, "ink");
     expect(moved.lines[0]?.dashed).toBe(true);
+    expect(moved.lines[0]?.from).toEqual([WIDTH / 2, 0]);
+    expect(moved.lines[0]?.to).toEqual([WIDTH / 2, HEIGHT]);
   });
 
-  it("runs the thread between the two bands' middles, so it reads as a link and not a step", () => {
-    const drawn = recorder();
-    paintScope(drawn.canvas, sheet([blockAt(0), blockAt(2)]), 0, "ink");
-    expect(drawn.lines[0]?.from[1]).toBeCloseTo(HEIGHT - DEEP / 2, 6);
-    expect(drawn.lines[0]?.to[1]).toBeCloseTo(HEIGHT - DEEP * 2 - DEEP / 2, 6);
-  });
-
-  it("lays a wait at the foot of the landing's own band rather than between two of them (P156)", () => {
+  it("lays a wait at the foot of the picture rather than in the gap it already is (P156)", () => {
     const drawn = recorder();
     paintScope(
       drawn.canvas,
-      sheet([blockAt(0, { to: 0.5, wait: { from: 0.5, to: 1 } })]),
+      sheet([blockOf(1, { to: 0.5, wait: { from: 0.5, to: 1 } })]),
       0,
       "ink",
     );
@@ -165,18 +207,33 @@ describe("paintScope", () => {
     expect(wait?.x).toBeCloseTo(WIDTH / 2, 6);
   });
 
-  it("puts a spark on its own slot's band, not on the landing that threw it", () => {
+  /** The ghost has no count of its own: it is the landing sounding once more, so it stands one rung. */
+  it("puts a spark where it opens, one rung tall and quieter than the landing that threw it", () => {
     const drawn = recorder();
     const spark = { slot: 5, at: 0.25, level: 1 };
-    paintScope(drawn.canvas, sheet([blockAt(0, { spark })]), 0, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(8, { spark })]), 0, "ink");
     const drawnSpark = landings(drawn.marks).at(-1);
     expect(drawnSpark?.x).toBeCloseTo(WIDTH / 4, 6);
-    expect(drawnSpark?.y).toBeCloseTo(HEIGHT - 6 * DEEP + 1, 6);
+    expect(drawnSpark?.y).toBeCloseTo(HEIGHT - tallOf(1), 6);
+    expect(drawnSpark?.alpha).toBeLessThan(1);
+  });
+
+  /** The readout beside the picture says numbers; this is the one thing that says which block. */
+  it("outlines the landing a hand picked, at full ink, and nothing where none is picked", () => {
+    const drawn = recorder();
+    paintScope(drawn.canvas, sheet([blockOf(1), blockOf(1, { from: 0.5 })]), 0, "ink", 1);
+    const outline = landings(drawn.marks).at(-1);
+    expect(outline?.hollow).toBe(true);
+    expect(outline?.alpha).toBe(1);
+    expect(outline?.x).toBeCloseTo(WIDTH / 2 + 0.5, 6);
+    const none = recorder();
+    paintScope(none.canvas, sheet([blockOf(1), blockOf(1, { from: 0.5 })]), 0, "ink");
+    expect(landings(none.marks).some((mark) => mark.hollow)).toBe(false);
   });
 
   it("draws the playhead last, at full strength, over whatever it crosses", () => {
     const drawn = recorder();
-    paintScope(drawn.canvas, sheet([blockAt(0)]), 0.5, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(1)]), 0.5, "ink");
     const head = drawn.marks.at(-1);
     expect(head?.h).toBe(HEIGHT);
     expect(head?.alpha).toBe(1);
@@ -185,7 +242,7 @@ describe("paintScope", () => {
 
   it("holds the playhead at the end of the sheet rather than letting it run off it", () => {
     const drawn = recorder();
-    paintScope(drawn.canvas, sheet([blockAt(0)]), 4, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(1)]), 4, "ink");
     expect(drawn.marks.at(-1)?.x).toBe(WIDTH);
   });
 });

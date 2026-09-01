@@ -1,13 +1,15 @@
 /**
- * @role One yard's walk as a picture: one sheet of landings, held still while the clock crosses it
- *   left to right and turned over whole at its end (0187), on the card's own canvas surface (0070,
- *   0144), with the run it is arranged in drawn under it as two lanes of proportional segments —
- *   song and part — each lane saying its tier's word and the name of the row standing in
- *   it, the row of each tier lit per frame, and the wait the clock is standing
- *   in counted down in words beside the label. Per-frame and nothing else — no command, nothing
- *   durable, no React state (plan §2).
- * @instead What a block is and where it sits → src/lib/playerScope.ts. What a painting is made of
- *   → src/ui/playerScopeCanvas.ts. How fast the module is going, which is the drift's one moiré
+ * @role One yard's walk as a score: one sheet of landings on the loop, each standing as tall as the
+ *   count it is struck and ruled at the counts and at the loop's own turnovers, held still while
+ *   the clock crosses it left to right and turned over whole at its end (0187, 0258), on the card's
+ *   own canvas surface (0070, 0144), with the run it is arranged in drawn under it as two lanes of
+ *   proportional segments — song and part — each lane saying its tier's word and the name of the
+ *   row standing in it, the row of each tier lit per frame, and the wait the clock is standing in
+ *   counted down in words beside the label. A press picks a landing to read and writes nothing
+ *   (0257); nothing per-frame goes through React state (plan §2).
+ * @instead What a block is, where it sits and which one a press lands on → src/lib/playerScope.ts.
+ *   What a painting is made of → src/ui/playerScopeCanvas.ts. The numbers of the landing a press
+ *   picked → src/ui/PlayerLanding.tsx. How fast the module is going, which is the drift's one moiré
  *   row and not this → src/lib/playerDrift.ts. The part list itself, which this is the shape of →
  *   src/ui/PlayerSong.tsx.
  */
@@ -16,11 +18,13 @@
 // painter and the words. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 // And over the 400-line soft cap by what a per-frame picture is: the fed window with a paragraph
-// per ref, the two lanes and the wait's own sentence. The drag that used to be the reason went with
-// P171 and this did not go with it — 624 lines became 548, and what is left is the picture. Well
-// under the hard cap docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
+// per ref, the two lanes, the wait's own sentence and the press that picks a landing to read. The
+// readout those numbers are drawn in is its own file for exactly this reason
+// (src/ui/PlayerLanding.tsx). Well under the hard cap docs/map.md sets — see
+// docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
@@ -36,10 +40,13 @@ import {
 } from "@/lib/copy";
 import { playerSounding, type PlayerSpec } from "@/lib/player";
 import {
+  blockAt,
+  pickOnSheet,
   PLAYER_SCOPE_LANDINGS,
   PLAYER_SCOPE_PAINT_MS,
   scopeGeometry,
   scopeSheet,
+  type ScopeBlock,
   type ScopeGeometry,
 } from "@/lib/playerScope";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
@@ -54,6 +61,7 @@ import { Explains } from "@/ui/Explains";
 import { SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
 import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
 import { litRows, sameRow, standingIn, type StandingRow } from "@/ui/PlayerSong";
+import { PlayerLanding } from "@/ui/PlayerLanding";
 import { paintScope } from "@/ui/playerScopeCanvas";
 // oxlint-enable import/max-dependencies
 
@@ -97,7 +105,7 @@ type Held = {
   head: number;
 };
 
-const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0 };
+const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0, bars: [] };
 
 /**
  * How long one slot of this yard's grid lasts in wall seconds, or null where the loop has no grid
@@ -426,6 +434,38 @@ export function PlayerScope({
   const read = useScopeWindow(instrument, deck, player, slotSecs ?? 0);
 
   /**
+   * The landing a hand pressed, held twice over: its own place in the run and where that sits on
+   * the sheet being drawn, in a ref the painting outlines it from, and the block itself in state,
+   * which is what the readout beside the picture is drawn off.
+   *
+   * A press here **sends no command**, which is the whole of why it is allowed to exist: 0232 took
+   * the pointer off this picture because the crosshair *wrote* two numbers that were nowhere on the
+   * sheet, so the picture redrew under the pointer in answer to itself. Reading a block writes
+   * nothing, so the picture cannot move under the press — and which block a hand has hold of is a
+   * view preference, the one kind of state a component may hold (plan §2, 0257).
+   *
+   * The pick is kept as the landing's own place in the run rather than as an index into the sheet
+   * it was taken on: the geometry is rebuilt at every landing and the sheet turns over whole at
+   * its end (0187), and a pick held against the object would be dropped by the very next jump —
+   * a reading a hand cannot keep while the pattern plays is a gesture that does not work
+   * (`pickOnSheet`, src/lib/playerScope.ts). It goes when the walk carries it off the sheet, and
+   * not before.
+   */
+  const picked = useRef<{ ordinal: number; index: number } | null>(null);
+  const [landing, setLanding] = useState<ScopeBlock | null>(null);
+  /**
+   * What the readout is showing, beside the state that shows it: the block is followed onto every
+   * sheet it is redrawn on, and a `setState` per frame is not what following it means — so the one
+   * already drawn is compared first, exactly as the eyebrow's own sentence is (0157).
+   */
+  const shown = useRef<ScopeBlock | null>(null);
+  const show = useCallback((block: ScopeBlock | null) => {
+    if (block === shown.current) return;
+    shown.current = block;
+    setLanding(block);
+  }, []);
+
+  /**
    * Lighting the lane's standing segment, straight into the DOM. Its own call because a frame is
    * not the only thing that has to write it: a stopped yard registers no frame callback at all, so
    * the commit that stops one is the only thing left to put a lit segment back — the same hole
@@ -468,18 +508,80 @@ export function PlayerScope({
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const window = read();
-      paintScope(canvas, window.geometry, window.head, color);
+      // The pick, followed onto the sheet being drawn: the same landing at its new index while it
+      // is still on the picture, and let go of once the walk has carried it past the end.
+      const held = picked.current;
+      if (held !== null) {
+        const index = pickOnSheet(window.geometry, window.at - window.geometry.at, held.ordinal);
+        picked.current = index === null ? null : { ordinal: held.ordinal, index };
+        show(index === null ? null : (window.geometry.blocks[index] ?? null));
+      }
+      paintScope(canvas, window.geometry, window.head, color, picked.current?.index ?? null);
       light();
       say(waitSaid(window.geometry, window.head));
     },
-    [light, read, say],
+    [light, read, say, show],
   );
   // Animated only where there is a walk to draw: a playing yard whose loop has no grid draws
   // nothing, so it registers no frame callback either (0035, 0157).
-  const { rootRef, canvasRef } = useCanvasSurface(
+  const { rootRef, canvasRef, repaint } = useCanvasSurface(
     paint,
     state.playing && slotSecs !== null,
     PLAYER_SCOPE_PAINT_MS,
+  );
+
+  /**
+   * Take the pick to `index` of the sheet being drawn, or let it go where there is no such block.
+   * What is kept is the landing's own place in the run — the sheet's first ordinal plus the index
+   * on it — which is what the pick survives the walk as (`pickOnSheet`).
+   */
+  const hold = useCallback(
+    (window: Readonly<Held>, index: number | null) => {
+      const block = index === null ? undefined : window.geometry.blocks[index];
+      picked.current =
+        block === undefined || index === null
+          ? null
+          : { ordinal: window.at - window.geometry.at + index, index };
+      show(block ?? null);
+      // Asked for rather than waited on: a stopped yard registers no frame callback, so nothing
+      // else would draw the outline the readout is about (0040).
+      repaint();
+    },
+    [repaint, show],
+  );
+
+  /** Which landing the pointer came down on, which is the one the readout is then about. */
+  const pick = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      if (box.width <= 0) return;
+      const window = read();
+      hold(window, blockAt(window.geometry, (event.clientX - box.left) / box.width));
+    },
+    [hold, read],
+  );
+
+  /**
+   * The same road for a keyboard, which a picture a pointer can read has to have (0055): the arrows
+   * step the pick along the sheet, and the first press takes the landing the clock is inside — the
+   * one already lit, so the picture and the first reading agree.
+   */
+  const step = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      const by = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+      if (by === 0) return;
+      event.preventDefault();
+      const window = read();
+      const held = picked.current;
+      const at =
+        held === null
+          ? null
+          : pickOnSheet(window.geometry, window.at - window.geometry.at, held.ordinal);
+      const from = at ?? window.geometry.at;
+      const next = Math.min(window.geometry.blocks.length - 1, Math.max(0, from + by));
+      hold(window, held === null ? window.geometry.at : next);
+    },
+    [hold, read],
   );
 
   // And once on every commit, written whatever the frame loop is doing: a yard that stops
@@ -514,13 +616,34 @@ export function PlayerScope({
             happening is said here instead (`waitSaid`). */}
         <span ref={waitRef} className="type-eyebrow text-muted-foreground" />
       </div>
-      {/* The picture, and nothing on it to grab: it is a picture of the walk and not a second road
-          to two numbers that are nowhere on it. The dials in Fine Tune are the one road to the
-          distance and the count, for both a pointer and a keyboard (P171). The ground's own
-          rectangle keeps its drag on the opposite argument — there, where the pointer is *is* the
-          value (0191, 0197, src/ui/PlayerGround.tsx). */}
-      <div ref={rootRef} data-slot="player-scope" className="h-24 w-full text-primary">
-        <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
+      {/* The picture. Every landing stands on the floor as tall as the count it is struck, ruled at
+          the counts themselves and at the loop's own turnovers, so a glance reads a rhythm against
+          a beat (0258).
+
+          There is still nothing on it to *drag*: a press picks a landing to read and writes no
+          value, so the sheet cannot move under the pointer in answer to itself, which is the whole
+          of what 0232 refused (0257). The dials in Fine Tune stay the one road to the distance and
+          the count. The ground's own rectangle keeps its drag on the third argument — there, where
+          the pointer is *is* the value (0191, 0197, src/ui/PlayerGround.tsx). */}
+      <div ref={rootRef} data-slot="player-scope" className="h-40 w-full text-primary">
+        {/* The press is on a button and not on the box, so the one road is a real control: it takes
+            focus, it says its own name, and the arrows step along the sheet from wherever the
+            press left off. A div wearing a tabindex would be a picture pretending to be one. */}
+        <button
+          type="button"
+          className="block size-full cursor-pointer"
+          aria-label={`${yardLabel(deck)} ${PLAYER_SCOPE_LABEL}`}
+          onPointerDown={pick}
+          onKeyDown={step}
+        >
+          <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
+        </button>
+      </div>
+      {/* And what the landing a hand pressed is, in numbers — the slot it reads among them, which
+          is the one thing the picture gave up saying when its height became the count (0258).
+          Announced when it changes, because the picture that answered the press is a canvas. */}
+      <div aria-live="polite">
+        <PlayerLanding block={landing} />
       </div>
       {/* The run under the picture, one lane per tier and the song's on top: two shapes of the
           same total, so a glance reads which song the parts belong to without leaving the picture.

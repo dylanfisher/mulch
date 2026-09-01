@@ -5,7 +5,7 @@
  */
 
 import { fold } from "@/lib/copy";
-import { clamp } from "@/lib/range";
+import { clamp, denormalize, snapToStep } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import { TONE_REF_HZ } from "@/lib/waveform";
 import type { Effect, EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
@@ -197,6 +197,31 @@ export function effectParamDefaults(
         : param.default,
     ]),
   );
+}
+
+/**
+ * One parameter at a draw across its own declared range: on its own curve, so a value read
+ * logarithmically is as likely to land in its bottom octave as its top, and on its own step where
+ * it declares one. A draw is a value a hand could have dialled and never one it could not (0030).
+ */
+const drawParam = (spec: ParamSpec, at: number): number => {
+  const value = denormalize(at, spec.min, spec.max, spec.curve);
+  return spec.step === undefined ? value : snapToStep(value, spec.min, spec.max, spec.step);
+};
+
+/**
+ * Every parameter one effect declares, drawn — what the die on a rack card fills one instance
+ * with, beside `effectParamDefaults` above, which is the same list at its declared settings.
+ *
+ * `draw` is the caller's for the reason the id above is the caller's: a draw happens at the
+ * gesture and travels in the commands it builds, so nothing on a render or a play-time path may
+ * reach one (0089).
+ */
+export function effectParamDraws(effect: EffectId, draw: () => number): EffectParamValues {
+  // Read as the declarations they are, exactly as the defaults above are: the registry's own type
+  // is a union of one literal per parameter, and an optional field is not on every member of it.
+  const declared: readonly ParamDeclaration[] = effectById(effect).params;
+  return Object.fromEntries(declared.map((param) => [param.id, drawParam(param, draw())]));
 }
 
 /**

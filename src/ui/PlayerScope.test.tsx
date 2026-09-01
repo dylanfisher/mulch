@@ -17,6 +17,7 @@
 // pattern out of — the spec, the song, the walk and the peek — beside the three this file stubs.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+import { Children, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -34,6 +35,8 @@ const surface = vi.hoisted(() => ({
 const painted = vi.hoisted(() => ({
   geometries: [] as ScopeGeometry[],
   heads: [] as number[],
+  /** Which landing the painting was told to outline, which is the pick the readout is about. */
+  picked: [] as (number | null)[],
 }));
 
 /** How many walks the surface built. The whole claim of the cache is that this stays at one. */
@@ -57,9 +60,16 @@ vi.mock("@/ui/canvasSurface", () => ({
 }));
 
 vi.mock("@/ui/playerScopeCanvas", () => ({
-  paintScope: (_canvas: unknown, geometry: ScopeGeometry, head: number, _color: string) => {
+  paintScope: (
+    _canvas: unknown,
+    geometry: ScopeGeometry,
+    head: number,
+    _color: string,
+    picked: number | null,
+  ) => {
     painted.geometries.push(geometry);
     painted.heads.push(head);
+    painted.picked.push(picked);
   },
 }));
 
@@ -89,7 +99,7 @@ import {
   waitLeftSaid,
   yardLabel,
 } from "@/lib/copy";
-import { EXPLAIN_LABEL } from "@/lib/copyCard";
+import { EXPLAIN_LABEL, PLAYER_LANDING_NONE } from "@/lib/copyCard";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
@@ -236,6 +246,38 @@ const lastPaint = (): ((canvas: HTMLCanvasElement, color: string) => void) => {
 // oxlint-disable-next-line no-unsafe-type-assertion -- the painter is stubbed and draws nothing
 const nothing = null as unknown as HTMLCanvasElement;
 
+/**
+ * The picture's own press, taken off a held tree rather than out of markup: a pick is a ref and a
+ * piece of view state, so what it does is only visible to a suite that can press it and then paint
+ * again (the rack's own suite holds a tree the same way, src/ui/EffectRack.test.tsx).
+ */
+const pressAt = (state: DeckState, x: number): void => {
+  let tree: ReactNode = null;
+  function Probe(): null {
+    tree = PlayerScope({ instrument, deck: "a", state, solo: null });
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  const press = pointerDownIn(tree);
+  if (press === null) throw new Error("the picture drew no press");
+  press({
+    clientX: x,
+    currentTarget: { getBoundingClientRect: () => ({ left: 0, width: 100 }) },
+  });
+};
+
+/** The one `onPointerDown` in a held tree, which is the picture's own press. */
+function pointerDownIn(node: ReactNode): ((event: unknown) => void) | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ onPointerDown?: (event: unknown) => void; children?: ReactNode }>(child))
+      continue;
+    if (child.props.onPointerDown !== undefined) return child.props.onPointerDown;
+    const found = pointerDownIn(child.props.children ?? null);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 // One flat list of the scope's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("PlayerScope", () => {
@@ -258,23 +300,64 @@ describe("PlayerScope", () => {
   });
 
   /**
-   * And nothing on the picture to grab (P171). The sheet is a shape and the two numbers a drag
-   * used to write — how far a jump travels, how many bursts a landing is cut into — are nowhere on
-   * it, so a hand aiming at a landing it can see got two numbers about landings in general and the
-   * sheet redrew under the pointer. What is asserted is the whole of the surface's opening tag: no
-   * grab cursor, no refusal mark, no touch guard, because there is no gesture for any of them to be
-   * about. That a *press* sends nothing is not something a server render can watch — the case that
-   * did was the drag in `scripts/smoke.d/playerRate.js`, and it went with the gesture (plan §4).
+   * Still nothing on the picture to *grab* (P171, 0232): the sheet is a shape, and the two numbers
+   * a drag used to write — how far a jump travels, how many bursts a landing is cut into — are
+   * nowhere on it, so the sheet redrew under the pointer in answer to itself. What the picture has
+   * now is a press that *reads* a landing and writes nothing (0257), so the box wears no grab
+   * cursor and no touch guard, and the one gesture on it is a real button with its own name and its
+   * own keyboard road. That a press sends no command is not something a server render can watch:
+   * `scripts/smoke.d/renderPlayer.js` is where the pointer meets it (plan §4).
    */
-  it("offers nothing to grab: the picture's surface wears no gesture at all", () => {
+  it("offers a landing to read and nothing to grab", () => {
     const player = { seed: 3, ...PLAYER_DEFAULTS };
     const markup = render({ ...emptyDeck(), loop: { in: 0, out: 4 }, player });
     const surfaceTag = markup.slice(markup.indexOf('<div data-slot="player-scope"'));
     // The whole opening tag rather than a list of things it must not say: a surface a hand may
-    // press grows an attribute at a time, and an assertion that named them would pass the next one.
+    // drag grows an attribute at a time, and an assertion that named them would pass the next one.
     expect(surfaceTag.slice(0, surfaceTag.indexOf(">") + 1)).toBe(
-      '<div data-slot="player-scope" class="h-24 w-full text-primary">',
+      '<div data-slot="player-scope" class="h-40 w-full text-primary">',
     );
+    // The press is a button and not a tabindex on the box: it takes focus, says its own name, and
+    // the arrows step along the sheet from it.
+    expect(markup).toContain(`aria-label="${yardLabel("a")} ${PLAYER_SCOPE_LABEL}"`);
+    expect(surfaceTag).toContain("<button");
+    // And nothing is picked until something is pressed, so the readout says the gesture rather
+    // than four terms with no values behind them.
+    expect(markup).toContain(PLAYER_LANDING_NONE);
+  });
+
+  /**
+   * A reading survives the walk. The picture is redrawn at every landing and the sheet turns over
+   * whole at its end (0187), and the pick used to be held against the geometry object — so the
+   * outline and the readout went at the very next jump, which is a gesture nobody can use on a
+   * pattern that is playing (0257, `pickOnSheet`).
+   */
+  it("keeps the landing a press picked while the walk carries on across the sheet", () => {
+    const player = { seed: 7, ...PLAYER_DEFAULTS };
+    const state: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 }, player, playing: true };
+    const laid = playerSequence(player, 3 * PLAYER_SCOPE_LANDINGS);
+    peek.player.at = 0;
+    peek.player.step = laid[0] ?? null;
+    painted.picked.length = 0;
+    // A press a fifth of the way across the sheet, then the clock stepping on three landings.
+    pressAt(state, 20);
+    const paint = lastPaint();
+    paint(nothing, "");
+    const first = painted.picked.at(-1);
+    expect(typeof first).toBe("number");
+    for (const at of [1, 2, 3]) {
+      peek.player.at = at;
+      peek.player.step = laid[at] ?? null;
+      paint(nothing, "");
+      // The same landing of the same sheet: the clock moved, the pick did not.
+      expect(painted.picked.at(-1)).toBe(first);
+    }
+    // And when the sheet turns over, the landing it was on is one sheet behind: it is off the
+    // picture, so the outline goes with it rather than standing on whatever took its index.
+    peek.player.at = PLAYER_SCOPE_LANDINGS;
+    peek.player.step = laid[PLAYER_SCOPE_LANDINGS] ?? null;
+    paint(nothing, "");
+    expect(painted.picked.at(-1)).toBeNull();
   });
 
   it("animates for exactly as long as the yard plays, at its own cadence", () => {
@@ -568,6 +651,7 @@ describe("PlayerScope", () => {
       blocks: [block(0, 0.4, { from: 0.4, to: 0.5 }), block(0.5, 0.9, null)],
       secs: 20,
       at: 0,
+      bars: [],
     };
     // Still sounding: the wait has not begun and there is nothing to count down.
     expect(waitSaid(geometry, 0.3)).toBe("");
