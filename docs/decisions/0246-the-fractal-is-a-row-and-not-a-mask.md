@@ -2,7 +2,8 @@
 
 - **Date:** 2026-09-01
 - **Status:** accepted, amended by
-  [0248](0248-the-structure-travels-and-its-identity-is-the-automators.md), replacing
+  [0248](0248-the-structure-travels-and-its-identity-is-the-automators.md) and
+  [0268](0268-the-structure-opens-into-a-lattice-the-picture-is-inside.md), replacing
   [0245](0245-the-picture-is-cut-through-an-attractor.md), amending
   [0211](0211-the-pictures-kernel-is-gated-on-byte-equality.md), resting on
   [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md) and

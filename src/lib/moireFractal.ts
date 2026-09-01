@@ -1,7 +1,7 @@
 /**
  * @role The coordinate a fractal row's grating is cut along, and the seed it is cut from: the
  *   escape-time field of `z → z² + c` with an orbit trap through it, the folded coordinate a
- *   box-within-box family recurses on, the five numbers a row's grating is cut from, the four
+ *   box-within-box family recurses on, the six numbers a row's grating is cut from, the four
  *   stops a run of effects an automator is standing folds to, and the travel across them. Pure
  *   arithmetic — no canvas, no clock, no context.
  * @instead The straight, ring, spoke and spiral coordinates this stands beside, and the pixel loop
@@ -17,8 +17,8 @@
 // from. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { fold } from "./copy.ts";
-import { cosTurn, easedCentre, FOLD_SPENT, foldStop, type DriftGeometry } from "./moire.ts";
-import { clamp, denormalize } from "./range.ts";
+import { cosTurn, easedCentre, FOLD_SPENT, foldStop, wrap, type DriftGeometry } from "./moire.ts";
+import { clamp, denormalize, snapToStep } from "./range.ts";
 
 /**
  * As much of a run as a fractal row reads: every place standing, its own id and how far in it is.
@@ -114,16 +114,45 @@ const FRACTAL_WANDER_STOPS = 9;
  * How many times a nested row folds the plane into itself, and how many fringes stand between one
  * nesting level and the next.
  *
- * **A dozen fringes a level, and the count is the whole point.** At three the structure was a
- * dozen cycles across the picture and every other row was ninety — and two gratings that far apart
- * do not beat, they stack: a coarse shape laid over a fine weave, which is the thing a mask was
- * (`PITCH_COMPRESS`, src/lib/moireGrating.ts, 0131). At a dozen the levels stand about as far
- * apart as the lattice does, so the two *fringe* against each other and the boxes come out of the
- * interference rather than over it. That is what "the moiré is built into the structure" means and
- * it is a spacing, not a weight (0246).
+ * **Four fringes a level, where 0246 spent a dozen, and that is what makes a cell cell-sized.** A
+ * level's boundaries stand where the fold puts them and no count moves them; what this says is how
+ * finely the space between two of them is ruled. At a dozen the ruling is the lattice's own pitch,
+ * so the eye reads a weave and the cells are filigree inside it — which is 0246's beat, and which
+ * is why nothing in the picture was ever cell-sized. At four the visible unit is the cell.
+ *
+ * **And the beat 0246 bought with the dozen is bought back by `FRACTAL_EDGE` instead** (0268): a
+ * coarse shape over a fine weave is exactly what a mask was, so the level boundary is *lit* — the
+ * row's own fringes crowd onto it — and at the boundary the local pitch is back in the band the
+ * lattice is drawn in. The cell is coarse and its contour is not, so the structure stacks nowhere.
  */
 export const FRACTAL_FOLDS = 6;
-export const FRACTAL_LEVEL_CYCLES = 12;
+export const FRACTAL_LEVEL_CYCLES = 4;
+
+/**
+ * How far the fringes are crowded onto a level's own boundary, as a share of the level. **This is
+ * the lit contour, and it is cut as a grating like everything else in the picture** (0268): a
+ * stroke or a second fill would be ink laid *over* the field, which is the layer 0246 removed. The
+ * coordinate is bent inside each level instead — fast at the boundary, slow through the middle of
+ * the cell — so the boundary is drawn by the same profile, at the same depth, out of the same
+ * interference as every other fringe, and it beats against every other row exactly as they do.
+ *
+ * **Under `1 / TAU`, and that bound is the whole of what keeps it a contour rather than a fold.**
+ * The bend's slope is `1 + TAU * FRACTAL_EDGE * cos`, so at or past a turn's worth the coordinate
+ * stops rising, doubles back, and the picture grows a hard ring at every level — the one thing a
+ * smoothed level count exists to avoid. Twelve hundredths is the boundary ruled about seven
+ * quarters as fine as the level's mean and the middle of the cell about four times as coarse.
+ */
+export const FRACTAL_EDGE = 0.12;
+
+/**
+ * How a level of the structure is ruled across itself, in cycles: the level count bent inside each
+ * whole level so the fringes crowd onto its boundary, and never bent in total. One whole level is
+ * exactly `FRACTAL_LEVEL_CYCLES` cycles wherever it is read — which is what makes a whole level a
+ * whole number of fringes, and therefore what makes the flight's wrap the same tile
+ * (`fractalFlight`).
+ */
+export const fractalRule = (level: number): number =>
+  FRACTAL_LEVEL_CYCLES * (level + FRACTAL_EDGE * cosTurn(level - 0.25));
 
 /**
  * How far each fold contracts what it folds. **Over one**, because a fold divides: this is the
@@ -177,8 +206,9 @@ const FRACTAL_RATIO_SHIFT = FRACTAL_CY_SHIFT * FRACTAL_WANDER_STOPS;
 const FRACTAL_TURN_SHIFT = FRACTAL_RATIO_SHIFT * FRACTAL_RATIO_STOPS;
 
 /**
- * The five numbers a fractal row is cut from — where the picture stands on the plane, how
- * far each level contracts, how far it turns, and how far into the structure the picture has opened.
+ * The six numbers a fractal row is cut from — where the picture stands on the plane, how far each
+ * level contracts, how far it turns, how far into the structure the picture has opened and how far
+ * through it the picture has flown.
  * Flat numbers rather than a shape of their own because every one of them rides through to a baked
  * tile's key and through a worker's own copy of the place it is baked at
  * (`DriftPlace`, src/lib/moireGeometry.ts).
@@ -193,6 +223,8 @@ export type FractalSeed = {
   turn: number;
   /** How far the picture has opened into the structure, as a scale. Never at or below nothing. */
   zoom: number;
+  /** And how far it has flown through it, in levels, on 0..1 (`fractalFlight`). */
+  fly: number;
 };
 
 /** The seed a picture with nothing standing in it would be cut from, and never is. */
@@ -202,6 +234,7 @@ export const fractalRest = (): FractalSeed => ({
   ratio: FRACTAL_RATIO_BAND[0],
   turn: 0,
   zoom: 1,
+  fly: 0,
 });
 
 /**
@@ -245,20 +278,22 @@ export function fractalSeedInto(
   out: FractalSeed,
   stops: Readonly<FractalStops>,
   zoom: number,
+  fly: number,
 ): void {
   out.cx = FRACTAL_REST_X + FRACTAL_WANDER * (stops.cx - 0.5);
   out.cy = FRACTAL_REST_Y + FRACTAL_WANDER * (stops.cy - 0.5);
   out.ratio = denormalize(stops.ratio, ...FRACTAL_RATIO_BAND);
   out.turn = denormalize(stops.turn, ...FRACTAL_TURN_BAND);
   out.zoom = zoom > 0 ? zoom : 1;
+  out.fly = fly;
 }
 
 /** The same seed, allocated, straight off an identity — what a caller with nowhere to put one asks for. */
-export function fractalSeed(seed: number, zoom: number): FractalSeed {
+export function fractalSeed(seed: number, zoom: number, fly = 0): FractalSeed {
   const stops = fractalStopsRest();
   fractalStopsInto(stops, seed);
   const out = fractalRest();
-  fractalSeedInto(out, stops, zoom);
+  fractalSeedInto(out, stops, zoom, fly);
   return out;
 }
 
@@ -266,7 +301,8 @@ export function fractalSeed(seed: number, zoom: number): FractalSeed {
  * Which of a seed's numbers a row cut along `geometry` actually reads, as the tail of that row's
  * tile key — and nothing at all for the four coordinates that read none of them. Declared here,
  * beside the two functions that do the reading: an escape row is `escapeTurns`, which takes `cx`,
- * `cy` and `zoom` and no more, so its key carries three fields where a nested one's carries five.
+ * `cy`, `zoom` and `fly` and no more, so its key carries four fields where a nested one's carries
+ * six.
  * That halves an escape row's key churn while the picture is travelling — and the field list is
  * kept beside the signatures it has to agree with, so a coordinate that grows a number is one
  * file's edit rather than two.
@@ -276,8 +312,8 @@ export const fractalKeyed = (geometry: DriftGeometry, seed: Readonly<FractalSeed
   // does not know by name: a third one added to `FRACTAL_GEOMETRIES` and forgotten here would
   // otherwise give every structure it can draw one shared tile, silently (principle 5).
   if (!isFractalGeometry(geometry)) return "";
-  if (geometry === "escape") return `|${seed.cx}|${seed.cy}|${seed.zoom}`;
-  return `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}`;
+  if (geometry === "escape") return `|${seed.cx}|${seed.cy}|${seed.zoom}|${seed.fly}`;
+  return `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}|${seed.fly}`;
 };
 
 /**
@@ -406,25 +442,39 @@ export const fractalCut = (standing: number, bite = FRACTAL_BITE): number =>
  * src/ui/driftTiles.ts), and an unstepped zoom would ask for one at every frame and take it from
  * every other curved row. Between two stops the structure is the same structure scaled, so what the
  * steps cost is nothing the eye can find.
+ *
+ * **Eight, where 0246 spent four, and the ladder's rung is untouched** (0268). The breath is the
+ * only scale on the picture — the flight below stopped being a second one — so the band it opens
+ * through is the whole depth the structure is ever seen at, and four was under two doublings of it.
+ * The rung comes with the widening and is exactly what it was: `4 ** (1 / 12)` and `8 ** (1 / 18)`
+ * are both `2 ** (1 / 6)`, so the band widens by half and the step the eye is asked to swallow does
+ * not move at all. What it costs is six more stops a breath a row, which is six more picture-sized
+ * bakes through the shop every row's phase comes round — the budget this ladder was opened against.
  */
-export const FRACTAL_OPENING = 4;
-export const FRACTAL_ZOOM_STEPS = 12;
+export const FRACTAL_OPENING = 8;
+export const FRACTAL_ZOOM_STEPS = 18;
 export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
   opening ** (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS) / FRACTAL_ZOOM_STEPS);
 
 /**
- * How far the picture is carried through its own structure while it plays, past wherever its
- * breath alone would stand, and how long one whole flight takes.
+ * How far the picture has flown through its own structure while it plays — in *levels*, on 0..1
+ * through the level it is crossing — and how many levels a whole flight travels.
  *
- * **A motion of its own and never a wider band on the breath.** The breath is the row's phase over
- * the picture's window — the same journey every time it comes round — so on its own the picture
- * opens into one part of the structure and closes back out of the same part for ever. The flight is
- * the performance's own elapsed sounding, and what it moves is *where that breath is taken from*:
- * `FRACTAL_OPENING` is untouched and an age still says how much of it this performance has earned,
- * and the same opening is a different part of the structure at every pass. Which is the thing
- * setting `FRACTAL_OPENING` higher cannot buy — that is one breath over a wider band, returning to
- * the same place every window, and a dozenfold in and out inside one window is a flicker rather
- * than a flight.
+ * **A travel through the coordinate, and not a cosine that returns** (0268). 0261 made the flight a
+ * second scale multiplied into the breath, and a scale that comes back is still a breath: the
+ * picture flew in and flew back out of the same part of the structure, four minutes at a time. This
+ * is the other thing entirely — the row's own coordinate is *slid*, one whole level of the
+ * structure per unit, so the cells march outward through the picture and a new one is born at the
+ * middle of it for as long as the deck sounds. It never comes back and it never has to.
+ *
+ * **And the wrap 0261 refused a dive over is exactly invisible here, which is arithmetic and not a
+ * judgement.** A dive wraps in *scale*, and a wrap in scale is invisible only where the structure
+ * repeats — a folded plane repeats every `ratio` and an escape field repeats at no scale at all, so
+ * one of the two coordinates stepped from deep to wide inside a frame. A travel wraps in *cycles*,
+ * and a grating repeats every cycle, at every scale, in both coordinates: one level is
+ * `FRACTAL_LEVEL_CYCLES` fringes and that is a whole number, so the tile baked at the top of a
+ * level and the tile baked at the bottom of the next are the same tile, pixel for pixel. There is
+ * nothing to hide because nothing moves.
  *
  * **Seconds, and not a count of the picture's own windows.** That is the whole of why this takes no
  * period: a window is recomputed from the longest row in the picture (`moireWindowSecs`,
@@ -445,18 +495,25 @@ export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
  * (`DeckPeek.sounding`), so the flight lands back where a picture with nothing sounded stands —
  * exactly as the age lands back on its floor, and the same fact rather than a second one.
  *
- * **And a breath rather than a dive, which is measured rather than chosen.** An endless dive has to
- * wrap, and a wrap is only invisible where the structure repeats: a folded plane repeats exactly
- * every `ratio` of scale, and an escape field repeats at no scale at all — so a dive would step one
- * of the two coordinates from deep to wide inside one frame, which is the hard cut 0248 and 0249
- * spent themselves removing. Cut on the one ramp above instead, so it opens and closes and its
- * slope comes back where it left.
+ * **Stepped onto the ladder the breath is on**, for the breath's own reason: the travel rides into
+ * a fractal row's tile key (`fractalKeyed`), so unstepped it would ask for a picture-sized bake at
+ * every frame of a whole performance (0129, 0142). `FRACTAL_ZOOM_STEPS` and not a count of its own,
+ * because a value rounded before it reaches a tile is rounded onto the one ladder (principle 1) —
+ * so a flight is three levels through eighteen stops each, one bake every four or five seconds a
+ * row, against the two dozen a whole flight cost as a scale.
  */
 export const FRACTAL_FLIGHT = 3;
 export const FRACTAL_FLIGHT_SECS = 4 * 60;
 
 export const fractalFlight = (sounding: number): number =>
-  sounding > 0 ? fractalZoom(sounding / FRACTAL_FLIGHT_SECS, FRACTAL_FLIGHT) : 1;
+  sounding > 0
+    ? snapToStep(
+        wrap((FRACTAL_FLIGHT * sounding) / FRACTAL_FLIGHT_SECS, 1),
+        0,
+        1,
+        1 / FRACTAL_ZOOM_STEPS,
+      )
+    : 0;
 
 /**
  * Where a point stands along an escape-time row's own axis, in cycles: the smooth iteration count
@@ -475,7 +532,14 @@ export const fractalFlight = (sounding: number): number =>
  * continuous across the boundary: the escape count tends to `FRACTAL_ITERATIONS` as a point
  * approaches the set from outside, and the trap is continuous everywhere.
  */
-export function escapeTurns(u: number, v: number, cx: number, cy: number, zoom: number): number {
+export function escapeTurns(
+  u: number,
+  v: number,
+  cx: number,
+  cy: number,
+  zoom: number,
+  fly: number,
+): number {
   const span = FRACTAL_SPAN / Math.max(FRACTAL_NEAR, zoom);
   // The point *is* the parameter: the orbit starts at nothing and the picture is the plane the
   // constant is read across. Which is why nothing here has to land on an interesting value — the
@@ -509,7 +573,13 @@ export function escapeTurns(u: number, v: number, cx: number, cy: number, zoom: 
   // picture moving by two whole fringes between neighbouring pixels, which is noise and not a
   // grating. A logarithm spaces them through the approach instead: even bands out in the open, and
   // still finer ones close in, which is the contour banding of the reference (0246).
-  return FRACTAL_BAND_CYCLES * (Math.log1p(count) + FRACTAL_TRAP * near);
+  // And the flight, which slides the whole contour banding through the field: an escape field has
+  // no levels to cross, so it is travelled the same count of fringes a nested level is worth, off
+  // the one number both rows fly on (`fractalFlight`, 0261 — the flight is the picture's and no
+  // row's). A whole level is a whole number of cycles, so the wrap is the same tile.
+  return (
+    FRACTAL_BAND_CYCLES * (Math.log1p(count) + FRACTAL_TRAP * near) + FRACTAL_LEVEL_CYCLES * fly
+  );
 }
 
 /**
@@ -526,9 +596,10 @@ const FRACTAL_BOUND = 4;
  *
  * **This is the box within box.** The fold is a reflection and an expansion, so the level a point
  * escapes at is a box inside the box the level before it escaped at, all the way down: one level is
- * exactly `FRACTAL_LEVEL_CYCLES` fringes wherever it stands and at whatever scale, so the structure
- * opens out from the middle of the picture and the same boxes are drawn at every scale it holds.
- * That is a *grating whose axis recurses*, and not a shape repeated.
+ * exactly `FRACTAL_LEVEL_CYCLES` fringes wherever it stands and at whatever scale — bent inside
+ * itself by `FRACTAL_EDGE` and never in total — so the structure opens out from the middle of the
+ * picture and the same boxes are drawn at every scale it holds. That is a *grating whose axis
+ * recurses*, and not a shape repeated.
  *
  * The reflection is what makes it a fractal rather than a spiral — `|x|` is the one map here that is
  * not invertible, so the levels are copies of each other rather than one continuous winding — and
@@ -548,6 +619,7 @@ export function nestedTurns(
   ratio: number,
   turn: number,
   zoom: number,
+  fly: number,
 ): number {
   const cos = cosTurn(turn);
   const sin = cosTurn(turn - 0.25);
@@ -567,5 +639,11 @@ export function nestedTurns(
       break;
     }
   }
-  return FRACTAL_LEVEL_CYCLES * level;
+  // Where the picture has flown to, added to the level itself and not to the cycles it comes to:
+  // one unit of flight is one whole level, so the cells march outward and the lit boundary below
+  // marches with them rather than standing still while the fringes stream through it.
+  // And the boundary lit, cut as a grating like everything else (0268): the level is ruled fastest
+  // where it begins and slowest through the middle of the cell, so the row's own fringes crowd onto
+  // the boundary and draw it (`fractalRule`).
+  return fractalRule(level + fly);
 }

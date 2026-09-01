@@ -441,8 +441,8 @@ axis, and a feature that adds eight entries is a feature nobody can shoot.
 
 ## Context
 
-Four things the drift did not do, each of which a listener can hear and the picture cannot say. The
-first two are landed and are left here as what the two below are read against:
+Four things the drift did not do, each of which a listener can hear and the picture cannot say.
+Three are landed and are left here as what the one below is read against:
 
 - **Colour arrived and never travelled, and now it travels** (0266, landed). `stepped` rounds hue,
   fringe and disperse onto `DRIFT_STEPS` = 8, which is what keeps the tile's pixel loop off the frame
@@ -459,16 +459,17 @@ first two are landed and are left here as what the two below are read against:
   the picture a dry yard draws. `rackTail` is the longest heard tail in the standing rack, weighted
   by each entry's own presence and normalised onto one band; it buys a one-way drift on
   `inkThrough`'s own axis and a direction folded off the population, and nothing else reads it.
-- **The structure opens four-fold and it reads as a swell.** `FRACTAL_OPENING` = 4 across a whole
-  cycle through twelve stops (src/lib/moireFractal.ts:410), widened by the age (`agedOpening`,
-  0251). Under a doubling per half-cycle, against a field of straight gratings, is a breath. The
-  reference the human brought is `#home-hero-gp` at gpuworld.org: a coarse cell lattice — five by
-  five across the whole picture — where every cell redraws the same field at the cell's own scale,
-  every cell's boundary is drawn as a lit contour, and each cell is warped by where it stands in
-  the outer field, so the same structure is legible at two scales at once and the grid itself
-  moves. Ours has the family (`FRACTAL_FOLDS` = 6, `FRACTAL_LEVEL_CYCLES` = 12,
-  src/lib/moireFractal.ts:125) and spends it entirely on filigree: the levels stand a lattice apart
-  and fringe, which was 0246's whole point, and nothing in the picture is cell-sized.
+- **The structure opened four-fold and read as a swell, and now it is a lattice** (0268, landed).
+  The reference the human brought is `#home-hero-gp` at gpuworld.org: a coarse cell lattice — five
+  by five across the whole picture — where every cell redraws the same field at the cell's own
+  scale and every cell's boundary is drawn as a lit contour. Ours had the family and spent it
+  entirely on filigree. Three levers took it: `FRACTAL_OPENING` doubled to eight on the rung it
+  always had, since `4 ** (1 / 12)` and `8 ** (1 / 18)` are one number; the fly-through remade as a
+  travel through the row's own coordinate rather than a second scale that returns, whose wrap is
+  exactly invisible because a whole level is a whole number of fringes; and `FRACTAL_LEVEL_CYCLES`
+  cut from a dozen to four with the level boundary itself lit by the row's own fringes crowding
+  onto it (`fractalRule`), which is what amends 0246 — the boxes came out of the interference
+  deliberately, and the contour is cut as a grating rather than laid over the picture.
 - **Scatter's whole claim on the picture is one row's pitch.** `scatter.odds → pitch`
   (src/audio/effects/scatter.ts:143), geometry `linear`. Six scatter instances are six straight rows
   at six pitches, which is more weave. Six scatters is the yard at its most broken and the picture
@@ -476,11 +477,11 @@ first two are landed and are left here as what the two below are read against:
 
 **The outcome wanted:** ink travels between its stops instead of cutting to them (landed); a rack
 with a long tail blows the whole field in a direction, smoothly, and the direction moves with what
-else is standing (landed); the structure reads as the picture zooming into its own lattice; and a
-rack of scatters reads as a picture coming apart.
+else is standing (landed); the structure reads as the picture zooming into its own lattice
+(landed); and a rack of scatters reads as a picture coming apart.
 
-**Decided before planning:** four steps in that order, one decision record each, two of them landed.
-No list anywhere of which effects are washy — the reading is `settle`, which every entry already
+**Decided before planning:** four steps in that order, one decision record each, three of them
+landed. No list anywhere of which effects are washy — the reading is `settle`, which every entry already
 declares and which a new entry gets for free. The wind and the shatter belong to the field and to no
 row, the way the wash does (0213) and `runStanding` does; neither is a parameter and neither is
 durable (0145, 0128).
@@ -505,16 +506,7 @@ durable (0145, 0128).
 
 ## Steps
 
-1.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
-    taken with the depth question the reference asks: the opening's band and how the levels are
-    spent. Three levers and their shot answers, in this order — `FRACTAL_OPENING` past four; the
-    fly-through as a travel through the coordinate rather than a cosine that returns; and the levels
-    drawn at a coarser spacing than `FRACTAL_LEVEL_CYCLES` so a cell is cell-sized, with the level
-    boundary itself lit rather than left as one more fringe. The last is the one that changes what
-    0246 decided, so it carries the decision: the boxes came out of the interference deliberately,
-    and a lit contour is ink laid _over_ the picture unless it is cut as a grating like everything
-    else.
-2.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape the tail's took
+1.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape the tail's took
     (0267): how much of the yard is scatter, from the standing instances' own odds and gate. What it
     buys is the one thing the picture has never done — the field read back through itself displaced, so a share of
     the picture is drawn from somewhere else in the picture. `lens` is the dimension in that
@@ -530,8 +522,6 @@ durable (0145, 0128).
   every input.
 - **src/ui/moireRowsField.test.ts** — the reading rests on the set beside `wash` and `age`, and is
   computed once for a whole read rather than per row.
-- **src/lib/moireFractal.test.ts** — the fly-through's own arithmetic, and the level spacing: two
-  stops of one opening are the same structure scaled, and a level boundary is cut as a grating.
 - **src/ui/moireCanvasTiles.test.ts** — the shatter's displacement is a slice of the field and not a
   second fill over it, and its share is bounded at the ceiling the record states.
 
@@ -540,14 +530,15 @@ durable (0145, 0128).
 1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
     it, then `./scripts/check` read whole. Watch each new test fail before the change.
 2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
-    crop, never the whole-canvas view. One question each: does the structure read as a lattice the
-    picture is inside, against the reference; and does a six-scatter yard read as broken rather than
-    as noisy.
+    crop, never the whole-canvas view. One question: does a six-scatter yard read as broken rather
+    than as noisy. A yard needs a source loaded before an automator grows anything, so the fixture
+    is a `deck.load` and a loop before the `effect.add` — driven without one the strip draws
+    nothing, and the shot is byte-identical whatever the change was (0268).
 3.  `./scripts/profile` at the end of the feature and again inside the shatter's own gate, against
     the ~10.4ms frame p95 band — the shatter spends a read of the field per frame, which is the one
     that can cost. The wind spent no bake at all: its drift is a term on the transform and nothing
     in the tile's key (0267).
-4.  A decision record per step, no longer than the decision is. Next free today is 0268.
+4.  A decision record per step, no longer than the decision is. Next free today is 0269.
 
 ## Refused
 

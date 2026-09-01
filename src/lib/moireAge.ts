@@ -105,10 +105,11 @@ export const runFeedback = (standing: number, age: number): number =>
  * src/lib/moireFractal.ts). The band is a scale and log-symmetric about one the way the reference
  * row's spacing is, so a share of it is a power and not a blend: a fresh picture breathes over half
  * the band and an old one over the whole of it, on the same side of one throughout, and neither end
- * of the *breath* can open past `FRACTAL_OPENING` — where the breath is taken from is the flight's,
- * and it is a second scale over this one (`fractalFlight`, 0261). A fresh picture still opens and
- * closes — an age widens what a
- * term may reach and may not invent one (0141) — over less of the room to do it in.
+ * of the *breath* can open past `FRACTAL_OPENING` — which is now the whole of the scale the picture
+ * is ever seen at, the flight beside it having become a travel through the coordinate rather than a
+ * second scale over this one (`fractalFlight`, 0268). A fresh picture still opens and closes — an
+ * age widens what a term may reach and may not invent one (0141) — over less of the room to do it
+ * in.
  *
  * **Stepped, where every other spend above is continuous**, for the reason `fractalZoom` gives for
  * stepping the phase it spends this on — and it is the harder case of the two: an age is a

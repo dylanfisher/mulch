@@ -312,6 +312,7 @@ function placeCurved(
   ref: number,
   seed: Readonly<FractalStops>,
   zoom: number,
+  fly: number,
 ): void {
   const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
@@ -322,17 +323,16 @@ function placeCurved(
   place.y = centreAcross(centre, height);
   place.cover = geometryCover(row.geometry, place.pitch, width, height);
   // And the structure a fractal row is cut through: where the picture's travel has got to on the
-  // plane — the field's own and no row's (0248) — opened by where this row's phase has carried it.
-  // Stepped, like everything else here, and for the same reason: it is baked, so stops that moved
-  // on every frame would ask for a picture-sized tile on every frame (0142, 0246). Every row fills
-  // it and only the two fractal geometries read it.
+  // plane — the field's own and no row's (0248). Stepped, like everything else here, and for the
+  // same reason: it is baked, so stops that moved on every frame would ask for a picture-sized tile
+  // on every frame (0142, 0246). Every row fills it and only the two fractal geometries read it.
   stepping.cx = stepped(seed.cx, DRIFT_CENTRE_REACH);
   stepping.cy = stepped(seed.cy, DRIFT_CENTRE_REACH);
   stepping.ratio = stepped(seed.ratio, DRIFT_CENTRE_REACH);
   stepping.turn = stepped(seed.turn, DRIFT_CENTRE_REACH);
-  // And how far the picture has opened into that structure, which the caller resolved: two scales
-  // multiplied, on the one ladder every other key here is on (`cutGratings`).
-  fractalSeedInto(place, stepping, zoom);
+  // And the opening and the flight, both of which the caller resolved: a scale and a travel, each
+  // already on the one ladder every other key here is on (`cutGratings`, `fractalFlight`).
+  fractalSeedInto(place, stepping, zoom, fly);
   order.geometry = row.geometry;
   order.profile = row.profile;
   order.width = width;
@@ -341,7 +341,7 @@ function placeCurved(
   // And the seed into the key for the two geometries that read it, and never for the four that do
   // not: a ring family's tile is shared by every row that would bake the identical one, and folding
   // a seed no bake reads into every key would give each of them a tile of its own. Per coordinate
-  // and not per fractal row, because an escape row reads three of the five (`fractalKeyed`).
+  // and not per fractal row, because an escape row reads four of the six (`fractalKeyed`).
   const cut = fractalKeyed(row.geometry, place);
   order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${width}x${height}`;
   // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
@@ -467,8 +467,9 @@ function cutGratings(
     }
     ink.globalAlpha = cut;
     // How far the picture has opened into its own structure: this row's breath, over the band the
-    // performance behind it has earned (`agedOpening`, 0251), carried by the flight that same
-    // performance is on. Two scales multiplied and never one band widened (0261).
+    // performance behind it has earned (`agedOpening`, 0251) — and beside it, and no longer
+    // multiplied into it, how far the same performance has flown through that structure. A scale
+    // and a travel, which is the whole of 0268: the breath comes back and the travel never does.
     placeCurved(
       row,
       fractal ? structure : at,
@@ -477,7 +478,8 @@ function cutGratings(
       height,
       ref,
       seed,
-      fractalZoom(turns, agedOpening(age)) * flight,
+      fractalZoom(turns, agedOpening(age)),
+      flight,
     );
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
@@ -609,8 +611,8 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  *
  * And `sounding`, how long the deck behind it has sounded without a break in seconds — the number
  * `age` is resolved off (`DeckPeek.sounding`), handed in beside it because the flight through the
- * structure is a row's own and cannot be resolved once beside the set: the two fractal rows fly at
- * their two periods (`fractalFlight`).
+ * structure is spent in raw seconds where the age is spent on its own 0..1, and the paint is what
+ * resolves it, once for the whole pass and for both fractal rows (`fractalFlight`, 0268).
  *
  * And `tint`, where the picture's colour has travelled to across its three dimensions — the field's
  * again, and travelled there by the same read that filled the rest (`inkTravelInto`,

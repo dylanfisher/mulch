@@ -1,7 +1,8 @@
 # 0261 — The picture flies through its structure on a clock of its own
 
 - **Date:** 2026-09-01
-- **Status:** accepted, extending
+- **Status:** accepted, amended by
+  [0268](0268-the-structure-opens-into-a-lattice-the-picture-is-inside.md), extending
   [0246](0246-the-fractal-is-a-row-and-not-a-mask.md), on
   [0248](0248-the-structure-travels-and-its-identity-is-the-automators.md) and
   [0251](0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md)

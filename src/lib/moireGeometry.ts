@@ -109,9 +109,9 @@ export function geometryTurns(
   // The two fractal coordinates first among the curved ones, because neither is an angle: both are
   // read off the point itself and not off where it stands round the anchor, so the spoke below is
   // work neither of them spends (`escapeTurns`, `nestedTurns`, src/lib/moireFractal.ts, 0246).
-  if (geometry === "escape") return escapeTurns(u, v, seed.cx, seed.cy, seed.zoom);
+  if (geometry === "escape") return escapeTurns(u, v, seed.cx, seed.cy, seed.zoom, seed.fly);
   if (geometry === "nested") {
-    return nestedTurns(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom);
+    return nestedTurns(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom, seed.fly);
   }
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;

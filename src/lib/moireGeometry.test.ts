@@ -50,8 +50,13 @@ const PITCH = 7;
 const RINGS = gratingRings(PITCH, REF);
 const SPOKES = gratingSpokes(PITCH, REF);
 
-/** The seed the four coordinates that are not fractal carry and none of them reads (0246). */
-const SEED = fractalSeed(fold("a picture standing on one place"), 1);
+/**
+ * The seed the four coordinates that are not fractal carry and none of them reads (0246). Its
+ * flight is deliberately off nought — a stop of the ladder `fractalFlight` answers on — so the
+ * harness holds where the travel is *added* as well as that it is added at all (0268): both
+ * placements the record argues for are byte-identical to their alternatives at a flight of nothing.
+ */
+const SEED = fractalSeed(fold("a picture standing on one place"), 1, 5 / 18);
 
 /** Where a point stands along one row's axis, in cycles, in reference radii from its anchor. */
 const at = (geometry: Parameters<typeof geometryTurns>[0], u: number, v: number): number =>
@@ -196,7 +201,14 @@ const REFERENCE_MIN_RADIUS = 1 / 64;
  * construction and prove nothing (0211, 0246).
  */
 const REFERENCE_NEAR = 2 ** -12;
-const referenceEscape = (u: number, v: number, cx: number, cy: number, zoom: number): number => {
+const referenceEscape = (
+  u: number,
+  v: number,
+  cx: number,
+  cy: number,
+  zoom: number,
+  fly: number,
+): number => {
   const span = 0.35 / Math.max(REFERENCE_NEAR, zoom);
   const px = cx + u * span;
   const py = cy + v * span;
@@ -216,7 +228,9 @@ const referenceEscape = (u: number, v: number, cx: number, cy: number, zoom: num
     zy = 2 * zx * zy + py;
     zx = xx - yy + px;
   }
-  return 30 * (Math.log1p(count) + 0.3 * (0.5 * Math.log(Math.max(trap, REFERENCE_NEAR))));
+  return (
+    30 * (Math.log1p(count) + 0.3 * (0.5 * Math.log(Math.max(trap, REFERENCE_NEAR)))) + 4 * fly
+  );
 };
 
 const referenceNested = (
@@ -227,6 +241,7 @@ const referenceNested = (
   ratio: number,
   turn: number,
   zoom: number,
+  fly: number,
 ): number => {
   const cos = Math.cos(TAU * turn);
   const sin = Math.cos(TAU * (turn - 0.25));
@@ -245,7 +260,8 @@ const referenceNested = (
       break;
     }
   }
-  return 12 * level;
+  const flown = level + fly;
+  return 4 * (flown + 0.12 * Math.cos(TAU * (flown - 0.25)));
 };
 
 const referenceTurns = (
@@ -257,9 +273,9 @@ const referenceTurns = (
   seed: FractalSeed,
 ): number => {
   if (geometry === "linear") return u * rings;
-  if (geometry === "escape") return referenceEscape(u, v, seed.cx, seed.cy, seed.zoom);
+  if (geometry === "escape") return referenceEscape(u, v, seed.cx, seed.cy, seed.zoom, seed.fly);
   if (geometry === "nested") {
-    return referenceNested(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom);
+    return referenceNested(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom, seed.fly);
   }
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;

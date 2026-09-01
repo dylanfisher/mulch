@@ -488,14 +488,16 @@ describe("moireCanvas tiles", () => {
   });
 
   it("flies a fractal row's tile through the structure as the yard sounds, and asks for none between two stops", () => {
-    // 0261: the flight is the second thing that opens the row, on the performance's own clock
-    // rather than on the row's phase — so it lands in the tile's key exactly as the breath and the
-    // age do, and is stepped on the same ramp for the same reason (`fractalFlight`).
+    // 0268: the flight is a travel through the row's own coordinate rather than a second scale on
+    // it, taken on the performance's own clock rather than on the row's phase — so it lands in the
+    // tile's key exactly as the breath and the age do, and is stepped on the same ladder for the
+    // same reason (`fractalFlight`).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
     const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
     // The read that gives the structure its depth, so the rows are drawn at all. Their phases stay
-    // where it leaves them — at the bottom of the breath, where the opening is the flight's alone.
+    // where it leaves them — at the bottom of the breath, where the opening is exactly one and the
+    // only field of the key that moves below is the travel's own.
     standingOn(set, ONE_PLACE);
     const whole = FRACTAL_FLIGHT_SECS;
     const bakedAt = (sounding: number): number =>

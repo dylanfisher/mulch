@@ -417,9 +417,9 @@ describe("the picture's own structure", () => {
     expect(set.windowSecs).toBeGreaterThan(0);
     expect(flying[0]?.period).toBeCloseTo(set.windowSecs, 12);
     expect(flying[1]?.period).toBeCloseTo(set.windowSecs * FRACTAL_BEAT, 12);
-    // And a picture nothing has sounded behind stands where the breath alone draws it, which is
+    // And a picture nothing has sounded behind has flown nowhere through its structure, which is
     // the reading the read fills and the paint spends (`sounding`, `fractalFlight`).
     expect(set.sounding).toBe(0);
-    expect(fractalFlight(set.sounding)).toBe(1);
+    expect(fractalFlight(set.sounding)).toBe(0);
   });
 });

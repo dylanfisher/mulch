@@ -14,15 +14,17 @@
 // fixture nothing else reads. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
 // And over the soft file cap, for the reason the file it tests is (0007): this is one coordinate's
-// whole arithmetic, and the flight cannot be read apart from the breath it is multiplied against
-// any more than a stop can be read apart from the band it is a fraction of.
+// whole arithmetic, and the flight cannot be read apart from the breath it stands beside any more
+// than a stop can be read apart from the band it is a fraction of.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { fold } from "@/lib/copy";
+import { DRIFT_PROFILES, profileBlock } from "@/lib/moireProfiles";
 import {
   escapeTurns,
   FRACTAL_BITE,
+  FRACTAL_EDGE,
   FRACTAL_FLIGHT,
   FRACTAL_FLIGHT_SECS,
   fractalFlight,
@@ -36,6 +38,7 @@ import {
   fractalKeyed,
   fractalKind,
   fractalRest,
+  fractalRule,
   fractalSeed,
   fractalSeedInto,
   fractalShape,
@@ -90,10 +93,10 @@ describe("the escape coordinate", () => {
       const v = -1 + (2 * down) / 200;
       for (let step = 0; step < 199; step += 1) {
         const u = -2 + across * step;
-        const here = escapeTurns(u, v, SEED.cx, SEED.cy, 1);
+        const here = escapeTurns(u, v, SEED.cx, SEED.cy, 1, 0);
         low = Math.min(low, here);
         high = Math.max(high, here);
-        apart.push(Math.abs(escapeTurns(u + across, v, SEED.cx, SEED.cy, 1) - here));
+        apart.push(Math.abs(escapeTurns(u + across, v, SEED.cx, SEED.cy, 1, 0) - here));
       }
     }
     apart.sort((one, two) => one - two);
@@ -118,7 +121,7 @@ describe("the escape coordinate", () => {
     // Stood over the middle of the cardioid, so most of the picture is certainly in the set.
     const inside: number[] = [];
     for (let step = 0; step < 64; step += 1) {
-      inside.push(escapeTurns(-0.4 + (0.8 * step) / 64, 0.05, -0.2, 0, 4));
+      inside.push(escapeTurns(-0.4 + (0.8 * step) / 64, 0.05, -0.2, 0, 4, 0));
     }
     const spread = Math.max(...inside) - Math.min(...inside);
     // A soft gradient across the middle of the picture rather than one unbroken window. It is
@@ -136,18 +139,18 @@ describe("the escape coordinate", () => {
       [8, 8],
       [-8, 8],
     ]) {
-      expect(Number.isFinite(escapeTurns(u ?? 0, v ?? 0, SEED.cx, SEED.cy, 1))).toBe(true);
+      expect(Number.isFinite(escapeTurns(u ?? 0, v ?? 0, SEED.cx, SEED.cy, 1, 0))).toBe(true);
     }
   });
 
   /** A zoom opens the picture into the structure: the same field read across a smaller plane. */
   it("opens into itself as the zoom carries it", () => {
-    const wide = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, 1);
-    const near = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, FRACTAL_OPENING);
+    const wide = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, 1, 0);
+    const near = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, FRACTAL_OPENING, 0);
     expect(near).not.toBeCloseTo(wide, 3);
     // And the point the picture opens about does not move, which is what makes it a zoom.
-    expect(escapeTurns(0, 0, SEED.cx, SEED.cy, FRACTAL_OPENING)).toBeCloseTo(
-      escapeTurns(0, 0, SEED.cx, SEED.cy, 1),
+    expect(escapeTurns(0, 0, SEED.cx, SEED.cy, FRACTAL_OPENING, 0)).toBeCloseTo(
+      escapeTurns(0, 0, SEED.cx, SEED.cy, 1, 0),
       12,
     );
   });
@@ -169,12 +172,12 @@ describe("the nested coordinate", () => {
       const v = -2 + (4 * down) / 200;
       for (let across = 0; across < 200; across += 1) {
         const u = -2 + (4 * across) / 200;
-        const here = nestedTurns(u, v, cx, cy, ratio, turn, 1);
+        const here = nestedTurns(u, v, cx, cy, ratio, turn, 1, 0);
         low = Math.min(low, here);
         high = Math.max(high, here);
         worst = Math.max(
           worst,
-          Math.abs(nestedTurns(u + 4 / 200, v, cx, cy, ratio, turn, 1) - here),
+          Math.abs(nestedTurns(u + 4 / 200, v, cx, cy, ratio, turn, 1, 0) - here),
         );
       }
     }
@@ -189,16 +192,53 @@ describe("the nested coordinate", () => {
   /** And it is a fold and not a winding: the reflection is what copies the levels. */
   it("reads a point and its own reflection alike", () => {
     const { cx, cy, ratio, turn } = SEED;
-    expect(nestedTurns(-0.8, 0.3, cx, cy, ratio, turn, 1)).toBeCloseTo(
-      nestedTurns(0.8, 0.3, cx, cy, ratio, turn, 1),
+    expect(nestedTurns(-0.8, 0.3, cx, cy, ratio, turn, 1, 0)).toBeCloseTo(
+      nestedTurns(0.8, 0.3, cx, cy, ratio, turn, 1, 0),
       12,
     );
   });
 
+  /**
+   * 0268: a level is ruled coarsely enough that the cell is what the eye reads, where 0246 ruled it
+   * at the lattice's own dozen and the cells were filigree inside a weave. What buys 0246's beat
+   * back is the boundary itself, lit — the level's own fringes crowd onto it, so the contour is cut
+   * as a grating at the lattice's pitch and no ink is laid over the picture to draw it.
+   */
+  it("rules a cell coarsely and lights the boundary of it", () => {
+    // Coarser than the dozen 0246 spent, which is what makes the cell rather than the fringe the
+    // visible unit of the structure.
+    expect(FRACTAL_LEVEL_CYCLES).toBeLessThan(12);
+    // One whole level is still exactly that many fringes, wherever it is read: the bend is inside
+    // the level and never in total, which is what the flight's wrap rests on.
+    for (const level of [0, 0.37, 2.5, -1.8]) {
+      expect(fractalRule(level + 1) - fractalRule(level)).toBeCloseTo(FRACTAL_LEVEL_CYCLES, 12);
+    }
+    // It rises everywhere, so no level's edge is a hard ring: past `1 / TAU` the bend doubles back.
+    expect(FRACTAL_EDGE).toBeLessThan(1 / (2 * Math.PI));
+    const step = 1 / 4096;
+    let tightest = Number.POSITIVE_INFINITY;
+    let slackest = 0;
+    let edge = 0;
+    let middle = 0;
+    for (let at = 0; at < 4096; at += 1) {
+      const level = at / 4096;
+      const slope = (fractalRule(level + step) - fractalRule(level)) / step;
+      expect(slope).toBeGreaterThan(0);
+      tightest = Math.min(tightest, slope);
+      slackest = Math.max(slackest, slope);
+      if (at === 0) edge = slope;
+      if (at === 2048) middle = slope;
+    }
+    // And the crowding is on the boundary and not somewhere in the middle of the cell.
+    expect(edge).toBeCloseTo(slackest, 6);
+    expect(middle).toBeCloseTo(tightest, 6);
+    expect(edge / middle).toBeGreaterThan(4);
+  });
+
   /** A ratio at or under one would open the fold by nothing and never escape: it is held off. */
   it("holds its own ratio over one", () => {
-    expect(Number.isFinite(nestedTurns(0.4, 0.2, 0.3, 0.3, 1, 0, 1))).toBe(true);
-    expect(Number.isFinite(nestedTurns(0.4, 0.2, 0.3, 0.3, 0, 0, 1))).toBe(true);
+    expect(Number.isFinite(nestedTurns(0.4, 0.2, 0.3, 0.3, 1, 0, 1, 0))).toBe(true);
+    expect(Number.isFinite(nestedTurns(0.4, 0.2, 0.3, 0.3, 0, 0, 1, 0))).toBe(true);
     expect(FRACTAL_RATIO_BAND[0]).toBeGreaterThan(1);
   });
 });
@@ -271,63 +311,133 @@ describe("the opening", () => {
     for (let at = 0; at < 200; at += 1) stops.add(fractalZoom(at / 200));
     expect(stops.size).toBeGreaterThan(8);
   });
+
+  /**
+   * 0268: the breath is the only scale left on the picture, so its band is the whole depth the
+   * structure is ever seen at — and the rung the eye is asked to swallow does not move with it.
+   * `4 ** (1 / 12)` and `8 ** (1 / 18)` are both `2 ** (1 / 6)`.
+   */
+  it("opens through a wider band on the rung it always had", () => {
+    expect(FRACTAL_OPENING).toBeGreaterThan(4);
+    expect(FRACTAL_OPENING ** (1 / FRACTAL_ZOOM_STEPS)).toBeCloseTo(2 ** (1 / 6), 12);
+  });
+
+  /**
+   * And what a stop of it actually is, in both coordinates: the same structure read across a plane
+   * of another size. That is why a step of the ladder costs the eye nothing — nothing in the
+   * picture is a different structure between two stops, only a nearer or a wider one.
+   */
+  it("reads two of its stops as the same structure scaled", () => {
+    const { cx, cy, ratio, turn } = SEED;
+    const zoom = fractalZoom(0.3);
+    expect(zoom).toBeGreaterThan(1);
+    for (const [u, v] of [
+      [0.4, -0.6],
+      [1.2, 0.9],
+    ]) {
+      expect(nestedTurns(u ?? 0, v ?? 0, cx, cy, ratio, turn, zoom, 0)).toBeCloseTo(
+        nestedTurns((u ?? 0) * zoom, (v ?? 0) * zoom, cx, cy, ratio, turn, 1, 0),
+        9,
+      );
+      expect(escapeTurns(u ?? 0, v ?? 0, cx, cy, zoom, 0)).toBeCloseTo(
+        escapeTurns((u ?? 0) / zoom, (v ?? 0) / zoom, cx, cy, 1, 0),
+        9,
+      );
+    }
+  });
 });
 
 describe("the flight", () => {
+  /** How long the picture takes to cross one whole level of its own structure. */
+  const LEVEL_SECS = FRACTAL_FLIGHT_SECS / FRACTAL_FLIGHT;
+
   /**
-   * 0261: the breath is the row's phase over the picture's window and is the same journey every
-   * time it comes round; the flight is the performance's own sounding, and what it moves is where
-   * that journey is taken from. So the band on the breath is untouched and the picture is
-   * somewhere new at every pass.
+   * 0268: the flight is a travel through the row's own coordinate and no longer a second scale
+   * multiplied into the breath, so it never comes back. One unit of it is one whole level of the
+   * structure, and it climbs that level as the deck sounds.
    */
-  it("carries the picture through its structure on a clock of its own", () => {
-    // A yard that has sounded nothing is exactly the picture the breath alone draws.
-    expect(fractalFlight(0)).toBe(1);
-    expect(fractalFlight(FRACTAL_FLIGHT_SECS / 2)).toBeCloseTo(FRACTAL_FLIGHT, 12);
-    expect(fractalFlight(FRACTAL_FLIGHT_SECS)).toBeCloseTo(1, 12);
-    // And the breath's own band is the band it was: the flight is a second scale and never a
-    // wider opening (`FRACTAL_OPENING`).
-    expect(fractalZoom(0.5)).toBeCloseTo(FRACTAL_OPENING, 12);
+  it("travels a whole level of the structure and never returns", () => {
+    // A yard that has sounded nothing has flown nowhere.
+    expect(fractalFlight(0)).toBe(0);
+    expect(fractalFlight(LEVEL_SECS / 2)).toBeCloseTo(0.5, 12);
+    // Across one level it climbs the whole of it, and every reading is inside its own level.
+    let last = -1;
+    for (let at = 0; at < 60; at += 1) {
+      const now = fractalFlight((LEVEL_SECS * at) / 60);
+      expect(now).toBeGreaterThanOrEqual(last);
+      expect(now).toBeGreaterThanOrEqual(0);
+      expect(now).toBeLessThanOrEqual(1);
+      last = now;
+    }
+    expect(last).toBe(1);
+  });
+
+  /**
+   * And the wrap is exactly invisible, which is the whole of why a travel may dive where a scale
+   * may not (0261): a grating repeats every cycle at every scale, and one level is
+   * `FRACTAL_LEVEL_CYCLES` fringes — a whole number — so the coordinate at the top of a level and
+   * at the bottom of the next are the same coordinate, in both fractal geometries.
+   */
+  it("wraps at a whole number of fringes, in both coordinates", () => {
+    expect(FRACTAL_LEVEL_CYCLES).toBe(Math.round(FRACTAL_LEVEL_CYCLES));
+    const { cx, cy, ratio, turn } = SEED;
+    for (const [u, v] of [
+      [0.3, -0.7],
+      [1.4, 0.2],
+      [-0.9, 1.1],
+    ]) {
+      const nested = (fly: number): number =>
+        nestedTurns(u ?? 0, v ?? 0, cx, cy, ratio, turn, 1, fly);
+      const escape = (fly: number): number => escapeTurns(u ?? 0, v ?? 0, cx, cy, 1, fly);
+      expect(nested(1) - nested(0)).toBeCloseTo(FRACTAL_LEVEL_CYCLES, 9);
+      expect(escape(1) - escape(0)).toBeCloseTo(FRACTAL_LEVEL_CYCLES, 9);
+      // Which is the thing that matters: the tile is the same tile, whatever the profile.
+      for (const profile of DRIFT_PROFILES) {
+        expect(profileBlock(profile, nested(1))).toBeCloseTo(profileBlock(profile, nested(0)), 9);
+        expect(profileBlock(profile, escape(1))).toBeCloseTo(profileBlock(profile, escape(0)), 9);
+      }
+    }
   });
 
   /**
    * Seconds and never a count of the picture's own windows, which is the whole of why it takes no
    * period: a window is recomputed from the longest row in the picture, so a run turnover moves it
    * — and an unbounded sounding divided by a number that moves is many whole turns of jump an hour
-   * into a performance. The flight is one number for the picture at any sounding, whatever the
-   * rows are doing.
+   * into a performance. One level later is the same place in a level, whatever the rows are doing.
    */
   it("is a length of the performance and not a count of the picture's windows", () => {
     for (const secs of [7, 60, 137, 1200, 3600]) {
-      expect(fractalFlight(secs)).toBe(fractalZoom(secs / FRACTAL_FLIGHT_SECS, FRACTAL_FLIGHT));
+      expect(fractalFlight(secs + LEVEL_SECS)).toBe(fractalFlight(secs));
+      expect(fractalFlight(secs)).toBeGreaterThanOrEqual(0);
+      expect(fractalFlight(secs)).toBeLessThanOrEqual(1);
     }
   });
 
   /** Nothing sounded, and a halt, are the same picture: the one the breath alone draws. */
   it("stands still with nothing sounded", () => {
-    expect(fractalFlight(-4)).toBe(1);
-    expect(fractalFlight(0)).toBe(1);
+    expect(fractalFlight(-4)).toBe(0);
+    expect(fractalFlight(0)).toBe(0);
   });
 
   /**
-   * A breath and not a dive, and that is the whole of why it is safe: an endless dive has to wrap,
-   * a wrap is only invisible where the structure repeats, and an escape field repeats at no scale
-   * at all — so it would step one of the two coordinates from deep to wide inside one frame.
+   * And it is stepped onto the ladder the breath is on, because it rides into a fractal row's tile
+   * key: unstepped it would ask for a picture-sized bake at every frame of a whole performance.
    */
-  it("never steps the picture from deep to wide", () => {
-    // One stop of the one ramp both openings are cut on, which is the most it may ever move by.
-    const stop = FRACTAL_FLIGHT ** (1 / FRACTAL_ZOOM_STEPS);
+  it("moves one stop of the picture's own ladder at a time", () => {
+    const stop = 1 / FRACTAL_ZOOM_STEPS;
     let last = fractalFlight(0);
     let moved = 0;
-    for (let at = 1; at <= 2000; at += 1) {
-      const now = fractalFlight((2 * FRACTAL_FLIGHT_SECS * at) / 2000);
-      const step = now > last ? now / last : last / now;
-      expect(step).toBeLessThanOrEqual(stop + 1e-12);
+    for (let at = 1; at <= 4000; at += 1) {
+      const now = fractalFlight((2 * FRACTAL_FLIGHT_SECS * at) / 4000);
+      // Either one rung up, or the wrap — which is the same tile as the rung it wrapped from.
+      const step = now >= last ? now - last : now + 1 - last;
+      expect(step).toBeLessThanOrEqual(stop + 1e-9);
       if (now !== last) moved += 1;
       last = now;
     }
-    // And it does fly: two whole flights climb every stop of the ramp and come back down them.
-    expect(moved).toBe(4 * FRACTAL_ZOOM_STEPS);
+    // And it does fly: two whole flights climb every rung of six whole levels, and wrap once at
+    // the top of each — the wrap being the one move that is not a move, since it is the same tile.
+    expect(moved).toBe(2 * FRACTAL_FLIGHT * (FRACTAL_ZOOM_STEPS + 1));
   });
 });
 
@@ -356,10 +466,10 @@ describe("the travel", () => {
    */
   it("rests exactly where the seed rests", () => {
     const out = fractalRest();
-    fractalSeedInto(out, fractalStopsRest(), 1);
+    fractalSeedInto(out, fractalStopsRest(), 1, 0);
     expect(out).toEqual(fractalRest());
     // And a zoom of nothing is still a zoom of one, wherever the stops are.
-    fractalSeedInto(out, { cx: 1, cy: 0, ratio: 1, turn: 0 }, 0);
+    fractalSeedInto(out, { cx: 1, cy: 0, ratio: 1, turn: 0 }, 0, 0);
     expect(out.zoom).toBe(1);
     expect(out.ratio).toBeCloseTo(FRACTAL_RATIO_BAND[1], 12);
   });
@@ -435,13 +545,13 @@ describe("the travel", () => {
 
   /**
    * And what rides through to a tile's key is what the bake actually reads: an escape row is
-   * `escapeTurns`, which takes three of the five numbers, so its key carries three.
+   * `escapeTurns`, which takes four of the six numbers, so its key carries four.
    */
   it("keys a row by the stops its own coordinate reads and no others", () => {
     const seed = fractalSeed(fold("a run standing somewhere"), 2);
-    expect(fractalKeyed("escape", seed)).toBe(`|${seed.cx}|${seed.cy}|${seed.zoom}`);
+    expect(fractalKeyed("escape", seed)).toBe(`|${seed.cx}|${seed.cy}|${seed.zoom}|${seed.fly}`);
     expect(fractalKeyed("nested", seed)).toBe(
-      `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}`,
+      `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}|${seed.fly}`,
     );
     expect(fractalKeyed("linear", seed)).toBe("");
     // And every coordinate that reads a seed keys on one: a third fractal geometry added to the
