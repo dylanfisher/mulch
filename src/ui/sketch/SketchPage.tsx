@@ -13,7 +13,7 @@
 import type { MouseEvent, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "@/lib/copy";
+import { PLAYER_GROUP_LABELS, PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "@/lib/copy";
 import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -21,6 +21,8 @@ import { SketchCast } from "@/ui/sketch/SketchCast";
 import { SketchChipper } from "@/ui/sketch/SketchChipper";
 import { SketchChips } from "@/ui/sketch/SketchChips";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
+import { SketchPartArrange } from "@/ui/sketch/parts/SketchPartArrange";
+import { SketchPartGround } from "@/ui/sketch/parts/SketchPartGround";
 import { SketchPartWalk } from "@/ui/sketch/parts/SketchPartWalk";
 import { SketchRolls } from "@/ui/sketch/SketchRolls";
 import { SketchScore } from "@/ui/sketch/SketchScore";
@@ -135,6 +137,24 @@ export const SKETCH_PARTS_LIST: readonly SketchEntry[] = [
     trades:
       "the rest of the card. A fold sketch says nothing about what is above or below it, so a bench of them can be picked from and still not add up to a surface.",
     Content: SketchPartWalk,
+  },
+  {
+    id: "part-ground",
+    label: `${PLAYER_GROUP_LABELS.ground}, Two Readings`,
+    thesis:
+      "The source with the beds planted on it and dragged where they go, beside the same beds as a deck of cards the Every dial cuts. Both under one readout naming which is standing.",
+    trades:
+      "the part. These five amounts are the song's and never a part's (0184), so neither picture can say what any one part does with the ground it is handed.",
+    Content: SketchPartGround,
+  },
+  {
+    id: "part-arrange",
+    label: `${PLAYER_GROUP_LABELS.arrange}, Two Readings`,
+    thesis:
+      "Eight amounts and none of them a thing. The ladder makes Grow, Span and Apart a shape a part climbs; the dice tray makes Chance, Keep and Return three hundreds of pips.",
+    trades:
+      "one picture. This is the only fold on the bench that needs two, because what happens and what tends to happen cannot be drawn on the same axes.",
+    Content: SketchPartArrange,
   },
 ];
 

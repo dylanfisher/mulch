@@ -17,11 +17,11 @@ import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { SketchLabel } from "@/ui/sketch/SketchFrame";
 import {
   characterInk,
+  fixtureAt,
   SKETCH_CHARACTER_WEIGHT,
   SKETCH_REACH,
   SKETCH_STANDING,
   SKETCH_WALK,
-  type SketchLanding,
 } from "@/ui/sketch/sketchWalk";
 
 /** What a picture drawn of a walk that never travels would need and cannot have. */
@@ -29,16 +29,8 @@ function landingNever(): never {
   throw new Error("The walk fixture never leaves the top of the loop, so it draws no jump.");
 }
 
-/** One landing of the fixture, or a throw: an index the walk does not hold is a picture drawn of
- *  nothing, and a fixture is hand-written so there is nothing to fall back to. */
-function landingAt(index: number): SketchLanding {
-  const landing = SKETCH_WALK[index];
-  if (landing === undefined) throw new Error(`The walk fixture holds no landing ${index}.`);
-  return landing;
-}
-
 /** The landing the bench is held on, taken once: all three readings light the same one. */
-const STANDING = landingAt(SKETCH_STANDING);
+const STANDING = fixtureAt(SKETCH_WALK, SKETCH_STANDING, "landing");
 
 /** Every picture is drawn in this square so three readings sit at one size in one row. */
 const VIEW = 200;

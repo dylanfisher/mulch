@@ -207,8 +207,9 @@ altitudes at once.
 **The outcome wanted:** the pad's argument is separable from the pad's arithmetic and every corner
 says its name — landed, for the cast, in 0252; the machine the instrument is named after is on the
 bench twice — landed in 0253; the bench is two lists and the walk has its own — landed in 0254,
-which amends 0247's "pick one" to "pick one per fold"; and each of the card's _remaining_ regions
-has its own sketches, so a decision can be taken one fold at a time rather than one card at a time.
+which amends 0247's "pick one" to "pick one per fold"; the ground and the arrangement have benches
+of their own — landed in 0255; and each of the card's _remaining_ regions has its own sketches, so a
+decision can be taken one fold at a time rather than one card at a time.
 
 **Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
 no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
@@ -223,41 +224,17 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
     the numbering restarts per list. Every part below is one more entry in the second array, and
     `SketchPage.test.tsx` mounts off the arrays themselves, so an entry with no section, a section
     with no entry and two entries sharing an id all fail.
-2.  **Every fixture the parts need is hand-written and lives in one file.** `sketchWalk.ts` (148
-    lines) holds `SKETCH_WALK` — now carrying the source `slot` each landing reads — plus
-    `SKETCH_REACH`, `SKETCH_PARTS`, `SKETCH_BEDS`, `SKETCH_STANDING`, `SKETCH_CHARACTER_WEIGHT`,
-    `characterInk` and `SKETCH_CAST`, deterministic so two screenshots of one sketch are the same
-    picture. Everything added below extends that file and nothing invents a second fixture module —
-    a bench where two sketches draw different made-up walks is comparing fixtures rather than
-    surfaces. It has room to grow by half again before the 400-line soft cap.
+2.  **Every fixture the parts need is hand-written and lives in one file.** `sketchWalk.ts` (297
+    lines) holds `SKETCH_WALK` — carrying the source `slot` each landing reads — plus
+    `SKETCH_REACH`, `SKETCH_PARTS`, `SKETCH_BEDS`, `SKETCH_SOURCE`, `SKETCH_SOURCE_BEDS`,
+    `SKETCH_GROUND`, `SKETCH_GROUND_STANDING`, `SKETCH_ARRANGE`, `SKETCH_ARRANGE_ODDS`,
+    `SKETCH_STANDING`, `SKETCH_CHARACTER_WEIGHT`, `characterInk`, `fixtureAt` and `SKETCH_CAST`,
+    deterministic so two screenshots of one sketch are the same picture. Everything added below
+    extends that file and nothing invents a second fixture module — a bench where two sketches draw
+    different made-up walks is comparing fixtures rather than surfaces. It has about 100 lines
+    before the 400-line soft cap, so the step after the next one splits it rather than adding.
 
 ---
-
-## Step 0254 — The ground and the arrangement
-
-`docs/decisions/0255-the-ground-and-the-arrangement-have-their-own-benches.md`.
-
-`src/ui/sketch/parts/SketchPartGround.tsx` — Which Ground, whose five knobs (`bed`, `bedEvery`,
-`bedDistance`, `bedBias`, `bedHome`) are the song's and never a part's (0184), which is itself the
-thing to draw:
-
-- the waveform with planted chips on it (`SKETCH_BEDS`), dragged and resized directly;
-- the ground as a _deck of cards_ one per bed, with `bedEvery` as how often the deck is cut;
-- both under one readout naming which is standing, since "the loop walks the source once, under
-  every part in turn" is the fact a hand keeps losing.
-
-`src/ui/sketch/parts/SketchPartArrange.tsx` — How It Is Arranged, the eight `arrange*` knobs, which
-are the hardest fold on the card because they are all odds and none of them is a thing:
-
-- the ladder — `arrangeGrow`, `arrangeSpan` and `arrangeApart` as a shape a part climbs, so growth is
-  seen rather than set;
-- the dice tray — `arrangeChance`, `arrangeKeep` and `arrangeReturn` as three visible odds with a
-  hundred pips each, which is the one fold where the drawn-score sketches of 0247 explicitly gave up
-  ("a drawn score says what happens, not what tends to happen") and so is the fold most worth a
-  surface of its own.
-
-Fixture: `SKETCH_ARRANGE` in sketchWalk.ts — a hand-written run of what the arrangement did over
-sixteen passes, so the ladder has something to climb and the tray has something to have rolled.
 
 ## Step 0255 — The song builder, and the two folds left
 
@@ -283,24 +260,35 @@ Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a 
 
 ## Tests that must fail first
 
-`src/ui/sketch/SketchPage.test.tsx` (231 lines) no longer hardcodes any list of ids, and reads the
+`src/ui/sketch/SketchPage.test.tsx` (356 lines) no longer hardcodes any list of ids, and reads the
 whole `src/ui/sketch` tree off disk to check it imports nothing from `src/state`, `src/app` or
 `src/audio` — both landed in 0254. What each step after it still owes:
 
 - **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252)
-  and so is the machine's (0253) and the walk's (0254 — "names the distance, the bias and the home
-  inside the roll's own picture"): each case slices the one `renderToStaticMarkup` by the picture's
-  own attribute — `data-blend`, `data-machine`, `data-reading` — and asserts every name inside a
-  `<text>` there, bounded by that picture's own `</svg>` so it cannot pass on its neighbours. Every
+  and so is the machine's (0253), the walk's (0254 — "names the distance, the bias and the home
+  inside the roll's own picture") and the ground's and the arrangement's (0255 — every planted bed
+  in both of the ground's pictures, the five ground amounts on the deck's own marks, the three
+  ladder amounts, and each hundred of pips counted against the label beside it): each case slices
+  the one `renderToStaticMarkup` by the picture's own attribute — `data-blend`, `data-machine`,
+  `data-reading`, `data-ground`, `data-arrange`, through the one `pictureOf` helper — and asserts
+  every name inside a `<text>` there, bounded by that picture's own `</svg>` so it cannot pass on
+  its neighbours. 0255 adds the other half: the **amount** beside the name is pinned too, because a
+  picture naming the card's word and stating something else is the legend the rule exists to stop.
+  Every
   surface added below extends that shape to its own corners; it is what stops a picture shipping
   unlabelled.
 
-Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 229 lines and each further part is one entry
+Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 249 lines and each further part is one entry
 — if a later step crosses 400 the split is the entry lists into `src/ui/sketch/sketchEntries.ts`,
 not prose shaved out of the theses.
 
-`src/ui/sketch/parts/` exists (`SketchPartWalk.tsx`, 378 lines — 22 short of the soft cap, so the
-next part is a file of its own and never an addition to this one): each file needs the `@role`/`@instead` header,
+`src/ui/sketch/sketchGround.ts` holds the drag's own arithmetic with a test beside it, the shape
+`sketchPile.ts` took: a part sketch whose picture is a gesture puts the gesture's numbers where a
+test can reach them, because `renderToStaticMarkup` never drags (0253, 0255).
+
+`src/ui/sketch/parts/` holds `SketchPartWalk.tsx` (370 lines — 30 short of the soft cap),
+`SketchPartGround.tsx` (339) and `SketchPartArrange.tsx` (269), so the next part is a file of its
+own and never an addition to one of these: each file needs the `@role`/`@instead` header,
 and the 0247 `max-lines-per-function` waiver carries to each part sketch for the same stated reason,
 written out at each site rather than referred to.
 

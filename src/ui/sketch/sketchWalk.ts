@@ -140,9 +140,158 @@ export const SKETCH_PARTS = [
   { name: "Chew Again", bars: 8, character: "scatter" },
 ] as const satisfies readonly { name: string; bars: number; character: PlayerCharacter }[];
 
+/**
+ * One entry of a hand-written fixture, or a throw naming what was asked for. Every picture on the
+ * bench indexes a fixture somewhere, and a fixture is written by hand so there is nothing to fall
+ * back to: an index nobody wrote is a picture drawn of nothing, never a nought (principle 5).
+ */
+export function fixtureAt<T>(list: readonly T[], index: number, of: string): T {
+  const one = list[index];
+  if (one === undefined) throw new Error(`The bench fixture holds no ${of} ${index}.`);
+  return one;
+}
+
+/** One planted ground: a name, where it opens and how much of the source it holds. */
+export type SketchBed = { name: string; at: number; span: number };
+
 /** Made-up planted grounds — the chips `Which Ground` keeps, as fractions of the whole source. */
-export const SKETCH_BEDS = [
+export const SKETCH_BEDS: readonly SketchBed[] = [
   { name: "Head", at: 0.04, span: 0.1 },
   { name: "Break", at: 0.31, span: 0.16 },
   { name: "Tail", at: 0.72, span: 0.09 },
 ] as const;
+
+/** How many loop-lengths of source the made-up file holds — how many beds there are to walk over. */
+export const SKETCH_SOURCE_BEDS = 4;
+
+/**
+ * How many of the loop's own sixteenths the made-up file holds end to end — its length said in the
+ * unit the crawl is counted in, so a picture of the source and a picture of its beds are two
+ * readings of one measure rather than two made-up scales (`PLAYER_SLOTS`, src/lib/playerSlots.ts).
+ */
+export const SKETCH_SOURCE_SLOTS = SKETCH_SOURCE_BEDS * PLAYER_SLOTS;
+
+/**
+ * The source the beds are planted on, as a made-up run of loudness across the whole file. Written
+ * by hand for the same reason the walk is: the shape is the argument — a quiet head, a loud break
+ * in the middle, and a tail that decays — and a waveform a hand cannot recognise is a texture.
+ */
+export const SKETCH_SOURCE: readonly number[] = [
+  0.12, 0.28, 0.44, 0.36, 0.52, 0.4, 0.3, 0.46, 0.34, 0.22, 0.18, 0.26, 0.38, 0.5, 0.62, 0.74, 0.88,
+  0.96, 0.82, 0.9, 0.7, 0.86, 0.64, 0.78, 0.58, 0.72, 0.5, 0.6, 0.42, 0.54, 0.36, 0.48, 0.6, 0.44,
+  0.56, 0.4, 0.5, 0.34, 0.42, 0.28, 0.36, 0.24, 0.3, 0.2, 0.24, 0.16, 0.18, 0.1,
+];
+
+/**
+ * The five amounts of `Which Ground`, which are the song's and never a part's (0184) — so there is
+ * one of these and not one per part, which is itself the thing the sketch has to draw. Written out
+ * rather than read off a deck: the bench is wired to nothing (0247).
+ */
+export const SKETCH_GROUND: {
+  bed: number;
+  standing: number;
+  every: number;
+  distance: number;
+  bias: number;
+  home: number;
+} = {
+  /**
+   * Which bed of the sample the song opens on, in the loop's own beds — nought is the loop itself
+   * (`PLAYER_BED_MIN`…`MAX`, src/lib/playerBed.ts) — and it is what a move that comes home comes
+   * home to. Not an index into `SKETCH_BEDS`: those are the grounds a hand planted, which is a
+   * different list from the beds the crawl walks over.
+   */
+  bed: 0,
+  /**
+   * How far the ground has crawled from it, in the loop's own sixteenths. A bed is `PLAYER_SLOTS`
+   * of them, so this stands a bed and a half along — part-way into one, which is the whole of the
+   * crawl and the thing whole beds cannot say.
+   */
+  standing: 24,
+  /** How many passes of the loop go by before the loop moves along the sample. */
+  every: 4,
+  /**
+   * How far one move may travel, **in the loop's own sixteenths and never in whole beds** — the
+   * card's own unit, which `src/lib/playerBed.ts` is emphatic about because it is what lets the
+   * loop crawl out of step with the sample rather than hopping bed to bed.
+   */
+  distance: 24,
+  /** Which side it leans to, −1…1, nought as likely back as on. */
+  bias: 0.4,
+  /** The odds a move comes home to the song's own bed instead of travelling. */
+  home: 0.25,
+};
+
+/**
+ * Where that crawl has got to, said as a bed of the source and how far into it — the split both
+ * ground pictures light and the readout states, so the picture and the sentence cannot disagree
+ * about which bed is standing. Part-way into one is the normal case and the whole of the crawl.
+ */
+export const SKETCH_GROUND_STANDING = {
+  bed: Math.floor(SKETCH_GROUND.standing / PLAYER_SLOTS),
+  into: SKETCH_GROUND.standing % PLAYER_SLOTS,
+};
+
+/** What one pass of the run did to the arrangement: how tall it stood, and what the tray rolled. */
+export type SketchPass = {
+  /** How many parts stood in the arrangement on that pass — the height of the ladder. */
+  parts: number;
+  /** How long the newest part was given, in doublings of the run's own length (`arrangeSpan`). */
+  span: number;
+  /** How unlike its neighbour that part was drawn, nought to one (`arrangeApart`). */
+  apart: number;
+  /**
+   * What became of the arrangement at the end of the pass: held as it was, one part redrawn, let
+   * go for a new one, or let go and come back to the first one it ever drew.
+   */
+  roll: "held" | "redrawn" | "new" | "home";
+};
+
+/**
+ * Sixteen passes of a made-up arrangement, so the ladder has something to climb and the tray
+ * something to have rolled. A part is taken on every second pass and the run starts over from one
+ * part each time it is let go, which is what `arrangeGrow` does (src/lib/copyKnobs.ts) — written
+ * by hand because a picture of odds needs a run short enough to count and long enough to have a
+ * shape, and no seed lands on both.
+ */
+export const SKETCH_ARRANGE: readonly SketchPass[] = [
+  { parts: 1, span: 0, apart: 0.2, roll: "held" },
+  { parts: 1, span: 0, apart: 0.2, roll: "held" },
+  { parts: 2, span: 1, apart: 0.55, roll: "held" },
+  { parts: 2, span: 1, apart: 0.55, roll: "redrawn" },
+  { parts: 3, span: 2, apart: 0.3, roll: "held" },
+  { parts: 3, span: 2, apart: 0.3, roll: "redrawn" },
+  { parts: 4, span: 1, apart: 0.85, roll: "new" },
+  { parts: 1, span: 0, apart: 0.15, roll: "held" },
+  { parts: 1, span: 0, apart: 0.15, roll: "held" },
+  { parts: 2, span: 3, apart: 0.6, roll: "held" },
+  { parts: 2, span: 3, apart: 0.6, roll: "redrawn" },
+  { parts: 3, span: 1, apart: 0.45, roll: "held" },
+  { parts: 3, span: 1, apart: 0.45, roll: "home" },
+  { parts: 1, span: 0, apart: 0.25, roll: "held" },
+  { parts: 1, span: 0, apart: 0.25, roll: "redrawn" },
+  { parts: 2, span: 2, apart: 0.7, roll: "redrawn" },
+];
+
+/**
+ * The three odds the run above was rolled under, read back off it rather than written beside it —
+ * the same rule `SKETCH_REACH` follows, and for the same reason: a tray showing odds the passes do
+ * not obey is a legend rather than a reading of them.
+ *
+ * The keep is the one that is not an odds on the card at all — it is a count of rounds — so it is
+ * restated here as the odds any one pass is the pass that lets go, which is what makes the three
+ * comparable in one tray and is the trade the picture has to say out loud.
+ */
+export const SKETCH_ARRANGE_ODDS = ((): { chance: number; keep: number; return: number } => {
+  const letGo = SKETCH_ARRANGE.filter((pass) => pass.roll === "new" || pass.roll === "home");
+  // Not a nought: a run that never lets go has no share of let-gos that came home, and drawing
+  // that as "never returns" would be a number the passes never rolled (principle 5).
+  if (letGo.length === 0) {
+    throw new Error("The arrangement fixture never lets go, so it has no keep and no return.");
+  }
+  return {
+    chance: SKETCH_ARRANGE.filter((pass) => pass.roll === "redrawn").length / SKETCH_ARRANGE.length,
+    keep: letGo.length / SKETCH_ARRANGE.length,
+    return: letGo.filter((pass) => pass.roll === "home").length / letGo.length,
+  };
+})();
