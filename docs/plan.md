@@ -441,8 +441,8 @@ axis, and a feature that adds eight entries is a feature nobody can shoot.
 
 ## Context
 
-Four things the drift did not do, each of which a listener can hear and the picture cannot say.
-Three are landed and are left here as what the one below is read against:
+Four things the drift did not do, each of which a listener can hear and the picture cannot say. All
+four are landed, and each is left here as what the next reading of the field is read against:
 
 - **Colour arrived and never travelled, and now it travels** (0266, landed). `stepped` rounds hue,
   fringe and disperse onto `DRIFT_STEPS` = 8, which is what keeps the tile's pixel loop off the frame
@@ -470,23 +470,30 @@ Three are landed and are left here as what the one below is read against:
   cut from a dozen to four with the level boundary itself lit by the row's own fringes crowding
   onto it (`fractalRule`), which is what amends 0246 — the boxes came out of the interference
   deliberately, and the contour is cut as a grating rather than laid over the picture.
-- **Scatter's whole claim on the picture is one row's pitch.** `scatter.odds → pitch`
-  (src/audio/effects/scatter.ts:143), geometry `linear`. Six scatter instances are six straight rows
-  at six pitches, which is more weave. Six scatters is the yard at its most broken and the picture
-  is at its most orderly.
+- **Scatter's whole claim on the picture was one row's pitch, and now the odds shatter the field**
+  (0269, landed). `scatter.odds → pitch` (src/audio/effects/scatter.ts:143), geometry `linear`: six
+  scatter instances were six straight rows at six pitches, so the yard at its most broken drew the
+  picture at its most orderly. `rackScatter` is how much of the standing rack is scatter, summed
+  over each instance's own odds by its own gate across one whole scatter to six, and it buys the one
+  thing the picture had never done — a share of every piece of the finished field drawn from
+  somewhere else along it, through the slices the lens already bends the field in, bounded at
+  `SHATTER_CEILING` for the feedback's reason (0250). In whole eighths of the width and never a share
+  of every slice: a tear one pixel deep reads as a smear, and two `destination-out` draws of one band
+  compose as a product rather than as a crossfade — which hazed every window in the picture evenly,
+  worst at exactly the half the ceiling stands at.
 
-**The outcome wanted:** ink travels between its stops instead of cutting to them (landed); a rack
+**The outcome wanted, and reached:** ink travels between its stops instead of cutting to them; a rack
 with a long tail blows the whole field in a direction, smoothly, and the direction moves with what
-else is standing (landed); the structure reads as the picture zooming into its own lattice
-(landed); and a rack of scatters reads as a picture coming apart.
+else is standing; the structure reads as the picture zooming into its own lattice; and a rack of
+scatters reads as a picture coming apart.
 
-**Decided before planning:** four steps in that order, one decision record each, three of them
+**Decided before planning:** four steps in that order, one decision record each, all four
 landed. No list anywhere of which effects are washy — the reading is `settle`, which every entry already
 declares and which a new entry gets for free. The wind and the shatter belong to the field and to no
 row, the way the wash does (0213) and `runStanding` does; neither is a parameter and neither is
 durable (0145, 0128).
 
-## The two things every step turns on
+## The two things every step turned on
 
 1.  **A tile is a bake and a frame is a `fillStyle`.** Everything named here is keyed into either the
     screen tile (src/ui/moireScreen.ts, `build`) or a curved row's (src/ui/driftTiles.ts). A term
@@ -504,41 +511,34 @@ durable (0145, 0128).
     because what it is read off is what the rack is set to (0267). An effect that reaches these
     through `driftFrom` would be a second value for one fact (0030, principle 1).
 
-## Steps
-
-1.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape the tail's took
-    (0267): how much of the yard is scatter, from the standing instances' own odds and gate. What it
-    buys is the one thing the picture has never done — the field read back through itself displaced, so a share of
-    the picture is drawn from somewhere else in the picture. `lens` is the dimension in that
-    neighbourhood and the slices `moireGeometry` already draws the finished field back through are
-    the mechanism; six scatters is where the slices are wide enough to break every straight row in
-    the picture, and one scatter is where nothing is visibly displaced. The share is bounded like the
-    feedback's is (0250) and for the same reason: an unbounded one is a picture of nothing.
-
-## Tests that must fail first
+## Tests that had to fail first
 
 - **src/lib/moireSound.test.ts** — `rackScatter`: silence is not one, `odds` and `gate` are read per
   instance over its own values and never off a default, and it answers inside its stated band at
   every input.
-- **src/ui/moireRowsField.test.ts** — the reading rests on the set beside `wash` and `age`, and is
-  computed once for a whole read rather than per row.
-- **src/ui/moireCanvasTiles.test.ts** — the shatter's displacement is a slice of the field and not a
-  second fill over it, and its share is bounded at the ceiling the record states.
+- **src/ui/moireShatter.test.ts** — the reading rests on the set beside `wash` and `age`, and is
+  computed once for a whole read rather than per row. Its own file rather than the field's, in the
+  shape `moireWind.test.ts` already took: the reading and the rows it rests among are two subjects.
+- **src/ui/moireCanvas.test.ts** — the shatter's displacement is a slice of the field and not a
+  second fill over it, and its share is bounded at the ceiling the record states. Beside the lens's
+  own case, which is the pass it shares, rather than in the tiles file, which is about bakes.
 
 ## Verification
 
 1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
-    it, then `./scripts/check` read whole. Watch each new test fail before the change.
+    it, then `./scripts/check` read whole. Each new test was watched failing before the change.
 2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
     crop, never the whole-canvas view. One question: does a six-scatter yard read as broken rather
-    than as noisy. A yard needs a source loaded before an automator grows anything, so the fixture
-    is a `deck.load` and a loop before the `effect.add` — driven without one the strip draws
-    nothing, and the shot is byte-identical whatever the change was (0268).
+    than as noisy. It does, and only at the crop: the strip's swing _falls_ under a shatter, and
+    read alone that number would have accepted the fine tear the crop refused. A yard needs a source
+    loaded before an automator grows anything, so the fixture is a `deck.load` and a loop before the
+    `effect.add` — driven without one the strip draws nothing, and the shot is byte-identical
+    whatever the change was (0268).
 3.  `./scripts/profile` at the end of the feature and again inside the shatter's own gate, against
-    the ~10.4ms frame p95 band — the shatter spends a read of the field per frame, which is the one
-    that can cost. The wind spent no bake at all: its drift is a term on the transform and nothing
-    in the tile's key (0267).
-4.  A decision record per step, no longer than the decision is. Next free today is 0269.
+    the ~10.4ms frame p95 band: 10.4ms both times, and the profiler samples an idle page, so what it
+    prices is the slice loop's presence and never a scattering yard. The wind spent no bake at all:
+    its drift is a term on the transform and nothing in the tile's key (0267).
+4.  A decision record per step, no longer than the decision is. Next free today is 0270.
 
 ## Refused
 

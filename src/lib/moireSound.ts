@@ -356,6 +356,56 @@ export function rackTail(rack: Iterable<RackHeard>): number {
 }
 
 /**
+ * As much of one standing rack entry as the field's own shatter reads: how crowded its windows are
+ * and how much of the signal they take at all — scatter's own Odds and its Gate, which is the same
+ * `presence` the tail above weighs an entry by (`effectHeard`, src/audio/params.ts). Structural
+ * rather than the rack's own entry for `RackHeard`'s reason: lib may import nothing of the tiers
+ * above it (docs/map.md), and this is the whole of what the reading needs.
+ */
+export type RackShatter = { readonly chance: number; readonly presence: number };
+
+/**
+ * The band a rack's shatter is read across: one whole scatter to six of them. **One is nought and
+ * not a little**, which is the reading saying what the picture says — a single instance replacing
+ * everything it hears is one row's pitch and displaces nothing visible in a field of fourteen rows.
+ * Six is the yard at its most broken, where the slices are wide enough to break every straight row
+ * there is.
+ *
+ * Linear, where the tail's band is logarithmic, and for the reason that one is: a tail is a length
+ * and what one length is against another is a ratio, where this is a count of how much of the yard
+ * is doing the one thing — a fourth instance adds exactly what the third did.
+ */
+const RACK_SHATTER_ALONE = 1;
+export const RACK_SHATTER_BROKEN = 6;
+export const RACK_SHATTER_BAND: readonly [number, number] = [
+  RACK_SHATTER_ALONE,
+  RACK_SHATTER_BROKEN,
+];
+
+/**
+ * How much of the standing yard is scatter, on that band: nought where nothing is scattering and
+ * one where the whole rack is. **The sum and not the longest**, which is the opposite of the tail
+ * above and is the whole difference between the two readings — stages that ring run at once and are
+ * settled when the longest of them is, where stages that chop each chop what the one before it
+ * already chopped, so a second instance is a picture broken twice.
+ *
+ * Each entry weighs itself by its own two declared values and never by a default: how crowded its
+ * windows are, times how much of the signal they take at all. A rack with nothing scattering in it
+ * reads nought, which is the picture drawn before there was a scatter in it — the answer and not a
+ * fallback, exactly as every reading above answers silence (0145). And a value that is not a number
+ * is not a share of anything: it weighs nothing, which is what `rackTail` does with a presence it
+ * cannot read (principle 5).
+ */
+export function rackScatter(rack: Iterable<RackShatter>): number {
+  let share = 0;
+  for (const { chance, presence } of rack) {
+    if (!Number.isFinite(chance) || !Number.isFinite(presence)) continue;
+    share += clamp(chance, 0, 1) * clamp(presence, 0, 1);
+  }
+  return normalize(share, ...RACK_SHATTER_BAND);
+}
+
+/**
  * How much of the way to its own ceiling a fully washed field carries a dimension: half, so a
  * washed yard blends rather than flattens — the rows still separate at their own settings, and the
  * picture arrives at a lattice nothing in it asked for rather than at a wall. The same share for

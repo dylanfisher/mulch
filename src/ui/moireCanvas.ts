@@ -18,7 +18,7 @@
  *   picture's pixels, which runs on a rebuild and never on a frame (0142), and which this file asks
  *   the tile shop for rather than taking where it stands (0144).
  * @instead The screen itself — its lattice, its three channels and the motions its parameters own
- *   → src/ui/moireScreen.ts, this file's only reach outside itself while painting. What a row is,
+ *   → src/ui/moireScreen.ts. What a row is,
  *   the depth and bend one turns into → src/lib/moire.ts, the angle and spacing it is drawn at →
  *   src/lib/moireGrating.ts, and
  *   the axis it is cut along, the sweep, the anchor and the lens → src/lib/moireGeometry.ts — both
@@ -28,7 +28,9 @@
  *   curved rows' tiles, when each one is baked and what is drawn until it exists →
  *   src/ui/driftTiles.ts. The two fractal coordinates one of those tiles may be cut along, and the
  *   seed a run of effects an automator is growing folds into → src/lib/moireFractal.ts. Peaks →
- *   src/ui/peakCanvas.ts, which is this file's sibling and not its source.
+ *   src/ui/peakCanvas.ts, which is this file's sibling and not its source. Taking the finished field
+ *   back out of the screen, whole or through the slices a lens bends and a shatter breaks it in →
+ *   src/ui/moireCanvasField.ts, which this splits the painting's last pass into.
  */
 // Past the soft cap by the swept rows' tiles, which are a picture wide and are cut with the same
 // pitch, angle, phase and depth the straight path already holds: lifting them out would put half of
@@ -87,8 +89,6 @@ import {
   geometryZoom,
   gratingRings,
   gratingSpokes,
-  LENS_SLICES,
-  lensSlide,
   steppedRings,
   type DriftPlace,
 } from "@/lib/moireGeometry";
@@ -100,6 +100,7 @@ import {
   startPainting,
   type DriftOrder,
 } from "@/ui/driftTiles";
+import { cutField } from "@/ui/moireCanvasField";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
 // oxlint-enable import/max-dependencies
 
@@ -623,6 +624,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * of the screen's grid — the field's again, and travelled there by the same read (`windTravelInto`,
  * src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is blown nowhere, which is the
  * picture drawn before there was a tail in it.
+ *
+ * And `shatter`, how much of that same rack is scatter (`rackShatter`, src/ui/moireShatter.ts): the
+ * share of the finished field that is drawn back through itself displaced, bounded where it is spent
+ * (`shatterShare`, src/lib/moireGeometry.ts). A picture with nothing scattering behind it is drawn
+ * from itself alone, which is the picture drawn before there was a scatter in it.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -638,6 +644,7 @@ export function paintMoire(
   sounding: number,
   tint: Readonly<ScreenInk>,
   wind: number,
+  shatter: number,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -678,15 +685,12 @@ export function paintMoire(
   inkThrough(canvas, context, rows, color, tint, wind);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
-  cutField(context, field, rows);
+  cutField(context, field, rows, shatter);
   context.globalCompositeOperation = "source-over";
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).
   endPainting();
 }
-
-/** How far one row asks the finished field to be bent, read off the row that asks it loudest. */
-const lensOf = (row: MoireRow): number => row.lens;
 
 /** And how much of the frame before this one it asks to have laid back into it. */
 const feedbackOf = (row: MoireRow): number => row.feedback;
@@ -758,37 +762,4 @@ function feedFrame(
   kept.clearRect(0, 0, width, height);
   kept.drawImage(field, 0, 0);
   lasts.set(canvas, { held: last, turns });
-}
-
-/**
- * Take the rows' product back out of the screen — in one go, or, where a row asks for a lens,
- * through slices of it slid one against the next on that row's own phase. The field is already
- * built when this runs, so a lens costs `LENS_SLICES` draws of what is already drawn and no second
- * pass over any row: it bends the picture whole rather than bending every grating in it.
- */
-function cutField(
-  context: CanvasRenderingContext2D,
-  field: HTMLCanvasElement,
-  rows: readonly MoireRow[],
-): void {
-  const { height, width } = field;
-  const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);
-  if (bold === null || bold.lens <= 0) {
-    context.drawImage(field, 0, 0);
-    return;
-  }
-  const turns = turnsOf(bold);
-  for (let slice = 0; slice < LENS_SLICES; slice++) {
-    const top = Math.floor((slice * height) / LENS_SLICES);
-    const deep = Math.floor(((slice + 1) * height) / LENS_SLICES) - top;
-    if (deep <= 0) continue;
-    const slid = lensSlide(bold.lens, turns, slice, LENS_SLICES) * width;
-    context.drawImage(field, 0, top, width, deep, slid, top, width, deep);
-    // The same slice again a picture over, so the column a slide left behind is cut by the far
-    // edge of the field rather than left standing as a bar of uncut screen down the picture.
-    if (slid !== 0) {
-      const over = slid - Math.sign(slid) * width;
-      context.drawImage(field, 0, top, width, deep, over, top, width, deep);
-    }
-  }
 }

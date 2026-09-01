@@ -19,7 +19,7 @@ import {
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
-import { arrivedInk } from "@/ui/moireCanvasPainted";
+import { arrivedInk, PRODUCT } from "@/ui/moireCanvasPainted";
 import {
   bandKeep,
   bandTurns,
@@ -183,7 +183,7 @@ function paintedOn(
     createPattern: recorder,
     // The product, cut out of the screen in one go: what it holds is the picture and is asserted
     // in `moireCanvas.test.ts`; here it only has to happen.
-    drawImage: () => inks.push("the rows' own product"),
+    drawImage: () => inks.push(PRODUCT),
     fillRect(): void {
       inks.push(this.fillStyle);
     },
@@ -198,7 +198,21 @@ function paintedOn(
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, color, 0, 0, fractalStopsRest(), 0, ink ?? arrivedInk(rows), wind);
+  // Nothing scattering behind it: what a shatter does to the field is cut in `moireCanvas.test.ts`
+  // and nothing here is about it (0269).
+  paintMoire(
+    canvas,
+    rows,
+    20,
+    color,
+    0,
+    0,
+    fractalStopsRest(),
+    0,
+    ink ?? arrivedInk(rows),
+    wind,
+    0,
+  );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;
@@ -377,7 +391,7 @@ describe("moireScreen", () => {
     // The screen goes down once, under everything, and the rows' whole product is taken back out
     // of it in one stroke — so the screen is what the picture is *made of* rather than a wash over
     // it, and it is laid down exactly once however many rows there are.
-    expect(inks).toEqual([screen, "the rows' own product"]);
+    expect(inks).toEqual([screen, PRODUCT]);
     expect(moves[0]?.f).toBeCloseTo(bandTurns(rows) * (tile?.height ?? 0), 10);
   });
 

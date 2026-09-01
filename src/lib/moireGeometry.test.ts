@@ -39,6 +39,10 @@ import {
   LENS_SLICES,
   LENS_SPAN,
   lensSlide,
+  SHATTER_BANDS,
+  SHATTER_CEILING,
+  shatterPieces,
+  shatterSlide,
   steppedRings,
 } from "@/lib/moireGeometry";
 
@@ -183,6 +187,35 @@ describe("moireGeometry", () => {
     // A row that asks for nothing bends nothing, at every slice and every phase.
     for (const slice of [0, 7, 63])
       expect(lensSlide(0, 0.4, slice, LENS_SLICES)).toBeCloseTo(0, 12);
+  });
+
+  it("breaks whole pieces of the field off the share, and never more than the ceiling", () => {
+    // The share is how much of the picture is drawn from somewhere else in it, in eighths: a
+    // reading too small to break a whole piece leaves the picture exactly as it was.
+    expect(shatterPieces(0)).toBe(0);
+    expect(shatterPieces(0.1)).toBe(0);
+    expect(shatterPieces(1)).toBe(SHATTER_BANDS * SHATTER_CEILING);
+    // Never past the ceiling and never under nothing, either side of the reading's own band — the
+    // bound is where the share is spent, and a picture drawn entirely from somewhere else is a
+    // picture of nothing (0250). A reading that is not a number never arrives: `rackScatter` weighs
+    // one out of the sum and normalises what is left (src/lib/moireSound.ts).
+    for (const amount of [-1, 2, Number.POSITIVE_INFINITY]) {
+      expect(shatterPieces(amount)).toBeLessThanOrEqual(SHATTER_BANDS * SHATTER_CEILING);
+      expect(shatterPieces(amount)).toBeGreaterThanOrEqual(0);
+    }
+    // Every broken piece is drawn from a different eighth of the width and no two from the same,
+    // which is what the walk being coprime with the pieces buys; the rest stand where they are.
+    const walked = Array.from({ length: SHATTER_BANDS }, (_each, piece) =>
+      shatterSlide(1, (piece * LENS_SLICES) / SHATTER_BANDS, LENS_SLICES),
+    );
+    const broken = walked.filter((slid) => slid !== 0);
+    expect(broken).toHaveLength(SHATTER_BANDS * SHATTER_CEILING);
+    expect(new Set(broken).size).toBe(broken.length);
+    expect(Math.max(...broken)).toBeLessThan(1);
+    // The slices inside one piece break together — a tear at every slice reads as a smear — and a
+    // count of one piece is a picture whose every slice is the same one.
+    expect(shatterSlide(1, 0, LENS_SLICES)).toBe(shatterSlide(1, 1, LENS_SLICES));
+    expect(shatterSlide(1, 0, 1)).toBe(0);
   });
 });
 

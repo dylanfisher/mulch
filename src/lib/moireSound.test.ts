@@ -18,6 +18,8 @@ import {
   heardBite,
   heardLevel,
   heardBeat,
+  rackScatter,
+  RACK_SHATTER_BROKEN,
   rackTail,
   RACK_TAIL_BAND,
   RACK_TAIL_LONGEST_SECS,
@@ -192,3 +194,62 @@ describe("how long the standing rack takes to fall silent", () => {
     expect(rackTail([{ settle: 600, presence: Number.NaN }])).toBe(0);
   });
 });
+
+/**
+ * And the reading of the same rack the field's own shatter rests on: six scatters is the yard at
+ * its most broken, and the picture it used to draw was six straight rows at six pitches (0269).
+ */
+describe("how much of the standing rack is scatter", () => {
+  it("reads nothing where nothing is scattering, and one where the whole rack is", () => {
+    // Nothing standing is nothing: the picture drawn before there was a scatter in it, and the
+    // answer rather than a fallback (0145). And one whole scatter is that same picture — its claim
+    // on the field is one row's pitch, which displaces nothing in a field of fourteen rows.
+    expect(rackScatter([])).toBe(0);
+    expect(rackScatter(scattering(1))).toBe(0);
+    // Six of them is the whole band, and nothing past it: a rack of a dozen is as broken as a
+    // picture gets rather than a picture broken twice as far.
+    expect(rackScatter(scattering(RACK_SHATTER_BROKEN))).toBe(1);
+    expect(rackScatter(scattering(2 * RACK_SHATTER_BROKEN))).toBe(1);
+    // Between the two ends it rises evenly, a fourth instance adding exactly what the third did —
+    // which is what the band being linear says, where the tail's is a ratio of two lengths.
+    const steps = Array.from({ length: RACK_SHATTER_BROKEN }, (_each, at) =>
+      rackScatter(scattering(at + 1)),
+    );
+    const [alone = 0, two = 0, three = 0, four = 0] = steps;
+    expect(alone).toBe(0);
+    expect(two).toBeCloseTo(0.2, 9);
+    expect(three - two).toBeCloseTo(four - three, 9);
+  });
+
+  it("sums what each instance is set to, and weighs it by both of its own values", () => {
+    // The sum and never the longest, which is the whole difference from the tail above: stages that
+    // chop each chop what the one before it already chopped.
+    const two = rackScatter(scattering(2));
+    expect(two).toBeGreaterThan(rackScatter(scattering(1)));
+    // Each entry weighs itself by its own two declared values — how crowded its windows are, and
+    // how much of the signal they take at all — so four turned halfway down is a pair wholly in.
+    expect(rackScatter(scattering(4, { chance: 0.5 }))).toBe(two);
+    expect(rackScatter(scattering(4, { presence: 0.5 }))).toBe(two);
+    // And an instance at either of them turned off is not scattering at all, however the other
+    // stands: a gate of nothing writes its input straight back out (0202).
+    const three = rackScatter(scattering(3));
+    expect(rackScatter([...scattering(3), { chance: 0, presence: 1 }])).toBe(three);
+    expect(rackScatter([...scattering(3), { chance: 1, presence: 0 }])).toBe(three);
+    // Every answer is inside the stated band at every input, and a value that is not a number is
+    // not a share of anything: it weighs nothing, exactly as an unreadable presence does above.
+    for (const chance of [-1, 0.5, 2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const share = rackScatter([{ chance, presence: 1 }, ...scattering(3)]);
+      expect(share).toBeGreaterThanOrEqual(0);
+      expect(share).toBeLessThanOrEqual(1);
+    }
+    expect(rackScatter([{ chance: Number.NaN, presence: 1 }, ...scattering(3)])).toBe(three);
+    expect(rackScatter([{ chance: 1, presence: Number.NaN }, ...scattering(3)])).toBe(three);
+  });
+});
+
+/** A rack of `standing` scatters, wholly in unless a case turns one of their two values down. */
+const scattering = (
+  standing: number,
+  over: Partial<{ chance: number; presence: number }> = {},
+): { chance: number; presence: number }[] =>
+  Array.from({ length: standing }, () => ({ chance: 1, presence: 1, ...over }));

@@ -32,7 +32,7 @@ import {
   profileBlock,
   type DriftProfile,
 } from "@/lib/moireProfiles";
-import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
+import { LENS_SLICES, LENS_SPAN, SHATTER_BANDS, SHATTER_CEILING } from "@/lib/moireGeometry";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -47,7 +47,7 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
-import { painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -232,6 +232,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */
+const fills = (painted: Painted): string[] =>
+  painted.laid.filter((each) => each.ink !== PRODUCT).map((each) => each.over);
+
 // One flat list of the painter's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("moireCanvas", () => {
@@ -253,7 +257,7 @@ describe("moireCanvas", () => {
     // they agree, which is what a stack of gratings does to light.
     expect(laid).toHaveLength(2);
     expect(laid[0]?.over).toBe("source-over");
-    expect(laid[1]).toEqual({ ink: "the rows' own product", over: "destination-out" });
+    expect(laid[1]).toEqual({ ink: PRODUCT, over: "destination-out" });
     expect(left).toBe("source-over");
   });
 
@@ -668,6 +672,59 @@ describe("moireCanvas", () => {
       },
     });
     expect(painted.surfaces[0]?.drew).toHaveLength(1);
+  });
+
+  // P269: the one thing the picture had never done — the field read back through itself displaced,
+  // so a share of it is drawn from somewhere else in the picture (0269).
+  it("draws a share of the picture from elsewhere in it, and never past the ceiling", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    expect(plain.slices).toEqual([]);
+    vi.stubGlobal("devicePixelRatio", 2);
+    // A scattering rack with no row asking for a lens: the unbroken pieces stand where they were.
+    const broken = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 1 });
+    const bands = new Map<number, typeof broken.slices>();
+    for (const slice of broken.slices) {
+      bands.set(slice.top, [...(bands.get(slice.top) ?? []), slice]);
+    }
+    expect(bands.size).toBe(LENS_SLICES);
+    // It is a slice of the field and never a second fill over it: a shattered picture lays exactly
+    // the ink an unshattered one does, in the same two passes — and every band is cut once wherever
+    // it lands, at the one alpha the painting cuts at, two cuts of one band being a product that
+    // hazes every window in the picture evenly.
+    expect(fills(broken)).toEqual(fills(plain));
+    for (const band of bands.values()) {
+      expect(new Set(band.map((cut) => cut.alpha))).toEqual(new Set([1]));
+      expect(new Set(band.map((cut) => cut.top)).size).toBe(1);
+    }
+    // The share is bounded at the ceiling the record states: half the picture in eighths is four
+    // pieces of eight drawn from elsewhere, whatever the reading asks for.
+    const displaced = [...bands.values()].map((band) => band[0]?.slid ?? 0);
+    const pieces = new Set(displaced.filter((slid) => slid !== 0));
+    expect(pieces.size).toBe(SHATTER_BANDS * SHATTER_CEILING);
+    expect([...pieces].every((slid) => slid > 0 && slid < 128)).toBe(true);
+    // Each piece is deep enough to see a straight row inside, and the broken ones are spread across
+    // the picture rather than taken off one end of it.
+    const eighth = LENS_SLICES / SHATTER_BANDS;
+    expect(new Set(displaced.slice(0, eighth)).size).toBe(1);
+    const halves = [0, SHATTER_BANDS / 2].map(
+      (from) =>
+        Array.from(
+          { length: SHATTER_BANDS / 2 },
+          (_each, piece) => displaced[(from + piece) * eighth] ?? 0,
+        ).filter((slid) => slid !== 0).length,
+    );
+    expect(halves).toEqual([2, 2]);
+    // Half the reading is half of that: a yard turning up its scatters breaks further, in pieces.
+    const half = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.5 });
+    const halved = new Set(
+      half.slices.filter((cut) => cut.slid > 0 && cut.slid < 128).map((cut) => cut.slid),
+    );
+    expect(halved.size).toBe((SHATTER_BANDS * SHATTER_CEILING) / 2);
+    // And a reading too small to break a whole piece leaves the picture exactly as it was.
+    expect(paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.1 }).slices).toEqual(
+      [],
+    );
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

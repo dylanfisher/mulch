@@ -326,6 +326,7 @@ function useMoirePicture(
         set.sounding,
         set.ink,
         set.wind.drift,
+        set.shatter,
       );
     },
     [refill],

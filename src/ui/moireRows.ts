@@ -34,6 +34,7 @@ import { effectById, isEffectId, type EffectId } from "@/audio/effects/registry"
 import { grownReach, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import { rackShatter } from "@/ui/moireShatter";
 import { rackWind, windRest } from "@/ui/moireWind";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
@@ -408,6 +409,11 @@ export function moireRows(
   // (`rackWind`, src/ui/moireWind.ts). Where the wind has actually blown to is the read's, and it
   // is carried onto whatever set replaces this one, exactly as the ink is (`carryWind`).
   const blowing = rackWind(effects);
+  // And how much of that same rack is scatter, which is the other thing it does to the whole field:
+  // read here for the same reason and off the same standing population, in a pass of its own —
+  // where the wind's two numbers are two readings of one tail, this is a reading of a different
+  // fact, and folding it into that pass would be one loop answering two questions (`rackShatter`,
+  // src/ui/moireShatter.ts).
   return {
     rows,
     reads,
@@ -420,6 +426,7 @@ export function moireRows(
     tail: blowing.tail,
     veering: blowing.veering,
     wind: windRest(),
+    shatter: rackShatter(effects),
     ...macro,
   };
 }

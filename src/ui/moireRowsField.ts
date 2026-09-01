@@ -214,6 +214,15 @@ export type MoireRowSet = {
    */
   veering: number;
   /**
+   * And how much of that same standing rack is scatter, on the band that reading is stated across
+   * (`rackShatter`, src/ui/moireShatter.ts) — the eighth thing here that belongs to the field rather
+   * than to a row, and the second of them that is not a per-frame read at all. What it buys is the
+   * field drawn back through itself displaced, so a share of the picture comes from somewhere else
+   * in the picture; a fact about what the rack is *set to*, filled once when the set is built, and
+   * bounded where it is spent rather than here (`shatterShare`, src/lib/moireGeometry.ts).
+   */
+  shatter: number;
+  /**
    * And where that wind has actually blown the picture to, and which way it is blowing this frame —
    * the third accumulated thing in the picture beside the ground and the ink, travelled by the read
    * and carried onto whatever set replaces this one (`windTravelInto`, `carryWind`). Per picture and
@@ -337,6 +346,7 @@ export function macroInto(
   | "tail"
   | "veering"
   | "wind"
+  | "shatter"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);

@@ -33,6 +33,13 @@ export function arrivedInk(rows: readonly MoireRow[], wash = 0, age = 0): Screen
  */
 export type StubGlobal = (name: string, value: unknown) => void;
 
+/**
+ * What the recorder files the rows' own finished field under, wherever a painting draws it back out
+ * of the screen — the one marker four test files match on, so a case asserting what was laid cannot
+ * be reading a string the recorder stopped writing.
+ */
+export const PRODUCT = "the rows' own product";
+
 /** The window every painting a case here is drawn across, in seconds. */
 export const WINDOW = 20;
 
@@ -94,6 +101,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // screen's grid: nowhere unless a case says otherwise, which is the picture a dry rack draws
       // (`windTravelInto`, src/ui/moireWind.ts, 0267).
       wind = 0,
+      // And how much of the rack standing behind it is scatter, which is the share of the field
+      // drawn back through itself displaced: nothing unless a case says otherwise, which is the
+      // picture drawn before there was a scatter in it (`rackShatter`, src/ui/moireShatter.ts).
+      shatter = 0,
     }: {
       frames?: number;
       advance?: number;
@@ -104,6 +115,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       sounding?: number;
       tint?: ScreenInk;
       wind?: number;
+      shatter?: number;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -170,7 +182,10 @@ export function painterOn(stubGlobal: StubGlobal) {
     // What went onto the canvas itself: the screen, and then the product taken back out of it —
     // whole, or in the slices a lens bends it through.
     const laid: { ink: unknown; over: string }[] = [];
-    const slices: { top: number; deep: number; slid: number }[] = [];
+    // What each band of the finished field was cut with: where it was taken from, how deep, how far
+    // it was slid and at what share — the last being what says a shattered slice replaced its own
+    // share of the band rather than being laid over it (0269).
+    const slices: { top: number; deep: number; slid: number; alpha: number }[] = [];
     const context = {
       fillStyle: "" as unknown,
       globalAlpha: 1,
@@ -187,9 +202,9 @@ export function painterOn(stubGlobal: StubGlobal) {
         deep?: number,
         slid?: number,
       ): void {
-        laid.push({ ink: "the rows' own product", over: this.globalCompositeOperation });
+        laid.push({ ink: PRODUCT, over: this.globalCompositeOperation });
         if (top !== undefined && deep !== undefined && slid !== undefined) {
-          slices.push({ top, deep, slid });
+          slices.push({ top, deep, slid, alpha: this.globalAlpha });
         }
       },
       fillRect(): void {
@@ -222,6 +237,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         sounding,
         tint,
         wind,
+        shatter,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.
