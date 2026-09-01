@@ -1,7 +1,7 @@
 /**
  * @role The frame every sketch on the bench sits in — its number, its name, the one sentence it
  *   argues, what it gives up to argue it, and the stage the sketch itself is drawn on.
- * @instead The bench's own layout and the two lists of what is on it → src/ui/sketch/SketchPage.tsx.
+ * @instead The bench's own layout and the list of what is on it → src/ui/sketch/SketchPage.tsx.
  */
 import type { ReactNode } from "react";
 
@@ -48,21 +48,25 @@ export function SketchFrame({
 }
 
 /**
- * The box a part sketch draws one picture in. Pinned rather than `w-full`, and one string rather
- * than five: at `h-40 w-80` a 320-by-160 viewBox is drawn a unit to the pixel, so a picture a hand
- * drags across reads a pointer's place in the element as its place in the picture. A `w-full` box
- * letterboxes the drawing inside itself and a drag then lags the pointer by the ratio between the
- * two — which is what the chipper's own fixed box has always avoided.
+ * The box a sketch draws one picture in. Pinned rather than `w-full`, and one string rather than
+ * five: at `h-40 w-120` a 480-by-160 viewBox is drawn a unit to the pixel, so a picture a hand
+ * works reads a pointer's place in the element as its place in the picture. A `w-full` box
+ * letterboxes the drawing inside itself and a gesture then lags the pointer by the ratio between
+ * the two.
+ *
+ * Widened from 320 by the shot that proved 0252's own trap: at 320 a readout naming its corner and
+ * stating the amount beside it ran off the right-hand edge, and a clipped label reads as a smaller
+ * number — `Every 4 sequences` drawn as `Every 4 sequence` — which is legible and wrong.
  */
-export const SKETCH_PICTURE = "h-40 w-80 rounded bg-muted text-muted-foreground";
+export const SKETCH_PICTURE = "h-40 w-120 rounded bg-muted text-muted-foreground";
 
-/** That box said as a viewBox, which is the half of the pairing a picture writes: `h-40 w-80` is
- *  160 by 320, and the two have to agree for a unit to be a pixel. Declared here beside the class
- *  rather than in each part sketch, because a class changed on one side and a viewBox left on the
- *  other is a drag that lags the pointer and nothing that says so (principle 1). */
-export const SKETCH_VIEW = { wide: 320, high: 160 };
+/** That box said as a viewBox, which is the half of the pairing a picture writes: `h-40 w-120` is
+ *  160 by 480, and the two have to agree for a unit to be a pixel. Declared here beside the class
+ *  rather than in each sketch, because a class changed on one side and a viewBox left on the other
+ *  is a picture that lags the pointer and nothing that says so (principle 1). */
+export const SKETCH_VIEW = { wide: 480, high: 160 };
 
-/** The eyebrow a sketch labels one of its own regions with, so six sketches label alike. */
+/** The eyebrow a sketch labels one of its own regions with, so eight sketches label alike. */
 export function SketchLabel({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("type-eyebrow text-muted-foreground", className)}>{children}</div>;
 }

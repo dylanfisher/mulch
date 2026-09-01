@@ -275,7 +275,13 @@ with a test beside each, and `SKETCH_VIEW` (SketchFrame.tsx) is the box every pa
 puts the gesture's numbers where a test can reach them, because `renderToStaticMarkup` never drags
 (0253, 0255, 0256).
 
-`src/ui/sketch/parts/` holds `SketchPartWalk.tsx` (370 lines — 30 short of the soft cap),
+**Cleared by the block below**, which deleted all thirteen entries and their files: the paragraph
+that follows is what the parts bench was, and `SketchParts.test.tsx`, `sketchPile.ts`,
+`sketchSongs.ts` and `src/ui/sketch/parts/` are in git rather than in `src/`. The rule it states —
+a further sketch is a file of its own with its own `@role`/`@instead` header and its own written-out
+waiver — is what carried into `src/ui/sketch/ground/`.
+
+`src/ui/sketch/parts/` held `SketchPartWalk.tsx` (370 lines — 30 short of the soft cap),
 `SketchPartGround.tsx` (339), `SketchPartArrange.tsx` (269), `SketchPartSongs.tsx` (321) and
 `SketchPartSound.tsx` (279), so any further part is a file of its own and never an addition to one of
 these: each file needs the `@role`/`@instead` header, and the 0247 `max-lines-per-function` waiver
@@ -569,51 +575,48 @@ They have been drawn, read and decided against or absorbed; what is left on the 
 finished arguments, and a bench nobody clears stops being a bench. Two questions are open and neither
 has a drawing anywhere:
 
-- **When the ground moves.** `bedEvery` is a period and `bedPer` is what it is counted in — jumps,
-  parts, or whole rounds of the song (src/lib/playerBed.ts, 0192). The unit a hand actually reasons
-  in is missing from all three: _every N times the walk finishes its sequence_. That is a fourth
-  clock, and whether it is worth being one is exactly what a bench decides. The fold's own picture is
-  a strip a hand drags (src/ui/PlayerGround.tsx) with the kept grounds under it
-  (src/ui/PlayerBeds.tsx), and how and when the ground shifts is nowhere on it: the period is a dial
-  in a different box.
+- **When the ground moves. Landed.** The bench is cleared and eight readings of that one seam are on
+  it: the lap, the queue, the ratchet, the ladder, the cut, the lane, the throw and the count. Each
+  is drawn against the unit `bedPer` has none of — _every N times the walk finishes its sequence_ —
+  which src/ui/sketch/sketchGround.ts now holds the arithmetic of and every one of the eight lights
+  the standing ground off. Whether that fourth clock is worth being one is now a question a hand can
+  answer by looking, and taking it is still a step of its own against src/lib/playerBed.ts (Refused,
+  below).
 - **How a song is played.** The tier over a part is a run and a cursor over it
   (src/lib/playerSongs.ts), drawn today as a list (src/ui/PlayerSong.tsx). Playing one is the thing
   the instrument is for and it is the least visual surface on the card.
 
 **The outcome wanted:** sixteen drawings, in two sections, that make either question answerable by
-looking. Fun, simple and intuitive is the brief, and on this bench that is a measurable thing: a
+looking — the first eight are on the bench, and the second section is what is left. Fun, simple and intuitive is the brief, and on this bench that is a measurable thing: a
 drawing that needs its caption read twice has failed.
 
-**Decided before planning:** the current thirteen are deleted rather than kept below the new ones —
-git remembers (principle 6), and the arguments they made are in 0257–0259. Nothing here is wired to
-the store, a command, or a real deck (0247), which is what lets sixteen of them cost what they cost.
-Eight per section, each varying a direction and not a detail: two that are the same picture with a
-different palette are one sketch and a wasted slot.
+**Decided before planning:** the thirteen are deleted rather than kept below the new ones — done,
+and their files with them; git remembers (principle 6) and the arguments they made are in 0257–0259.
+Nothing here is wired to the store, a command, or a real deck (0247), which is what lets sixteen of
+them cost what they cost. Eight per section, each varying a direction and not a detail: two that are
+the same picture with a different palette are one sketch and a wasted slot.
 
 ## The two things every step turns on
 
 1.  **A bench entry is an argument or it is wallpaper.** `SketchEntry` carries a `thesis` and a
     `trades` beside the drawing, written in the same file that mounts it, so the argument cannot
     drift from the picture. Sixteen new entries are sixteen honest `trades` lines, and the one that
-    cannot write its own is the one to cut before it is drawn.
-2.  **The fixtures are shared and the drawings are not.** src/ui/sketch/sketchWalk.ts already holds
-    the sixteen passes every parts sketch is drawn off; a ground sketch and a playback sketch are
-    two more readings of that same run, not two more fixtures. Two sketches disagreeing about what
-    the walk did is the one failure that makes a bench useless.
+    cannot write its own is the one to cut before it is drawn. `SketchPage.test.tsx` reads both
+    sentences off every entry of the list it mounts, so an entry with an empty one fails.
+2.  **The fixtures are shared and the drawings are not.** src/ui/sketch/sketchWalk.ts holds the one
+    made-up walk, the file, the grounds, the crawl the eight read back, and `SKETCH_SONGS` /
+    `SKETCH_SONG_STANDING` — the run the playback eight are two more readings of, not two more
+    fixtures. Two sketches disagreeing about what the walk did is the one failure that makes a bench
+    useless. It is 251 lines after the cleared sketches' fixtures went with them, so the playback
+    eight extend it rather than starting a second fixture module; their arithmetic goes beside
+    src/ui/sketch/sketchGround.ts in a file of its own, the way the ground eight's does.
 
 ## Steps
 
-1.  **Clear the bench, and draw when the ground moves.** The thirteen entries and their files go, the
-    frame, the nav and `SketchEntry` stay. Eight in their place, all about the one seam — a hand's
-    gesture → _when the ground shifts and where to_: the walk's own sequence drawn as the clock, with
-    the shift falling on every Nth completion; the source strip with the next few grounds queued
-    ahead of the playhead; the grounds as a ring the walk advances one notch per pass; a ladder where
-    the ground steps down a rung each sequence; the beds as a deck cut every N; a lane over the
-    walk's own strip where a mark is the move; the ground as a place a hand throws the loop to, with
-    the throw landing at the sequence boundary; and the count itself as the drawing, N pips filling
-    as the walk goes round. Every one of them lights the ground the loop is standing on.
-2.  **Draw how a song is played.** A second section under an `<hr>` and a heading of its own, mounted
-    from its own list beside the first. Eight readings of the tier over a part and the cursor
+1.  **Draw how a song is played.** A second section under an `<hr>` and a heading of its own, mounted
+    from its own list beside the ground eight, which are mounted from `SKETCH_GROUNDS`
+    (src/ui/sketch/SketchPage.tsx) and drawn in `SKETCH_VIEW`'s 480-by-160 box out of
+    src/ui/sketch/ground/, one file per picture. Eight readings of the tier over a part and the cursor
     walking it (src/lib/playerSongs.ts): the run as a track the cursor rides; the parts as a hand of
     cards played one at a time; the song as a wheel with the repeats as teeth; a launch grid where a
     press queues the next part for the boundary; the run as a route across a map of parts; the
@@ -625,14 +628,18 @@ different palette are one sketch and a wasted slot.
 ## Tests that must fail first
 
 - **src/ui/sketch/SketchPage.test.tsx** — the nav names every entry in both lists and no entry the
-  page does not mount; the deleted thirteen are named nowhere; the second section is under its own
-  heading and its own rule; every entry carries a non-empty `thesis` and `trades`.
-- **A parts-shaped case file per section**, in src/ui/sketch/SketchParts.test.tsx's shape: each
-  drawing renders from the shared fixture, and the ground eight all light the same standing ground
-  from one fixture while the playback eight all draw the cursor at the same place in one run.
-- **src/ui/sketch/sketchGround.ts and its test** carry whatever arithmetic the eight share — the
-  count of completed sequences, and which ground the Nth lands on — so no two drawings derive it
-  twice (principle 1).
+  page does not mount; the second section is under its own heading and its own rule. The first
+  half is written: it mounts off the list, reads a non-empty `thesis` and `trades` off every entry,
+  and names the deleted thirteen so a re-mount of one has to say so.
+- **A case file per section**, in src/ui/sketch/SketchGrounds.test.tsx's shape: each drawing renders
+  from the shared fixture, sliced by its own `data-` attribute to its own `</svg>` through that
+  file's `pictureOf`, and the playback eight all draw the cursor at the same place in one run — as
+  the ground eight all light one standing ground and all state one count. Name it plural: a
+  `SketchSong.test.tsx` beside a `sketchSong.ts` differs only in case, and the type-aware linter
+  then resolves neither and goes quiet.
+- **The arithmetic the eight share** lives beside the pictures and never in them, the way
+  src/ui/sketch/sketchGround.ts holds the ground eight's count of completed sequences, which ground
+  the Nth move landed on, and where a throw comes down (principle 1).
 
 ## Verification
 
@@ -641,9 +648,9 @@ different palette are one sketch and a wasted slot.
     files mean new Tailwind classes, and `#/sketch` is a hash route, so shoot `dist/` with a wait and
     reap the server after. Read each drawing at 1:1: the question is whether the caption is needed,
     and a drawing that needs it is the one to redraw.
-3.  A decision record per step only where a drawing changes what a fold _is_ — the fourth clock is
-    one such, if step 1 says it should exist. The clearing itself is not a decision; it is a bench
-    doing what a bench is for.
+3.  A decision record per step only where a drawing changes what a fold _is_. The ground step wrote
+    none: it asks whether the fourth clock should exist rather than deciding it, and the clearing
+    itself is not a decision — it is a bench doing what a bench is for.
 
 ## Refused
 

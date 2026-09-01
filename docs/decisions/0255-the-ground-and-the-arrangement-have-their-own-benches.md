@@ -1,7 +1,7 @@
 # 0255 — The ground and the arrangement have their own benches
 
 - **Date:** 2026-09-01
-- **Status:** accepted, extending [0254](0254-the-bench-argues-the-card-fold-by-fold.md) and resting on [0247](0247-a-sketch-is-drawn-in-the-real-tokens-and-thrown-away.md), [0252](0252-the-blend-is-four-arguments-and-every-corner-is-named.md) and [0184](0184-the-ground-is-the-songs-and-a-part-plays-back-on-it.md)
+- **Status:** accepted, extending [0254](0254-the-bench-argues-the-card-fold-by-fold.md) and resting on [0247](0247-a-sketch-is-drawn-in-the-real-tokens-and-thrown-away.md), [0252](0252-the-blend-is-four-arguments-and-every-corner-is-named.md) and [0184](0184-the-ground-is-the-songs-and-a-part-plays-back-on-it.md). The two drawings it records were cleared off the bench, and `sketchGround.ts` now holds the fourth clock's arithmetic rather than a drag's; what stands is that the ground is the song's and the crawl is counted in sixteenths
 
 **Which Ground is two readings, and what they disagree about is whether a bed has a waveform.**
 `SketchPartGround` draws the source with the grounds planted on it — chips a hand drags and resizes,

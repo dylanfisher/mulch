@@ -1,7 +1,7 @@
 # 0254 — The bench argues the card fold by fold
 
 - **Date:** 2026-09-01
-- **Status:** accepted, amending [0247](0247-a-sketch-is-drawn-in-the-real-tokens-and-thrown-away.md) and resting on [0252](0252-the-blend-is-four-arguments-and-every-corner-is-named.md)
+- **Status:** accepted, amending [0247](0247-a-sketch-is-drawn-in-the-real-tokens-and-thrown-away.md) and resting on [0252](0252-the-blend-is-four-arguments-and-every-corner-is-named.md). Its two-list shape is spent: the bench was cleared and now mounts one list, `SKETCH_GROUNDS` (src/ui/sketch/SketchPage.tsx), of eight readings of one seam. What stands is the rule — a sketch argues one fold, and the entry is its identity
 
 **"Six answers to one question" was the wrong question.** 0247 put whole surfaces on the bench and
 said the directory is deleted the day one of them wins. Eight are there now and none has won,

@@ -1,7 +1,7 @@
 /**
- * @role The sketch bench at #/sketch — the nav, and the two lists it mounts: the whole surfaces,
- *   each of which replaces the card, and the parts, each of which replaces one fold of it. Every
- *   entry carries the one sentence it makes and the thing it gives up to make it.
+ * @role The sketch bench at #/sketch — the nav, and the list it mounts: eight readings of one seam,
+ *   a hand's gesture and when the ground shifts under it. Every entry carries the one sentence it
+ *   makes and the thing it gives up to make it.
  * @instead The surface they are all arguing with → src/ui/PlayerCard.tsx. The primitives they are
  *   drawn out of, on their own page → src/ui/dev/DevPage.tsx.
  */
@@ -13,32 +13,28 @@
 import type { MouseEvent, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { PLAYER_GROUP_LABELS, PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "@/lib/copy";
-import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
+import { PLAYER_GROUP_LABELS, PLAYER_LABEL } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
-import { SketchCast } from "@/ui/sketch/SketchCast";
-import { SketchChipper } from "@/ui/sketch/SketchChipper";
-import { SketchChips } from "@/ui/sketch/SketchChips";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
-import { SketchPartArrange } from "@/ui/sketch/parts/SketchPartArrange";
-import { SketchPartGround } from "@/ui/sketch/parts/SketchPartGround";
-import { SketchPartSongs } from "@/ui/sketch/parts/SketchPartSongs";
-import { SketchPartSound } from "@/ui/sketch/parts/SketchPartSound";
-import { SketchPartWalk } from "@/ui/sketch/parts/SketchPartWalk";
-import { SketchRolls } from "@/ui/sketch/SketchRolls";
-import { SketchScore } from "@/ui/sketch/SketchScore";
-import { SketchSentence } from "@/ui/sketch/SketchSentence";
-import { SketchStack } from "@/ui/sketch/SketchStack";
-import { SketchTerrain } from "@/ui/sketch/SketchTerrain";
+import { SketchGroundClock } from "@/ui/sketch/ground/SketchGroundClock";
+import { SketchGroundCut } from "@/ui/sketch/ground/SketchGroundCut";
+import { SketchGroundLadder } from "@/ui/sketch/ground/SketchGroundLadder";
+import { SketchGroundLane } from "@/ui/sketch/ground/SketchGroundLane";
+import { SketchGroundPips } from "@/ui/sketch/ground/SketchGroundPips";
+import { SketchGroundQueue } from "@/ui/sketch/ground/SketchGroundQueue";
+import { SketchGroundRing } from "@/ui/sketch/ground/SketchGroundRing";
+import { SketchGroundThrow } from "@/ui/sketch/ground/SketchGroundThrow";
+import { SKETCH_EVERY_SAID, SKETCH_PER } from "@/ui/sketch/sketchGround";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
 /**
- * One entry, whichever bench it is on: the id is the nav's anchor and the heading's, and the two
- * sentences are the argument, so the argument cannot drift away from the drawing that makes it.
- * Written here and nowhere else, and none of them is wired to anything (0247).
+ * One entry: the id is the nav's anchor, the heading's, and the attribute its own picture carries,
+ * and the two sentences are the argument — written here so the argument cannot drift away from the
+ * drawing that makes it. None of them is wired to anything (0247).
  */
 type SketchEntry = {
   id: string;
@@ -49,139 +45,88 @@ type SketchEntry = {
 };
 
 /**
- * The whole surfaces: eight answers to one question — what the mulcher would be if it were not a
- * wall of dials. Each one replaces the whole card.
+ * Eight readings of one seam: a hand's gesture, and when the ground shifts and where to. `bedEvery`
+ * is a period and `bedPer` counts it in jumps, parts or whole rounds of the song (0192,
+ * src/lib/playerBed.ts) — and the unit a hand actually reasons in, every Nth time the walk finishes
+ * its sequence, is in none of the three. Every one of these lights the ground the loop is standing
+ * on, because a picture of a clock that never says what it moves is a picture of a clock.
  */
-export const SKETCH_SURFACES: readonly SketchEntry[] = [
+export const SKETCH_GROUNDS: readonly SketchEntry[] = [
   {
-    id: "cast",
-    label: "Blend The Cast",
+    id: "clock",
+    label: "The Lap",
     thesis:
-      "The cast is a place and every number is derived from it. Four ways of weighing that place, side by side, so what is being compared is the weighting and not the wallpaper.",
+      "The walk's own sequence is the clock face: sixteen landings round a dial, the hand where the walk is standing, and the shift falling on every Nth time round. The period is laps, and the dial's number is how many.",
     trades:
-      "no way to reach a single number without opening the drawer. What each of the four gives up beyond that is written under its own picture, because it differs.",
-    Content: SketchCast,
+      "the file. A clock says when the ground moves and nothing at all about where it goes, so the sample it is moving over is not on this picture.",
+    Content: SketchGroundClock,
   },
   {
-    id: "score",
-    label: "The Walk Is The Score",
+    id: "queue",
+    label: "The Queue",
     thesis:
-      "Every landing is a block on the loop a hand drags, stretches and stacks. The numbers are a readout of the block you are holding.",
+      "The source itself, with the next grounds queued ahead of the playhead and each carrying how many laps until it arrives. What comes next and when, which is the only form the period is ever felt in.",
     trades:
-      "odds and chance — a drawn score says what happens, not what tends to happen, which is most of what the module is for.",
-    Content: SketchScore,
+      "the odds. A queue is a list somebody wrote, so nothing that wanders — the Lean, the Home, a move that surprises you — has anywhere to be drawn.",
+    Content: SketchGroundQueue,
   },
   {
-    id: "sentence",
-    label: "The Patch Is A Sentence",
+    id: "ring",
+    label: "The Ratchet",
     thesis:
-      "The module states itself in plain words and every underlined word is a control. No dials at all.",
+      "The beds of the file as a ring the walk advances one notch on when the count is up. One number survives: how long a notch takes.",
+    trades: `three dials. A notch is a whole ${PLAYER_KNOB_LABELS.bed}, so the ${PLAYER_KNOB_LABELS.bedDistance}, the ${PLAYER_KNOB_LABELS.bedBias} and the ${PLAYER_KNOB_LABELS.bedHome} are all gone — and with them the crawl that lands part-way into a bed, which is the thing the fold exists for.`,
+    Content: SketchGroundRing,
+  },
+  {
+    id: "ladder",
+    label: "The Ladder",
+    thesis:
+      "A rung per lap, newest at the foot, with the ground stepping across every Nth. Two whole periods on one picture, so the period reads as a rhythm rather than as a number.",
     trades:
-      "fineness. A word is a handful of choices, so the space between two of them is unreachable.",
-    Content: SketchSentence,
+      "the future. A ladder is a record of what has happened, and a hand asking when the next move lands has to count rungs to find out.",
+    Content: SketchGroundLadder,
   },
   {
-    id: "stack",
-    label: "Stack The Moves",
+    id: "cut",
+    label: "The Cut",
     thesis:
-      "Behaviour is composed from small cards, each one verb and at most two numbers. An empty stack is a simple mulcher.",
-    trades: "the seed. A stack is written rather than drawn, so nothing surprises you.",
-    Content: SketchStack,
-  },
-  {
-    id: "terrain",
-    label: "Somewhere To Walk About",
-    thesis:
-      "One field of planted spots. Moving the cursor interpolates the whole patch between whichever are near; Wander drifts it on its own.",
-    trades: "repeatability — you can get back to a spot you planted and nowhere else.",
-    Content: SketchTerrain,
-  },
-  {
-    id: "rolls",
-    label: "Roll And Lock",
-    thesis:
-      "One roll draws six whole candidates as pictures. Pick one, lock the registers that worked, roll again.",
+      "The beds as a deck and the period as the cut: a hand already knows what cutting a deck every so often means, and the count runs along under it.",
     trades:
-      "intent. You can only ask for more of what you already got, never for a thing you have not been shown.",
-    Content: SketchRolls,
+      "the walk. A deck says nothing about what is playing over it, so the one thing being counted — a lap of the walk — is a number on this picture and never a shape.",
+    Content: SketchGroundCut,
   },
   {
-    id: "chipper",
-    label: "Feed The Hopper",
+    id: "lane",
+    label: "The Lane",
     thesis:
-      "The card is the machine it is named for. Source in at the top, a drum of six blades whose size is their weight in the middle, and the walk thrown out of the side as mulch.",
+      "A lane of laps drawn over the walk's own strip, where a mark is a move and a stretch is a ground held. The two clocks on one picture, which is the only place the question is ever really asked.",
     trades:
-      "the way back. The metaphor runs one direction, so anything that feeds back — a part that changes the ground it was drawn from — has nowhere to be drawn.",
-    Content: SketchChipper,
+      "the file again. A lane names the ground it holds but draws no sample under it, so which ground was worth holding is unanswerable here.",
+    Content: SketchGroundLane,
   },
   {
-    id: "chips",
-    label: "Read The Pile",
-    thesis:
-      "The same machine from the output end only. Every landing is a chip on a heap — size is how long it holds, fill is which character cut it — and the controls are sorts: coarser, finer, more of one wood, less of another.",
+    id: "throw",
+    label: "The Throw",
+    thesis: `The ground as a place a hand throws the loop to, with the throw landing at the next lap boundary rather than under the hand. The period stops being a number and becomes the lag between asking and arriving. The one gesture on this bench: ${SKETCH_EVERY_SAID.toLowerCase()}, so the wait is felt.`,
     trades:
-      "everything a pile cannot hold. Order, repeats and rests are invisible in a heap, so the whole of How It Is Timed has no surface here.",
-    Content: SketchChips,
-  },
-];
-
-/**
- * The parts: one section per region of the card, each arguing only that region. A hand never
- * reaches for "the card" — it reaches for one of the folds `PLAYER_GROUP_LABELS` names — so a
- * whole surface can only ever be picked between wholesale, and the answer is far more likely to be
- * a walk from one entry and a ground from another. These are what make that answer sayable (0254).
- */
-export const SKETCH_PARTS_LIST: readonly SketchEntry[] = [
-  {
-    id: "part-walk",
-    label: `${PLAYER_SCOPE_LABEL}, Three Readings`,
-    thesis:
-      "The strip as the card draws it now, the same loop bent into a ring, and the same landings as a piano-roll against the slot of the source each one reads. One fixture, three pictures.",
-    trades:
-      "the rest of the card. A fold sketch says nothing about what is above or below it, so a bench of them can be picked from and still not add up to a surface.",
-    Content: SketchPartWalk,
+      "the crawl. A throw lands on a whole bed, and part-way into one is precisely what the fold's own unit was chosen to reach.",
+    Content: SketchGroundThrow,
   },
   {
-    id: "part-ground",
-    label: `${PLAYER_GROUP_LABELS.ground}, Two Readings`,
+    id: "pips",
+    label: "The Count",
     thesis:
-      "The source with the beds planted on it and dragged where they go, beside the same beds as a deck of cards the Every dial cuts. Both under one readout naming which is standing.",
+      "The count as the whole drawing: N pips filling one per lap, the one under way filling as the walk goes round it, and the ground named underneath. The setting is how many pips there are.",
     trades:
-      "the part. These five amounts are the song's and never a part's (0184), so neither picture can say what any one part does with the ground it is handed.",
-    Content: SketchPartGround,
-  },
-  {
-    id: "part-arrange",
-    label: `${PLAYER_GROUP_LABELS.arrange}, Two Readings`,
-    thesis:
-      "Eight amounts and none of them a thing. The ladder makes Grow, Span and Apart a shape a part climbs; the dice tray makes Chance, Keep and Return three hundreds of pips.",
-    trades:
-      "one picture. This is the only fold on the bench that needs two, because what happens and what tends to happen cannot be drawn on the same axes.",
-    Content: SketchPartArrange,
-  },
-  {
-    id: "part-songs",
-    label: `${PLAYER_SONGS_LABEL}, Two Readings`,
-    thesis:
-      "The tier over a part: named songs in an order a hand chose, each carrying how many times it plays. A bar whose segments are as long as the run plays and a hand drags to reorder, beside a numbered list one row per song. Both draw the cursor.",
-    trades:
-      "one reading. A run and a cursor over it is what a song is, and the two things a hand does with one — reorder it and read it — are not the same picture.",
-    Content: SketchPartSongs,
-  },
-  {
-    id: "part-sound",
-    label: `${PLAYER_GROUP_LABELS.sound} and ${PLAYER_GROUP_LABELS.timing}, As They Stand`,
-    thesis:
-      "The two folds that are already only dials, each beside one alternative: the sound fold as a single chew axis every one of its six rides, the timing fold as a picker of grids. The question is whether either needs to be anything else.",
-    trades:
-      "nothing, which is the point. Leaving both exactly as they stand is a real outcome, and this is the only entry on either bench that can be picked to say so.",
-    Content: SketchPartSound,
+      "everything else. This is the period and nothing but the period — no file, no beds, no walk — which is either the argument or the reason to reject it.",
+    Content: SketchGroundPips,
   },
 ];
 
 /**
  * The nav scrolls rather than linking, for the gallery's reason: the route is the whole hash, so a
- * bare `#cast` would leave `#/sketch` and unmount the bench.
+ * bare `#clock` would leave `#/sketch` and unmount the bench.
  */
 function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
   event.preventDefault();
@@ -198,15 +143,8 @@ export function SketchPage() {
         <div className={SHELL_HEADER_ROW}>
           <Wordmark route="sketch" className="type-title" />
           <span className="type-body text-muted-foreground">{PLAYER_LABEL} sketches</span>
-          {/* Two groups and a rule between them: a hand reading the bench has to know whether
-              the thing it is looking at replaces the card or one fold of it, and a single run of
-              links says neither. */}
           <nav className="ml-auto flex flex-wrap items-center gap-3">
-            <SketchLinks entries={SKETCH_SURFACES} />
-            <span aria-hidden="true" className="text-muted-foreground">
-              /
-            </span>
-            <SketchLinks entries={SKETCH_PARTS_LIST} />
+            <SketchLinks entries={SKETCH_GROUNDS} />
           </nav>
           <ThemeToggle />
         </div>
@@ -214,23 +152,26 @@ export function SketchPage() {
 
       <main className={cn(SHELL_BODY, "flex flex-col gap-12")}>
         <p className="max-w-3xl type-body text-muted-foreground">
-          Two benches. Above, whole surfaces: {SKETCH_SURFACES.length} ways the {PLAYER_LABEL} could
-          work instead, each replacing the card outright. Below, the parts: one bench per fold of
-          the card, each replacing that fold and nothing else. None is wired to anything — no store,
-          no command, no sound — and they are drawn in the instrument&apos;s own tokens and type so
-          what is on the screen is what the real thing would look like. The bench is picked from
-          twice: pick one per fold, because the answer is far more likely to be a walk from one
-          entry and a ground from another than any whole card here.
+          One bench, one question: when does the ground move, and where to. {SKETCH_GROUNDS.length}{" "}
+          readings of that one seam, each replacing {PLAYER_GROUP_LABELS.ground}&apos;s period and
+          nothing else. The card counts that period in jumps, parts or whole rounds of the song, and
+          the unit a hand reasons in — every Nth time the walk finishes its {SKETCH_PER} — is in
+          none of the three, so every drawing here is arguing for a fourth clock or against one.
+          None is wired to anything — no store, no command, no sound — and they are drawn in the
+          instrument&apos;s own tokens and type, so what is on the screen is what the real thing
+          would look like.
         </p>
 
-        <SketchGroup heading="Whole surfaces" entries={SKETCH_SURFACES} />
-        <SketchGroup heading="The parts" entries={SKETCH_PARTS_LIST} />
+        <SketchGroup
+          heading={`${PLAYER_GROUP_LABELS.ground}: when it moves`}
+          entries={SKETCH_GROUNDS}
+        />
       </main>
     </div>
   );
 }
 
-/** One group's links, so the nav's two runs are one shape said twice rather than two. */
+/** One group's links, so a second bench's run of them is one shape said twice rather than two. */
 function SketchLinks({ entries }: { entries: readonly SketchEntry[] }) {
   return entries.map((sketch) => (
     <a
@@ -245,26 +186,25 @@ function SketchLinks({ entries }: { entries: readonly SketchEntry[] }) {
   ));
 }
 
-/**
- * One bench: its heading and its entries, each numbered inside its own list. The numbering restarts
- * because the two lists answer different questions — a part is not the ninth surface.
- */
+/** One bench: its heading and its entries, each numbered inside its own list. */
 function SketchGroup({ heading, entries }: { heading: string; entries: readonly SketchEntry[] }) {
   return (
     <section className="flex flex-col gap-12">
       <h2 className="type-title">{heading}</h2>
-      {entries.map(({ id, label, thesis, trades, Content }, index) => (
-        <SketchFrame
-          key={id}
-          id={id}
-          index={index + 1}
-          title={label}
-          thesis={thesis}
-          trades={trades}
-        >
-          <Content />
-        </SketchFrame>
-      ))}
+      <div className="flex flex-col gap-12">
+        {entries.map(({ id, label, thesis, trades, Content }, index) => (
+          <SketchFrame
+            key={id}
+            id={id}
+            index={index + 1}
+            title={label}
+            thesis={thesis}
+            trades={trades}
+          >
+            <Content />
+          </SketchFrame>
+        ))}
+      </div>
     </section>
   );
 }
