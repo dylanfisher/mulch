@@ -67,14 +67,8 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
-import {
-  deckLanes,
-  moireRows,
-  paintsPerFrame,
-  carryFractal,
-  carryGround,
-  refillRows,
-} from "@/ui/moireRows";
+import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
+import { carryFractal, carryGround, carryInk } from "@/ui/moireCarry";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
@@ -206,12 +200,13 @@ function useMoireRows(
     // Back to the session's own set whenever anything durable has moved, so a run's rows are grown
     // onto this build's picture and never onto the last one's.
     if (from.current !== session) {
-      // Carrying the ground rows' travel across, and the picture's own structure with it, because
-      // neither of these rebuilds is a jump: a fresh set stands them in the middle of the picture,
-      // and a knob touch that swept the whole field back from there would be the smear the travel
-      // exists to replace (0235, 0248).
+      // Carrying the ground rows' travel across, and the picture's own structure and its ink with
+      // it, because neither of these rebuilds is a jump: a fresh set stands them in the middle of
+      // the picture, and a knob touch that swept the whole field back from there would be the smear
+      // the travel exists to replace (0235, 0248) — and a knob touch is exactly what rebuilds a set.
       carryGround(painted.current, session);
       carryFractal(painted.current, session);
+      carryInk(painted.current, session);
       painted.current = session;
       from.current = session;
       run.current.ids.length = 0;
@@ -224,6 +219,7 @@ function useMoireRows(
       const grown = grow(peek.grown);
       carryGround(painted.current, grown);
       carryFractal(painted.current, grown);
+      carryInk(painted.current, grown);
       painted.current = grown;
     }
     const set = painted.current;
@@ -253,6 +249,7 @@ function useMoireRows(
       set.age,
       set.seed,
       set.toward,
+      set.ink,
     );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
@@ -299,6 +296,7 @@ function useMoirePicture(
         set.age,
         set.seed,
         set.sounding,
+        set.ink,
       );
     },
     [refill],

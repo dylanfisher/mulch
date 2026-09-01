@@ -30,11 +30,13 @@ import {
   DRIFT_HUE_REACH,
   DRIFT_REST,
   DRIFT_STEPS,
+  easedToward,
   rowOffset,
   TAU,
   turnedScale,
   turnsOf,
   wrap,
+  type ScreenInk,
   type MoireRow,
 } from "@/lib/moire";
 import { gratingKeep } from "@/lib/moireGrating";
@@ -436,6 +438,64 @@ export const screenHue = (rows: readonly MoireRow[]): number =>
 export const stepped = (value: number, reach: number): number =>
   snapToStep(value, 0, reach, reach / DRIFT_STEPS);
 
+/** Where a picture's ink stands before any row has claimed a thing about it. */
+export const screenInkRest = (): ScreenInk => ({
+  fringe: DRIFT_REST.fringe,
+  disperse: DRIFT_REST.disperse,
+  hue: DRIFT_REST.hue,
+});
+
+/**
+ * How long the picture takes to travel a whole reach of one of them, in seconds, on a yard whose
+ * clock is running. Every claim above
+ * is the *boldest* row's, so an automator retiring the instance holding it hands the picture another
+ * ink between two frames and a hand dragging past a stop cuts to it — and every other travel in the
+ * picture is rated rather than written (`easedToward`, 0235, 0248). This is that one rate spent on
+ * colour: a whole reach in two seconds, so a claim that moves a little moves for a little.
+ *
+ * **Two seconds is what the ladder costs.** The travelled value is what `stepped` rounds, so a whole
+ * reach walks `DRIFT_STEPS` stops and each stop is one bake: eight over two seconds, four a second,
+ * and none of them twice, the travel running one way. Three terms travelling at once off each
+ * other's step lines is three of those ladders and up to twenty-odd keys, which is what `TILE_CACHE`
+ * below is sized against. Shorter spends the same bakes closer together; longer is a picture still
+ * catching up with a knob the hand let go of.
+ */
+export const DRIFT_INK_SECS = 2;
+
+/**
+ * One step of the picture's ink travel, from where it has got to toward what the rows claim now —
+ * three `easedToward` calls and nothing else, in the shape the structure's own travel across its
+ * plane is taken in (`fractalTravelInto`, src/lib/moireFractal.ts). Each in its own dimension's
+ * units, so the three arrive together rather than `fringe` taking twice as long as `hue`.
+ *
+ * The whole reading and not the bare claim: how washed the field is carries `disperse` and how old
+ * the performance is carries `hue`. The age crawls and the travel arrives on it every read; the
+ * wash does not — `washAmount` is gated at a floor, so a deck falling under it moves `disperse`
+ * half a reach between two frames and the travel now walks that too, a second at its widest. That
+ * is the same kind of jump as a retiring place and it is walked for the same reason, not an
+ * oversight: the alternative is one of the three terms cutting while the other two travel (0266).
+ *
+ * `over` is how long a whole reach takes — `DRIFT_INK_SECS`, or nothing where there is no clock to
+ * travel against, which arrives outright (`easedToward`).
+ *
+ * Written in place, because it is read once a picture on the frame path and allocates nothing
+ * (0070).
+ */
+export function inkTravelInto(
+  out: ScreenInk,
+  rows: readonly MoireRow[],
+  wash: number,
+  age: number,
+  elapsed: number,
+  over: number,
+): void {
+  out.fringe = easedToward(out.fringe, screenFringe(rows), elapsed, over, DRIFT_FRINGE_REACH);
+  const disperse = screenDisperse(rows, wash);
+  out.disperse = easedToward(out.disperse, disperse, elapsed, over, DRIFT_DISPERSE_REACH);
+  const hue = agedHue(screenHue(rows), age);
+  out.hue = easedToward(out.hue, hue, elapsed, over, DRIFT_HUE_REACH);
+}
+
 /**
  * The tiles built so far, by what they are of rather than by who asked: a screen is the same screen
  * on every canvas of the same height, colour, density and tint, and a rack card added or removed
@@ -452,26 +512,21 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * is the one every resting yard shares. What that costs is a rebuild on a later remount and never
  * one on a frame, which is `stepped` doing the work rather than this number.
  *
- * **Doubled for the wash**, which is the one thing that moves a tint with no hand on it: how washed
- * a yard is carries `disperse` across its own stops while it plays (0213), and both surfaces of
- * both yards visit them. Held together they cost a build apiece, once; evicted they would cost the
+ * **Doubled for what moves a tint with no hand on it**: how washed a yard is carries `disperse`
+ * across its own stops while it plays (0213), the age carries `hue`, and every one of the three
+ * walks its own ladder when a claim moves (`inkTravelInto`, 0266) — so a travel visits its stops in
+ * turn rather than its two ends, and both surfaces of both yards visit them. Held together they cost a build apiece, once; evicted they would cost the
  * pixel loop on a frame, which is the one thing 0129 forbids. A tile is one beat wide, so the room
  * is a few kilobytes rather than a picture.
  */
 const TILE_CACHE = 24;
 
 /**
- * What a screen is set to that is colour rather than shape — one object refilled, because it is
- * read on the frame path and a per-frame paint allocates nothing (0070). Their per-row meanings
- * are in `src/lib/moire.ts`; these are the whole picture's, one tile being one screen.
+ * What a screen is keyed by that is colour rather than shape: the travelled ink above, rounded onto
+ * the ladder a tile may be keyed through. One object refilled, because it is read on the frame path
+ * and a per-frame paint allocates nothing (0070).
  */
-type Tint = { fringe: number; disperse: number; hue: number };
-
-const tinted: Tint = {
-  fringe: DRIFT_REST.fringe,
-  disperse: DRIFT_REST.disperse,
-  hue: DRIFT_REST.hue,
-};
+const tinted: ScreenInk = screenInkRest();
 
 /** The pattern each canvas fills through — per canvas, because a pattern belongs to a context. */
 const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: string }>();
@@ -570,7 +625,7 @@ function screenOf(
   color: string,
   pitch: number,
   rowPitch: number,
-  tint: Tint,
+  tint: ScreenInk,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
   const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}`;
@@ -600,7 +655,7 @@ function build(
   color: string,
   pitch: number,
   rowPitch: number,
-  tint: Tint,
+  tint: ScreenInk,
 ): HTMLCanvasElement | null {
   const tile = document.createElement("canvas");
   tile.width = width;
@@ -653,21 +708,19 @@ export function inkThrough(
   context: CanvasRenderingContext2D,
   rows: readonly MoireRow[],
   color: string,
-  wash: number,
-  age: number,
+  ink: Readonly<ScreenInk>,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
   const pitch = gridPitchPx(dpr);
   const rowPitch = rowPitchPx(dpr);
-  // What the rows say about colour, rounded onto their own steps so a knob moves the tile rather
-  // than rebuilding it a pixel at a time on every pointer move.
-  tinted.fringe = stepped(screenFringe(rows), DRIFT_FRINGE_REACH);
-  tinted.disperse = stepped(screenDisperse(rows, wash), DRIFT_DISPERSE_REACH);
-  // And carried back toward the ink the caller resolved by however fresh the performance is: the
-  // band a claim is spent across widens with the age and the claim itself does not move
-  // (`agedHue`, src/lib/moireAge.ts).
-  tinted.hue = stepped(agedHue(screenHue(rows), age), DRIFT_HUE_REACH);
+  // Where the picture's ink has travelled to, rounded onto its own steps so a knob moves the tile
+  // rather than rebuilding it a pixel at a time on every pointer move. The *travelled* value is
+  // what is rounded, which is what makes a jump walk the ladder instead of cutting across it
+  // (`inkTravelInto`): the stops are the same eight, and they are visited one at a time.
+  tinted.fringe = stepped(ink.fringe, DRIFT_FRINGE_REACH);
+  tinted.disperse = stepped(ink.disperse, DRIFT_DISPERSE_REACH);
+  tinted.hue = stepped(ink.hue, DRIFT_HUE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;
   // Each over the span the term comes round in, so every one of them arrives back where it left

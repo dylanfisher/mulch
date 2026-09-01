@@ -53,6 +53,7 @@ import {
   turnedScale,
   turnsOf,
   type MoireRow,
+  type ScreenInk,
 } from "@/lib/moire";
 import { octaveAlpha, octaveShare, octavesOf } from "@/lib/moireOctaves";
 import {
@@ -610,6 +611,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * `age` is resolved off (`DeckPeek.sounding`), handed in beside it because the flight through the
  * structure is a row's own and cannot be resolved once beside the set: the two fractal rows fly at
  * their two periods (`fractalFlight`).
+ *
+ * And `tint`, where the picture's colour has travelled to across its three dimensions — the field's
+ * again, and travelled there by the same read that filled the rest (`inkTravelInto`,
+ * src/ui/moireScreen.ts). What the rows claim is read off the boldest of them and is what the travel
+ * is going toward; this is where it actually stands, and it is what the screen tile is keyed by.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -623,6 +629,7 @@ export function paintMoire(
   age: number,
   seed: Readonly<FractalStops>,
   sounding: number,
+  tint: Readonly<ScreenInk>,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -660,7 +667,7 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color, wash, age);
+  inkThrough(canvas, context, rows, color, tint);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
   cutField(context, field, rows);

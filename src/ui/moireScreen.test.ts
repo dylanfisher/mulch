@@ -9,9 +9,17 @@
 // oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH, DRIFT_REST, type MoireRow } from "@/lib/moire";
+import {
+  DRIFT_DISPERSE_REACH,
+  DRIFT_FRINGE_REACH,
+  DRIFT_HUE_REACH,
+  DRIFT_REST,
+  type MoireRow,
+  type ScreenInk,
+} from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
+import { arrivedInk } from "@/ui/moireCanvasPainted";
 import {
   bandKeep,
   bandTurns,
@@ -23,6 +31,9 @@ import {
   screenDisperse,
   screenFringe,
   screenHue,
+  screenInkRest,
+  inkTravelInto,
+  DRIFT_INK_SECS,
   columnKeep,
   gridPitchPx,
   rowKeep,
@@ -30,6 +41,7 @@ import {
   scanKeep,
   termTurns,
   tilePx,
+  stepped,
   SCREEN_FLOOR,
   SCREEN_TERMS,
 } from "@/ui/moireScreen";
@@ -129,12 +141,15 @@ function tileStub() {
  * The painter run against a canvas of `width` × `height` device pixels, recording the tile it
  * built, the pixels it wrote into it, where it put the screen, and what every fill was made with.
  *
+ * `ink` is where the picture's ink stands, for the cases about the travel itself; every other case
+ * paints through the ink these rows have already arrived at, which is the picture they claim.
+ *
  * Two patterns come out of one context now — the picture's grating and this screen — so each gets
  * its own recorder rather than one shared: a test that could not tell them apart would read the
  * rows' aim as the screen's placement. The painter asks for the grating first, because a canvas
  * that cannot make one draws no picture and must lay no ink down at all.
  */
-function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
+function paintedOn(width: number, height: number, rows: readonly MoireRow[], ink?: ScreenInk) {
   const { create, taken, tile } = tileStub();
   const made: { moves: Move[]; pattern: unknown }[] = [];
   const recorder = () => {
@@ -153,9 +168,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
     createPattern: recorder,
     // The product, cut out of the screen in one go: what it holds is the picture and is asserted
     // in `moireCanvas.test.ts`; here it only has to happen.
-    drawImage: () => {
-      inks.push("the rows' own product");
-    },
+    drawImage: () => inks.push("the rows' own product"),
     fillRect(): void {
       inks.push(this.fillStyle);
     },
@@ -170,7 +183,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, nextColor(), 0, 0, fractalStopsRest(), 0);
+  paintMoire(canvas, rows, 20, nextColor(), 0, 0, fractalStopsRest(), 0, ink ?? arrivedInk(rows));
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;
@@ -569,6 +582,97 @@ describe("moireScreen", () => {
     expect(meanOf(1, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
     // At rest neither token is reached at all: the picture is the ink its caller resolved (0130).
     expect(meanOf(DRIFT_REST.hue, 0)).toBeGreaterThan(meanOf(0, 0));
+  });
+
+  it("travels the picture's ink to a claim that moved rather than cutting to it", () => {
+    // Every claim below is the *boldest* row's, so an automator retiring the place that held one
+    // hands the picture another ink between two frames. The travel is rated and it arrives: a whole
+    // reach in `DRIFT_INK_SECS`, which is what makes the eight stops `stepped` rounds onto a
+    // staircase the picture walks up rather than one it jumps.
+    const claim = [
+      row({
+        period: 3,
+        hue: 1,
+        fringe: DRIFT_FRINGE_REACH,
+        disperse: DRIFT_DISPERSE_REACH,
+      }),
+    ];
+    const ink = screenInkRest();
+    // At an age of one, because how far a claim is spent is the performance's own age and this case
+    // is about the travel rather than about that band (`agedHue`, src/lib/moireAge.ts).
+    // One frame of a picture drawn at sixty a second: a hundred-and-twentieth of each reach.
+    inkTravelInto(ink, claim, 0, 1, 1 / 60, DRIFT_INK_SECS);
+    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue + DRIFT_HUE_REACH / (60 * DRIFT_INK_SECS), 10);
+    expect(ink.fringe).toBeCloseTo(
+      DRIFT_REST.fringe + DRIFT_FRINGE_REACH / (60 * DRIFT_INK_SECS),
+      10,
+    );
+    // And it is nowhere near the claim on that frame, or on the next one either.
+    expect(ink.hue).toBeLessThan(1);
+    inkTravelInto(ink, claim, 0, 1, 1 / 60, DRIFT_INK_SECS);
+    expect(ink.hue).toBeLessThan(1);
+    // A whole reach of travel arrives, and the three arrive together: each is rated in its own
+    // dimension's units, so `fringe` reaching twice as far does not take twice as long.
+    inkTravelInto(ink, claim, 0, 1, DRIFT_INK_SECS, DRIFT_INK_SECS);
+    expect(ink).toEqual({ hue: 1, fringe: DRIFT_FRINGE_REACH, disperse: DRIFT_DISPERSE_REACH });
+  });
+
+  it("turns toward a claim that moved again mid-travel, and overshoots neither", () => {
+    const hot = [row({ period: 3, hue: 1 })];
+    const cool = [row({ period: 3, hue: 0 })];
+    const ink = screenInkRest();
+    inkTravelInto(ink, hot, 0, 1, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
+    const partway = ink.hue;
+    expect(partway).toBeGreaterThan(DRIFT_REST.hue);
+    expect(partway).toBeLessThan(1);
+    // The claim moves again before the first travel is over: the picture turns round from where it
+    // has got to rather than resuming from where it set off, and it never passes the new claim.
+    inkTravelInto(ink, cool, 0, 1, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
+    expect(ink.hue).toBeLessThan(partway);
+    expect(ink.hue).toBeGreaterThan(0);
+    // And a step longer than what is left lands on the claim exactly rather than beyond it, which
+    // is the whole of why the travel arrives.
+    inkTravelInto(ink, cool, 0, 1, 10 * DRIFT_INK_SECS, DRIFT_INK_SECS);
+    expect(ink.hue).toBe(0);
+  });
+
+  it("leaves a resting yard's ink and the key it is filmed through exactly where they are", () => {
+    // The travelled value is what `stepped` rounds, and a key that moved would be a picture-sized
+    // bake (0129, 0142). A yard claiming nothing moves neither, however long it is left running.
+    const resting = [row({ period: 3 })];
+    const ink = screenInkRest();
+    const keyed = (): number[] => [
+      stepped(ink.fringe, DRIFT_FRINGE_REACH),
+      stepped(ink.disperse, DRIFT_DISPERSE_REACH),
+      stepped(ink.hue, DRIFT_HUE_REACH),
+    ];
+    const first = keyed();
+    for (let frame = 0; frame < 120; frame++)
+      inkTravelInto(ink, resting, 0, 0, 1 / 60, DRIFT_INK_SECS);
+    expect(ink).toEqual(screenInkRest());
+    expect(keyed()).toEqual(first);
+  });
+
+  it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
+    const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 64, [row({ period: 3, hue: 1 })], ink);
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      let total = 0;
+      for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
+      return total / (pixels.length / 4);
+    };
+    // The hot ink is the redder of the two, so how far the picture has travelled toward it is how
+    // much red the tile carries. Held at rest, a row claiming it draws the picture it drew before
+    // it claimed anything — the claim is where the travel is *going*, and the tile is keyed by
+    // where it has got to.
+    const partway = screenInkRest();
+    inkTravelInto(partway, [row({ period: 3, hue: 1 })], 0, 0, DRIFT_INK_SECS / 8, DRIFT_INK_SECS);
+    const held = meanOf(screenInkRest(), 0);
+    const onTheWay = meanOf(partway, 0);
+    const arrived = meanOf(undefined, 0);
+    expect(onTheWay).toBeGreaterThan(held);
+    expect(arrived).toBeGreaterThan(onTheWay);
   });
 
   it("reads each thing a row says about colour off the row that says it loudest", () => {

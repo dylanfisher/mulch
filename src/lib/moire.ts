@@ -306,6 +306,15 @@ export const COLOUR_REACH = {
   hue: DRIFT_HUE_REACH,
 } as const;
 export type ColourDimension = keyof typeof COLOUR_REACH;
+
+/**
+ * A value per colour dimension, which is what the whole picture is inked with: one screen is one
+ * tile, so unlike a pitch or a depth these three cannot be per row (`inkThrough`,
+ * src/ui/moireScreen.ts). Here rather than beside that painter because the field the picture's
+ * travel is kept on names it too (`MoireRowSet`, src/ui/moireRowsField.ts), and the three names are
+ * the reaches above rather than a second list of them (principle 1).
+ */
+export type ScreenInk = Record<ColourDimension, number>;
 /** Where a turn of the value claiming one of them lands in it. */
 export const colourReached = (into: ColourDimension, turn: number): number =>
   denormalize(turn, 0, COLOUR_REACH[into]);
@@ -396,9 +405,28 @@ export const FOLD_SPENT = EFFECT_ROW_CENTRE_SHIFT * EFFECT_ROW_CENTRES;
  * Arrives outright where there is no travel to time it against, which is the write this replaced:
  * a yard that is not jumping has no landing to measure a travel in and no ground move to show.
  */
-export const easedCentre = (from: number, to: number, elapsed: number, over: number): number => {
+export const easedCentre = (from: number, to: number, elapsed: number, over: number): number =>
+  easedToward(from, to, elapsed, over, DRIFT_CENTRE_REACH);
+
+/**
+ * The same one step, over a dimension whose whole travel is `reach` rather than the anchor's — the
+ * one rate this repo has, said once and spent on whatever is travelling (principle 1). Everything
+ * the doc above says holds here: a constant rate, never a fraction of the gap, and arriving
+ * outright where there is no window to time it against.
+ *
+ * The reach and not the raw distance, because a rate stated in one dimension's units means nothing
+ * in another's: `fringe` reaches twice as far as `hue` does, and "a whole reach in `over` seconds"
+ * is the only phrasing under which the two arrive together.
+ */
+export const easedToward = (
+  from: number,
+  to: number,
+  elapsed: number,
+  over: number,
+  reach: number,
+): number => {
   if (!(over > 0)) return to;
-  const step = (DRIFT_CENTRE_REACH / over) * Math.max(elapsed, 0);
+  const step = (reach / over) * Math.max(elapsed, 0);
   const gap = to - from;
   return Math.abs(gap) <= step ? to : from + Math.sign(gap) * step;
 };

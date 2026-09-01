@@ -65,6 +65,7 @@ import {
   type MoireLane,
 } from "@/ui/moireRows";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
+import { screenInkRest } from "@/ui/moireScreen";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 import { emptyMasterPeek } from "@/audio/context";
 
@@ -128,6 +129,7 @@ const refillRows = (
     FRESH,
     STOOD,
     STOOD,
+    screenInkRest(),
   );
 
 const emptyDeck = (): DeckState => {

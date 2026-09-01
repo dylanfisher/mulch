@@ -32,6 +32,8 @@ import {
 } from "@/audio/params";
 import { effectById, isEffectId, type EffectId } from "@/audio/effects/registry";
 import { grownReach, type GrownRun } from "@/ui/moireGrown";
+import { onGround } from "@/ui/moireCarry";
+import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import { grownOctaves } from "@/lib/effectGrowth";
@@ -49,6 +51,7 @@ import {
   type DriftGeometry,
   type DriftReach,
   type MoireRow,
+  type ScreenInk,
 } from "@/lib/moire";
 import { agedPitch, runFeedback } from "@/lib/moireAge";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
@@ -243,59 +246,6 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
 }
 
 /**
- * Whether one row rests on the ground the yard is reading: the reference row, the wash over it, the
- * module's own tiers and the picture's own structure, and nothing else. Named once because two
- * things ask — the read that travels them, and the carry that keeps that travel across a rebuilt
- * set (principle 1).
- *
- * **The structure stands on the ground like the rest of the field** (0251). Built through
- * `plainRow` it rested at `DRIFT_REST.centre` and stayed there while every other row the field is
- * beaten against travelled with the ground, which is a large part of why a structure that is a
- * grating still read as a layer over one (0235, 0246). Where it stands on its own *plane* is the
- * population's and travels on its own clock (`fractalTravelInto`, 0248); where it is anchored in
- * the *picture* is the yard's ground, and the two are different journeys.
- */
-const onGround = (read: RowRead): boolean =>
-  read.heard !== null || read.ground !== null || read.tier !== null || read.fractal;
-
-/**
- * Where a picture's ground rows had got to, carried onto the set that replaces them. **A row set is
- * rebuilt on things that are not jumps** — anything durable moving, and a run turning over — and
- * every row in a fresh one is built at `DRIFT_REST.centre`, so without this a knob touch would
- * sweep the whole field back from the middle of the picture and a yard holding a wander would never
- * leave it (0235, `MoireStrip`). The travel is the one accumulated number in the picture: every
- * other field a read writes is written outright, which is why only this one has to survive.
- *
- * The first ground row's centre and not each row's own, because one ground is one field: the read
- * writes them all from one number and they can only differ by having been built apart.
- */
-export function carryGround(from: MoireRowSet, to: MoireRowSet): void {
-  for (const [index, read] of from.reads.entries()) {
-    if (!onGround(read)) continue;
-    const centre = from.rows[index]?.centre;
-    if (centre === undefined) return;
-    for (const [at, into] of to.reads.entries()) {
-      if (!onGround(into)) continue;
-      const row = to.rows[at];
-      if (row !== undefined) row.centre = centre;
-    }
-    return;
-  }
-}
-
-/**
- * And where the picture's own structure had got to, carried onto the set that replaces them. The
- * same argument `carryGround` makes and for the same rebuilds: neither of these is a jump, and a
- * fresh set stands the structure at its own rest — so without this every population turnover would
- * sweep the picture back to the middle of the plane and travel out again from there, which is the
- * swap this replaced (0235, 0248). Where it is going is the new set's own and is not carried: that
- * is what the population standing now says.
- */
-export function carryFractal(from: MoireRowSet, to: MoireRowSet): void {
-  Object.assign(to.seed, from.seed);
-}
-
-/**
  * How long this picture takes to travel a whole ground move, in real seconds — and nought on a
  * picture that holds no jumps row, which is a yard whose ground cannot move at all.
  *
@@ -448,7 +398,19 @@ export function moireRows(
   const stops = fractalStopsRest();
   const toward = fractalStopsRest();
   fractalStopsInto(toward, fractalShape(grown));
-  return { rows, reads, wash: 0, age: 0, sounding: 0, seed: stops, toward, ...macro };
+  // And where the picture's ink stands: at rest, travelled from there by the read and carried onto
+  // whatever set replaces this one (`carryInk`).
+  return {
+    rows,
+    reads,
+    wash: 0,
+    age: 0,
+    sounding: 0,
+    seed: stops,
+    toward,
+    ink: screenInkRest(),
+    ...macro,
+  };
 }
 
 /**
@@ -505,6 +467,12 @@ export function moireRows(
  * drawn in, a reach with an end, so the oldest picture the instrument can draw is a picture and not
  * a smear.
  *
+ * **And the picture's ink, which it travels rather than writes**: what the rows claim about colour
+ * is the boldest of them, so a place retiring or a knob crossing a stop would hand the picture
+ * another ink between two frames. The set carries where the travel has got to and this walks it one
+ * step further, on the same `elapsed` the ground above is travelled on (`inkTravelInto`,
+ * src/ui/moireScreen.ts).
+ *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
  * instance's are automated by nothing, so both run on the deck's own clock, wrapped — and a deck
@@ -530,6 +498,7 @@ export function refillRows(
   age: number,
   seed: FractalStops,
   toward: Readonly<FractalStops>,
+  ink: ScreenInk,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -645,7 +614,18 @@ export function refillRows(
     // apart on the beat between the two (0229).
     if (read.anchor !== null) row.centre = driftedCentre(read.anchor, turnsOf(row), row.pulse);
   });
-  return washAmount(peek.crest, peek.meter);
+  const wash = washAmount(peek.crest, peek.meter);
+  // And one step of the picture's ink travel, from where it has got to toward what the rows claim
+  // now. After the walk and never inside it: a lane riding a colour writes its row's claim in there,
+  // and the ink is the boldest of them all — one screen being one tile (`inkTravelInto`).
+  //
+  // **And no travel at all on a yard that is not sounding**, which is the same answer the ground
+  // gives a yard that cannot jump: there is nothing to time a travel against. A halted picture is
+  // painted on a commit and never on a frame (0144) and the clock it would be timed on is the deck's
+  // (0126), which does not run — so a knob dragged on a stopped yard would strand its ink wherever
+  // the last commit left it and leave it there, and the ink arrives outright instead.
+  inkTravelInto(ink, rows, wash, age, elapsed, peek.sounding > 0 ? DRIFT_INK_SECS : 0);
+  return wash;
 }
 
 /**

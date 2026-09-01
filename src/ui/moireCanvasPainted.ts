@@ -9,7 +9,21 @@
  */
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
-import type { Aim, MoireRow } from "@/lib/moire";
+import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import type { Aim, MoireRow, ScreenInk } from "@/lib/moire";
+
+/**
+ * The picture's ink where the travel has already finished — what these rows claim, arrived. A whole
+ * `DRIFT_INK_SECS` of elapsed covers a whole reach in one step, so this is the same call the read
+ * makes rather than a second way of resolving an ink (`inkTravelInto`, principle 1). Every case
+ * about something other than the travel itself paints through it, and the travel's own cases hand
+ * the painter an ink partway there instead.
+ */
+export function arrivedInk(rows: readonly MoireRow[], wash = 0, age = 0): ScreenInk {
+  const ink = screenInkRest();
+  inkTravelInto(ink, rows, wash, age, DRIFT_INK_SECS, DRIFT_INK_SECS);
+  return ink;
+}
 
 /**
  * How a case stubs a global for the length of one test — `vi.stubGlobal`, handed in rather than
@@ -70,6 +84,12 @@ export function painterOn(stubGlobal: StubGlobal) {
       age = 0,
       seed = fractalStopsRest(),
       sounding = 0,
+      // And where the picture's ink has travelled to. Arrived at whatever the rows claim unless a
+      // case says otherwise, so every case about something else draws the picture those rows ask
+      // for rather than one still on its way there (`inkTravelInto`, src/ui/moireScreen.ts).
+      // Resolved once, before the frames below: a case that moves a row's colour inside `between`
+      // is painting through the ink the *first* frame's rows claimed, and has to hand its own in.
+      tint = arrivedInk(rows, wash, age),
     }: {
       frames?: number;
       advance?: number;
@@ -78,6 +98,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       age?: number;
       seed?: FractalStops;
       sounding?: number;
+      tint?: ScreenInk;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -194,6 +215,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         age,
         seed,
         sounding,
+        tint,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

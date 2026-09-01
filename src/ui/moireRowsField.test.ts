@@ -62,11 +62,12 @@ import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerD
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
-import { carryGround, moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { carryGround } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
-import { bandTurns, screenDisperse } from "@/ui/moireScreen";
+import { bandTurns, screenDisperse, screenInkRest } from "@/ui/moireScreen";
 import type { Loop } from "@/lib/timeline";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
@@ -153,6 +154,7 @@ const refillRows = (
     FRESH,
     STOOD,
     STOOD,
+    screenInkRest(),
   );
 
 /** And a picture of a performance that has just begun, which is where every case here reads it. */

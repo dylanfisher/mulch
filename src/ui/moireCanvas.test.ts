@@ -42,6 +42,7 @@ import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, refillRows } from "@/ui/moireRows";
+import { screenInkRest } from "@/ui/moireScreen";
 import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
@@ -175,6 +176,7 @@ const runRows = (): MoireRow[] => {
     0,
     set.seed,
     set.toward,
+    set.ink,
   );
   return set.rows;
 };
@@ -199,7 +201,21 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
+  refillRows(
+    rows,
+    reads,
+    peek,
+    1,
+    null,
+    0,
+    null,
+    SILENT_MASTER,
+    ARRIVED,
+    0,
+    STOOD,
+    STOOD,
+    screenInkRest(),
+  );
   return rows;
 };
 

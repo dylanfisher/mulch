@@ -34,6 +34,7 @@ import {
   type ColourDimension,
   type DriftDimension,
   type MoireRow,
+  type ScreenInk,
 } from "@/lib/moire";
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
@@ -179,12 +180,22 @@ export type MoireRowSet = {
    * an escape field is a picture of is the whole run, which is no row's, and the two fractal rows
    * are one structure on two periods (0246, 0248). The travel is written by `refillRows` and read
    * by the paint; the target is filled once when the set is built, because a population that has
-   * moved is a set rebuilt (`fractalStopsInto`, `carryFractal`, src/ui/moireRows.ts). Per picture
+   * moved is a set rebuilt (`fractalStopsInto`, src/ui/moireRows.ts; `carryFractal`,
+   * src/ui/moireCarry.ts). Per picture
    * and not per yard, like the ground's own travel: a strip and an overlay of one yard each carry
    * their own, so one opened mid-travel converges on its own (0235).
    */
   seed: FractalStops;
   toward: FractalStops;
+  /**
+   * And where the picture's *ink* has travelled to — the sixth thing here that belongs to the field
+   * rather than to a row, one screen being one tile. What the rows claim is read off the boldest of
+   * them, so a place retiring or a knob crossing a stop hands the picture another ink between two
+   * frames; this is where it has actually got to on the way there (`inkTravelInto`,
+   * src/ui/moireScreen.ts). Written by `refillRows` and read by the paint, per picture and not per
+   * yard for the reason the seed above is.
+   */
+  ink: ScreenInk;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -288,7 +299,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "sounding" | "seed" | "toward"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "sounding" | "seed" | "toward" | "ink"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);

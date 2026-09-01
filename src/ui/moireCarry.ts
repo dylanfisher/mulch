@@ -1,0 +1,79 @@
+/**
+ * @role What a rebuilt row set carries over from the one it replaces: the ground the picture's rows
+ *   had travelled to, the plane its structure had travelled across, and the ink it had travelled
+ *   toward. A set is rebuilt on anything durable moving and on a run turning over, neither of which
+ *   is a jump — every row in a fresh one stands at its own rest — so a travel that did not survive
+ *   the rebuild would restart from the middle of the picture on every knob touch (0235, 0248).
+ * @instead The set these are carried between, and every row in it that belongs to no lane →
+ *   src/ui/moireRowsField.ts. Building a set, and the per-frame read that travels all three →
+ *   src/ui/moireRows.ts, which reads this and which this never reads. Where each travel is actually
+ *   stepped → `easedCentre` and `easedToward` in src/lib/moire.ts, `fractalTravelInto` in
+ *   src/lib/moireFractal.ts and `inkTravelInto` in src/ui/moireScreen.ts.
+ */
+import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+
+/**
+ * Whether one row rests on the ground the yard is reading: the reference row, the wash over it, the
+ * module's own tiers and the picture's own structure, and nothing else. Named once because two
+ * things ask — the read that travels them, and the carry that keeps that travel across a rebuilt
+ * set (principle 1).
+ *
+ * **The structure stands on the ground like the rest of the field** (0251). Built through
+ * `plainRow` it rested at `DRIFT_REST.centre` and stayed there while every other row the field is
+ * beaten against travelled with the ground, which is a large part of why a structure that is a
+ * grating still read as a layer over one (0235, 0246). Where it stands on its own *plane* is the
+ * population's and travels on its own clock (`fractalTravelInto`, 0248); where it is anchored in
+ * the *picture* is the yard's ground, and the two are different journeys.
+ */
+export const onGround = (read: RowRead): boolean =>
+  read.heard !== null || read.ground !== null || read.tier !== null || read.fractal;
+
+/**
+ * Where a picture's ground rows had got to, carried onto the set that replaces them. **A row set is
+ * rebuilt on things that are not jumps** — anything durable moving, and a run turning over — and
+ * every row in a fresh one is built at `DRIFT_REST.centre`, so without this a knob touch would
+ * sweep the whole field back from the middle of the picture and a yard holding a wander would never
+ * leave it (0235, `MoireStrip`). The travel is one of the three accumulated numbers in the picture —
+ * this, the plane below it and the ink below that: every other field a read writes is written
+ * outright, which is why only these three have to survive.
+ *
+ * The first ground row's centre and not each row's own, because one ground is one field: the read
+ * writes them all from one number and they can only differ by having been built apart.
+ */
+export function carryGround(from: MoireRowSet, to: MoireRowSet): void {
+  for (const [index, read] of from.reads.entries()) {
+    if (!onGround(read)) continue;
+    const centre = from.rows[index]?.centre;
+    if (centre === undefined) return;
+    for (const [at, into] of to.reads.entries()) {
+      if (!onGround(into)) continue;
+      const row = to.rows[at];
+      if (row !== undefined) row.centre = centre;
+    }
+    return;
+  }
+}
+
+/**
+ * And where the picture's own structure had got to, carried onto the set that replaces them. The
+ * same argument `carryGround` makes and for the same rebuilds: neither of these is a jump, and a
+ * fresh set stands the structure at its own rest — so without this every population turnover would
+ * sweep the picture back to the middle of the plane and travel out again from there, which is the
+ * swap this replaced (0235, 0248). Where it is going is the new set's own and is not carried: that
+ * is what the population standing now says.
+ */
+export function carryFractal(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.seed, from.seed);
+}
+
+/**
+ * And where the picture's ink had got to. The same argument again, and the rebuild it matters most
+ * for is the one the other two never see: a hand dragging the knob that claims a colour rebuilds the
+ * set on every pointer move, so a set that started at rest would drop the picture back to its
+ * resting ink and set off again from there on each of them — a drag that never left the middle of
+ * the ladder instead of one the picture walks up behind. Where it is going is the new set's rows and
+ * is not carried, which is what keeps the knob itself immediate.
+ */
+export function carryInk(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.ink, from.ink);
+}

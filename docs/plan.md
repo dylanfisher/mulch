@@ -441,15 +441,17 @@ axis, and a feature that adds eight entries is a feature nobody can shoot.
 
 ## Context
 
-Four things the drift does not do, each of which a listener can hear and the picture cannot say:
+Four things the drift did not do, each of which a listener can hear and the picture cannot say. The
+first is landed and is left here as what the three below are read against:
 
-- **Colour arrives and never travels.** `stepped` (src/ui/moireScreen.ts:435) rounds hue, fringe and
-  disperse onto `DRIFT_STEPS` = 8 (src/lib/moire.ts:329), which is what keeps the tile's pixel loop
-  off the frame path (0129, 0142) and is not the problem. The problem is above it: `screenHue` is
-  `boldest` over the rows (src/ui/moireScreen.ts:425), so an automator retiring the instance holding
-  the boldest claim hands the picture another ink between two frames, and a knob dragged across a
-  stop cuts to it. Every other travel in the picture is rated — `easedCentre` (src/lib/moire.ts:399)
-  is the shape, and it exists because an eased one never arrives.
+- **Colour arrived and never travelled, and now it travels** (0266, landed). `stepped` rounds hue,
+  fringe and disperse onto `DRIFT_STEPS` = 8, which is what keeps the tile's pixel loop off the frame
+  path (0129, 0142) and was never the problem. The problem was above it: each of the three is
+  `boldest` over the rows, so an automator retiring the instance holding a claim handed the picture
+  another ink between two frames and a knob dragged across a stop cut to it. The travelled value is
+  now what `stepped` rounds — `inkTravelInto` walks `MoireRowSet.ink` toward the claim at a whole
+  reach in `DRIFT_INK_SECS`, in `easedToward`'s shape, and `carryInk` keeps that travel across the
+  rebuild a knob touch is — so the staircase is walked and the drag stays immediate at the knob.
 - **Nothing reads how long the rack takes to fall silent.** Every entry declares `settle` over its
   own values — reverb's is decay plus predelay (src/audio/effects/reverb.ts:114), delay's is
   `feedbackSettleSecs` (src/audio/effects/delay.ts:74) — and nothing outside scheduling reads one.
@@ -470,7 +472,8 @@ Four things the drift does not do, each of which a listener can hear and the pic
   at six pitches, which is more weave. Six scatters is the yard at its most broken and the picture
   is at its most orderly.
 
-**The outcome wanted:** ink travels between its stops instead of cutting to them; a rack with a long
+**The outcome wanted:** ink travels between its stops instead of cutting to them (landed); a rack
+with a long
 tail blows the whole field in a direction, smoothly, and the direction moves with what else is
 standing; the structure reads as the picture zooming into its own lattice; and a rack of scatters
 reads as a picture coming apart.
@@ -489,7 +492,8 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     `fillStyle` (0070). Anything else moves a stepped key, and a stepped key that moves every frame
     is the pixel loop 0129 exists to refuse. The ink tween is therefore a rated travel of the
     _claim_, so the staircase is walked rather than jumped and each stop is baked once and cached;
-    it is not a finer ladder, and it is not an unstepped hue.
+    it is not a finer ladder, and it is not an unstepped hue — which is what the landed ink travel
+    is, and what the drift below is a second term on.
 2.  **A reading of the population is the field's, and it goes where the field's readings live.** The
     rack's tail and its scatter weight are two more of the kind `wash` and `age` already are, so
     they rest on `MoireRowSet` (src/ui/moireRowsField.ts) beside them, are computed once per read
@@ -498,15 +502,7 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 
 ## Steps
 
-1.  **The ink travels.** A rated travel over the three colour terms — hue first, and fringe and
-    disperse with it, since all three are `stepped` and all three jump for the same reason — in
-    `easedCentre`'s shape and not an ease: a whole reach in a stated number of seconds, arriving.
-    The travelled value is what `stepped` rounds, so a two-second travel across the ladder costs
-    eight bakes spread over two seconds and none of them twice (`TILE_CACHE` already holds a whole
-    drag's stops). Where the claim moves because an automator retired a place, the picture walks to
-    the new ink; where a hand is dragging, the drag stays immediate at the knob and the picture
-    catches up behind it.
-2.  **The tail blows the field.** One reading, `rackTail`, in src/lib/moireSound.ts beside
+1.  **The tail blows the field.** One reading, `rackTail`, in src/lib/moireSound.ts beside
     `washAmount`: how long the standing rack takes to fall silent, from each instance's own `settle`
     over its own values, weighted by whatever its presence says it is heard at, and normalised onto
     a band stated once. That reading buys two things and no more: a **drift**, which is a term on
@@ -514,8 +510,9 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     and this is the same axis running one way — and its **direction**, folded off the standing
     population the way `fractalKind` is (src/lib/moireFractal.ts:373), so adding an effect turns the
     wind rather than restarting it. Smoothness is the tail itself: a long tail is a slow, wide drift
-    and a short one is none. A direction that changes travels there at a rate, by step 1's clause.
-3.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
+    and a short one is none. A direction that changes travels there at a rate, in the ink
+    travel's shape (`easedToward`, 0266).
+2.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
     taken with the depth question the reference asks: the opening's band and how the levels are
     spent. Three levers and their shot answers, in this order — `FRACTAL_OPENING` past four; the
     fly-through as a travel through the coordinate rather than a cosine that returns; and the levels
@@ -524,7 +521,7 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     0246 decided, so it carries the decision: the boxes came out of the interference deliberately,
     and a lit contour is ink laid _over_ the picture unless it is cut as a grating like everything
     else.
-4.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape as step 2's: how much
+3.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape as step 1's: how much
     of the yard is scatter, from the standing instances' own odds and gate. What it buys is the one
     thing the picture has never done — the field read back through itself displaced, so a share of
     the picture is drawn from somewhere else in the picture. `lens` is the dimension in that
@@ -535,9 +532,6 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 
 ## Tests that must fail first
 
-- **src/ui/moireScreen.test.ts** — the travel: a claim that moves arrives at the new stop and is not
-  there on the next frame; a claim that moves twice inside one travel does not overshoot; a rest
-  yard's key does not move at all, so a still picture still costs no bake.
 - **src/lib/moireSound.test.ts** — `rackTail` and `rackScatter`: silence is neither, a rack of one
   short entry is near nothing, `settle` is read per instance over its own values and never off a
   default, and both answer inside their stated bands at every input.
@@ -553,16 +547,14 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
     it, then `./scripts/check` read whole. Watch each new test fail before the change.
 2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
-    crop, never the whole-canvas view. One question each: does the ink read as travelling or as
-    stepping (shoot the travel at half, one and two seconds); does a five-effect rack of reverb and
+    crop, never the whole-canvas view. One question each: does a five-effect rack of reverb and
     delay read as floating rather than as sliding (shoot at one, three and six seconds of tail);
     does the structure read as a lattice the picture is inside, against the reference; and does a
     six-scatter yard read as broken rather than as noisy.
-3.  `./scripts/profile` at the end of the feature and again inside step 4's own gate, against the
-    ~10.4ms frame p95 band — steps 1 and 2 spend no bake by construction, and step 4 spends a read
-    of the field per frame, which is the one that can cost.
-4.  A decision record per step, no longer than the decision is. The numbers follow whatever the
-    rack's three steps take; next free today is 0264.
+3.  `./scripts/profile` at the end of the feature and again inside step 3's own gate, against the
+    ~10.4ms frame p95 band — step 1 spends no bake by construction, and step 3 spends a read of the
+    field per frame, which is the one that can cost.
+4.  A decision record per step, no longer than the decision is. Next free today is 0267.
 
 ## Refused
 
@@ -570,8 +562,8 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 one row ink (src/ui/moireScreen.ts:611), so the tile is separable in its colour and a composite pass
 could recolour it per frame with no bake at all. It is a second full-canvas pass on the frame path to
 save bakes that are already cached and already stepped, and it puts the ink somewhere other than
-where the tile says the ink is. Revisit only if step 1's shot says eight stops still read as a
-staircase after they are walked.
+where the tile says the ink is. Revisit only if a shot says eight stops still read as a
+staircase now that they are walked (0266).
 
 **A `washy` flag, tag or list on the effect registry.** Which effects wash out is a fact about their
 tails, and their tails are declared. A list would be that fact said twice and wrong the first time an

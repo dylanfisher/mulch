@@ -45,7 +45,8 @@ import type { PlayerSpec } from "@/lib/player";
 import type { Loop } from "@/lib/timeline";
 import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { carryFractal, moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, refillRows } from "@/ui/moireRows";
+import { carryFractal } from "@/ui/moireCarry";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -132,6 +133,7 @@ const readAt = (
     age,
     set.seed,
     set.toward,
+    set.ink,
   );
 };
 
@@ -237,6 +239,7 @@ describe("the picture's own structure", () => {
         FRESH,
         set.seed,
         set.toward,
+        set.ink,
       );
       expect(set.seed).toEqual(fractalStopsRest());
     }
@@ -315,6 +318,7 @@ describe("the picture's own structure", () => {
         age,
         set.seed,
         set.toward,
+        set.ink,
       );
       return fractalRow(set.rows).depth;
     };

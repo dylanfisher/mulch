@@ -16,7 +16,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
-import { DRIFT_CENTRE_REACH, DRIFT_STEPS } from "@/lib/moire";
+import { DRIFT_CENTRE_REACH, DRIFT_STEPS, type MoireRow } from "@/lib/moire";
 import {
   FRACTAL_FLIGHT_SECS,
   fractalStopsRest,
@@ -30,7 +30,8 @@ import { emptyMasterPeek } from "@/audio/context";
 import { partVoice, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
-import type { MoireRowSet } from "@/ui/moireRowsField";
+import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+import type { Loop } from "@/lib/timeline";
 import { playerGroundSecs, playerRowPeriod } from "@/lib/playerDrift";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { oneSong } from "@/lib/playerSongs";
@@ -38,7 +39,7 @@ import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { DriftBakeRequest, DriftBakeResult, DriftPort } from "@/app/drift";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { stepped } from "@/ui/moireScreen";
+import { screenInkRest, stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 
@@ -120,6 +121,36 @@ const RUNNING: SessionEffect[] = [
 ];
 
 /**
+ * The per-frame read, with the five the field holds rather than a row: no master behind it, a fresh
+ * performance, a structure standing on its own rest and an ink nothing here claims (`refillRows`).
+ * Named once so a case reads as the read it is making rather than as thirteen arguments.
+ */
+const readRows = (
+  rows: readonly MoireRow[],
+  reads: readonly RowRead[],
+  peek: Readonly<DeckPeek>,
+  loop: Loop | null,
+  duration: number,
+  elapsed: number,
+): void => {
+  refillRows(
+    rows,
+    reads,
+    peek,
+    1,
+    loop,
+    duration,
+    null,
+    SILENT_MASTER,
+    elapsed,
+    0,
+    STOOD,
+    STOOD,
+    screenInkRest(),
+  );
+};
+
+/**
  * One read of a yard standing `grown`, with all the time in the world behind it: the read that
  * gives the structure its depth, so its rows are drawn at all, and the read that lands the picture
  * where that population folds to rather than part-way there (`refillRows`, `ARRIVED`).
@@ -138,6 +169,7 @@ const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
     0,
     set.seed,
     set.toward,
+    set.ink,
   );
 };
 
@@ -311,7 +343,7 @@ describe("moireCanvas tiles", () => {
       advance: 0,
       between: (frame) => {
         peek.position = ((frame + 1) / sweep) * period;
-        refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
+        readRows(rows, reads, peek, null, 0, ARRIVED);
         standing();
       },
     });
@@ -340,7 +372,7 @@ describe("moireCanvas tiles", () => {
     const loop = { in: 0, out: 1 };
     const peek = emptyDeckPeek();
     peek.player.step = curvedOn(0);
-    refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
+    readRows(rows, reads, peek, loop, 4, ARRIVED);
     expect(module.geometry).not.toBe("linear");
     const from = module.centre;
 
@@ -357,7 +389,7 @@ describe("moireCanvas tiles", () => {
       frames: 40,
       advance: 0,
       between: () => {
-        refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, frame, 0, STOOD, STOOD);
+        readRows(rows, reads, peek, loop, 4, frame);
         stood();
       },
     });
@@ -407,6 +439,7 @@ describe("moireCanvas tiles", () => {
           0,
           set.seed,
           set.toward,
+          set.ink,
         );
       },
     });
