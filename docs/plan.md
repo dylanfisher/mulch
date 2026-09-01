@@ -791,6 +791,10 @@ and the profile samples one fixed seed. Across sixteen seeds, interleaved in bot
 itself. So the profile's fixed seed landed in the cheap tail before crush and the heavy tail after it.
 Accepted as the new baseline with that reason recorded in `.profile-history.jsonl`, per
 [0051](decisions/0051-the-profiler-remembers-its-own-runs.md)'s own rule for a cost that was measured,
-attributed, and decided against fixing. The observation underneath it — that a loaded factor resting on
+attributed, and decided against fixing. Sway and shift each added a pool entry after it and re-rolled the same draw again, this time into a
+lighter population: the 16s loaded render is ~110ms faster at `0146628` than at the accepted point,
+reproducibly and interleaved, which is the same artefact reading the other way and is why no second
+baseline reset was taken. The shift kernel's own price, for the record, is 186ms per three minutes of
+stereo — under half of pop's, which already ships. The observation underneath it — that a loaded factor resting on
 a single seed's draw will re-roll under any pool change, and so measures the population as much as the
 code — is about `scripts/profile` rather than about crush, and is not taken here.
