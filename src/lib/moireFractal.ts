@@ -388,6 +388,12 @@ export const fractalCut = (standing: number, bite = FRACTAL_BITE): number =>
  * How far into its own structure a fractal row opens across one turn of its cycle, as a scale, and
  * how many stops it opens through.
  *
+ * **How far it may open is handed in and never read here**: `FRACTAL_OPENING` is the whole band and
+ * an age is what says how much of it this performance has earned (`agedOpening`,
+ * src/lib/moireAge.ts, 0251). The import runs one way — an age is a coefficient on this ramp, so
+ * this file may not reach back for one — and the default is the whole band, which is what the row
+ * opens over on the oldest picture there is.
+ *
  * **A breath and not a ramp**: the row is carried by its phase like every other row in the picture
  * (`turnsOf`), and a phase is a cycle — an opening that ramped would fall back to nothing every
  * time the phase came round, which is a jump the whole picture would blink on. Cut on a cosine, the
@@ -403,9 +409,8 @@ export const fractalCut = (standing: number, bite = FRACTAL_BITE): number =>
  */
 export const FRACTAL_OPENING = 4;
 const FRACTAL_ZOOM_STEPS = 12;
-export const fractalZoom = (turns: number): number =>
-  FRACTAL_OPENING **
-  (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS) / FRACTAL_ZOOM_STEPS);
+export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
+  opening ** (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS) / FRACTAL_ZOOM_STEPS);
 
 /**
  * Where a point stands along an escape-time row's own axis, in cycles: the smooth iteration count

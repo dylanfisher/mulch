@@ -71,6 +71,7 @@ import {
   isFractalGeometry,
   type FractalStops,
 } from "@/lib/moireFractal";
+import { agedOpening } from "@/lib/moireAge";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -309,6 +310,7 @@ function placeCurved(
   height: number,
   ref: number,
   seed: Readonly<FractalStops>,
+  age: number,
 ): void {
   const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
@@ -327,7 +329,9 @@ function placeCurved(
   stepping.cy = stepped(seed.cy, DRIFT_CENTRE_REACH);
   stepping.ratio = stepped(seed.ratio, DRIFT_CENTRE_REACH);
   stepping.turn = stepped(seed.turn, DRIFT_CENTRE_REACH);
-  fractalSeedInto(place, stepping, fractalZoom(turns));
+  // And how far that opening may go, which is how long the performance behind it has sounded, on
+  // the ladder every other key here is on (`agedOpening`, 0251).
+  fractalSeedInto(place, stepping, fractalZoom(turns, agedOpening(age)));
   order.geometry = row.geometry;
   order.profile = row.profile;
   order.width = width;
@@ -412,6 +416,7 @@ function cutGratings(
   count: number,
   wash: number,
   seed: Readonly<FractalStops>,
+  age: number,
 ): boolean {
   const { height, width } = field;
   const depth = gratingDepth(count, PICTURE_FLOOR);
@@ -440,7 +445,7 @@ function cutGratings(
       continue;
     }
     ink.globalAlpha = cut;
-    placeCurved(row, at, turns, pitch, width, height, ref, seed);
+    placeCurved(row, at, turns, pitch, width, height, ref, seed, age);
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
     // painting rather than holding the whole picture up for it (0144). Every other row goes on.
@@ -561,7 +566,8 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * there was an output to hear.
  *
  * And `age`, how old the performance behind it is on 0..1 (`driftAge`, src/lib/moireAge.ts), which
- * is the band the ink is carried across. A picture with nothing sounding behind it is drawn at an
+ * is the band the ink is carried across and the band the picture opens into its own structure over
+ * (`agedOpening`, 0251). A picture with nothing sounding behind it is drawn at an
  * age of nought, which is the picture drawn before the instrument had been anywhere.
  *
  * And `seed`, where the picture's own structure has travelled to on its plane — the field's and no
@@ -608,7 +614,7 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed)) {
+  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age)) {
     forget(canvas);
     endPainting();
     return;

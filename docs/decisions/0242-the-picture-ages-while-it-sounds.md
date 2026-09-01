@@ -5,13 +5,20 @@
   [0145](0145-a-picture-may-rest-on-analysis.md) and
   [0240](0240-the-picture-folds-into-itself.md), constrained by
   [0128](0128-every-motion-in-the-screen-belongs-to-a-parameter.md), **amended by**
-  [0243](0243-the-fold-cuts-and-travels.md)
+  [0243](0243-the-fold-cuts-and-travels.md) and
+  [0251](0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md)
 
 **Amended by 0243: the fold is no longer one of the bands.** `agedFoldReach` is deleted. Gating the
 fold's ceiling on the age made an automator's whole contribution zero on a fresh deck and at most one
 doubling after twenty minutes, which is a fold nobody sees a run buy; how deep the picture folds is
 the population standing and nothing else. The other two bands — the hue and the reference row's
 spacing — are unchanged, and so is everything below except that "three" is two.
+
+**Amended by 0250 and 0251: there are four bands, and "no fourth" was never the claim.** What is
+named, bounded and floored is — how much of the frame before it a standing run lays back in
+(`runFeedback`, 0250) and how far the picture opens into its own structure (`agedOpening`, 0251)
+arrived under exactly the rule below, each with an end of its own and each on the one floor. The
+count is not the invariant; a spend nobody declared is.
 
 Nothing in the instrument knew how long it had been playing. Every motion in the picture was a
 phase, a meter or a knob, and all three say the same thing in the fortieth minute that they said in

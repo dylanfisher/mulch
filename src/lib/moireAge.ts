@@ -1,20 +1,22 @@
 /**
- * @role How old a performance is, and the three things about the picture that widen with it: how far
+ * @role How old a performance is, and the four things about the picture that widen with it: how far
  *   its ink may be carried between the two inks, how far the reference row's spacing may be
- *   drawn from rest, and how much of the frame before it a standing run lays back in. One curve over
+ *   drawn from rest, how much of the frame before it a standing run lays back in, and how far into
+ *   its own structure the picture opens. One curve over
  *   one reach in seconds, and a named spend per band — an age
  *   multiplied into a term at the point of use would be a coefficient nobody declared (principle 1).
- * @instead The support the picture is cut through, which an age has not reached since it became the
- *   automator's own (0243, 0246) → src/lib/moireFractal.ts. What the *sound* does to either term
+ * @instead The support the picture is cut through, which is the automator's own and no age's
+ *   (0243, 0246) — an age widens how far the picture opens *into* that support and says nothing
+ *   about its shape (0251) → src/lib/moireFractal.ts. What the *sound* does to either term
  *   here →
  *   src/lib/moireSound.ts. What is done with the share `runFeedback` asks for — the ghost, its aim
  *   and the ceiling it settles under → `feedbackAlpha` in src/lib/moire.ts and `feedFrame` in
  *   src/ui/moireCanvas.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
  *   src/audio/deckPeek.ts.
  */
-import { DRIFT_REST } from "./moire.ts";
-import { fractalCut } from "./moireFractal.ts";
-import { clamp, denormalize } from "./range.ts";
+import { DRIFT_REST, DRIFT_STEPS } from "./moire.ts";
+import { FRACTAL_OPENING, fractalCut } from "./moireFractal.ts";
+import { clamp, denormalize, snapToStep } from "./range.ts";
 
 /**
  * How long a deck has to sound before the picture is most of the way to as old as it gets, in
@@ -96,3 +98,24 @@ export const DRIFT_RUN_FEEDBACK = 0.5;
  */
 export const runFeedback = (standing: number, age: number): number =>
   fractalCut(standing, DRIFT_RUN_FEEDBACK * spent(age));
+
+/**
+ * And how far into its own structure the picture may open: the scale a fractal row's breath reaches
+ * at the top of its cycle, handed to the breath rather than taken by it (`fractalZoom`,
+ * src/lib/moireFractal.ts). The band is a scale and log-symmetric about one the way the reference
+ * row's spacing is, so a share of it is a power and not a blend: a fresh picture breathes over half
+ * the band and an old one over the whole of it, on the same side of one throughout, and neither end
+ * can open past `FRACTAL_OPENING`. A fresh picture still opens and closes — an age widens what a
+ * term may reach and may not invent one (0141) — over less of the room to do it in.
+ *
+ * **Stepped, where every other spend above is continuous**, for the reason `fractalZoom` gives for
+ * stepping the phase it spends this on — and it is the harder case of the two: an age is a
+ * saturating exponential and never comes to rest, so unstepped it asks for that bake at every
+ * frame of a whole performance rather than at every frame of a breath. Eight stops is eight extra
+ * bakes in a whole performance — five of them inside the first twenty minutes, where the curve
+ * spends most of its rise (`DRIFT_AGE_REACH_SECS`). The ladder is `DRIFT_STEPS` and not a count of its own,
+ * because a value rounded before it reaches a tile is rounded onto that one (principle 1);
+ * `stepped` itself is the screen's (src/ui/moireScreen.ts) and a lib may not reach up for it.
+ */
+export const agedOpening = (age: number): number =>
+  FRACTAL_OPENING ** spent(snapToStep(age, 0, 1, 1 / DRIFT_STEPS));

@@ -1,21 +1,28 @@
 /**
  * @role Tests the age a picture reads its own performance at: that a deck which has just begun is
- *   at nothing, that the curve only ever rises and never reaches one, and that each of the three
+ *   at nothing, that the curve only ever rises and never reaches one, and that each of the four
  *   bands it widens is at its floor fresh, whole at the end, and inside its own reach throughout.
  */
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_FEEDBACK_REACH, DRIFT_HUE_REACH, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire.ts";
+import {
+  DRIFT_FEEDBACK_REACH,
+  DRIFT_HUE_REACH,
+  DRIFT_PITCH_REACH,
+  DRIFT_REST,
+  DRIFT_STEPS,
+} from "./moire.ts";
 import {
   DRIFT_AGE_FLOOR,
   DRIFT_AGE_REACH_SECS,
   DRIFT_RUN_FEEDBACK,
   agedHue,
+  agedOpening,
   agedPitch,
   driftAge,
   runFeedback,
 } from "./moireAge.ts";
-import { FRACTAL_REACH } from "./moireFractal.ts";
+import { FRACTAL_OPENING, FRACTAL_REACH, fractalZoom } from "./moireFractal.ts";
 
 /** The ages every spend below is read at: the two ends, and a scatter of the room between them. */
 const AGES = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1];
@@ -45,9 +52,9 @@ describe("driftAge", () => {
 });
 
 // One flat list of the bands an age widens, each read across the same scatter of ages above it:
-// splitting it would separate three cases that are the same claim about three terms (0007).
+// splitting it would separate four cases that are the same claim about four terms (0007).
 // oxlint-disable-next-line max-lines-per-function
-describe("what an age widens, in colour, in spacing and in what a run lays back", () => {
+describe("what an age widens, in colour, in spacing, in what a run lays back and in the opening", () => {
   it("carries a hue claim back toward the picture's own ink, and never outside the band", () => {
     // Rest is rest at either end: an age widens a claim and may not invent one.
     for (const age of AGES) expect(agedHue(DRIFT_REST.hue, age)).toBeCloseTo(DRIFT_REST.hue, 9);
@@ -113,5 +120,46 @@ describe("what an age widens, in colour, in spacing and in what a run lays back"
     // Half the dimension and never the whole of it: a hand still has somewhere to go past the
     // deepest a run can ask for (`boldestRow` takes the max, 0139).
     expect(DRIFT_RUN_FEEDBACK).toBeLessThan(DRIFT_FEEDBACK_REACH);
+  });
+
+  it("opens the structure inside its own band at every age, and never past the band", () => {
+    // A scale and not a blend, so half the band is a root of it and not half of it.
+    expect(agedOpening(0)).toBeCloseTo(FRACTAL_OPENING ** DRIFT_AGE_FLOOR, 9);
+    expect(agedOpening(1)).toBeCloseTo(FRACTAL_OPENING, 9);
+    let last = 0;
+    for (const age of AGES) {
+      const opening = agedOpening(age);
+      expect(opening).toBeGreaterThanOrEqual(last);
+      // A fresh picture still opens and closes, over less of the room to do it in (0141).
+      expect(opening).toBeGreaterThan(1);
+      expect(opening).toBeLessThanOrEqual(FRACTAL_OPENING);
+      last = opening;
+    }
+    expect(last).toBeGreaterThan(agedOpening(0));
+    // And what the row is actually drawn at, handed the band the age has earned: back at one at the
+    // bottom of its own breath at every age, and at that band and no further at the top of it.
+    for (const age of AGES) {
+      const opening = agedOpening(age);
+      expect(fractalZoom(0, opening)).toBeCloseTo(1, 12);
+      expect(fractalZoom(0.5, opening)).toBeCloseTo(opening, 12);
+      expect(fractalZoom(0.5, opening)).toBeLessThanOrEqual(FRACTAL_OPENING);
+    }
+  });
+});
+
+describe("the opening's own ladder", () => {
+  /**
+   * The age is a saturating exponential and never stops moving, where the opening is baked into a
+   * picture-sized tile: unstepped it would ask for one at every frame. Stepped, a picture that has
+   * barely aged is exactly the picture it was.
+   */
+  it("stands still between two steps of the age", () => {
+    expect(agedOpening(0.5)).toBe(agedOpening(0.5 + 1e-6));
+    expect(agedOpening(0.5)).toBe(agedOpening(0.5 - 1e-6));
+    // And across a whole performance it opens once per step of the ladder and no oftener, which is
+    // what the extra bakes cost.
+    const stops = new Set<number>();
+    for (let at = 0; at <= 1000; at += 1) stops.add(agedOpening(at / 1000));
+    expect(stops.size).toBe(DRIFT_STEPS + 1);
   });
 });

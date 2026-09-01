@@ -243,12 +243,20 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
 }
 
 /**
- * Whether one row rests on the ground the yard is reading: the reference row, the wash over it and
- * the module's own tiers, and nothing else. Named once because two things ask — the read that
- * travels them, and the carry that keeps that travel across a rebuilt set (principle 1).
+ * Whether one row rests on the ground the yard is reading: the reference row, the wash over it, the
+ * module's own tiers and the picture's own structure, and nothing else. Named once because two
+ * things ask — the read that travels them, and the carry that keeps that travel across a rebuilt
+ * set (principle 1).
+ *
+ * **The structure stands on the ground like the rest of the field** (0251). Built through
+ * `plainRow` it rested at `DRIFT_REST.centre` and stayed there while every other row the field is
+ * beaten against travelled with the ground, which is a large part of why a structure that is a
+ * grating still read as a layer over one (0235, 0246). Where it stands on its own *plane* is the
+ * population's and travels on its own clock (`fractalTravelInto`, 0248); where it is anchored in
+ * the *picture* is the yard's ground, and the two are different journeys.
  */
 const onGround = (read: RowRead): boolean =>
-  read.heard !== null || read.ground !== null || read.tier !== null;
+  read.heard !== null || read.ground !== null || read.tier !== null || read.fractal;
 
 /**
  * Where a picture's ground rows had got to, carried onto the set that replaces them. **A row set is
@@ -617,7 +625,13 @@ export function refillRows(
     // And the one row the whole run stands in: how hard the picture's own structure cuts, and how
     // far it is bent, off the same master window. Its phase runs on the deck's clock below like any
     // other, which is what opens it into itself and closes it back out (`fractalZoom`, 0246).
-    if (read.fractal) fractalHeard(row, peek.grown, master, age);
+    if (read.fractal) {
+      // Anchored where the yard is reading, like the reference row and the wash over it: the
+      // structure is one grating among the picture's own and stands where they stand (0251). Its
+      // own travel across the plane is the population's and is taken in the prologue above.
+      row.centre = ground;
+      fractalHeard(row, peek.grown, master, age);
+    }
     if (read.tier !== null) playerTierInto(row, read.tier, place, part, ground);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;

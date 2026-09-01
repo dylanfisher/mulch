@@ -67,6 +67,17 @@ const songPart = (id: string, length: number): SongPart => ({
 const CURVED_PART = songPart("curve", 2);
 const CURVED_SPEC: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([CURVED_PART]) };
 
+/**
+ * One automator standing one place, which is the smallest run that puts the picture's own structure
+ * in a picture at all (`fractalInto`, src/ui/moireRowsField.ts).
+ */
+const ONE_PLACE = new Map([
+  [
+    "an automator",
+    [{ effect: "delay", instance: "a far place", presence: 1, remain: 30, life: 30, values: [] }],
+  ],
+]);
+
 /** A step of that walk, standing in that part on the ground `bed`. */
 const curvedOn = (bed: number): PlayerStep => ({
   ...playerWalk(CURVED_SPEC)(),
@@ -260,23 +271,8 @@ describe("moireCanvas tiles", () => {
     // 0144). Two rows are on it, because one structure is cut at two periods (0246).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const grown = new Map([
-      [
-        "an automator",
-        [
-          {
-            effect: "delay",
-            instance: "a far place",
-            presence: 1,
-            remain: 30,
-            life: 30,
-            values: [],
-          },
-        ],
-      ],
-    ]);
-    const set = moireRows([], [], 4, PLAIN_CUT, null, grown, null);
-    const peek = { ...emptyDeckPeek(), grown };
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const peek = { ...emptyDeckPeek(), grown: ONE_PLACE };
     const over = fractalTravelSecs(set.windowSecs);
     expect(over).toBeGreaterThan(0);
     // A whole travel, read frame by frame the way a painting reads it, with every row's phase held
@@ -314,6 +310,50 @@ describe("moireCanvas tiles", () => {
     expect(painted.surfaces[0]?.drew.length).toBe(2 * sweep - 2);
     expect(stops).toBeGreaterThan(2);
     expect(stops).toBeLessThanOrEqual(2 * DRIFT_STEPS);
+  });
+
+  it("opens a fractal row's tile with the age, and asks for none between two steps of one", () => {
+    // 0251: the age reaches the picture's own structure now — it is a coefficient on the band the
+    // row breathes through (`agedOpening`), so it lands in the tile's key like the other three
+    // things that move one. Which is exactly why it is stepped: an age is a saturating exponential
+    // that never stops moving, so unstepped it would ask for a picture-sized bake at every frame
+    // for the whole of a performance (0142, 0144).
+    forgetDriftTiles();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    // The read that gives the structure its depth, so the rows are drawn at all — and then both of
+    // them stood at the top of their own breath, where the opening is the whole band the age has
+    // earned: at the bottom of it every age opens onto the same picture (`fractalZoom`).
+    refillRows(
+      set.rows,
+      set.reads,
+      { ...emptyDeckPeek(), grown: ONE_PLACE },
+      1,
+      null,
+      0,
+      null,
+      SILENT_MASTER,
+      ARRIVED,
+      0,
+      set.seed,
+      set.toward,
+    );
+    for (const each of set.rows) if (each.geometry !== "linear") each.phase = each.period / 2;
+    const bakedAt = (age: number): number =>
+      baked(
+        paintedOn(100, 50, set.rows, 2, WINDOW, { frames: 3, advance: 0, age, seed: set.seed }),
+        100,
+      );
+    // The structure is baked for the age the picture is first drawn at.
+    const fresh = bakedAt(0);
+    expect(fresh).toBeGreaterThan(0);
+    // A performance that has been somewhere opens further into its own structure, which is that
+    // many tiles again the shop is not holding.
+    expect(bakedAt(1)).toBe(fresh);
+    // And an age that has moved inside one step of the ladder is exactly the picture it was — as
+    // is the age the picture was first drawn at, which the shop is still holding.
+    expect(bakedAt(1 - 1e-6)).toBe(0);
+    expect(bakedAt(0)).toBe(0);
   });
 
   it("gives two rows of one kind their own fallback, and not each other's", () => {

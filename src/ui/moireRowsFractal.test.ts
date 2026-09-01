@@ -31,6 +31,12 @@ import {
   isFractalGeometry,
 } from "@/lib/moireFractal";
 import { PLAIN_CUT, washedDepth } from "@/lib/moireSound";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
+import { oneSong } from "@/lib/playerSongs";
+import { playerWalk } from "@/lib/playerWalk";
+import type { PlayerSpec } from "@/lib/player";
+import type { Loop } from "@/lib/timeline";
 import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { carryFractal, moireRows, refillRows } from "@/ui/moireRows";
@@ -68,11 +74,16 @@ const ARRIVED = Number.POSITIVE_INFINITY;
 /** And a picture of a performance that has just begun, which is where every case here reads it. */
 const FRESH = 0;
 
-/** The picture a yard running `grown` and nothing else draws, and the peek that reads it back. */
+/**
+ * The picture a yard running `grown` and nothing else draws, and the peek that reads it back — and,
+ * for the one case that is about the ground, a yard whose pattern can jump, which is the only kind
+ * whose ground move has a length to be travelled over (`groundTravel`).
+ */
 const pictureOf = (
   grown: Map<EffectInstanceId, GrownEffect[]>,
+  playerPeriod: number | null = null,
 ): { set: MoireRowSet; peek: DeckPeek } => {
-  const set = moireRows([], [], 4, PLAIN_CUT, null, grown, null);
+  const set = moireRows([], [], 4, PLAIN_CUT, playerPeriod, grown, null);
   return { set, peek: { ...emptyDeckPeek(), grown } };
 };
 
@@ -83,24 +94,32 @@ const fractalRow = (rows: readonly MoireRow[]): MoireRow => {
   return found;
 };
 
+/** A yard's pattern, arranged as nothing and otherwise exactly what a switch press leaves. */
+const JUMPING: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([]) };
+
 /** An output as narrow as one gets, which is the one that asks the picture for the deepest lens. */
 const RINGING_MASTER = { ...emptyMasterPeek(), flatness: 0.001 };
 
-/** One per-frame read of a whole picture, `elapsed` seconds after the one before it. */
+/**
+ * One per-frame read of a whole picture, `elapsed` seconds after the one before it — and, for the
+ * one case that is about the ground, the loop and the length the yard is reading it in.
+ */
 const readAt = (
   set: MoireRowSet,
   peek: DeckPeek,
   elapsed: number,
   master = SILENT_MASTER,
   age = FRESH,
+  loop: Loop | null = null,
+  duration = 0,
 ): void => {
   refillRows(
     set.rows,
     set.reads,
     peek,
     1,
-    null,
-    0,
+    loop,
+    duration,
     null,
     master,
     elapsed,
@@ -334,5 +353,43 @@ describe("the picture's own structure", () => {
     const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
     readAt(dry, emptyDeckPeek(), ARRIVED, RINGING_MASTER, 1);
     for (const row of dry.rows) expect(row.feedback).toBe(DRIFT_REST.feedback);
+  });
+
+  /**
+   * 0251: the structure is one grating among the picture's own, so it stands where they stand.
+   * Built through `plainRow` its rows rested in the middle of the picture and stayed there while
+   * the reference row, the wash over it and the module's tiers all travelled with the ground —
+   * which is a field travelling under a structure that does not, and a large part of why a grating
+   * still read as a layer over one (0235).
+   */
+  it("stands its rows on the ground the yard is reading, and both of them on the one ground", () => {
+    const loop: Loop = { in: 0, out: 1 };
+    const secs = 8;
+    const period = playerRowPeriod(JUMPING);
+    const { set, peek } = pictureOf(runOf("auto", "g0"), period);
+    const structure = set.rows.filter((row) => isFractalGeometry(row.geometry));
+    expect(structure).toHaveLength(2);
+    // A yard reading nowhere stands every row of the field at the rest it was built at.
+    readAt(set, peek, ARRIVED, SILENT_MASTER, FRESH, loop, secs);
+    for (const row of structure) expect(row.centre).toBe(DRIFT_REST.centre);
+    // And a ground standing carries both of them there — travelled and not written, like every
+    // other row that rests on it: a frame of the move stands them between the two (0235).
+    peek.player.step = { ...playerWalk(JUMPING)(), bed: 3 };
+    const stood = playerRowStand(3, loop, secs)?.centre;
+    expect(stood).not.toBe(DRIFT_REST.centre);
+    const ground = stood ?? 0;
+    readAt(set, peek, playerGroundSecs(period) / 4, SILENT_MASTER, FRESH, loop, secs);
+    for (const row of structure) {
+      expect(row.centre).not.toBe(DRIFT_REST.centre);
+      expect(row.centre).not.toBe(ground);
+      expect(Math.abs(row.centre - ground)).toBeLessThan(Math.abs(DRIFT_REST.centre - ground));
+    }
+    // And it arrives, through the one anchor the reference row and the wash are carried by rather
+    // than a second reading of the same stretch (0185).
+    readAt(set, peek, ARRIVED, SILENT_MASTER, FRESH, loop, secs);
+    for (const row of structure) expect(row.centre).toBe(ground);
+    // One structure on two periods stands in one place: two anchors would beat the structure
+    // against itself across the picture rather than at the scales it holds (`FRACTAL_BEAT`).
+    expect(structure[0]?.centre).toBe(structure[1]?.centre);
   });
 });

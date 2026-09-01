@@ -38,17 +38,21 @@ Four things follow, and all four are visible on screen:
   at, so the place count re-slots both rows at a turnover — is what still blinks at its edges, and
   moireCanvasTiles.test.ts's "keeps a fractal row's fallback across a seed step" is where the rest
   of it is owed.
-- It barely moves. Its one motion is fractalZoom — a cosine breath over the picture's window,
-  twelve stops, four times deep. Nothing about how long the yard has been sounding reaches it, and
-  it never travels with the ground the way the reference row, the wash and the module's tiers all do
-  (0235), which is a large part of why it still reads as a layer.
+- It barely moves — less so than it did. Its one motion is fractalZoom, a cosine breath over the
+  picture's window, twelve stops deep; the band that breath opens through is now how long the yard
+  has been sounding (`agedOpening`, 0251) and the row itself now travels with the ground the
+  reference row, the wash and the module's tiers travel with (0235, 0251). What is left is the
+  fly-through: the picture flying through its own structure while it plays, which is a motion of
+  its own and not a wider band on the breath.
 
 The outcome wanted: the structure travels between the places a run stands rather than swapping; a
 place fading out while another fades in reads as one continuous run and never as an ending; the
 picture flies through its own structure while it plays; and the whole moiré is laid back into itself,
 so the picture zooms into itself the way the fractal does — the last of which is landed
-(`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`), leaving the fly-through
-as the one item of the four still open.
+(`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`) — as are the ground
+anchor and the age's own opening
+(`docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md`), leaving the
+fly-through as the one item of the four still open.
 
 Decided before planning: all four in one plan; the picture's self-zoom is frame feedback; and the
 fractal's motion may spend the bake budget for a fly-through.
@@ -85,34 +89,6 @@ the plan is written against them as facts rather than as intentions: the picture
 
 ---
 
-Step 0250 — The structure stands on the ground and opens with the age
-
-docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md, amending 0242
-(three spends become four). The numbers moved twice: the travel took 0248 and the no-flash-off took
-0249, so every decision this plan still owes is one higher than its step's own number, and each is
-filed under the number free when its step lands — the feedback landed as 0250 that way.
-
-`moireAge.ts` gained its third band as `runFeedback`, and `agedOpening` is the fourth. The import
-runs one way only (0250): `moireAge` reaches into `moireFractal` for the ramp an age is a coefficient
-on, so `fractalZoom` takes the opening it was handed as an argument rather than importing an age back.
-
-- agedOpening(age) in src/lib/moireAge.ts on the spent() arithmetic already there, spent
-  inside fractalZoom, so a fresh picture opens over half the band and an old one over the whole of
-  it. moireAge.ts's @instead line ("an age has not reached [the fractal]") is what this changes.
-  The age must be stepped onto DRIFT_STEPS before it reaches this — it is a continuous
-  saturating exponential, and unstepped it moves place.zoom in the last bit at every frame and asks
-  for a picture-sized tile at every frame. Stepped, the opening widens eight times across twenty
-  minutes and costs eight extra keys in a whole performance. paintMoire already carries age; it
-  threads down beside seed.
-- The fractal rows stand on the ground. They are built through plainRow, so they rest at
-  DRIFT_REST.centre and never move while every other field row travels with the ground (0235).
-  Giving their reads a ground picks them up in onGround/easedCentre; place.x/place.y are
-  already stepped(row.centre, DRIFT_CENTRE_REACH), so the bake cost is the ladder
-  moireCanvasTiles.test.ts:196 already budgets. Take this only if the shot below says the picture
-  still reads as a layer — it is the one item here worth dropping under time pressure.
-
----
-
 Tests that must fail first
 
 src/lib/moireFractal.test.ts — the travel's own arithmetic is written ("the travel", 0248): it
@@ -126,15 +102,18 @@ it took the two cases that were about the fractal row with it. The remaining cas
 moireRowsField.test.ts's "cuts the fractal row deeper under a resonant output", which is a move to
 make when a later step needs the room rather than for its own sake. "holds the rows while the run
 stands nothing and cuts nothing through them at wash: 1" is written (0249), and so is "asks the
-picture to fold back into itself at the depth the run is standing" (0250). Nothing is owed there
+picture to fold back into itself at the depth the run is standing" (0250), and "stands its rows on
+the ground the yard is reading, and both of them on the one ground" (0251). Nothing is owed there
 until the fly-through has a step of its own.
 
 src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
-same ladder"). Still to write: keeps a fractal row's fallback across a seed step.
+same ladder"), and so is the age's own stop on it ("opens a fractal row's tile with the age, and
+asks for none between two steps of one", 0251). Still to write: keeps a fractal row's fallback
+across a seed step.
 
-src/lib/moireAge.test.ts — "lays back what a standing run earns, over the band the age has opened"
-is written (0250). Still to write: opens the structure inside its own band at every age and
-never past FRACTAL_OPENING; stands still between two steps of the age.
+src/lib/moireAge.test.ts — nothing is owed. "lays back what a standing run earns, over the band the
+age has opened" is written (0250), and so are "opens the structure inside its own band at every age,
+and never past the band" and "stands still between two steps of the age" (0251).
 
 src/ui/moireCanvas.test.ts — "lays the whole field back into itself for the run the yard is
 standing" is written (0250), beside the `fedRow` fixture rather than through it: the rows come out of
@@ -163,8 +142,9 @@ Verification
     - At what depth does the feedback read as the picture zooming into itself rather than as a smear?
       A fed-back frame fills fringes back in, so confirm the field's mean holds near PICTURE_FLOOR
       while the coarse-block contrast rises.
-    - Does the structure still read as a layer once it travels and is fed back? That answer decides
-      whether the ground anchor of the last step is taken at all.
+    - Does the structure still read as a layer once it travels and is fed back? Answered yes on
+      0251's own shot — broad arcs standing over a straight weave, on a yard six seconds into a
+      run — which is why the ground anchor was taken. Ask it again of the fly-through.
 3.  ./scripts/profile at the end of the feature and again inside the feedback step's own gate, against the
     ~10.4ms frame p95 band.
 4.  A decision record per step, no longer than the decision is.
@@ -257,7 +237,7 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
 
 ## Step 0251 — Every corner says its name, and the blend is four arguments and not one
 
-`docs/decisions/0251-the-blend-is-four-arguments-and-every-corner-is-named.md`, extending 0247.
+`docs/decisions/0252-the-blend-is-four-arguments-and-every-corner-is-named.md`, extending 0247.
 Durable shape moved: none — the bench is wired to nothing.
 
 `src/ui/sketch/SketchCast.tsx` becomes four blends of one cast, drawn side by side under one
@@ -298,15 +278,15 @@ an unwon shape.
 
 ## Step 0252 — The mulcher is drawn as a mulcher
 
-`docs/decisions/0252-the-machine-is-on-the-bench.md`, extending 0247 and resting on 0236.
+`docs/decisions/0253-the-machine-is-on-the-bench.md`, extending 0247 and resting on 0236.
 
 Two new whole-surface sketches. Both are pictures of the same machine and disagree about which end
 of it a hand works from.
 
 - **`SketchChipper` — "Feed The Hopper".** The card laid out as the machine, top to bottom: the
   hopper is the source and the planted grounds (`SKETCH_BEDS`) are what has been dropped in it; the
-  drum is a ring of six blades, one per character, whose _size is its weight_ — so the blend from
-  0251 is the drum, and setting the character mix is sharpening or dulling blades; the chute throws
+  drum is a ring of six blades, one per character, whose _size is its weight_ — so the blend of
+  decision 0252 is the drum, and setting the character mix is sharpening or dulling blades; the chute throws
   the walk out sideways as `SKETCH_WALK`, block per landing, in the drum's rotation order. How It Is
   Timed is the drum speed, How It Is Arranged is what is queued at the hopper's mouth. Trades: the
   metaphor has one direction, so anything that feeds back — a part that changes the ground it was
@@ -320,16 +300,16 @@ of it a hand works from.
 
 Both are drawn in the one hue with weight and geometry (0236, 0247's "six surfaces distinguished by
 geometry and density and not by colour"). The blades and the sorts are labelled with the real names,
-same rule as 0251.
+same rule as decision 0252.
 
 ## Step 0253 — The bench is two benches, and the first part is the walk
 
-`docs/decisions/0253-the-bench-argues-the-card-fold-by-fold.md`, extending 0247 on the sentence
+`docs/decisions/0254-the-bench-argues-the-card-fold-by-fold.md`, extending 0247 on the sentence
 "six answers to one question".
 
 SketchPage.tsx grows a second list and one heading each:
 
-- **Whole surfaces** — the six of 0247 plus 0252's two. Each replaces the card.
+- **Whole surfaces** — the six of 0247 plus decision 0253's two. Each replaces the card.
 - **The parts** — one section per region of the card, each holding two or three small sketches that
   argue only that region. Each replaces one fold.
 
@@ -355,7 +335,7 @@ are the same sixteen landings and the comparison is honest.
 
 ## Step 0254 — The ground and the arrangement
 
-`docs/decisions/0254-the-ground-and-the-arrangement-have-their-own-benches.md`.
+`docs/decisions/0255-the-ground-and-the-arrangement-have-their-own-benches.md`.
 
 `src/ui/sketch/parts/SketchPartGround.tsx` — Which Ground, whose five knobs (`bed`, `bedEvery`,
 `bedDistance`, `bedBias`, `bedHome`) are the song's and never a part's (0184), which is itself the
@@ -381,7 +361,7 @@ sixteen passes, so the ladder has something to climb and the tray has something 
 
 ## Step 0255 — The song builder, and the two folds left
 
-`docs/decisions/0255-the-song-builder-is-the-tier-a-hand-actually-works.md`.
+`docs/decisions/0256-the-song-builder-is-the-tier-a-hand-actually-works.md`.
 
 `src/ui/sketch/parts/SketchPartSongs.tsx` — the tier over a part (src/lib/playerSongs.ts): named
 songs in an order a hand chose, each carrying how many times it plays, over `SKETCH_PARTS`.
@@ -436,15 +416,15 @@ DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks strai
     - New Tailwind classes in a new directory are stale on the dev server — shoot the built `dist/`,
       and the shot needs its `{"wait":1}`.
     - Never judge a labelled corner from the whole-page view; read the 1:1 crop, which is the whole
-      question 0251 exists to answer.
+      question decision 0252 exists to answer.
 3.  Three questions only a shot answers, and they decide what the next step is:
     - At four blends across a card's width, is a corner label still readable, or does comparing them
       require them to be full size and stacked?
     - Does the chipper read as the machine or as an illustration sitting on top of a card? If it is
-      an illustration, 0252's second sketch is the one to keep and the first is deleted in its own
+      an illustration, decision 0253's second sketch is the one to keep and the first is deleted in its own
       record.
     - Does the parts bench make the surfaces bench redundant? If a hand picks a walk, a ground and a
-      song builder without looking at the six, say so in 0253's record — that is 0247's "the day one
+      song builder without looking at the six, say so in decision 0254's record — that is 0247's "the day one
       of them wins" arriving in a shape 0247 did not predict.
 4.  A decision record per step, no longer than the decision is. No `./scripts/profile` gate on this
     feature: the bench is off the frame path entirely and mounts nothing the instrument runs.
