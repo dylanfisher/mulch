@@ -13,4 +13,5 @@ Because a response is a whole buffer built over its own length, the two paramete
 function of are not automatable and a move that lands on the value already built rebuilds nothing.
 Decay and tone are knobs whose gesture is a rebuild; pre-delay and wet are AudioParams and take
 lanes like any other. A convolver whose buffer is regenerated per parameter event — or per frame —
-is the defect this split exists to prevent, and `rack.test.ts` counts the buffers to prove it.
+is the defect this split exists to prevent, and `rackPlugins.test.ts` counts the buffers to prove
+it.

@@ -158,6 +158,10 @@ describe("parameter registry", () => {
       "crush.bits",
       "crush.rate",
       "crush.mix",
+      "sway.rate",
+      "sway.depth",
+      "sway.feedback",
+      "sway.mix",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -198,6 +202,7 @@ describe("parameter registry", () => {
       "auto.pop",
       "auto.scatter",
       "auto.crush",
+      "auto.sway",
     ]);
   });
 

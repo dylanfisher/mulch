@@ -161,7 +161,8 @@ export const tapeEffect = defineEffect({
     // `tape.amount` is one declared parameter and therefore one AudioParam, exactly as delay's
     // and the reverb's are: a DC source both crossfade gains derive from through the equal-power
     // curves (0049). The third occurrence of this block, and it stays written out: extracting it
-    // would reorder node construction in two shipped plugins for no behaviour (principle 4).
+    // would reorder node construction in the shipped plugins that already have it for no
+    // behaviour (principle 4). The sway's is the fourth and cites this note.
     const mix = ctx.createConstantSource();
     const dryShape = ctx.createWaveShaper();
     dryShape.curve = mixCurve("dry");

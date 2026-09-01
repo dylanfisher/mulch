@@ -239,6 +239,7 @@ function buildAutomator(
     "auto.pop": bind(),
     "auto.scatter": bind(),
     "auto.crush": bind(),
+    "auto.sway": bind(),
   };
 
   /**

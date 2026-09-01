@@ -64,7 +64,13 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
     "How many bits a sample is rounded onto. One is the sign of the sound and nothing else.",
   "crush.rate": "How often a sample is taken and held, in hertz. Lower is coarser and grittier.",
   "crush.mix": "How much of the crushed sound is heard beside the untouched one, from none to all.",
-  // The automator's own eighteen. It holds a run of other effects rather than a sound, so its words
+  "sway.rate":
+    "How fast the delayed copy wanders, in hertz. Slow is a chorus and fast is a warble.",
+  "sway.depth": "How far it wanders, from a flanger's hair's breadth to the whole of its travel.",
+  "sway.feedback":
+    "How much of the delayed copy is fed back into itself. High is a comb with teeth.",
+  "sway.mix": "How much of the wandering copy is heard beside the untouched one, from none to all.",
+  // The automator's own nineteen. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
@@ -91,6 +97,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.pop": "How often a pop is drawn against the rest of the pool. None is never.",
   "auto.scatter": "How often a scatter is drawn against the rest of the pool. None is never.",
   "auto.crush": "How often a crush is drawn against the rest of the pool. None is never.",
+  "auto.sway": "How often a sway is drawn against the rest of the pool. None is never.",
 };
 
 /**

@@ -90,6 +90,14 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
     ),
     nouns: words("Clinker Cinder Slag Rubble Shingle Clod Ash Char Silt Hardpan Terrace Cobble"),
   },
+  sway: {
+    adjectives: words(
+      "Swung Loose Rolling Lolling Tilting Wobbling Reeling Swinging Slack Nodding Lurching Yawing",
+    ),
+    nouns: words(
+      "Reed Willow Pendulum Hammock Bough Rope Sedge Bulrush Weathervane Boom Cradle Tide",
+    ),
+  },
   // The one entry that names a run of other effects rather than a sound of its own, so its
   // adjectives say how a thing grows and its nouns are the places growing happens (0081, 0204).
   automator: {

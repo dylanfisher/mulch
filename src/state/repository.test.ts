@@ -1,5 +1,5 @@
 // The persistence layer's own transactions, over the one fake IndexedDB in the repo — which
-// stands in for the platform the way src/audio/effects/rack.test.ts's fake stands in for the
+// stands in for the platform the way src/audio/effects/rackFake.ts stands in for the
 // audio graph: requests answered in order, a commit once the queue drains, and an abort that puts
 // every store back the way it was. Node has no IndexedDB and every seam above this file is handed
 // a repository double, so these transactions run nowhere else.

@@ -34,6 +34,7 @@ export const DRIFT_PROFILES = [
   "swell",
   "grain",
   "stair",
+  "sway",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -82,6 +83,19 @@ const FLAT_EDGE = 3;
  */
 const STAIR_STEPS = 3;
 const STAIR_RISE = 0.12;
+
+/**
+ * How far a `sway`'s own crest wanders from where a plain one would stand, as a share of its cycle.
+ * The wander is carried by the *second* harmonic and by no other, which is the whole of why this
+ * wave still averages a half: a phase term that repeats twice a cycle is unchanged half a cycle
+ * along, so the wave stays odd about its own middle exactly as every other one here is, and no
+ * amount of it moves the mean off a half.
+ *
+ * Under `1 / (4π)`, and that bound is what keeps this a crest. The phase runs at
+ * `1 - 4π·SWAY_WANDER·sin`, so a wander past that turns the phase back on itself and the crest
+ * becomes two — which is a second family and not a deeper cut of this one.
+ */
+const SWAY_WANDER = 0.07;
 
 /**
  * The octaves a self-similar profile is built out of, and what the three of them come to together.
@@ -185,6 +199,13 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // one is flat between its risers. It is not `plain` at a depth ratio for the same reason: a
   // quantiser is not a multiplier, so the two deviate by a different factor at every turn (0122).
   stair: (turn) => 0.5 - 0.5 * stairStep(cosTurn(turn)),
+  // A crest whose own position wanders: the plain cosine read at a phase that runs fast and then
+  // slow across the cycle, which is the modulation drawn as modulation — the crest stands off the
+  // middle of its own cycle and the shoulder after it is long. Not `split` at another size, which
+  // is the pair to check because a tape's wow is this same idea at a size a hand does not hear
+  // (0122): `split` is a fundamental and a second harmonic, and this one carries no second harmonic
+  // at all and every odd one instead, so no depth of either is the other.
+  sway: (turn) => halfCosine(turn + SWAY_WANDER * cosTurn(turn, 2)),
 };
 
 /**
