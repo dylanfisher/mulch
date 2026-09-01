@@ -780,3 +780,25 @@ A step run by a subagent gets the standing clauses in
 warnings, waive at the site, four review lenses, interleave base and head. Each is there because a
 run paid for its absence, and the cost is named beside it. Paste them. A paraphrase drops the
 sentence that made the clause work.
+
+## 4. Not taken
+
+Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
+scheduled by being here.
+
+**Crush's loaded factor, measured and kept.** Landing crush (`4f16805`) dropped `./scripts/profile`'s
+loaded factor from 26.4x to 16.0x — a flat ~395ms on the 16s loaded render, reproducible across three
+interleaved BASE/HEAD pairs with no overlap. It is not the kernel and it is not the node. `scripts/bench`
+prices the crush stage at 52ms per three minutes of stereo, the cheapest of the four shipped worklets;
+a rack of eight crushes renders faster than a rack of eight pops; and an automator that can draw
+nothing but crush is the cheapest pool member after the filter. The whole delta is the draw: HEAD with
+`auto.crush` weighted to nought renders in exactly BASE's time, because a ninth entry in
+`drawWeighted`'s weight list changes what every later pick selects (`drawWeighted`, src/lib/effectGrowth.ts:156),
+and the profile samples one fixed seed. Across sixteen seeds, interleaved in both orders, BASE means
+1.236s against HEAD's 1.244s — the same to within 0.6%, on a per-seed spread wider than the delta
+itself. So the profile's fixed seed landed in the cheap tail before crush and the heavy tail after it.
+Accepted as the new baseline with that reason recorded in `.profile-history.jsonl`, per
+[0051](decisions/0051-the-profiler-remembers-its-own-runs.md)'s own rule for a cost that was measured,
+attributed, and decided against fixing. The observation underneath it — that a loaded factor resting on
+a single seed's draw will re-roll under any pool change, and so measures the population as much as the
+code — is about `scripts/profile` rather than about crush, and is not taken here.
