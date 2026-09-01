@@ -12,20 +12,25 @@
  *   src/ui/moireRowsField.test.ts. The coordinate and the travel as arithmetic →
  *   src/lib/moireFractal.test.ts. Drawing any of it → src/ui/moireCanvas.test.ts.
  */
+// One import over the cap: the picture's weight and the picture's ink are the two readings 0249
+// made agree, and they are declared in two files — so the case that holds them to each other has to
+// name both. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { emptyMasterPeek } from "@/audio/context";
-import { type MoireRow } from "@/lib/moire";
+import { DRIFT_REST, type MoireRow } from "@/lib/moire";
 import {
   FRACTAL_BITE,
-  FRACTAL_GEOMETRIES,
   fractalShape,
   fractalStopsInto,
   fractalStopsRest,
   fractalTravelSecs,
+  isFractalGeometry,
 } from "@/lib/moireFractal";
-import { PLAIN_CUT } from "@/lib/moireSound";
+import { PLAIN_CUT, washedDepth } from "@/lib/moireSound";
+import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { carryFractal, moireRows, refillRows } from "@/ui/moireRows";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
@@ -72,13 +77,21 @@ const pictureOf = (
 
 /** The first of the two rows the structure is cut on, which is one structure on two periods. */
 const fractalRow = (rows: readonly MoireRow[]): MoireRow => {
-  const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
+  const found = rows.find((row) => isFractalGeometry(row.geometry));
   if (found === undefined) throw new Error("the picture holds no fractal row");
   return found;
 };
 
+/** An output as narrow as one gets, which is the one that asks the picture for the deepest lens. */
+const RINGING_MASTER = { ...emptyMasterPeek(), flatness: 0.001 };
+
 /** One per-frame read of a whole picture, `elapsed` seconds after the one before it. */
-const readAt = (set: MoireRowSet, peek: DeckPeek, elapsed: number): void => {
+const readAt = (
+  set: MoireRowSet,
+  peek: DeckPeek,
+  elapsed: number,
+  master = SILENT_MASTER,
+): void => {
   refillRows(
     set.rows,
     set.reads,
@@ -87,7 +100,7 @@ const readAt = (set: MoireRowSet, peek: DeckPeek, elapsed: number): void => {
     null,
     0,
     null,
-    SILENT_MASTER,
+    master,
     elapsed,
     FRESH,
     set.seed,
@@ -218,6 +231,38 @@ describe("the picture's own structure", () => {
     // Where it had got to, and where the population standing now says it is going.
     expect(next.seed).toEqual(halfway);
     expect(next.toward).not.toEqual(set.toward);
+  });
+
+  /**
+   * 0249, amending 0246 and 0213: a crossfade takes every place's presence to nought and back, and
+   * a run that refused to build its rows there took the structure out of the picture entirely —
+   * the blank the eye reads as a hard cut. The rows are held; what goes to nought is the depth, and
+   * the wash may not raise it back, because a field with nothing standing in it has nothing to show.
+   */
+  it("holds the rows while the run stands nothing and cuts nothing through them at wash: 1", () => {
+    const standing = runOf("auto", "g0");
+    const between = new Map([["auto" as EffectInstanceId, [{ ...place("g0"), presence: 0 }]]]);
+
+    const { set, peek } = pictureOf(between);
+    readAt(set, peek, ARRIVED, RINGING_MASTER);
+    const rows = set.rows.filter((row) => isFractalGeometry(row.geometry));
+    // Both rows are still in the picture — no row arrives and none leaves across the crossfade.
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.depth)).toEqual([0, 0]);
+    // And on the most smeared yard there is, they cut nothing and weigh nothing: the wash raises
+    // every row that is in the picture and these two are not.
+    for (const row of rows) expect(washedDepth(row, 1)).toBe(0);
+    // And they bend nothing: the lens is the third reader of "is the structure there", and
+    // `boldestRow` skips only a row with no period, so a held row claiming this most resonant of
+    // outputs would slide the whole finished field through a structure nobody is standing.
+    for (const row of rows) expect(row.lens).toBe(DRIFT_REST.lens);
+    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    expect(drawnGratings(set.rows, 1)).toBeCloseTo(drawnGratings(dry.rows, 1), 9);
+
+    // The presence ramp carries the same rows back up with nothing rebuilt.
+    const back = pictureOf(standing);
+    readAt(back.set, back.peek, ARRIVED);
+    expect(fractalRow(back.set.rows).depth).toBeGreaterThan(0);
   });
 
   /**

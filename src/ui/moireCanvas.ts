@@ -68,6 +68,7 @@ import {
   fractalSeedInto,
   fractalStopsRest,
   fractalZoom,
+  isFractalGeometry,
   type FractalStops,
 } from "@/lib/moireFractal";
 import { clamp } from "@/lib/range";
@@ -381,10 +382,15 @@ function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
  * The boldest of the two readings and not their sum, for the same reason `boldestRow` takes one: a
  * row raised by the field's wash and cut by its own meter is one grating either way, and two
  * readings adding up could count it as more than the one it is.
+ *
+ * **A fractal row at nought depth counts nothing at all**, which is the reading `washedDepth` makes
+ * of it (src/lib/moireSound.ts, 0249): a run holding its rows through a crossfade is standing no
+ * population, so the picture's ink and the picture's weight both say the structure is not there.
  */
 export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
   rows.reduce((count, row) => {
     if (row.period <= 0) return count;
+    if (row.depth <= 0 && isFractalGeometry(row.geometry)) return count;
     const scales =
       row.geometry === LINEAR_GEOMETRY ? octaveShare(octavesOf(row)) : DRIFT_REST.octaves;
     const reading = Math.max(clamp(wash, 0, 1), clamp(row.pulse, 0, 1));

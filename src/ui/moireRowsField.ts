@@ -20,7 +20,6 @@ import {
   FRACTAL_BEAT,
   FRACTAL_GEOMETRIES,
   fractalKind,
-  runStanding,
   type FractalRun,
   type FractalStops,
 } from "@/lib/moireFractal";
@@ -381,7 +380,11 @@ export function sessionInto(
  * **The automator's own mark on the picture and nothing else's** (0243, kept): a yard growing
  * nothing has no fractal row, bakes no tile and pays nothing, and is exactly the picture it was
  * before there was one — so what a run does to the drift is legible because it is the only thing
- * that does it.
+ * that does it. **A yard that holds an automator standing nothing is not that yard** (0249): the
+ * rows are built and held at `depth: 0`, where `washedDepth`, `drawnGratings` and the lens
+ * (`fractalHeard`, src/ui/moireRows.ts) all answer nought for them, so they cut nothing, bake
+ * nothing, weigh nothing and bend nothing while a crossfade is between two places — and the presence ramp carries the depth back up with no row arriving or leaving. The
+ * test of "no automator" is therefore the map being empty and never the standing being nought.
  *
  * **Its identity is the automators standing** and not the places they are standing (`fractalKind`,
  * 0248, amending 0245 and 0246). The row's own angle rests on it, and so does the half of its
@@ -416,7 +419,7 @@ export function fractalInto(
   grown: FractalRun,
 ): void {
   if (windowSecs <= 0) return;
-  if (runStanding(grown) <= 0) return;
+  if (grown.size === 0) return;
   const kind = fractalKind(grown);
   const geometry = FRACTAL_GEOMETRIES[kind % FRACTAL_GEOMETRIES.length] ?? FRACTAL_GEOMETRIES[0];
   for (const period of [windowSecs, windowSecs * FRACTAL_BEAT]) {

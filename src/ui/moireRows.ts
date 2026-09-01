@@ -311,7 +311,8 @@ function groundTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): num
  * fractal rows are drawn across, which is those rows' own period. Read off the row for the reason
  * `groundTravel` reads the module's — the window is a fact the set already holds and asking the row
  * for it is the one place the number can come from without a second author (principle 1) — and
- * nought on a picture with no fractal row, which is a rack running nothing (`fractalTravelSecs`).
+ * nought on a picture with no fractal row, which is a rack holding no automator (`fractalTravelSecs`,
+ * `fractalInto`; a rack holding one that is standing nothing has the rows and travels, 0249).
  */
 function fractalTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): number {
   for (let index = 0; index < reads.length; index += 1) {
@@ -541,9 +542,11 @@ export function refillRows(
   //
   // And not at all where there is no structure to travel, which is the one place this parts from the
   // ground above it: a yard that is not jumping still has a ground and stands on it outright
-  // (`easedCentre`), but a rack running nothing has no plane and no place on it — travelled with no
-  // window, the picture would arrive at the stops an empty population folds to and hand *those* to
-  // the first run that arrives (`carryFractal`).
+  // (`easedCentre`), but a rack holding no automator has no plane and no place on it — travelled
+  // with no window, the picture would arrive at the stops an empty population folds to and hand
+  // *those* to the first run that arrives (`carryFractal`). A rack holding one that is standing
+  // nothing does have the rows and does travel (0249), toward whatever the population it is between
+  // folded to, which is what makes the trough the middle of a move rather than a stop in one.
   const flight = fractalTravel(rows, reads);
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
@@ -648,13 +651,19 @@ export function refillRows(
  * structure through a lens and a broad one leaves it standing square, which is where 0241's third
  * reading is spent now that there is no second copy of a mask to beat against (`heardBeat`).
  *
+ * **And a row that cuts nothing bends nothing.** The rows are held through a run standing nothing
+ * now (0249), and the lens is the third reader of "is the structure there": `boldestRow` skips only
+ * a row with no period, so two held rows claiming a resonance would slide the whole finished field
+ * through a lens no automator is standing — the same thing `washedDepth` and `drawnGratings` are
+ * kept from doing, one reading further on. At rest with the depth, so the three agree.
+ *
  * The row's *depth* and not a field of the set's, because there is a row now and there was not
  * before: what the picture is cut through is one grating among its own (0131). Written in place, so
  * it allocates nothing (0070).
  */
 function fractalHeard(row: MoireRow, grown: DeckPeek["grown"], master: Readonly<MasterPeek>): void {
   row.depth = fractalCut(runStanding(grown), heardBite(master.edge));
-  row.lens = heardBeat(master.flatness);
+  row.lens = row.depth > 0 ? heardBeat(master.flatness) : DRIFT_REST.lens;
 }
 
 /**

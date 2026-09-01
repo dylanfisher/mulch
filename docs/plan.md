@@ -30,11 +30,14 @@ Four things follow, and all four are visible on screen:
   seconds by default, so this is the picture's normal condition and not an edge.
 - The row's angle jumps with it. gratingTurns (src/lib/moireGrating.ts:66) reads row.shape,
   which is that same fold — so a turnover also swings both fractal rows around.
-- It flashes off. fractalInto (src/ui/moireRowsField.ts:392) refuses to build the row while
-  runStanding <= 0, so a crossfade takes the structure out of the picture entirely. And
-  order.slot (src/ui/moireCanvas.ts:328) carries row.shape, so even where the row survives, a
-  new shape has no standing tile to fall back on: the row draws nothing for a painting or two
-  and the new structure then appears whole. That blank is the hard cut the eye actually reads.
+- It flashed off, and no longer does (0249, landed): fractalInto held the row only while
+  runStanding > 0, so a crossfade took the structure out of the picture entirely; it now builds on
+  the run's keys and holds both rows at nought depth through the trough, where washedDepth and
+  drawnGratings both answer nought for them, and it claims no lens. The blank across the trough is
+  gone; what 0248 named as residue — order.slot (src/ui/moireCanvas.ts:328) carries the row's own
+  at, so the place count re-slots both rows at a turnover — is what still blinks at its edges, and
+  moireCanvasTiles.test.ts's "keeps a fractal row's fallback across a seed step" is where the rest
+  of it is owed.
 - It barely moves. Its one motion is fractalZoom — a cosine breath over the picture's window,
   twelve stops, four times deep. Nothing about how long the yard has been sounding reaches it, and
   it never travels with the ground the way the reference row, the wash and the module's tiers all do
@@ -51,7 +54,9 @@ fractal's motion may spend the bake budget for a fly-through.
 ---
 
 The three things the whole plan turns on. All three are landed
-(`docs/decisions/0248-the-structure-travels-and-its-identity-is-the-automators.md`), so the rest of
+(`docs/decisions/0248-the-structure-travels-and-its-identity-is-the-automators.md`), and so is the
+no-flash-off that rests on them
+(`docs/decisions/0249-a-run-standing-nothing-is-not-a-run-gone.md`), so the rest of
 the plan is written against them as facts rather than as intentions: the picture's stops are on
 `MoireRowSet`, the travel across them is `fractalTravelInto`, and what the two rows _are_ is
 `fractalKind`.
@@ -77,44 +82,12 @@ the plan is written against them as facts rather than as intentions: the picture
 
 ---
 
-Step 0248 — A run standing nothing is not a run gone
-
-docs/decisions/0249-a-run-standing-nothing-is-not-a-run-gone.md, amending 0246 and 0213. The
-numbers moved: the travel's own decision took 0248, so every decision this plan still owes is one
-higher than its step's own number.
-
-src/ui/moireRowsField.ts: if (grown.size === 0) return; replaces if (runStanding(grown) <= 0) return;. A yard with no automator still has no fractal row and bakes nothing — 0246's "the
-automator's own mark and nothing else's" is preserved to the letter, because such a yard has an empty
-map.
-
-And the second half, which is not optional. A fractal row at no depth is not free: cut = depth * washedDepth(row, wash) and washedDepth(row, 0) = washedToward(0, 1, wash) = 0.5 * wash
-(src/lib/moireSound.ts:302). On a washed yard, two rows held at zero standing would each cut half a
-grating's worth of structure, bake a picture-sized tile and count in drawnGratings — the wash
-authoring a structure no automator is standing, which is precisely what 0246 forbids. So:
-
-- washedDepth answers nought for a row whose depth is nought and whose geometry is one of the two
-  only a run may claim (isFractalGeometry).
-- drawnGratings's reading (src/ui/moireCanvas.ts:372) does the same, so the picture's weight and
-  its ink agree.
-
-The line to write once, in washedDepth: the wash raises every row that is in the picture, and the
-two fractal coordinates are the one thing the wash may not put there — what an escape field is a
-picture of is a population, and a field with nothing standing in it has nothing to show (0213, 0246).
-
-What a yard with an automator standing nothing then costs, exactly: two rows in the set;
-cut <= 0 for both, so continue before placeCurved (:410) — no bake, no drawImage, no key,
-no fallback touched; and nought in drawnGratings, so every other row weighs what it weighed. The
-presence ramp carries the depth back up through fractalCut with no row arriving or leaving, and
-the seed has been travelling underneath the whole time. That is the no-flash-off.
-
-Ordering: the travel landed first (0248), which is what makes this step worth taking — without the
-stable slot, holding the rows through a standing-nothing run only makes the blank last longer.
-
----
-
 Step 0249 — The whole picture is laid back into itself at the depth the run earns
 
-docs/decisions/0249-the-picture-is-fed-back-at-the-depth-the-run-earns.md, extending 0143 and 0246.
+docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md, extending 0143 and 0246.
+The numbers moved twice: the travel took 0248 and the no-flash-off took 0249, so every decision this
+plan still owes is one higher than its step's own number, and each is filed under the number free
+when its step lands.
 
 This answers "the fractal shouldn't be a layer on top" and "zoom into the moiré like a fractal" with
 one mechanism that already exists. feedFrame/aimFeedback (src/ui/moireCanvas.ts:611-670) lay the
@@ -146,7 +119,7 @@ against a band topping out at 10.4, so the headroom exists on paper — but this
 
 Step 0250 — The structure stands on the ground and opens with the age
 
-docs/decisions/0250-the-structure-stands-on-the-ground-and-opens-with-the-age.md, amending 0242
+docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md, amending 0242
 (three spends become four).
 
 - agedOpening(age) in src/lib/moireAge.ts on the spent() arithmetic already there, spent
@@ -177,9 +150,9 @@ The split is made. src/ui/moireRowsFractal.test.ts holds the fractal row's own c
 split off src/ui/moireRows.test.ts, which is the file these cases took past the 800-line cap, and
 it took the two cases that were about the fractal row with it. The remaining case to move is
 moireRowsField.test.ts's "cuts the fractal row deeper under a resonant output", which is a move to
-make when a later step needs the room rather than for its own sake. Still to write there: holds the
-rows while the run stands nothing and cuts nothing through them at wash: 1 — the case that fails
-loudest today; asks the picture to fold back into itself at the depth the run is standing.
+make when a later step needs the room rather than for its own sake. "holds the rows while the run
+stands nothing and cuts nothing through them at wash: 1" is written (0249). Still to write there:
+asks the picture to fold back into itself at the depth the run is standing.
 
 src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
 same ladder"). Still to write: keeps a fractal row's fallback across a seed step.
@@ -214,8 +187,8 @@ Verification
       A fed-back frame fills fringes back in, so confirm the field's mean holds near PICTURE_FLOOR
       while the coarse-block contrast rises.
     - Does the structure still read as a layer once it travels and is fed back? That answer decides
-      whether 0250's ground anchor is taken at all.
-3.  ./scripts/profile at the end of the feature and again inside 0249's own gate, against the
+      whether the ground anchor of the last step is taken at all.
+3.  ./scripts/profile at the end of the feature and again inside the feedback step's own gate, against the
     ~10.4ms frame p95 band.
 4.  A decision record per step, no longer than the decision is.
 
@@ -238,7 +211,7 @@ spreadOctaves and grownOctaves, and 0242 deleted agedFoldReach for exactly this 
 run's contribution made a fresh deck's automator worth nothing). 0244 measured that the spread is a
 redistribution at fixed ink — "there is no setting at which the picture gets more structure
 everywhere" — so more scales buy fills and return a flatter picture, most of which shareOctaves
-takes straight back. 0250's record should name the refusal so it is not re-proposed.
+takes straight back. 0251's record should name the refusal so it is not re-proposed.
 
 Crossfading two whole fractal structures during a turnover. Richer, and it costs a second baked
 tile per fractal row for the whole travel — twice what the fly-through spends. Worth revisiting once
