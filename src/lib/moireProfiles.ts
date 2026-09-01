@@ -33,6 +33,7 @@ export const DRIFT_PROFILES = [
   "swarm",
   "swell",
   "grain",
+  "stair",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -71,6 +72,18 @@ const SLOPE_FALL = 0.12;
 const FLAT_EDGE = 3;
 
 /**
+ * How many steps a `stair` takes either side of its own middle, and how much of the way to a
+ * boundary the riser takes, on each side of it. Three steps is a staircase the eye counts rather
+ * than a curve it reads as smooth, and the riser is a fraction of a step for the reason
+ * `SLOPE_FALL` is a fraction of a cycle: the tile is sampled at sixty-four points and drawn at
+ * between three and sixteen, so an instantaneous riser shimmers under that filtering rather than
+ * beating. Symmetrical about the boundary, so the wave stays odd about its own middle and its mean
+ * stays exactly a half.
+ */
+const STAIR_STEPS = 3;
+const STAIR_RISE = 0.12;
+
+/**
  * The octaves a self-similar profile is built out of, and what the three of them come to together.
  * An octave stack rather than an arbitrary harmonic pair: each term is half the one below it at
  * twice its rate, so the wave carries the same shape at three scales and beats against every other
@@ -93,6 +106,22 @@ const OCTAVE_SHARE = 0.5 / OCTAVE_DEPTHS;
 const rampBlock = (turn: number, fall: number): number => {
   const at = wrap(turn, 1);
   return at < 1 - fall ? at / (1 - fall) : (1 - at) / fall;
+};
+
+/**
+ * One value rounded onto `STAIR_STEPS` steps either side of nothing, held flat across the middle
+ * of each step and rising over the last `STAIR_RISE` of the way to the boundary, so the edge is one
+ * the filter draws rather than one it shimmers on. The levels are `n / STAIR_STEPS` and nothing is
+ * one of them, which is what makes this the same rounding the effect it is claimed by does to a
+ * sample (`quantise`, src/audio/worklets/crush.js) rather than a staircase half a step off it. Odd
+ * about nothing and flat at ±1, which is what keeps `stair` inside the ink and its mean at a half.
+ */
+const stairStep = (value: number): number => {
+  const scaled = value * STAIR_STEPS;
+  const step = Math.round(scaled);
+  const past = scaled - step;
+  const riser = clamp((Math.abs(past) - (0.5 - STAIR_RISE)) / STAIR_RISE, 0, 1);
+  return (step + Math.sign(past) * 0.5 * riser) / STAIR_STEPS;
 };
 
 /**
@@ -150,6 +179,12 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // elsewhere, which is a shallower cut and not a second family: how deep a row is cut is `depth`,
   // a dimension of the row.
   grain: (turn) => 0.5 - 0.5 * cosTurn(turn, 4) * (0.5 + 0.5 * cosTurn(turn)),
+  // A crest climbed in steps: the plain cosine quantised onto a few levels, which is the crusher
+  // drawn as itself. Stepped edges are a family nothing else in this list has — every other wave
+  // is a sum of harmonics or a ramp, so all of them are smooth between their own turns and this
+  // one is flat between its risers. It is not `plain` at a depth ratio for the same reason: a
+  // quantiser is not a multiplier, so the two deviate by a different factor at every turn (0122).
+  stair: (turn) => 0.5 - 0.5 * stairStep(cosTurn(turn)),
 };
 
 /**

@@ -84,6 +84,12 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
       "Chaff Shard Clipping Litter Scree Gravel Thatch Windrow Sweepings Grit Splinter Siftings",
     ),
   },
+  crush: {
+    adjectives: words(
+      "Coarse Gritted Notched Rough Bitten Blunted Chipped Crumbled Cindered Jagged Pitted Ragged",
+    ),
+    nouns: words("Clinker Cinder Slag Rubble Shingle Clod Ash Char Silt Hardpan Terrace Cobble"),
+  },
   // The one entry that names a run of other effects rather than a sound of its own, so its
   // adjectives say how a thing grows and its nouns are the places growing happens (0081, 0204).
   automator: {

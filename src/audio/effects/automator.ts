@@ -238,6 +238,7 @@ function buildAutomator(
     "auto.tape": bind(),
     "auto.pop": bind(),
     "auto.scatter": bind(),
+    "auto.crush": bind(),
   };
 
   /**

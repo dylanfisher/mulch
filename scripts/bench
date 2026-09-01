@@ -43,6 +43,7 @@ globalThis.sampleRate = 48_000;
 const tape = await import("../src/audio/worklets/tape.js");
 const pop = await import("../src/audio/worklets/pop.js");
 const scatter = await import("../src/audio/worklets/scatter.js");
+const crush = await import("../src/audio/worklets/crush.js");
 
 const args = process.argv.slice(2);
 const die = (message) => {
@@ -252,10 +253,11 @@ for (const { label, seconds } of SIZES) {
   measure("tape loop ×1 (shipped)", size, () => {
     new tape.TapeChannel(SAMPLE_RATE, 4242).run(mono, wet, 0.35, 0.55, 3200, 1.5, 0.35, 0.25);
   });
-  // The other two worklets whose loop is as long as the audio, and both are on the export path the
-  // profiler's loaded render prices: `pop` is in that rack and `scatter` is in the pool an
-  // automator draws from. Stereo in one call, so the figure to compare against `seconds` is the
-  // printed one and not twice it — unlike the tape rows above, which are per channel.
+  // The other three worklets whose loop is as long as the audio, and all three are on the export
+  // path the profiler's loaded render prices: `pop` is in that rack and `scatter` and `crush` are
+  // in the pool an automator draws from. Stereo in one call, so the figure to compare against
+  // `seconds` is the printed one and not twice it — unlike the tape rows above, which are per
+  // channel.
   const right = channels[1];
   const outLeft = new Float32Array(mono.length);
   const outRight = new Float32Array(mono.length);
@@ -278,6 +280,10 @@ for (const { label, seconds } of SIZES) {
       0.3,
       arate,
     );
+  });
+  measure("crush stage ×2ch (shipped)", size, () => {
+    arate.fill(0.5);
+    new crush.CrushStage(SAMPLE_RATE).run(mono, right, outLeft, outRight, 8, 6000, arate);
   });
   measure("tape loop ×1 (ADAA tanh)", size, () => adaaLoop(mono, wet));
   measure("tape loop ×1 (plain tanh)", size, () => plainLoop(mono, wet));

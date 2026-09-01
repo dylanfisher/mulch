@@ -11,6 +11,7 @@ import { isFractalGeometry } from "@/lib/moireFractal";
 import { RESERVED_PROFILES } from "@/lib/moireProfiles";
 
 import { compressorEffect } from "./compressor";
+import { crushEffect } from "./crush";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
@@ -40,6 +41,7 @@ const growable = [
   tapeEffect,
   popEffect,
   scatterEffect,
+  crushEffect,
 ] as const;
 
 /**

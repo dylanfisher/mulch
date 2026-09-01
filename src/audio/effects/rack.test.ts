@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
+import { CRUSH_BITS } from "@/audio/worklet";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { mixGains } from "@/lib/crossfade";
 import { impulseResponse } from "@/lib/impulse";
@@ -670,5 +671,103 @@ describe("two instances of one effect", () => {
     expect(() => {
       rack.setParam("first", "delay.time", 0.25, 2);
     }).toThrow(/effect instance is not held: first/u);
+  });
+});
+
+/**
+ * The one entry in this file whose graph is a processor rather than native nodes. A worklet node is
+ * constructed off a *global* rather than off the context (../effects/crush.ts), so the fake is
+ * installed here rather than added to `fakeContext` above — and it is a fake of the seam and not of
+ * the arithmetic, which ../worklets/crush.test.ts drives against the real file.
+ */
+type FakeWorkletNode = FakeNode & {
+  processor: string;
+  /** The AudioParams the plugin asked for by name, in the order it asked. */
+  param(id: string): AudioParam & FakeParam;
+  /** How many times the main thread told the processor to end itself (0086). */
+  stops: number;
+};
+
+function fakeWorklets() {
+  const built: FakeWorkletNode[] = [];
+  class Fake {
+    processor: string;
+    connections = new Set<FakeNode>();
+    stops = 0;
+    params = new Map<string, AudioParam & FakeParam>();
+    port = {
+      postMessage: (message: { t?: string }) => {
+        if (message.t === "stop") this.stops++;
+      },
+    };
+    // A real node answers undefined for a name the processor never declared, which is what
+    // `workletParam` throws on; this one answers for whatever the plugin asks, because what a
+    // processor declares is pinned against the declaration in that processor's own test.
+    parameters = {
+      get: (id: string): AudioParam & FakeParam => {
+        const held = this.params.get(id) ?? fakeParam();
+        this.params.set(id, held);
+        return held;
+      },
+    };
+    constructor(_ctx: BaseAudioContext, processor: string) {
+      this.processor = processor;
+      // oxlint-disable-next-line no-unsafe-type-assertion -- only the surface below is exercised
+      built.push(this as unknown as FakeWorkletNode);
+    }
+    param(id: string): AudioParam & FakeParam {
+      return this.parameters.get(id);
+    }
+    connect(destination: AudioNode): AudioNode {
+      this.connections.add(asFakeNode(destination));
+      return destination;
+    }
+    disconnect(): void {
+      this.connections.clear();
+    }
+  }
+  Object.assign(globalThis, { AudioWorkletNode: Fake });
+  return built;
+}
+
+describe("the crush in the rack", () => {
+  it("builds as one processor bound to all three of its parameters, and ends it when it goes", () => {
+    const worklets = fakeWorklets();
+    const { context, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+
+    rack.add("c1", effectById("crush"), {
+      "crush.bits": 4,
+      "crush.rate": 1_200,
+      "crush.mix": 0.8,
+    });
+
+    // Built: one node, named the way the main thread spells the processor, holding every declared
+    // value on an AudioParam of its own.
+    const stage = required(worklets, 0);
+    expect(worklets).toHaveLength(1);
+    expect(stage.processor).toBe(CRUSH_BITS);
+    expect([
+      stage.param("crush.bits").value,
+      stage.param("crush.rate").value,
+      stage.param("crush.mix").value,
+    ]).toEqual([4, 1_200, 0.8]);
+
+    // Heard: one node is the whole graph, so the rack wires the chain through that same node.
+    expect([...asFakeNode(rack.input).connections]).toEqual([stage]);
+    expect([...stage.connections]).toEqual([destination]);
+
+    // Moved: a knob and a lane are two ways into one AudioParam (0024).
+    rack.setParam("c1", "crush.rate", 900, 3);
+    expect(stage.param("crush.rate").ramps).toEqual([[900, 3 + PARAM_RAMP_SECS]]);
+    expect(rack.automationTarget("c1", "crush.mix")).toBe(stage.param("crush.mix"));
+
+    // Disposed: `disconnect` alone would leave an active source on the context's pull list, and an
+    // offline context is never closed (0086).
+    rack.remove("c1");
+    expect(stage.stops).toBe(1);
+    expect([...stage.connections]).toEqual([]);
+    expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
   });
 });

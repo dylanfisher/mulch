@@ -60,7 +60,11 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "scatter.gate": "How far a window replaces the sound passing through, from none to all of it.",
   "scatter.edge": "How quickly a window opens and shuts, in seconds. Short is a click.",
   "scatter.stray": "How much of each of the four knobs above is drawn per window rather than held.",
-  // The automator's own seventeen. It holds a run of other effects rather than a sound, so its words
+  "crush.bits":
+    "How many bits a sample is rounded onto. One is the sign of the sound and nothing else.",
+  "crush.rate": "How often a sample is taken and held, in hertz. Lower is coarser and grittier.",
+  "crush.mix": "How much of the crushed sound is heard beside the untouched one, from none to all.",
+  // The automator's own eighteen. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
@@ -86,6 +90,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.tape": "How often a tape is drawn against the rest of the pool. None is never.",
   "auto.pop": "How often a pop is drawn against the rest of the pool. None is never.",
   "auto.scatter": "How often a scatter is drawn against the rest of the pool. None is never.",
+  "auto.crush": "How often a crush is drawn against the rest of the pool. None is never.",
 };
 
 /**

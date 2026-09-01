@@ -155,6 +155,9 @@ describe("parameter registry", () => {
       "scatter.gate",
       "scatter.edge",
       "scatter.stray",
+      "crush.bits",
+      "crush.rate",
+      "crush.mix",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -194,6 +197,7 @@ describe("parameter registry", () => {
       "auto.tape",
       "auto.pop",
       "auto.scatter",
+      "auto.crush",
     ]);
   });
 
