@@ -702,6 +702,10 @@ function build(
  * the one with no beat left in it. Leaves `fillStyle` set to the screen, or to the flat colour
  * where the engine would not build one, which is the picture its caller drew before there was a
  * screen behind it.
+ *
+ * `wind` is how far the standing rack's own tail has blown the whole field, in turns of one cell of
+ * the grid (0267). The one term here that does not come back: every other motion of the screen is a
+ * cycle of a row's own phase, and this is a reading of the population running one way.
  */
 export function inkThrough(
   canvas: HTMLCanvasElement,
@@ -709,6 +713,7 @@ export function inkThrough(
   rows: readonly MoireRow[],
   color: string,
   ink: Readonly<ScreenInk>,
+  wind: number,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -726,7 +731,11 @@ export function inkThrough(
   // Each over the span the term comes round in, so every one of them arrives back where it left
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.
   rolled.f = bandTurns(rows) * tilePx(canvas.height, rowPitch);
-  rolled.e = termTurns(rows, "crawl") * beatPx(pitch);
+  // And the wind on that same axis, added to the crawl rather than given one of its own: the crawl
+  // sweeps a cell and comes back, and this is the same axis running one way — how far the standing
+  // rack's own tail has blown the whole field (`windTravelInto`, src/ui/moireWind.ts, 0267). It is a
+  // term on the transform and touches no key, so a field blowing all day bakes nothing (0129).
+  rolled.e = (termTurns(rows, "crawl") + wind) * beatPx(pitch);
   turnedScale(
     rolled,
     1 + (BREATH_PX / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

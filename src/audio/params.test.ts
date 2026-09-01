@@ -3,6 +3,7 @@ import { snapToStep } from "@/lib/range";
 import { TONE_REF_HZ } from "@/lib/waveform";
 import { EFFECTS } from "./effects/registry";
 import {
+  effectHeard,
   AUTOMATION_PARAM_IDS,
   DECK_PARAM_DEFAULTS,
   DECK_PARAM_IDS,
@@ -276,5 +277,31 @@ describe("the parametric EQ's registry entry", () => {
     // sharing one would be two lanes nobody could tell apart.
     const labels = AUTOMATION_PARAM_IDS.map((id) => PARAMS[id].label);
     expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+/** One entry at its own defaults, with whatever a case moves off them. */
+const at = (effect: "reverb" | "filter" | "eq" | "automator", over = {}): number | null =>
+  effectHeard(effect, { ...effectParamDefaults(effect, "one"), ...over });
+
+describe("how much of a rack entry is heard", () => {
+  it("reads its own presence parameter, and answers nothing for an entry with none", () => {
+    // Between the value it is transparent at and the value it is all the way in at (0202): a reverb
+    // at a wet of nothing is not heard at all, and one at its declared full is heard whole.
+    expect(at("reverb", { "reverb.wet": 0 })).toBe(0);
+    expect(at("reverb", { "reverb.wet": PARAMS["reverb.wet"].default })).toBe(1);
+    expect(at("reverb", { "reverb.wet": 1 })).toBe(1);
+    // The direction is the declaration's and never assumed: a lowpass is transparent at the *top*
+    // of its own range, so a cutoff below its default is a filter fully in the picture.
+    expect(at("filter", { "filter.cutoff": 20_000 })).toBe(0);
+    expect(at("filter", { "filter.cutoff": 200 })).toBe(1);
+    // And `full` where the plugin declared one, because a peaking band ships flat and its default
+    // *is* its silence.
+    expect(at("eq", { "eq.gain": 0 })).toBe(0);
+    expect(at("eq", { "eq.gain": 6 })).toBe(0.5);
+    // An entry with no honest presence answers nothing at all rather than a whole or a nought: it
+    // is the plugin saying there is no value at which it is not there, and a caller weighing what is
+    // heard cannot weigh that (principle 5, 0148's shape).
+    expect(at("automator")).toBeNull();
   });
 });

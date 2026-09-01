@@ -181,6 +181,20 @@ export type EffectPresence<Param extends string = string> =
   | { none: string };
 
 /**
+ * Where an entry stands when it is all the way in: what it declared, or its presence parameter's
+ * own default where that already says something (0202). One fact and one author, beside the
+ * declaration that states it — the run fades a place to it, a bound widens away from it and the
+ * picture weighs a tail by it, and three readings of it could disagree (principle 1).
+ */
+export function presenceFull(
+  presence: { param: string; full?: number },
+  declared: readonly ParamDeclaration[],
+): number {
+  if (presence.full !== undefined) return presence.full;
+  return declared.find((param) => param.id === presence.param)?.default ?? 0;
+}
+
+/**
  * How much of the rack one card of this effect claims: half of it, so a wide viewport lays two
  * abreast, or all of it. Declared by the plugin beside its icon, because how much room a set of
  * knobs needs is a fact about the effect and not about the rack rendering it (P48).

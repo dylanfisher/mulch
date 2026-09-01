@@ -142,14 +142,29 @@ function tileStub() {
  * built, the pixels it wrote into it, where it put the screen, and what every fill was made with.
  *
  * `ink` is where the picture's ink stands, for the cases about the travel itself; every other case
- * paints through the ink these rows have already arrived at, which is the picture they claim.
+ * paints through the ink these rows have already arrived at, which is the picture they claim. And
+ * `wind` is how far the rack behind it has blown the field, in turns of one cell: nowhere for every
+ * case but the wind's own, which is the picture a dry rack draws (0267). `color` is a token no other
+ * painting asked for unless a case names one, which is how the wind's own case paints twice through
+ * one tile.
  *
  * Two patterns come out of one context now — the picture's grating and this screen — so each gets
  * its own recorder rather than one shared: a test that could not tell them apart would read the
  * rows' aim as the screen's placement. The painter asks for the grating first, because a canvas
  * that cannot make one draws no picture and must lay no ink down at all.
  */
-function paintedOn(width: number, height: number, rows: readonly MoireRow[], ink?: ScreenInk) {
+// The recorder and the painting it records are one function: every stub here writes into the tally
+// the painting below reads back, and a helper holding half of them would hand a case a recorder
+// with nothing recorded in it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+function paintedOn(
+  width: number,
+  height: number,
+  rows: readonly MoireRow[],
+  ink?: ScreenInk,
+  wind = 0,
+  color = nextColor(),
+) {
   const { create, taken, tile } = tileStub();
   const made: { moves: Move[]; pattern: unknown }[] = [];
   const recorder = () => {
@@ -183,7 +198,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[], ink
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, nextColor(), 0, 0, fractalStopsRest(), 0, ink ?? arrivedInk(rows));
+  paintMoire(canvas, rows, 20, color, 0, 0, fractalStopsRest(), 0, ink ?? arrivedInk(rows), wind);
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;
@@ -441,6 +456,28 @@ describe("moireScreen", () => {
     expect(placed?.f).not.toBe(0);
     expect(placed?.b).not.toBe(0);
     expect(placed?.a).not.toBe(1);
+  });
+
+  it("blows the whole screen one way along the crawl's own axis, and bakes nothing to do it", () => {
+    // What the standing rack's tail buys: the crawl sweeps one cell and comes back, and this is the
+    // same axis running one way (0267). A drift on any other cell of the matrix would be a second
+    // motion, and one in the tile's key would be a picture-sized bake per frame (0129).
+    vi.stubGlobal("devicePixelRatio", 2);
+    const pitch = gridPitchPx(2);
+    const rows = [claiming("crawl"), row({ period: 4, phase: 1, reference: true })];
+    const colour = nextColor();
+    const still = paintedOn(200, 64, rows, undefined, 0, colour);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const blown = paintedOn(200, 64, rows, undefined, 0.25, colour);
+    const held = still.moves[0];
+    const moved = blown.moves[0];
+    expect(moved?.e).toBeCloseTo((held?.e ?? 0) + 0.25 * beatPx(pitch), 10);
+    for (const cell of ["a", "b", "c", "d", "f"] as const)
+      expect(moved?.[cell]).toBeCloseTo(held?.[cell] ?? 0, 10);
+    // And the second painting wrote no tile at all: the first one's answered it, because the wind
+    // is a term on the transform and touches nothing the tile is keyed by.
+    expect(still.tile).toBeDefined();
+    expect(blown.tile).toBeNull();
   });
 
   it("sweeps the lattice through square rather than around it", () => {

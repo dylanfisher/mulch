@@ -616,6 +616,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * again, and travelled there by the same read that filled the rest (`inkTravelInto`,
  * src/ui/moireScreen.ts). What the rows claim is read off the boldest of them and is what the travel
  * is going toward; this is where it actually stands, and it is what the screen tile is keyed by.
+ *
+ * And `wind`, how far the standing rack's own tail has blown the whole field, in turns of one cell
+ * of the screen's grid — the field's again, and travelled there by the same read (`windTravelInto`,
+ * src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is blown nowhere, which is the
+ * picture drawn before there was a tail in it.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -630,6 +635,7 @@ export function paintMoire(
   seed: Readonly<FractalStops>,
   sounding: number,
   tint: Readonly<ScreenInk>,
+  wind: number,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -667,7 +673,7 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color, tint);
+  inkThrough(canvas, context, rows, color, tint, wind);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
   cutField(context, field, rows);

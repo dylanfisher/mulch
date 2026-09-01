@@ -34,6 +34,7 @@ import {
   type ColourDimension,
   type DriftDimension,
   type MoireRow,
+  type MoireWind,
   type ScreenInk,
 } from "@/lib/moire";
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
@@ -196,6 +197,30 @@ export type MoireRowSet = {
    * yard for the reason the seed above is.
    */
   ink: ScreenInk;
+  /**
+   * How long the rack standing behind the picture takes to fall silent, on the band that reading is
+   * stated across — the seventh thing here that belongs to the field rather than to a row, and the
+   * first of them that is not a per-frame read at all. Every entry declares its own `settle` over
+   * its own values and this is the longest of them that is heard (`rackTail`, src/lib/moireSound.ts):
+   * a fact about what the rack is *set to*, so it is filled once when the set is built, exactly as
+   * `toward` above is, and a knob crossing a stop is the rebuild that moves it.
+   */
+  tail: number;
+  /**
+   * And which way that blows the whole field, folded off the same standing population (`windVeer`,
+   * src/ui/moireWind.ts) — filled with the tail and for the same reason. Where the wind is *going*,
+   * never where it has got to: adding an effect turns it rather than restarting it, which is what
+   * makes the travel below a turn.
+   */
+  veering: number;
+  /**
+   * And where that wind has actually blown the picture to, and which way it is blowing this frame —
+   * the third accumulated thing in the picture beside the ground and the ink, travelled by the read
+   * and carried onto whatever set replaces this one (`windTravelInto`, `carryWind`). Per picture and
+   * not per yard, like the ink and the seed: one screen is one tile, and a strip and an overlay each
+   * blow their own.
+   */
+  wind: MoireWind;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -299,7 +324,20 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "sounding" | "seed" | "toward" | "ink"> {
+): Omit<
+  MoireRowSet,
+  | "rows"
+  | "reads"
+  | "wash"
+  | "age"
+  | "sounding"
+  | "seed"
+  | "toward"
+  | "ink"
+  | "tail"
+  | "veering"
+  | "wind"
+> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);

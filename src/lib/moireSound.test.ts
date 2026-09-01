@@ -18,6 +18,9 @@ import {
   heardBite,
   heardLevel,
   heardBeat,
+  rackTail,
+  RACK_TAIL_BAND,
+  RACK_TAIL_LONGEST_SECS,
   heardTilt,
   pulsedDepth,
   SOURCE_DENSITY_REACH,
@@ -136,5 +139,56 @@ describe("what the shape of the output's spectrum is worth to the support", () =
     // structure fainter than every knob in the yard (0246).
     expect(FRACTAL_BITE_CEILING).toBeLessThanOrEqual(1);
     expect(FRACTAL_BITE_CEILING).toBeGreaterThan(FRACTAL_BITE);
+  });
+});
+
+/**
+ * And the reading of the whole rack the field's own wind rests on: three reverbs and two delays
+ * deep, the picture used to be the picture a dry yard draws, and washed-out floating is the first
+ * thing an ear names about that rack (0267).
+ */
+describe("how long the standing rack takes to fall silent", () => {
+  it("reads the longest tail that is heard, across the band it is stated on", () => {
+    // Nothing standing is nothing: the picture a dry yard drew before there was a tail in it, and
+    // the answer rather than a fallback (0145).
+    expect(rackTail([])).toBe(0);
+    // And a rack of one entry at the floor no settle goes under is that same picture: the floor is
+    // the bottom of the band, so every rack of biquads and one-poles reads dry.
+    expect(rackTail([{ settle: RACK_TAIL_BAND[0], presence: 1 }])).toBe(0);
+    // Between the two ends it rises, and it saturates at the top rather than running off it.
+    expect(rackTail([{ settle: 3, presence: 1 }])).toBeGreaterThan(0.5);
+    expect(rackTail([{ settle: 3, presence: 1 }])).toBeLessThan(
+      rackTail([{ settle: 6, presence: 1 }]),
+    );
+    expect(rackTail([{ settle: RACK_TAIL_LONGEST_SECS, presence: 1 }])).toBeCloseTo(1, 9);
+    expect(rackTail([{ settle: 600, presence: 1 }])).toBe(1);
+    // A loop at unity never falls silent at all (`feedbackSettleSecs`, src/lib/settle.ts), which is
+    // the top of the band and not a reason to leave it out of the reading.
+    expect(rackTail([{ settle: Number.POSITIVE_INFINITY, presence: 1 }])).toBe(1);
+    // And that is `Infinity` alone: a settle that came back NaN is a plugin's arithmetic and not a
+    // tail, and read as the longest one there is it would blow the whole field off a bug.
+    expect(rackTail([{ settle: Number.NaN, presence: 1 }])).toBe(0);
+    expect(rackTail([{ settle: Number.NEGATIVE_INFINITY, presence: 1 }])).toBe(0);
+  });
+
+  it("takes the longest and never the sum, and weighs each tail by what is heard of it", () => {
+    const long = rackTail([{ settle: 4, presence: 1 }]);
+    // The stages run at once, so three reverbs of four seconds are settled when one of them is —
+    // the same argument `rackSettleSecs` makes, and a sum would have a rack of short entries read
+    // as a rack of long ones.
+    expect(rackTail(Array.from({ length: 3 }, () => ({ settle: 4, presence: 1 })))).toBe(long);
+    // And what nobody can hear is not in the picture: a reverb at a wet of nothing is a tail that
+    // never reaches the ear, however long its own decay is set.
+    expect(rackTail([{ settle: 600, presence: 0 }])).toBe(0);
+    expect(rackTail([{ settle: 8, presence: 0.5 }])).toBe(rackTail([{ settle: 4, presence: 1 }]));
+    // A presence outside its own bounds cannot make one either way, and every answer stays inside
+    // the band: it is a share of a reading and never a second knob on it.
+    for (const presence of [-1, 0.5, 2, Number.NaN]) {
+      const tail = rackTail([{ settle: 600, presence }]);
+      expect(tail).toBeGreaterThanOrEqual(0);
+      expect(tail).toBeLessThanOrEqual(1);
+    }
+    expect(rackTail([{ settle: 600, presence: 2 }])).toBe(1);
+    expect(rackTail([{ settle: 600, presence: Number.NaN }])).toBe(0);
   });
 });

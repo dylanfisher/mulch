@@ -46,6 +46,7 @@ import {
 import {
   defineEffect,
   instanceFromBindings,
+  presenceFull,
   type Effect,
   type EffectInstance,
   type EffectInstanceId,
@@ -79,15 +80,11 @@ export type GrowablePlugin = Effect & {
 };
 
 /**
- * Where a poolable entry stands when it is all the way in: what it declared, or its presence
- * parameter's own default where that already says something (0202). Read here rather than at the
- * arrival, because it is also the point a bound widens away from.
+ * Where a poolable entry stands when it is all the way in, through the one place that says so
+ * (`presenceFull`, ./contract.ts). Read here rather than at the arrival, because it is also the
+ * point a bound widens away from.
  */
-function fullOf(plugin: GrowablePlugin): number {
-  if (plugin.presence.full !== undefined) return plugin.presence.full;
-  const declared: readonly ParamDeclaration[] = plugin.params;
-  return declared.find((param) => param.id === plugin.presence.param)?.default ?? 0;
-}
+const fullOf = (plugin: GrowablePlugin): number => presenceFull(plugin.presence, plugin.params);
 
 /**
  * One pool entry as the maths sees it: a weight, and every parameter of it with the window a hand

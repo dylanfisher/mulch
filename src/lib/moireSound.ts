@@ -12,12 +12,19 @@
  *   Measuring a source at all → src/lib/analysis.ts. Reading the meter off the graph → the rack's
  *   own `meters` in src/audio/effects/rack.ts. Filling these onto a yard's rows → src/ui/moireRows.ts.
  */
+// Over the soft line cap, read and judged: this is one list of readings of one sound — the source's
+// cut, the window's wash, the output's own spectrum and now the rack's own tail — each of them a
+// few lines of maths under the paragraph that says what it is a picture of, and each documented
+// against the others. There is no seam to split it on that would not put two readings of the same
+// window in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
 import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
 import { FRACTAL_BITE, isFractalGeometry } from "./moireFractal.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize, normalize } from "./range.ts";
+import { SETTLE_FLOOR_SECS } from "./settle.ts";
 
 /**
  * How far above its own mean an envelope's peak has to stand before the source is read as a thing
@@ -276,6 +283,77 @@ export const washAmount = (crest: number, level: number): number =>
   Number.isFinite(crest) && crest > 0 && level >= WASH_HEARD_FLOOR
     ? clamp((WASH_CREST_STRUCK - crest) / (WASH_CREST_STRUCK - WASH_CREST_SMEARED), 0, 1)
     : 0;
+
+/**
+ * As much of one standing rack entry as the field's own tail reads: how long it goes on sounding
+ * like what it was given, and how much of it is heard at all (`effectSettleSecs` and `effectHeard`,
+ * src/audio/params.ts). Structural rather than the rack's own entry, because lib may import nothing
+ * of the tiers above it (docs/map.md) — and it is the whole of what this needs, exactly as
+ * `FractalRun` is for a run (src/lib/moireFractal.ts).
+ */
+export type RackHeard = { readonly settle: number; readonly presence: number };
+
+/**
+ * The longest tail one entry can declare and still fall silent, in seconds: `reverb.decay` at its
+ * own ceiling (src/audio/effects/reverb.ts). A delay fed back near unity settles far past it and a
+ * tape at unity never settles at all — both read at the top of the band below, because a picture
+ * whose whole field is already blowing has nothing further to say.
+ */
+export const RACK_TAIL_LONGEST_SECS = 8;
+
+/**
+ * And the band a rack's tail is read across, **stated once**: the floor a whole rack's own settle is
+ * never given less than (`SETTLE_FLOOR_SECS`, src/lib/settle.ts) to the longest one there is. A
+ * single entry may declare a shorter memory than that and several do — what they are saying is that
+ * they hold nothing worth waiting for, and this is the reading agreeing: they read dry. Both ends
+ * of it are what
+ * the reading below means by nought and by one. Logarithmic for the reason the flatness band is —
+ * a tail is a length and what one length is against another is a ratio, so a second reads dry,
+ * three seconds reads a little over half and six reads nearly the whole of it.
+ */
+export const RACK_TAIL_BAND: readonly [number, number] = [
+  SETTLE_FLOOR_SECS,
+  RACK_TAIL_LONGEST_SECS,
+];
+
+/**
+ * How long the standing rack takes to fall silent, on that band: nought where the rack is dry or
+ * empty, one where it rings for the longest tail there is. Every entry already declares its own
+ * `settle` over its own values, so there is no list of which effects are washy anywhere and there
+ * may not be one — that fact is said once, by the plugin, and an entry added tomorrow is in this
+ * reading the day it declares its own (principle 1).
+ *
+ * **The longest and never the sum**, which is the argument `rackSettleSecs` already makes
+ * (src/lib/settle.ts): the stages run at once, so three reverbs of two seconds are settled when the
+ * longest of them is and not six seconds later. **Weighted by what is heard**: a reverb at a wet of
+ * nothing is a tail nobody can hear, and what nobody can hear is not in the picture — the same
+ * thing `pulsedDepth` says about a row and `washAmount` says about a window under the floor.
+ *
+ * A rack with nothing standing in it reads nought, which is the picture a dry yard drew before
+ * there was a tail in it — the answer and not a fallback, exactly as every reading above answers
+ * silence (0145).
+ */
+export function rackTail(rack: Iterable<RackHeard>): number {
+  let longest = 0;
+  for (const { settle, presence } of rack) {
+    // A loop at or over unity never falls silent at all (`feedbackSettleSecs`), which is the top of
+    // the band and not a reason to skip it — and it is weighted like every other entry, because a
+    // tail that runs for ever at a mix of nothing is still a tail nobody can hear. Infinity alone,
+    // and never every number that is not finite: a settle that came back NaN read as the longest
+    // tail there is would blow the whole field at full speed off a plugin's arithmetic bug, which
+    // is the loudest way there is to say nothing (principle 5).
+    const tail =
+      settle === Number.POSITIVE_INFINITY
+        ? RACK_TAIL_LONGEST_SECS
+        : Number.isFinite(settle)
+          ? Math.max(settle, 0)
+          : 0;
+    // And an entry nothing can say a presence for is not heard at all, which is the answer every
+    // reading in this file gives a number that is not one (`heardLevel`, `meterPulse`).
+    longest = Math.max(longest, tail * (Number.isFinite(presence) ? clamp(presence, 0, 1) : 0));
+  }
+  return normalize(longest, ...RACK_TAIL_BAND, "log");
+}
 
 /**
  * How much of the way to its own ceiling a fully washed field carries a dimension: half, so a

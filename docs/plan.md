@@ -442,7 +442,7 @@ axis, and a feature that adds eight entries is a feature nobody can shoot.
 ## Context
 
 Four things the drift did not do, each of which a listener can hear and the picture cannot say. The
-first is landed and is left here as what the three below are read against:
+first two are landed and are left here as what the two below are read against:
 
 - **Colour arrived and never travelled, and now it travels** (0266, landed). `stepped` rounds hue,
   fringe and disperse onto `DRIFT_STEPS` = 8, which is what keeps the tile's pixel loop off the frame
@@ -452,11 +452,13 @@ first is landed and is left here as what the three below are read against:
   now what `stepped` rounds — `inkTravelInto` walks `MoireRowSet.ink` toward the claim at a whole
   reach in `DRIFT_INK_SECS`, in `easedToward`'s shape, and `carryInk` keeps that travel across the
   rebuild a knob touch is — so the staircase is walked and the drag stays immediate at the knob.
-- **Nothing reads how long the rack takes to fall silent.** Every entry declares `settle` over its
-  own values — reverb's is decay plus predelay (src/audio/effects/reverb.ts:114), delay's is
-  `feedbackSettleSecs` (src/audio/effects/delay.ts:74) — and nothing outside scheduling reads one.
-  So three reverbs and two delays deep, the picture is the picture a dry yard draws, and washed-out
-  floating is the first thing an ear names about that rack.
+- **Nothing read how long the rack takes to fall silent, and now the wind does** (0267, landed).
+  Every entry declares `settle` over its own values — reverb's is decay plus predelay
+  (src/audio/effects/reverb.ts:114), delay's is `feedbackSettleSecs` (src/audio/effects/delay.ts:74)
+  — and nothing outside scheduling read one, so three reverbs and two delays deep the picture was
+  the picture a dry yard draws. `rackTail` is the longest heard tail in the standing rack, weighted
+  by each entry's own presence and normalised onto one band; it buys a one-way drift on
+  `inkThrough`'s own axis and a direction folded off the population, and nothing else reads it.
 - **The structure opens four-fold and it reads as a swell.** `FRACTAL_OPENING` = 4 across a whole
   cycle through twelve stops (src/lib/moireFractal.ts:410), widened by the age (`agedOpening`,
   0251). Under a doubling per half-cycle, against a field of straight gratings, is a breath. The
@@ -473,15 +475,15 @@ first is landed and is left here as what the three below are read against:
   is at its most orderly.
 
 **The outcome wanted:** ink travels between its stops instead of cutting to them (landed); a rack
-with a long
-tail blows the whole field in a direction, smoothly, and the direction moves with what else is
-standing; the structure reads as the picture zooming into its own lattice; and a rack of scatters
-reads as a picture coming apart.
+with a long tail blows the whole field in a direction, smoothly, and the direction moves with what
+else is standing (landed); the structure reads as the picture zooming into its own lattice; and a
+rack of scatters reads as a picture coming apart.
 
-**Decided before planning:** four steps in that order, one decision record each. No list anywhere of
-which effects are washy — the reading is `settle`, which every entry already declares and which a
-new entry gets for free. The wind and the shatter belong to the field and to no row, the way the
-wash does (0213) and `runStanding` does; neither is a parameter and neither is durable (0145, 0128).
+**Decided before planning:** four steps in that order, one decision record each, two of them landed.
+No list anywhere of which effects are washy — the reading is `settle`, which every entry already
+declares and which a new entry gets for free. The wind and the shatter belong to the field and to no
+row, the way the wash does (0213) and `runStanding` does; neither is a parameter and neither is
+durable (0145, 0128).
 
 ## The two things every step turns on
 
@@ -495,24 +497,15 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     it is not a finer ladder, and it is not an unstepped hue — which is what the landed ink travel
     is, and what the drift below is a second term on.
 2.  **A reading of the population is the field's, and it goes where the field's readings live.** The
-    rack's tail and its scatter weight are two more of the kind `wash` and `age` already are, so
-    they rest on `MoireRowSet` (src/ui/moireRowsField.ts) beside them, are computed once per read
-    rather than per row, and no registry entry declares either. An effect that reaches these through
-    `driftFrom` would be a second value for one fact (0030, principle 1).
+    scatter weight is one more of the kind `wash` and `age` already are, so it rests on
+    `MoireRowSet` (src/ui/moireRowsField.ts) beside them and no registry entry declares it — which
+    is where the rack's own tail landed, beside them and read at the rebuild rather than per row,
+    because what it is read off is what the rack is set to (0267). An effect that reaches these
+    through `driftFrom` would be a second value for one fact (0030, principle 1).
 
 ## Steps
 
-1.  **The tail blows the field.** One reading, `rackTail`, in src/lib/moireSound.ts beside
-    `washAmount`: how long the standing rack takes to fall silent, from each instance's own `settle`
-    over its own values, weighted by whatever its presence says it is heard at, and normalised onto
-    a band stated once. That reading buys two things and no more: a **drift**, which is a term on
-    `inkThrough`'s transform that does not come back — the crawl already sweeps one cell and returns,
-    and this is the same axis running one way — and its **direction**, folded off the standing
-    population the way `fractalKind` is (src/lib/moireFractal.ts:373), so adding an effect turns the
-    wind rather than restarting it. Smoothness is the tail itself: a long tail is a slow, wide drift
-    and a short one is none. A direction that changes travels there at a rate, in the ink
-    travel's shape (`easedToward`, 0266).
-2.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
+1.  **The structure opens into a lattice.** The fly-through already owed by the fractal entry above,
     taken with the depth question the reference asks: the opening's band and how the levels are
     spent. Three levers and their shot answers, in this order — `FRACTAL_OPENING` past four; the
     fly-through as a travel through the coordinate rather than a cosine that returns; and the levels
@@ -521,9 +514,9 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     0246 decided, so it carries the decision: the boxes came out of the interference deliberately,
     and a lit contour is ink laid _over_ the picture unless it is cut as a grating like everything
     else.
-3.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape as step 1's: how much
-    of the yard is scatter, from the standing instances' own odds and gate. What it buys is the one
-    thing the picture has never done — the field read back through itself displaced, so a share of
+2.  **Scatter shatters.** A second field reading, `rackScatter`, the same shape the tail's took
+    (0267): how much of the yard is scatter, from the standing instances' own odds and gate. What it
+    buys is the one thing the picture has never done — the field read back through itself displaced, so a share of
     the picture is drawn from somewhere else in the picture. `lens` is the dimension in that
     neighbourhood and the slices `moireGeometry` already draws the finished field back through are
     the mechanism; six scatters is where the slices are wide enough to break every straight row in
@@ -532,10 +525,10 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 
 ## Tests that must fail first
 
-- **src/lib/moireSound.test.ts** — `rackTail` and `rackScatter`: silence is neither, a rack of one
-  short entry is near nothing, `settle` is read per instance over its own values and never off a
-  default, and both answer inside their stated bands at every input.
-- **src/ui/moireRowsField.test.ts** — both readings rest on the set beside `wash` and `age`, and are
+- **src/lib/moireSound.test.ts** — `rackScatter`: silence is not one, `odds` and `gate` are read per
+  instance over its own values and never off a default, and it answers inside its stated band at
+  every input.
+- **src/ui/moireRowsField.test.ts** — the reading rests on the set beside `wash` and `age`, and is
   computed once for a whole read rather than per row.
 - **src/lib/moireFractal.test.ts** — the fly-through's own arithmetic, and the level spacing: two
   stops of one opening are the same structure scaled, and a level boundary is cut as a grating.
@@ -547,14 +540,14 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
 1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
     it, then `./scripts/check` read whole. Watch each new test fail before the change.
 2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
-    crop, never the whole-canvas view. One question each: does a five-effect rack of reverb and
-    delay read as floating rather than as sliding (shoot at one, three and six seconds of tail);
-    does the structure read as a lattice the picture is inside, against the reference; and does a
-    six-scatter yard read as broken rather than as noisy.
-3.  `./scripts/profile` at the end of the feature and again inside step 3's own gate, against the
-    ~10.4ms frame p95 band — step 1 spends no bake by construction, and step 3 spends a read of the
-    field per frame, which is the one that can cost.
-4.  A decision record per step, no longer than the decision is. Next free today is 0267.
+    crop, never the whole-canvas view. One question each: does the structure read as a lattice the
+    picture is inside, against the reference; and does a six-scatter yard read as broken rather than
+    as noisy.
+3.  `./scripts/profile` at the end of the feature and again inside the shatter's own gate, against
+    the ~10.4ms frame p95 band — the shatter spends a read of the field per frame, which is the one
+    that can cost. The wind spent no bake at all: its drift is a term on the transform and nothing
+    in the tile's key (0267).
+4.  A decision record per step, no longer than the decision is. Next free today is 0268.
 
 ## Refused
 
@@ -567,8 +560,7 @@ staircase now that they are walked (0266).
 
 **A `washy` flag, tag or list on the effect registry.** Which effects wash out is a fact about their
 tails, and their tails are declared. A list would be that fact said twice and wrong the first time an
-entry is added (principle 1) — and that step's own note should name the refusal, since it is the obvious
-thing to propose.
+entry is added (principle 1) — 0267 names the refusal, since it is the obvious thing to propose.
 
 **Giving scatter a `driftFrom` into the new shatter.** The displacement is the whole field's and a
 `driftFrom` is one row's (0030). Six instances each displacing their own row is six broken rows in an

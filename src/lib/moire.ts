@@ -315,6 +315,15 @@ export type ColourDimension = keyof typeof COLOUR_REACH;
  * the reaches above rather than a second list of them (principle 1).
  */
 export type ScreenInk = Record<ColourDimension, number>;
+
+/**
+ * And where the wind a standing rack blows has carried that same screen to: how far, in turns of one
+ * cell of its grid and wrapped into one of them, and which way it is blowing on -1..1. One screen is
+ * one tile again, so this is the field's and no row's — here beside the ink for the reason the ink is
+ * here, the set that keeps the travel naming it as well as the painter that spends it
+ * (`MoireRowSet`, src/ui/moireRowsField.ts; `windTravelInto`, src/ui/moireWind.ts).
+ */
+export type MoireWind = { drift: number; veer: number };
 /** Where a turn of the value claiming one of them lands in it. */
 export const colourReached = (into: ColourDimension, turn: number): number =>
   denormalize(turn, 0, COLOUR_REACH[into]);

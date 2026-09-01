@@ -90,6 +90,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // Resolved once, before the frames below: a case that moves a row's colour inside `between`
       // is painting through the ink the *first* frame's rows claimed, and has to hand its own in.
       tint = arrivedInk(rows, wash, age),
+      // And how far the standing rack's own tail has blown the field, in turns of one cell of the
+      // screen's grid: nowhere unless a case says otherwise, which is the picture a dry rack draws
+      // (`windTravelInto`, src/ui/moireWind.ts, 0267).
+      wind = 0,
     }: {
       frames?: number;
       advance?: number;
@@ -99,6 +103,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       seed?: FractalStops;
       sounding?: number;
       tint?: ScreenInk;
+      wind?: number;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -216,6 +221,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         seed,
         sounding,
         tint,
+        wind,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

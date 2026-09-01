@@ -68,7 +68,8 @@ import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
-import { carryFractal, carryGround, carryInk } from "@/ui/moireCarry";
+import { carryFractal, carryGround, carryInk, carryWind } from "@/ui/moireCarry";
+import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
@@ -207,6 +208,7 @@ function useMoireRows(
       carryGround(painted.current, session);
       carryFractal(painted.current, session);
       carryInk(painted.current, session);
+      carryWind(painted.current, session);
       painted.current = session;
       from.current = session;
       run.current.ids.length = 0;
@@ -220,6 +222,7 @@ function useMoireRows(
       carryGround(painted.current, grown);
       carryFractal(painted.current, grown);
       carryInk(painted.current, grown);
+      carryWind(painted.current, grown);
       painted.current = grown;
     }
     const set = painted.current;
@@ -236,6 +239,31 @@ function useMoireRows(
     // Resolved here because the read and the paint both spend it (principle 1).
     set.sounding = peek.sounding;
     set.age = driftAge(set.sounding);
+    // And one step of the wind the standing rack blows the whole field with: how long that rack
+    // takes to fall silent came back with the set, and this is where it has actually blown to
+    // (`rackWind`, `windTravelInto`, src/ui/moireWind.ts, 0267). Here beside the age rather than
+    // inside the read, because it is the one travel in the picture that reads no row: it is the
+    // population's, and the population is what a rebuild already answered.
+    //
+    // **And no wind at all on a yard that is not sounding**, which is the answer the ink and the
+    // ground both give: there is nothing to blow a field across, so the direction arrives outright
+    // and the field stands where it is (0144, 0266).
+    //
+    // The gap this is handed is the gap between two *paintings*, which the session's clock keeps
+    // running through — a strip covered by its own overlay is not animating and comes back to a
+    // long one. A drift is an integral, so it is the one term here that turns a long gap into
+    // motion rather than saturating; it is bounded to a cell by its own wrap, and every phase term
+    // beside it (`termTurns`, `bandTurns`) has already moved an arbitrary distance across that same
+    // gap, because a phase is read off the deck's position and not accumulated. So the resumed
+    // picture is discontinuous either way and this is the smallest of those jumps, which is why it
+    // is not capped a second time.
+    windTravelInto(
+      set.wind,
+      set.veering,
+      set.tail,
+      elapsed,
+      peek.sounding > 0 ? DRIFT_WIND_SECS : 0,
+    );
     set.wash = refillRows(
       set.rows,
       set.reads,
@@ -297,6 +325,7 @@ function useMoirePicture(
         set.seed,
         set.sounding,
         set.ink,
+        set.wind.drift,
       );
     },
     [refill],

@@ -77,3 +77,16 @@ export function carryFractal(from: MoireRowSet, to: MoireRowSet): void {
 export function carryInk(from: MoireRowSet, to: MoireRowSet): void {
   Object.assign(to.ink, from.ink);
 }
+
+/**
+ * And how far the wind had blown the picture, and which way it was blowing when it did. The same
+ * argument a third time, and the one it matters most for is the rebuild that changes the wind
+ * itself: adding an effect is a new population and a new direction, and a set that started still
+ * would drop the field back to where it had never been blown and set off again — which is a wind
+ * that restarts rather than one that turns, and turning is the whole of what this reading buys
+ * (0267). Where it is *going* is the new set's own population and is never carried, which is what
+ * makes the added effect turn it at all.
+ */
+export function carryWind(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.wind, from.wind);
+}

@@ -8,7 +8,13 @@ import { fold } from "@/lib/copy";
 import { clamp, denormalize, snapToStep } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import { TONE_REF_HZ } from "@/lib/waveform";
-import type { Effect, EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
+import {
+  presenceFull,
+  type Effect,
+  type EffectInstanceId,
+  type ParamDeclaration,
+  type ParamSpec,
+} from "./effects/contract";
 import {
   EFFECT_PARAMS,
   effectById,
@@ -290,4 +296,37 @@ export function effectSettleSecs(effect: EffectId, values: EffectParamValues): n
   return plugin.settle(
     Object.fromEntries(effectParamIds(effect).map((id) => [id, paramIn(values, id)])),
   );
+}
+
+/**
+ * And how much of that entry is actually heard, on 0..1: where its presence parameter stands
+ * between the value it passes its input through unchanged at and the value it is all the way in at
+ * (0202). Beside the settle above and through the same one lookup, because the two are asked
+ * together — a tail nobody can hear is not a tail — and the cast is here for the same reason.
+ *
+ * **Null where the entry declares no honest presence**, which is the plugin saying there is no value
+ * at which it is not there (0148's shape) — and it is the answer rather than a whole or a nought,
+ * because a caller weighing entries by what is heard of them cannot weigh one that says nothing
+ * about it, and either number would be a guess it could not see was one (principle 5). The one
+ * entry that says so is the automator, which is the thing doing the fading rather than a sound
+ * (0202). The `held` parameters are
+ * not read: they are what makes a *silence* honest, and this is a weight rather than a test for
+ * one — a compressor at a ratio of one with a drawn makeup still reads as absent here, which is
+ * one entry's weight in a reading of the whole rack and not a claim that it is transparent.
+ *
+ * The span is never nought: the registry refuses an entry whose `full` equals its `silent` and one
+ * whose default does, at load, where a bad declaration is a throw rather than a picture (0202).
+ */
+export function effectHeard(effect: EffectId, values: EffectParamValues): number | null {
+  const plugin = effectById(effect) as Effect;
+  const { presence } = plugin;
+  if ("none" in presence) return null;
+  const param = effectParamIds(effect).find((id) => id === presence.param);
+  if (param === undefined) {
+    throw new TypeError(`effect is heard through a presence it does not own: ${effect}`);
+  }
+  // Where it stands all the way in is the declaration's own answer and not a second reading of it
+  // (`presenceFull`, ./effects/contract.ts).
+  const full = presenceFull(presence, plugin.params);
+  return clamp((paramIn(values, param) - presence.silent) / (full - presence.silent), 0, 1);
 }

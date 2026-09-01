@@ -34,6 +34,7 @@ import { effectById, isEffectId, type EffectId } from "@/audio/effects/registry"
 import { grownReach, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import { rackWind, windRest } from "@/ui/moireWind";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import { grownOctaves } from "@/lib/effectGrowth";
@@ -400,6 +401,13 @@ export function moireRows(
   fractalStopsInto(toward, fractalShape(grown));
   // And where the picture's ink stands: at rest, travelled from there by the read and carried onto
   // whatever set replaces this one (`carryInk`).
+  //
+  // And what the rack standing behind all of it is doing to the whole field: how long it takes to
+  // fall silent and which way that blows. Read here and never on a frame, because it is a fact
+  // about what the entries are *set to* and a rebuild is what a durable move already is
+  // (`rackWind`, src/ui/moireWind.ts). Where the wind has actually blown to is the read's, and it
+  // is carried onto whatever set replaces this one, exactly as the ink is (`carryWind`).
+  const blowing = rackWind(effects);
   return {
     rows,
     reads,
@@ -409,6 +417,9 @@ export function moireRows(
     seed: stops,
     toward,
     ink: screenInkRest(),
+    tail: blowing.tail,
+    veering: blowing.veering,
+    wind: windRest(),
     ...macro,
   };
 }
