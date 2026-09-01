@@ -1,5 +1,5 @@
 /**
- * @role The sketch bench at #/sketch — the nav, and the six arguments about the mulcher's surface
+ * @role The sketch bench at #/sketch — the nav, and the eight arguments about the mulcher's surface
  *   that it mounts, each with the one sentence it makes and the thing it gives up to make it.
  * @instead The surface they are all arguing with → src/ui/PlayerCard.tsx. The primitives they are
  *   drawn out of, on their own page → src/ui/dev/DevPage.tsx.
@@ -17,6 +17,8 @@ import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchCast } from "@/ui/sketch/SketchCast";
+import { SketchChipper } from "@/ui/sketch/SketchChipper";
+import { SketchChips } from "@/ui/sketch/SketchChips";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchRolls } from "@/ui/sketch/SketchRolls";
 import { SketchScore } from "@/ui/sketch/SketchScore";
@@ -27,7 +29,7 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
 /**
- * Six answers to one question — what the mulcher would be if it were not a wall of dials. A
+ * Eight answers to one question — what the mulcher would be if it were not a wall of dials. A
  * sketch's identity is written here and nowhere else: the id is the nav's anchor and the
  * heading's, and the two sentences are the argument, so the argument cannot drift away from the
  * drawing that makes it. None of them is wired to anything (0247).
@@ -85,6 +87,24 @@ const SKETCHES = [
       "intent. You can only ask for more of what you already got, never for a thing you have not been shown.",
     Content: SketchRolls,
   },
+  {
+    id: "chipper",
+    label: "Feed The Hopper",
+    thesis:
+      "The card is the machine it is named for. Source in at the top, a drum of six blades whose size is their weight in the middle, and the walk thrown out of the side as mulch.",
+    trades:
+      "the way back. The metaphor runs one direction, so anything that feeds back — a part that changes the ground it was drawn from — has nowhere to be drawn.",
+    Content: SketchChipper,
+  },
+  {
+    id: "chips",
+    label: "Read The Pile",
+    thesis:
+      "The same machine from the output end only. Every landing is a chip on a heap — size is how long it holds, fill is which character cut it — and the controls are sorts: coarser, finer, more of one wood, less of another.",
+    trades:
+      "everything a pile cannot hold. Order, repeats and rests are invisible in a heap, so the whole of How It Is Timed has no surface here.",
+    Content: SketchChips,
+  },
 ];
 
 /**
@@ -125,7 +145,7 @@ export function SketchPage() {
 
       <main className={cn(SHELL_BODY, "flex flex-col gap-12")}>
         <p className="max-w-3xl type-body text-muted-foreground">
-          Six ways the {PLAYER_LABEL} could work instead. None is wired to anything — no store, no
+          Eight ways the {PLAYER_LABEL} could work instead. None is wired to anything — no store, no
           command, no sound — and they are drawn in the instrument&apos;s own tokens and type so
           what is on the screen is what the real thing would look like. Pick one and the rest of
           this directory is deleted.

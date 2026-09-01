@@ -21,6 +21,7 @@ import {
   SPILL,
   RING,
   useAim,
+  useHeld,
   type BlendProps,
   type WroteWeights,
 } from "@/ui/sketch/sketchBlendPad";
@@ -174,7 +175,6 @@ const NAME_FOOT = PAD - 6;
 function useLevers(wrote: WroteWeights) {
   const pad = useRef<SVGSVGElement>(null);
   const [raw, setRaw] = useState(LEVER_START);
-  const [held, setHeld] = useState(false);
 
   const drag = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -191,29 +191,17 @@ function useLevers(wrote: WroteWeights) {
     },
     [raw, wrote],
   );
-  const onPointerDown = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setHeld(true);
-      drag(event);
-    },
-    [drag],
-  );
-  const onPointerMove = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
-      if (held) drag(event);
-    },
-    [held, drag],
-  );
+  const handlers = useHeld(drag);
   // Normalised on release: the six settle into shares of one, and the row visibly shortens as
   // they do. A handle is its own amount and is drawn against the whole column, never against the
   // tallest of the six — that would make a press where a handle already stands move it.
+  const { onPointerUp: release } = handlers;
   const onPointerUp = useCallback(() => {
-    setHeld(false);
+    release();
     setRaw(normalise(raw));
-  }, [raw]);
+  }, [release, raw]);
 
-  return { pad, raw, handlers: { onPointerDown, onPointerMove, onPointerUp } };
+  return { pad, raw, handlers: { ...handlers, onPointerUp } };
 }
 
 /** One lever: its own amount against the whole column, its share of the six above it, its name. */

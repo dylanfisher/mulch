@@ -190,12 +190,12 @@ altitudes at once.
   one readout, each drawing its own corner names inside its own picture with the weight beside
   each, and each stating its own trade. The row underneath is gone. What the rule leaves owed is
   the rest of the bench: every blade and every planted spot still gets its name drawn on it.
-- **Nothing on the bench is a mulcher.** The instrument is named for a machine that takes a whole
-  thing in at the top, chews it, and throws the pieces out the side, and six surfaces of dials,
-  pads, cards and word-sentences have no trace of that machine in them. A hopper, a drum of blades
-  and a chute is not decoration: it is a _layout argument_ — it says source at the top, character in
-  the middle, walk at the output, and it puts the six characters somewhere a hand already
-  understands they are being weighed against each other.
+- **Nothing on the bench was a mulcher.** Landed
+  (`docs/decisions/0253-the-machine-is-on-the-bench.md`): the instrument is named for a machine that
+  takes a whole thing in at the top, chews it, and throws the pieces out the side, and a hopper, a
+  drum of blades and a chute is not decoration but a _layout argument_. `SketchChipper` works it
+  from the top and `SketchChips` reads the pile at the output end, and both name every blade,
+  ground and wood inside their own picture.
 - **Every sketch argues the whole card at once.** `src/ui/PlayerCard.tsx` is five folds and a
   picture — `PLAYER_GROUP_LABELS` (src/lib/copy.ts:384) names them: Where It Lands, Which Ground,
   How It Sounds, How It Is Timed, How It Is Arranged, over `PLAYER_SCOPE_LABEL` "The Walk" — plus
@@ -206,8 +206,8 @@ altitudes at once.
 
 **The outcome wanted:** the pad's argument is separable from the pad's arithmetic and every corner
 says its name — landed, for the cast, in 0252; the machine the instrument is named after is on the
-bench twice; and each of the card's own regions has its own sketches, so a decision can be taken one
-fold at a time rather than one card at a time.
+bench twice — landed in 0253; and each of the card's own regions has its own sketches, so a decision
+can be taken one fold at a time rather than one card at a time.
 
 **Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
 no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
@@ -231,32 +231,6 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
 
 ---
 
-## Step 0252 — The mulcher is drawn as a mulcher
-
-`docs/decisions/0253-the-machine-is-on-the-bench.md`, extending 0247 and resting on 0236.
-
-Two new whole-surface sketches. Both are pictures of the same machine and disagree about which end
-of it a hand works from.
-
-- **`SketchChipper` — "Feed The Hopper".** The card laid out as the machine, top to bottom: the
-  hopper is the source and the planted grounds (`SKETCH_BEDS`) are what has been dropped in it; the
-  drum is a ring of six blades, one per character, whose _size is its weight_ — so the blend of
-  decision 0252 is the drum, and setting the character mix is sharpening or dulling blades; the chute throws
-  the walk out sideways as `SKETCH_WALK`, block per landing, in the drum's rotation order. How It Is
-  Timed is the drum speed, How It Is Arranged is what is queued at the hopper's mouth. Trades: the
-  metaphor has one direction, so anything that feeds back — a part that changes the ground it was
-  drawn from — has nowhere to be drawn.
-- **`SketchChips` — "Read The Pile".** The same machine from the output end only: no hopper, no
-  drum, just the mulch. Every landing is a chip on a heap — its size is `span`, its fill is its
-  character (`SKETCH_CHARACTER_WEIGHT`), its position in the heap is `at` — and the controls are
-  _sorts_: coarser, finer, more of one wood, less of another. Nothing states a number; a hand pushes
-  the pile toward how it should look. Trades everything the module does that a pile cannot show:
-  order, repeats and rests are invisible in a heap, so the whole of How It Is Timed has no surface.
-
-Both are drawn in the one hue with weight and geometry (0236, 0247's "six surfaces distinguished by
-geometry and density and not by colour"). The blades and the sorts are labelled with the real names,
-same rule as decision 0252.
-
 ## Step 0253 — The bench is two benches, and the first part is the walk
 
 `docs/decisions/0254-the-bench-argues-the-card-fold-by-fold.md`, extending 0247 on the sentence
@@ -264,7 +238,7 @@ same rule as decision 0252.
 
 SketchPage.tsx grows a second list and one heading each:
 
-- **Whole surfaces** — the six of 0247 plus decision 0253's two. Each replaces the card.
+- **Whole surfaces** — the six of 0247 plus 0253's `chipper` and `chips`. Each replaces the card.
 - **The parts** — one section per region of the card, each holding two or three small sketches that
   argue only that region. Each replaces one fold.
 
@@ -345,7 +319,9 @@ Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a 
   `SKETCH_PARTS_LIST` from SketchPage.tsx for this; they are the identity 0247 says lives there.
 - every nav href is still `SKETCH_ROUTE` and the wordmark still goes home — unchanged, and it must
   keep passing across the nav's split into two groups.
-- **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252):
+- **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252)
+  and so is the machine's (0253 — "names every blade and every planted ground inside the chipper's
+  own picture", "names every wood in the pile and in the sorts that push it"):
   "names every one of the six inside every blend's own picture" walks `SKETCH_BLENDS`, slices each
   pad's own markup out of the one `renderToStaticMarkup` by its `data-blend`, and asserts every
   name of `SKETCH_CAST` inside a `<text>` there. Every surface added below extends that case's
@@ -355,8 +331,8 @@ Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a 
   `scripts/arch` already enforces the tier direction for `src/ui`, this belongs there instead of in
   a test — check before writing it, and do not say it twice (principle 1).
 
-Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 148 lines and two lists of entries take it to
-roughly 260 — under the soft cap, and if a later step crosses 400 the split is the entry lists into
+Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 168 lines and two lists of entries take it to
+roughly 280 — under the soft cap, and if a later step crosses 400 the split is the entry lists into
 `src/ui/sketch/sketchEntries.ts`, not prose shaved out of the theses.
 
 `src/ui/sketch/parts/` is a new directory: each file needs the `@role`/`@instead` header, and the
@@ -380,8 +356,7 @@ DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks strai
       the shot caught twice is that a clipped label reads as a smaller number — `stutter 38` drawn
       as `stutter 3` — so it is legible and wrong.
     - Does the chipper read as the machine or as an illustration sitting on top of a card? If it is
-      an illustration, decision 0253's second sketch is the one to keep and the first is deleted in its own
-      record.
+      an illustration, 0253's `chips` is the one to keep and `chipper` is deleted in its own record.
     - Does the parts bench make the surfaces bench redundant? If a hand picks a walk, a ground and a
       song builder without looking at the six, say so in decision 0254's record — that is 0247's "the day one
       of them wins" arriving in a shape 0247 did not predict.

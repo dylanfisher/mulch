@@ -123,11 +123,37 @@ export function placeOf(event: ReactPointerEvent<SVGSVGElement>, box: DOMRect): 
   };
 }
 
+/**
+ * A press, a drag while it is down, and a release — the three handlers every picture on the bench
+ * a hand drags across wants, holding nothing but whether it is down. What the drag *means* is the
+ * caller's `act`, which is the only part that differs between a pad, a row of levers and a drum.
+ */
+export function useHeld(act: (event: ReactPointerEvent<SVGSVGElement>) => void) {
+  const [held, setHeld] = useState(false);
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setHeld(true);
+      act(event);
+    },
+    [act],
+  );
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (held) act(event);
+    },
+    [held, act],
+  );
+  const onPointerUp = useCallback(() => {
+    setHeld(false);
+  }, []);
+  return { onPointerDown, onPointerMove, onPointerUp };
+}
+
 /** A pad a hand drags a point around, reporting the six it weighs as the point moves. */
 export function useAim(start: Point, weigh: (at: Point) => number[], wrote: WroteWeights) {
   const pad = useRef<SVGSVGElement>(null);
   const [at, setAt] = useState(start);
-  const [held, setHeld] = useState(false);
 
   const aim = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -139,23 +165,6 @@ export function useAim(start: Point, weigh: (at: Point) => number[], wrote: Wrot
     },
     [weigh, wrote],
   );
-  const onPointerDown = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setHeld(true);
-      aim(event);
-    },
-    [aim],
-  );
-  const onPointerMove = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
-      if (held) aim(event);
-    },
-    [held, aim],
-  );
-  const onPointerUp = useCallback(() => {
-    setHeld(false);
-  }, []);
 
-  return { pad, at, handlers: { onPointerDown, onPointerMove, onPointerUp } };
+  return { pad, at, handlers: useHeld(aim) };
 }
