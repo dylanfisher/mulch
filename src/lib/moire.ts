@@ -445,22 +445,6 @@ export const DRIFT_LENS_REACH = 1;
 export const DRIFT_OCTAVES_REACH = 3;
 
 /**
- * The total extra fills a whole set of rows may ask for — every copy past the first, added up
- * across the picture. `DRIFT_OCTAVES_REACH` bounds how deep one row goes and this bounds how many
- * rows may go there, which is the bound the reach alone never was: the number of rows is not
- * fixed, so a rack of automators each drawing its run at its own depth multiplies a per-row
- * ceiling by a count nobody declared.
- *
- * Twelve, because that is the deepest rack the picture already carried: six instances each
- * claiming every scale `DRIFT_OCTAVES_REACH` allows is twelve copies past the first, and a picture
- * that drew that drew it at the cadence the profiler measured. Past it the counts fall back toward
- * one evenly (`shareOctaves`) — a very large rack draws fewer scales rather than turning the
- * painter into a slideshow. The picture may fall behind and the hand may not (0144); this is what
- * keeps the falling-behind bounded rather than merely permitted.
- */
-export const DRIFT_SCALES_BUDGET = 12;
-
-/**
  * How far a value may drive the frame feedback — the whole of the ceiling below, which is where the
  * bound actually lives. One by definition, the same division of labour the centre's reach is split
  * on: this is the travel, `DRIFT_FEEDBACK_CEILING` is what the travel comes to.
@@ -492,53 +476,6 @@ export const feedbackAlpha = (amount: number): number =>
  */
 export const feedbackSettles = (keep: number, alpha: number): number =>
   keep / (1 - alpha * (1 - keep));
-
-/** How many scales a row is actually drawn at — a whole number of copies, and never none. */
-export const octavesOf = (row: MoireRow): number => Math.max(1, Math.round(row.octaves));
-
-/**
- * Hold a whole set of rows to `DRIFT_SCALES_BUDGET` extra fills between them, in place. A set that
- * fits is left exactly as it asked; a set that does not falls back **evenly** — every row is held
- * to one ceiling, the highest ceiling the budget can afford them all, rather than the deepest rows
- * being cut to nothing while the shallow ones keep what they asked for. Whatever the ceiling
- * leaves over is then handed out a copy at a time, in row order, to the rows still asking for
- * more, so the budget is spent rather than rounded away. Row order is the picture's own — rack
- * order, and each instance's grown rows behind it — and it is the **tiebreak** and not a
- * preference: rows that asked alike never end more than a copy apart, and which of them gets the
- * odd one is where it stands. Nothing here reads what kind of row it is, because a set-wide bound
- * that preferred one kind would be a second answer to "how deep is this row" (0139).
- *
- * Called once where the set is built and never per frame: what a row asks for is its identity and
- * what its effect is set to, and neither of those moves between frames (0070).
- */
-export function shareOctaves(rows: MoireRow[], budget = DRIFT_SCALES_BUDGET): void {
-  let asked = 0;
-  for (const row of rows) asked += octavesOf(row) - 1;
-  if (asked <= budget) return;
-  // The one ceiling every row falls back to. Raised while it still fits, and it always fits at
-  // one — a row is drawn at least once whatever the budget says, because a row nobody draws is a
-  // row missing from the picture rather than a shallower one.
-  let ceiling = 1;
-  // Never past `budget + 1`: one row at that ceiling already spends the whole budget, so no higher
-  // one can fit. A bound in the header rather than an argument that the body always breaks.
-  for (let next = 2; next <= budget + 1; next++) {
-    let spend = 0;
-    for (const row of rows) spend += Math.min(octavesOf(row), next) - 1;
-    if (spend > budget) break;
-    ceiling = next;
-  }
-  let left = budget;
-  for (const row of rows) left -= Math.min(octavesOf(row), ceiling) - 1;
-  for (const row of rows) {
-    const wanted = octavesOf(row);
-    const held = Math.min(wanted, ceiling);
-    // The remainder, a copy at a time and only to a row that is still asking: a row already at
-    // what it wanted is not made deeper by a budget it did not spend.
-    const over = left > 0 && wanted > held ? 1 : 0;
-    left -= over;
-    row.octaves = held + over;
-  }
-}
 
 /**
  * What a row no value of an effect's reaches carries in every dimension but its own period and its

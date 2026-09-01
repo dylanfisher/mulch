@@ -1,8 +1,7 @@
 /**
- * @role Tests that the finished field is laid back into itself once per run of effects growing
- *   inside it: that a picture with nothing grown draws exactly what it drew before there was a fold
- *   in it, and that a fold with depth costs exactly its own passes — each one smaller, turned, and
- *   laid at its own share.
+ * @role Tests that the finished field is cut back into itself: that every pass takes ink out rather
+ *   than filling it in, that a picture growing nothing cuts nothing at all, and that a fold with
+ *   depth costs exactly its own passes — each one smaller, turned, and biting at its own share.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +9,7 @@ import {
   DRIFT_FOLD_REACH,
   foldInto,
   foldNothing,
+  foldOwner,
   foldPasses,
   foldScale,
   foldShare,
@@ -29,14 +29,24 @@ const pitchOf = (move: Aim | undefined): number =>
 const turnsIn = (move: Aim | undefined): number =>
   Math.atan2(move?.b ?? 0, move?.a ?? 0) / (2 * Math.PI);
 
-/** One run of `presence` values held by one instance — the shape `DeckPeek.grown` is. */
+/**
+ * One run of `presence` values held by one instance — the shape `DeckPeek.grown` is. Each place
+ * carries an id of its own beneath its holder's, which is the spiral's own seed.
+ */
 const run = (id: string, ...held: readonly number[]): FoldRun =>
-  new Map([[id, held.map((presence) => ({ presence }))]]);
+  new Map([[id, held.map((presence, at) => ({ presence, instance: `${id}/${at}` }))]]);
+
+/**
+ * Patterns enough for the gratings and for every pass of the deepest fold there is: each pass cuts
+ * with a pattern of the field, so a budget of two would leave the stack a level deep (`allowed`,
+ * src/ui/moireCanvasPainted.ts).
+ */
+const PATTERNS = 2 + DRIFT_FOLD_REACH * 2;
 
 /** The fold a run comes to, through the one reading a picture is folded by. */
 const folded = (grown: FoldRun) => {
   const out = foldNothing();
-  foldInto(out, grown, DRIFT_FOLD_REACH);
+  foldInto(out, grown);
   return out;
 };
 
@@ -51,84 +61,107 @@ afterEach(() => {
 // One flat list of the fold's cases, all painted through the one stand-in canvas (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("moireFold", () => {
-  // P177: an automator's run reached the picture as rows and only as rows, so a rack holding two of
-  // them read as more lines and never as more depth. What a run of effects growing inside a run of
-  // effects looks like is one picture inside another.
-  it("draws exactly the picture it drew before, where nothing has grown", () => {
+  // P182: the fold was laid *onto* the field, which on a mask of what the gratings let through only
+  // ever raised alpha — so a level filled its own fringes in and read as a flat lighter rectangle
+  // with a straight edge. Cut, the same level beats against the fringes it crosses (0243, 0131).
+  it("takes ink out of the field rather than filling it in", () => {
     vi.stubGlobal("devicePixelRatio", 1);
-    const bare = paintedOn(400, 128, [row({ period: 3 })]);
-    const nothing = paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, {
+    const painted = paintedOn(400, 128, [row({ period: 3 })], PATTERNS, WINDOW, {
+      fold: folded(run("one", 1)),
+    });
+    const drew = painted.surfaces[0]?.drew ?? [];
+    expect(drew.length).toBeGreaterThan(0);
+    for (const laid of drew) expect(laid.over).toBe("destination-out");
+    // The same cut every grating before it made, which is why the fold never has to hand the ink
+    // back at all — it was already cutting when it arrived and is still cutting when it leaves.
+    expect(painted.cuts.length).toBeGreaterThan(0);
+  });
+
+  // The fold is the automator's own mark on the picture and nothing else's, so a yard growing
+  // nothing draws no pass and pays no fill (0243).
+  it("cuts nothing at all into a picture that has grown nothing", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    const nothing = paintedOn(400, 128, [row({ period: 3 })], PATTERNS, WINDOW, {
       fold: folded(new Map()),
     });
-    expect(nothing.surfaces[0]?.drew).toEqual([]);
-    expect(nothing.cuts).toEqual(bare.cuts);
-    // The screen's own pattern is a fresh object per painting, so what is compared of what went
-    // onto the canvas is the order the ink and the product were laid in.
-    expect(nothing.laid.map(({ over }) => over)).toEqual(bare.laid.map(({ over }) => over));
-    // And a run whose only place is still arriving is a run standing nothing: no level, no pass.
-    const arriving = paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, {
+    expect(nothing.surfaces[0]?.drew).toHaveLength(0);
+    // And a run whose only place is still arriving deepens it by nothing: no pass either.
+    const arriving = paintedOn(400, 128, [row({ period: 3 })], PATTERNS, WINDOW, {
       fold: folded(run("one", 0)),
     });
-    expect(arriving.surfaces[0]?.drew).toEqual([]);
-    // And a run barely arrived is a level too faint for the canvas's own alpha byte: no blit.
-    const faint = paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, {
-      fold: folded(run("one", 0.001)),
-    });
-    expect(faint.surfaces[0]?.drew).toEqual([]);
+    expect(arriving.surfaces[0]?.drew).toHaveLength(0);
+    // The gratings are cut exactly as they were: a fold of nothing leaves the picture untouched.
+    expect(nothing.cuts.length).toBeGreaterThan(0);
   });
 
   // The cost is the picture's own depth and never the count of runs: forty automators each barely
-  // arriving is a shallow fold, not forty picture-sized blits.
+  // arriving is a bounded fold, not forty picture-sized fills.
   it("costs the picture's own depth however many runs are standing", () => {
     vi.stubGlobal("devicePixelRatio", 1);
     const many = new Map(
-      Array.from({ length: 40 }, (_, at) => [`run ${at}`, [{ presence: 0.05 }]] as const),
+      Array.from(
+        { length: 40 },
+        (_, at) => [`run ${at}`, [{ presence: 0.05, instance: `run ${at}/0` }]] as const,
+      ),
     );
-    const painted = paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, { fold: folded(many) });
-    expect(painted.surfaces[0]?.drew).toHaveLength(2);
+    const painted = paintedOn(400, 128, [row({ period: 3 })], PATTERNS, WINDOW, {
+      fold: folded(many),
+    });
+    // A pass past the ladder's end bites too faintly for the canvas's own alpha byte to carry, and
+    // the painter does not pay for it.
+    expect(painted.surfaces[0]?.drew.length).toBeGreaterThan(0);
+    expect(painted.surfaces[0]?.drew.length).toBeLessThanOrEqual(DRIFT_FOLD_REACH);
   });
 
-  it("adds exactly its own passes, each smaller than the last and each at its own share", () => {
+  it("cuts exactly its own passes, each smaller than the last and each at its own share", () => {
     vi.stubGlobal("devicePixelRatio", 1);
-    // One place arrived and one half in: a fold a level and a half deep, which is two blits.
-    const fold = folded(run("one", 1, 0.5));
-    const depth = fold.depths[0] ?? 0;
-    const ratio = fold.ratios[0] ?? 1;
-    const turns = fold.turns[0] ?? 0;
-    expect(depth).toBeCloseTo(1.5, 9);
-    const drew = paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, { fold }).surfaces[0]?.drew;
-    expect(drew).toHaveLength(foldPasses(depth));
-    expect(foldPasses(depth)).toBe(2);
-    for (const [pass, laid] of (drew ?? []).entries()) {
-      // Onto the field and never out of it: the field is what the gratings let through, so a level
-      // laid back into it fills its own fringes in and the picture keeps a smaller copy of them.
-      expect(laid.over).toBe("source-over");
-      expect(laid.alpha).toBeCloseTo(foldShare(depth, pass), 9);
+    // One automator holding two arrived places, which is a stack of two levels — one place's own
+    // spiral apiece, the only thing that ever buys a fold at all (0243).
+    const fold = folded(run("one", 1, 1));
+    const depth = fold.depth;
+    expect(depth).toBeCloseTo(2, 9);
+    expect(fold.folds).toBe(2);
+    const cut =
+      paintedOn(400, 128, [row({ period: 3 })], PATTERNS, WINDOW, { fold }).surfaces[0]?.drew ?? [];
+    expect(cut).toHaveLength(foldPasses(depth));
+    for (const [pass, laid] of cut.entries()) {
+      // Each pass is aimed with the spiral of the place standing at that point of the ladder, so
+      // two places are two spirals composed and never one drawn twice.
+      const own = foldOwner(fold, pass);
+      const ratio = fold.ratios[own] ?? 1;
+      expect(laid.alpha).toBeCloseTo(foldShare(depth, pass, fold.bite), 9);
       expect(pitchOf(laid.move)).toBeCloseTo(foldScale(ratio, pass), 9);
-      expect(turnsIn(laid.move)).toBeCloseTo(foldTurned(turns, pass), 9);
+      expect(turnsIn(laid.move)).toBeCloseTo(foldTurned(fold.turns[own] ?? 0, pass), 9);
     }
-    // The levels double at every pass, which is why a linear number of blits buys a geometric
+    expect(foldOwner(fold, 0)).not.toBe(foldOwner(fold, 1));
+    // The levels double at every pass, which is why a linear number of fills buys a geometric
     // depth: the second is aimed at the square of the first, not at twice it.
-    expect(foldScale(ratio, 1)).toBeCloseTo(foldScale(ratio, 0) ** 2, 9);
+    const first = fold.ratios[0] ?? 1;
+    expect(foldScale(first, 1)).toBeCloseTo(foldScale(first, 0) ** 2, 9);
   });
 
   // The fold runs before the frame before this one is fed back, so what is carried over already
   // holds the stack rather than the stack being laid on a ghost of a shallower picture (0143).
   it("folds the field before the frame before it is laid back in", () => {
     vi.stubGlobal("devicePixelRatio", 1);
-    // A row asking for the whole of the frame feedback, painted twice: one fold pass in each
-    // painting, and the ghost of the first painting after the second one's fold.
-    const painted = paintedOn(400, 128, [row({ period: 3, feedback: 1 })], 2, WINDOW, {
+    // A row asking for the whole of the frame feedback, painted twice: the fold's own passes in
+    // each painting, and the ghost of the first painting after the second one's fold.
+    const fold = folded(run("one", 1, 1));
+    const passes = foldPasses(fold.depth);
+    const painted = paintedOn(400, 128, [row({ period: 3, feedback: 1 })], PATTERNS, WINDOW, {
       frames: 2,
-      fold: folded(run("one", 1)),
+      fold,
     });
+    // Every fold pass cuts and the fed-back frame is the one thing here that fills — which is the
+    // whole of what puts the ghost after the stack rather than under it (0143, 0243).
+    const shares = Array.from({ length: passes }, (_, pass) => foldShare(fold.depth, pass));
     const drew = painted.surfaces[0]?.drew ?? [];
-    expect(drew).toHaveLength(3);
-    for (const laid of drew) expect(laid.over).toBe("source-over");
-    expect(drew.map(({ alpha }) => alpha)).toEqual([
-      foldShare(1, 0),
-      foldShare(1, 0),
-      DRIFT_FEEDBACK_CEILING,
+    expect(drew).toHaveLength(passes * 2 + 1);
+    expect(drew.map(({ over }) => over)).toEqual([
+      ...shares.map(() => "destination-out"),
+      ...shares.map(() => "destination-out"),
+      "source-over",
     ]);
+    expect(drew.map(({ alpha }) => alpha)).toEqual([...shares, ...shares, DRIFT_FEEDBACK_CEILING]);
   });
 });

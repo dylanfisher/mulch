@@ -67,17 +67,8 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
-import {
-  deckLanes,
-  grownNothing,
-  grownStanding,
-  moireRows,
-  NO_GROWN,
-  paintsPerFrame,
-  carryGround,
-  refillRows,
-  type GrownRun,
-} from "@/ui/moireRows";
+import { deckLanes, moireRows, paintsPerFrame, carryGround, refillRows } from "@/ui/moireRows";
+import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";

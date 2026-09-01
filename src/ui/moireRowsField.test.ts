@@ -19,7 +19,7 @@
 // makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { foldNothing, FOLD_KEEP } from "@/lib/moireFractal";
+import { foldNothing, FOLD_BITE } from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
@@ -40,7 +40,7 @@ import {
   DRIFT_HEARD_SHARE,
   DRIFT_WASH_SHARE,
   FOLD_TIGHT_FLOOR,
-  heardHard,
+  heardBite,
   heardPitch,
   heardTilt,
   PLAIN_CUT,
@@ -58,13 +58,8 @@ import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerD
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
-import {
-  carryGround,
-  moireRows,
-  NO_GROWN,
-  refillRows as filledRows,
-  type MoireLane,
-} from "@/ui/moireRows";
+import { carryGround, moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { NO_GROWN } from "@/ui/moireGrown";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
 import { bandTurns, screenDisperse } from "@/ui/moireScreen";
@@ -693,14 +688,15 @@ describe("the picture's own field", () => {
     const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, grown, null);
     const peek = { ...emptyDeckPeek(), grown };
 
-    // A broad wash: every reading of the fold is the one its holding instance's id drew.
+    // A broad wash: every reading of the fold is the one its own name drew, off the one run this
+    // yard's automator is standing — the only thing that folds the picture at all (0243).
     const washed = foldNothing();
     const wash: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.3, edge: 0 };
     filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, washed);
     const loose = washed.ratios[0] ?? Number.NaN;
     expect(washed.depth).toBe(1);
     expect(loose).toBeGreaterThan(FOLD_TIGHT_FLOOR);
-    expect(washed.keep).toBe(FOLD_KEEP);
+    expect(washed.bite).toBe(FOLD_BITE);
 
     // And a narrow resonance through the same run: the same spiral, drawn tighter, and the same
     // stack, laid harder by how sharp the output is. Neither of them is a depth — the population
@@ -711,13 +707,13 @@ describe("the picture's own field", () => {
     const ring: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.01, edge: 0.12 };
     filledRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED, FRESH, rang);
     expect(rang.ratios[0] ?? Number.NaN).toBeLessThan(loose);
-    expect(rang.keep).toBe(heardHard(0.12));
-    expect(rang.keep).toBeGreaterThan(FOLD_KEEP);
+    expect(rang.bite).toBe(heardBite(0.12));
+    expect(rang.bite).toBeGreaterThan(FOLD_BITE);
     expect(rang.depth).toBe(washed.depth);
     // And nothing of it is stored: the wash's own reading again is the wash's own fold.
     const again = foldNothing();
     filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, again);
     expect(again.ratios[0]).toBe(loose);
-    expect(again.keep).toBe(FOLD_KEEP);
+    expect(again.bite).toBe(FOLD_BITE);
   });
 });

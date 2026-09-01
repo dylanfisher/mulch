@@ -161,12 +161,80 @@ had been playing, so a performance whose whole subject is that it went somewhere
 same range in the fortieth minute as in the first. `DeckPeek.sounding` is now elapsed _continuous_
 sounding off the instant the worklet already reports, halted back to nought (`src/audio/deck.ts`),
 and `driftAge` turns it into a saturating age on 0..1 over a twenty-minute reach
-(`src/lib/moireAge.ts`). Three named spends widen with it and nothing else does: the ceiling the
-fold is held to, so an hour-old loop folds deeper and `DRIFT_FOLD_REACH` is the ceiling of that
-ceiling; the band the picture's hue is carried across; and the band the reference row's spacing is
-drawn in. Each is a reach with an end and a fresh picture is drawn in half of every one of them, so
+(`src/lib/moireAge.ts`). Named spends widen with it and nothing else does: the band the picture's
+hue is carried across, and the band the reference row's spacing is drawn in. (A third, the ceiling
+the fold is held to, was taken back out below — it made a rack's whole contribution nothing on a
+fresh deck.) Each is a reach with an end and a fresh picture is drawn in half of every one of them,
+so
 the oldest picture the instrument can draw is a picture and not a smear
 ([0242](decisions/0242-the-picture-ages-while-it-sounds.md), P179).
+
+**And then the fold was looked at, and it was a turned square.** Five of P177's and P179's own
+clauses drew it, and each is reversed rather than tuned. The picture is the product of its gratings
+(0131) and every layer in it cuts, but the fold _filled_ — on a mask that only raises alpha, so a
+level filled its own fringes in. It cuts now. It also _blitted_: one copy drawn once, which lands as
+a rectangle with an edge the eye reads as a shape and leaves everything outside it unfolded; each
+pass now cuts with a `repeat` pattern of the field across the whole canvas, sampled point-for-point
+so the copy keeps the spacing it is meant to beat against. But the clause the square actually turned
+on was the scale: `foldScale` squares the ratio at every pass, so a band of `[0.42, 0.68]` was a dot
+by the third level, and a copy at half the spacing sits an octave from what it is cut into — a
+harmonic, not a beat, so it darkened the picture evenly and did nothing else. The band is `[0.80,
+0.94]` and the bite falls once per pass rather than once per level, which was the share squared at
+every pass and put every level past the second under the canvas's own alpha byte. Last, the depth:
+P177 made it the summed `presence` of an automator's places, and P179 then gated its ceiling on the
+picture's age — so the room a rack shared was `reach - floor` and a fresh `reach` _was_ the floor,
+which multiplied every run's contribution by zero. The fold is the automator's own mark now: no
+floor under the depth and no age over it, `agedFoldReach` deleted, a yard growing nothing folding
+nothing at all, and the reach raised to four because only a run can ask for it. And the ratio and
+turn were folded off an instance's id and nothing moved them, so a rack standing still drew a nest
+standing still; the turn travels on the reference row's own `turnsOf` — a whole turn per turn of the
+clock, so every level wraps seamlessly and the inner ones spin faster — which keeps it the one clock
+the picture has, and a halted yard painted where it stopped
+([0243](decisions/0243-the-fold-cuts-and-travels.md), P182).
+
+**And the fold still was not what made the picture fractal — the rows were.** 0243's own measurement
+said so and asked for the decision after it. `octaves` draws one row at its pitch and again an
+octave and two octaves coarser, which is the only genuine self-similarity in the instrument, and
+exactly one registry parameter and an automator's own grown rows could reach it: a fourteen-row
+picture drew thirteen of them at one scale however busy the rack was. A run now raises **every**
+straight row in the picture to what it is standing (`spreadOctaves`, `src/lib/moireOctaves.ts`), off
+the same summed presence the fold reads, so one run drives both; a yard growing nothing earns one
+scale and changes nothing, which is the property the fold has. Two scales on fourteen rows beats
+three on six at the same cost, so the set's budget goes from twelve fills to sixteen. But the clause
+that decided whether any of it was visible was a counting error nobody had had to notice:
+`drawnGratings` counted an octave copy as a whole grating when it cuts a half or a quarter of one,
+and `gratingDepth` solves the picture's weight from that count — so spreading the scales picture-wide
+crushed every row's depth and returned a picture that was paler _and_ flatter for its fills. Counted
+as the shares they are (`octaveShare`), the field's mean holds at its floor and the structure
+surviving a coarse average rises by a quarter while the fine scale gives some up: a spread and not
+an addition, which is what one fixed quantity of ink can buy. And the fold's own wiring finally says
+what it always claimed — a spiral per standing place rather than one per automator, so six grown
+effects compose six spirals instead of repeating one
+([0244](decisions/0244-the-whole-picture-is-drawn-at-several-scales.md), P182).
+
+**Next: the picture is cut through a fractal, and the fold is deleted (P183).** Durable shape moved:
+none — the maps are read per set build off a population nothing stores, and the mask is a cache
+keyed on them. Because a product of periodic functions is periodic, and everything in the drift is a
+grating: octaves at twice and four times a pitch are that grating's own harmonics, so the picture is
+a lattice at every scale by construction and P182 could only move ink between scales, never break
+the period. Measured, the fold's four passes leave the coarse end of the contrast spectrum identical
+to three figures — 3.8% at 32px and 1.2% at 64px with it on and with it off — while dropping the
+picture's mean by a third. That is the second measurement in two decisions saying the fold draws
+nothing, and it goes. What replaces it is an **iterated function system**: a union of contracted
+copies of a surface, `source-over`, which is the one composite that builds a set rather than
+smoothing one — the fold's own `destination-out` provably cannot, since a subtractive self-blit
+yields the complement of the attractor rather than the attractor. Five maps seeded off five standing
+places, five passes, twenty-five blits, and the picture is cut through the result: 64px structure
+goes from 1.2% to 21% at the weight the picture already had, and the moiré lattice still reads
+underneath it, because the attractor is the _support_ and the gratings are still the ink (0131). It
+is cheaper than what it replaces — four picture-sized blits a painting become one, plus a bake on a
+run change, which the curved rows' tile shop already budgets and offloads. The two things that will
+decide whether it is any good are whether the mask cuts the ink or gates it, and whether a
+hard-edged attractor over a soft moiré reads as the picture's own structure or as a shape pasted
+onto it; both are answered by shooting it, not by tuning it. Its acceptance test is a measurement
+that **fails on today's picture** — the block-contrast spectrum at four scales, with the fold's own
+1.2% asserted as the floor nothing may return to, because today's fold passed every test in this
+repo while contributing nothing.
 
 Beside the picture, one number the repo did not have. **The export now says what it costs on the
 workload someone waits on**, rather than on the two seconds of click-train through an empty rack

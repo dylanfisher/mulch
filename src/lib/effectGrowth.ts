@@ -9,7 +9,8 @@
  *   in src/audio/effects/automator.ts. The one generator a seed is spent through →
  *   src/lib/random.ts.
  */
-import { DRIFT_OCTAVES_REACH, LINEAR_GEOMETRY, type DriftGeometry } from "./moire.ts";
+import { LINEAR_GEOMETRY, type DriftGeometry } from "./moire.ts";
+import { octavesEarned } from "./moireOctaves.ts";
 import { clamp, denormalize, normalize, type RangeCurve } from "./range.ts";
 
 /**
@@ -70,14 +71,19 @@ export function wanderSecs(wander: number, tickSecs: number): number {
  * `STRAIGHT_DIMENSIONS` claim the registry refuses a curved entry at load, the automator's own
  * geometry is `fan`, and a curved copy would need a picture-sized tile of its own — so a curved
  * row is one scale here as the answer rather than as a claim quietly dropped in the painter
- * (0142, 0143). Bounded by `DRIFT_OCTAVES_REACH`: past three held effects a straight row is
- * already at every scale the picture can carry, and further complexity is more rows and not more
- * depth. How many rows may go that deep at once is the row set's own bound
- * (`DRIFT_SCALES_BUDGET`), because the number of automators is not bounded by this.
+ * (0142, 0143). Bounded by `DRIFT_OCTAVES_REACH` through `octavesEarned`, which is the one place
+ * that arithmetic lives: past three held effects a straight row is already at every scale the
+ * picture can carry, and further complexity is more rows and not more depth. How many rows may go
+ * that deep at once is the row set's own bound (`DRIFT_SCALES_BUDGET`), because the number of
+ * automators is not bounded by this.
+ *
+ * **A floor on the grown rows and no longer the only way in.** Since 0244 a run also raises every
+ * straight row in the picture to what it earns (`spreadOctaves`, src/lib/moire.ts), so this is what
+ * keeps an automator's own rows at least as deep as the picture it is deepening — a claim of its
+ * own that reads the count of places where the picture-wide one reads how far into them the run is.
  */
 export function grownOctaves(held: number, geometry: DriftGeometry): number {
-  if (geometry !== LINEAR_GEOMETRY) return 1;
-  return clamp(Math.round(held), 1, DRIFT_OCTAVES_REACH);
+  return geometry === LINEAR_GEOMETRY ? octavesEarned(held) : 1;
 }
 
 /**

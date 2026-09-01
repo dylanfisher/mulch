@@ -1,20 +1,12 @@
 /**
  * @role Tests the age a picture reads its own performance at: that a deck which has just begun is
- *   at nothing, that the curve only ever rises and never reaches one, and that each of the three
+ *   at nothing, that the curve only ever rises and never reaches one, and that each of the two
  *   bands it widens is at its floor fresh, whole at the end, and inside its own reach throughout.
  */
 import { describe, expect, it } from "vitest";
 
 import { DRIFT_HUE_REACH, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire.ts";
-import {
-  DRIFT_AGE_FLOOR,
-  DRIFT_AGE_REACH_SECS,
-  agedFoldReach,
-  agedHue,
-  agedPitch,
-  driftAge,
-} from "./moireAge.ts";
-import { DRIFT_FOLD_REACH } from "./moireFractal.ts";
+import { DRIFT_AGE_FLOOR, DRIFT_AGE_REACH_SECS, agedHue, agedPitch, driftAge } from "./moireAge.ts";
 
 /** The ages every spend below is read at: the two ends, and a scatter of the room between them. */
 const AGES = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1];
@@ -40,20 +32,6 @@ describe("driftAge", () => {
     expect(driftAge(3600)).toBeGreaterThan(0.9);
     // A session left open for a week is still a picture and not a smear.
     expect(driftAge(7 * 24 * 3600)).toBeLessThanOrEqual(1);
-  });
-});
-
-describe("what an age widens", () => {
-  it("holds the fold's ceiling between its floor and the reach of every fold there is", () => {
-    expect(agedFoldReach(0)).toBeCloseTo(DRIFT_FOLD_REACH * DRIFT_AGE_FLOOR, 9);
-    expect(agedFoldReach(1)).toBeCloseTo(DRIFT_FOLD_REACH, 9);
-    let last = 0;
-    for (const age of AGES) {
-      const reach = agedFoldReach(age);
-      expect(reach).toBeGreaterThanOrEqual(last);
-      expect(reach).toBeLessThanOrEqual(DRIFT_FOLD_REACH);
-      last = reach;
-    }
   });
 });
 

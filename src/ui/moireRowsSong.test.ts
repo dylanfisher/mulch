@@ -60,12 +60,8 @@ import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { DeckState } from "@/state/store";
 import type { Loop } from "@/lib/timeline";
-import {
-  moireRows as builtRows,
-  refillRows as filledRows,
-  NO_GROWN,
-  type MoireLane,
-} from "@/ui/moireRows";
+import { moireRows as builtRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { NO_GROWN } from "@/ui/moireGrown";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 import { emptyMasterPeek } from "@/audio/context";
 import { oneSong } from "@/lib/playerSongs";

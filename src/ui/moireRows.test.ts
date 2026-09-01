@@ -17,7 +17,6 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { DRIFT_AGE_FLOOR } from "@/lib/moireAge";
 import { DRIFT_FOLD_REACH, foldNothing, type FractalFold } from "@/lib/moireFractal";
 
 import { manualClock } from "@/app/clock";
@@ -61,14 +60,11 @@ import type { GrownEffect } from "@/audio/effects/contract";
 import type { Loop } from "@/lib/timeline";
 import {
   deckLanes,
-  grownNothing,
-  grownStanding,
   moireRows as builtRows,
-  NO_GROWN,
   refillRows as filledRows,
-  type GrownRun,
   type MoireLane,
 } from "@/ui/moireRows";
+import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 import { emptyMasterPeek } from "@/audio/context";
 
@@ -444,14 +440,41 @@ describe("moireRows", () => {
   });
 
   /**
-   * P179: the picture ages while it sounds, and the fold's own ceiling is the first thing that
-   * widens with it — so a rack that has been growing for an hour folds deeper than the same rack
-   * a minute in, and `DRIFT_FOLD_REACH` is the ceiling of that ceiling either way.
+   * P182: the fold was aimed off an instance's id and nothing else, so a picture whose rack stood
+   * still drew a nest that stood still — a shape, and never a picture going anywhere. The turn now
+   * travels on the reference row's own phase, which is the one clock the picture has (0126, 0243):
+   * a yard that is playing turns its nest, and a halted one is painted where it stopped.
    */
-  it("folds an aged read deeper than a fresh one, and never past the fold's own reach", () => {
+  it("turns the fold on the reference row's clock, and holds it where the yard is halted", () => {
+    // A run standing, because since 0243 that is the only thing there is a fold to turn at all.
     const auto = instance("auto", { effect: "automator" });
-    // A population past any ceiling an age can hand it, so what the fold answers is the ceiling
-    // itself rather than what the automator happened to be standing.
+    const grown = runOf("auto", place("delay", "g0"));
+    const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
+    const peek = emptyDeckPeek();
+    for (const [id, held] of grown) peek.grown.set(id, [...held]);
+    const foldAt = (position: number): FractalFold => {
+      const out = foldNothing();
+      const at = { ...peek, position };
+      filledRows(rows, reads, at, 1, null, 0, null, SILENT_MASTER, ARRIVED, FRESH, out);
+      return out;
+    };
+    const still = foldAt(0);
+    const moved = foldAt(2);
+    expect(moved.turns[0]).not.toBe(still.turns[0]);
+    // The same playhead is the same picture: nothing here is a clock of the fold's own, so a
+    // picture painted twice on one frame is painted the same way twice (0040, 0144).
+    expect(foldAt(2).turns[0]).toBe(moved.turns[0]);
+  });
+
+  /**
+   * P179 widened the fold's ceiling with the picture's age, and 0243 took it back: a fold an
+   * automator has to wait out a side of a record to be given is a fold nobody sees it buy. What
+   * says how deep the picture folds is the population standing and nothing else.
+   */
+  it("folds by the population standing, at any age, and never past the fold's own reach", () => {
+    const auto = instance("auto", { effect: "automator" });
+    // A population past the reach, so what the fold answers is the ceiling itself rather than what
+    // the automator happened to be standing.
     const grown = runOf(
       "auto",
       place("delay", "g0"),
@@ -469,9 +492,10 @@ describe("moireRows", () => {
     };
     const fresh = foldAt(0);
     const aged = foldAt(1);
-    expect(aged.depth).toBeGreaterThan(fresh.depth);
-    expect(fresh.depth).toBeCloseTo(DRIFT_FOLD_REACH * DRIFT_AGE_FLOOR, 9);
-    expect(aged.depth).toBeCloseTo(DRIFT_FOLD_REACH, 9);
+    // The deck that has just begun folds every level the one that has sounded an hour folds: the
+    // run bought them and an age has nothing to add to it.
+    expect(fresh.depth).toBeCloseTo(DRIFT_FOLD_REACH, 9);
+    expect(aged.depth).toBeCloseTo(fresh.depth, 9);
   });
 
   /**

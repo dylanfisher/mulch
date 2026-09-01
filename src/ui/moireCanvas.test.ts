@@ -29,6 +29,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
+import { octaveShare } from "@/lib/moireOctaves";
 import {
   DRIFT_PROFILES,
   PLAIN_PROFILE,
@@ -45,7 +46,8 @@ import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
-import { moireRows, NO_GROWN, refillRows } from "@/ui/moireRows";
+import { moireRows, refillRows } from "@/ui/moireRows";
+import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
 import { stepped } from "@/ui/moireScreen";
@@ -222,9 +224,10 @@ describe("moireCanvas", () => {
     // A row with no period of its own is not a grating, and does not count toward the depth the
     // others are cut at — otherwise a lane that never moved would dim the whole picture.
     expect(drawnGratings([row({ period: 3 }), row({ period: 0 })], 0)).toBe(1);
-    // And a row drawn at three scales is three of them, because each scale is a fill of its own.
+    // And a row drawn at three scales is what its copies cut between them — counting each whole
+    // would take depth from every row to pay for ink nobody laid (`octaveShare`, 0244).
     expect(drawnGratings([row({ period: 3, octaves: 3 }), row({ period: 0, octaves: 3 })], 0)).toBe(
-      3,
+      octaveShare(3),
     );
     // P146: and a row with no depth of its own is a grating only as far as the wash has made it
     // one. The field's own row is nothing at all on a dry yard, so the picture weighs exactly what
@@ -705,11 +708,12 @@ describe("moireCanvas", () => {
     expect(pitches[1]).toBeCloseTo((pitches[0] ?? 0) * 2, 9);
     expect(pitches[2]).toBeCloseTo((pitches[0] ?? 0) * 4, 9);
     // And half as deep at each of them, so the coarse copies texture the picture rather than
-    // replacing it. The depth every row is cut at falls too, three gratings being three.
+    // replacing it. The depth every row is cut at falls too — by what the three copies come to
+    // between them, a grating and three quarters and not three (`octaveShare`, 0244).
     const alphas = three.cuts.map(({ alpha }) => alpha);
     expect(alphas[1]).toBeCloseTo((alphas[0] ?? 0) / 2, 9);
     expect(alphas[2]).toBeCloseTo((alphas[0] ?? 0) / 4, 9);
-    expect(alphas[0]).toBeCloseTo(gratingDepth(3), 9);
+    expect(alphas[0]).toBeCloseTo(gratingDepth(octaveShare(3)), 9);
   });
 
   // P104: the one thing in the picture that compounds. Everything else is read off the frame it is

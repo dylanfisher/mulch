@@ -15,7 +15,7 @@
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
 import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
-import { FOLD_KEEP } from "./moireFractal.ts";
+import { FOLD_BITE } from "./moireFractal.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize, normalize } from "./range.ts";
 
@@ -305,11 +305,13 @@ export const washedDepth = (row: MoireRow, wash: number): number =>
 /**
  * How tight the fold's own spiral may be drawn at a full resonance: under the loose end of the band
  * a seed alone can reach (`FOLD_RATIO_BAND`, src/lib/moireFractal.ts), so every run tightens under
- * a ringing output rather than only the ones whose seed left them room. Not near nothing: a level
- * scaled to a tenth of the one outside it is a dot in the middle of the picture and not a spiral
- * seen from further in, which is the same argument the band's own floor rests on.
+ * a ringing output rather than only the ones whose seed left them room. Not far under it: the band
+ * is squared at every pass (`foldScale`), so a ratio a resonance drags well below it is a stack
+ * that is a dot by its third level — and a level an octave from what it is cut into darkens the
+ * picture where it should beat against it, which is the whole argument the band's own floor rests
+ * on (0243).
  */
-export const FOLD_TIGHT_FLOOR = 0.3;
+export const FOLD_TIGHT_FLOOR = 0.7;
 
 /**
  * The flatness a resonance and a wash actually read at, which is not nought and one. A spectrum is
@@ -341,11 +343,12 @@ export const heardTight = (ratio: number, flatness: number): number =>
     : ratio;
 
 /**
- * The hardest a fold may be laid, as a share of a level's ink kept by the level inside it. **Under
- * one and a hard ceiling**, which is the whole of what `FOLD_KEEP` rests on (0143): a share of one
- * unions the stack to opaque and a picture filled to opaque is a picture with nothing left in it.
+ * The hardest a fold may bite, as a share of a level's ink taken by the level inside it. **Under
+ * one and a hard ceiling**, which is the whole of what `FOLD_BITE` rests on (0143): a bite of one
+ * takes every fringe a level lands on and a picture cut to nothing is a picture with nothing left
+ * in it.
  */
-export const FOLD_HARD_CEILING = 0.8;
+export const FOLD_BITE_CEILING = 0.75;
 
 /**
  * And where a dull sound and a sharp one actually put their energy, on the band the centroid is
@@ -357,17 +360,17 @@ export const FOLD_HARD_CEILING = 0.8;
 export const FOLD_EDGE_BAND: readonly [number, number] = [0.02, 0.3];
 
 /**
- * How hard the fold is laid once the output has been heard: `FOLD_KEEP` under a dull sound and up
- * to `FOLD_HARD_CEILING` under a sharp one, off where the output's energy actually sits
+ * How hard the fold bites once the output has been heard: `FOLD_BITE` under a dull sound and up
+ * to `FOLD_BITE_CEILING` under a sharp one, off where the output's energy actually sits
  * (`spectralEdge`, src/lib/peaks.ts) read across the band above. The fold's own alpha and never a
- * second depth — how deep the picture folds is the population an automator is standing and nothing
- * else says it (0240) — so what a sharp sound changes is how much of each level survives into the
- * one outside it.
+ * second depth — how deep the picture folds is its own floor plus the population an automator is
+ * standing, and nothing else says it (0240, 0243) — so what a sharp sound changes is how much of
+ * each level the level inside it takes away.
  *
- * Silence answers `FOLD_KEEP`, which is the share every fold was laid at before there was anything
- * to hear, and is what `foldNothing` already carries.
+ * Silence answers `FOLD_BITE`, which is the share every fold bit at before there was anything to
+ * hear, and is what `foldNothing` already carries.
  */
-export const heardHard = (edge: number): number =>
+export const heardBite = (edge: number): number =>
   Number.isFinite(edge) && edge > 0
-    ? denormalize(normalize(edge, ...FOLD_EDGE_BAND, "log"), FOLD_KEEP, FOLD_HARD_CEILING)
-    : FOLD_KEEP;
+    ? denormalize(normalize(edge, ...FOLD_EDGE_BAND, "log"), FOLD_BITE, FOLD_BITE_CEILING)
+    : FOLD_BITE;

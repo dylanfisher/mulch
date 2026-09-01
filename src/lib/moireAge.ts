@@ -1,15 +1,14 @@
 /**
- * @role How old a performance is, and the three things about the picture that widen with it: how
- *   deep the field may fold into itself, how far its ink may be carried between the two inks, and
- *   how far the reference row's spacing may be drawn from rest. One curve over one reach in
- *   seconds, and a named spend per band — an age multiplied into a term at the point of use would
- *   be a coefficient nobody declared (principle 1).
- * @instead What the picture is folded into → src/lib/moireFractal.ts. What the *sound* does to any
- *   of the same terms → src/lib/moireSound.ts. Where the elapsed sounding is read →
- *   `DeckPeek.sounding` in src/audio/deckPeek.ts.
+ * @role How old a performance is, and the two things about the picture that widen with it: how far
+ *   its ink may be carried between the two inks, and how far the reference row's spacing may be
+ *   drawn from rest. One curve over one reach in seconds, and a named spend per band — an age
+ *   multiplied into a term at the point of use would be a coefficient nobody declared (principle 1).
+ * @instead How deep the picture folds, which an age has not reached since the fold became the
+ *   automator's own (0243) → src/lib/moireFractal.ts. What the *sound* does to either term here →
+ *   src/lib/moireSound.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
+ *   src/audio/deckPeek.ts.
  */
 import { DRIFT_REST } from "./moire.ts";
-import { DRIFT_FOLD_REACH } from "./moireFractal.ts";
 import { clamp, denormalize } from "./range.ts";
 
 /**
@@ -37,23 +36,15 @@ export const driftAge = (secs: number): number =>
 
 /**
  * How much of each band a picture with nothing behind it is drawn in. **Half, and one number
- * across all three spends below**: three floors a hair apart would be three coefficients nobody
- * could tell apart in the picture, and the age is meant to widen what a term may reach rather
- * than to change what it means — a fresh picture still says everything an old one says, over less
- * of the room to say it in.
+ * across both spends below**: two floors a hair apart would be two coefficients nobody could tell
+ * apart in the picture, and the age is meant to widen what a term may reach rather than to change
+ * what it means — a fresh picture still says everything an old one says, over less of the room to
+ * say it in.
  */
 export const DRIFT_AGE_FLOOR = 0.5;
 
 /** How much of a band an age of `age` spends: the floor above at nothing, the whole of it at one. */
 const spent = (age: number): number => denormalize(clamp(age, 0, 1), DRIFT_AGE_FLOOR, 1);
-
-/**
- * How deep this picture may fold into itself — the ceiling `foldInto` holds the summed presence to,
- * so an hour-old loop folds deeper than a fresh one at the same population. `DRIFT_FOLD_REACH` is
- * the ceiling of this ceiling and the cost bound stands untouched: a fold is still never more than
- * `ceil(DRIFT_FOLD_REACH)` picture-sized blits (0240).
- */
-export const agedFoldReach = (age: number): number => DRIFT_FOLD_REACH * spent(age);
 
 /**
  * And how far the picture's own ink is carried between the cool token and the hot one: the claim a

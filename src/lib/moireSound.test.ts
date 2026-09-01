@@ -9,14 +9,14 @@
 import { describe, expect, it } from "vitest";
 
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire";
-import { FOLD_KEEP, FOLD_RATIO_BAND } from "./moireFractal";
+import { FOLD_BITE, FOLD_RATIO_BAND } from "./moireFractal";
 import {
   densityPitch,
   FOLD_EDGE_BAND,
   FOLD_FLATNESS_BAND,
-  FOLD_HARD_CEILING,
+  FOLD_BITE_CEILING,
   FOLD_TIGHT_FLOOR,
-  heardHard,
+  heardBite,
   heardLevel,
   heardTight,
   heardTilt,
@@ -106,7 +106,11 @@ describe("what the shape of the output's spectrum is worth to the fold", () => {
     for (const [at, ratio] of band.entries()) {
       if (at > 0) expect(ratio).toBeGreaterThan(band[at - 1] ?? Number.NaN);
     }
-    expect(heardTight(LOOSE, 0.1) - heardTight(LOOSE, 0.01)).toBeGreaterThan(0.1);
+    // A third of the whole travel spent between a smeared mix and a resonance, which is what
+    // "spent on readings a sound can produce" has to mean — read as a share of the travel there is,
+    // because the band a seed reaches is a band the fold's own arithmetic sets (`FOLD_RATIO_BAND`).
+    const travel = LOOSE - FOLD_TIGHT_FLOOR;
+    expect(heardTight(LOOSE, 0.1) - heardTight(LOOSE, 0.01)).toBeGreaterThan(travel / 3);
     for (const ratio of FOLD_RATIO_BAND) expect(heardTight(ratio, 0.2)).toBeLessThan(ratio);
 
     // Silence is the picture drawn before there was a reading, and never the tightest fold there
@@ -122,19 +126,19 @@ describe("what the shape of the output's spectrum is worth to the fold", () => {
 
   it("hardens the fold as the output sharpens, and never past a share that would fill it", () => {
     // A dull sound lays the fold at the share every fold was laid at before there was a reading.
-    expect(heardHard(0)).toBe(FOLD_KEEP);
-    expect(heardHard(Number.NaN)).toBe(FOLD_KEEP);
+    expect(heardBite(0)).toBe(FOLD_BITE);
+    expect(heardBite(Number.NaN)).toBe(FOLD_BITE);
     // And a sharp one hardens it, up to a ceiling under one: a share of one would union the stack
     // to opaque, which is a picture with nothing left in it (0143).
-    expect(heardHard(FOLD_EDGE_BAND[1])).toBeCloseTo(FOLD_HARD_CEILING, 9);
+    expect(heardBite(FOLD_EDGE_BAND[1])).toBeCloseTo(FOLD_BITE_CEILING, 9);
     // Across the band a centroid actually sits in and not across 0..1: a mix puts its energy a
     // couple of kilohertz up against a Nyquist of twenty-four, so read straight every sound there
     // is would leave the fold within a fiftieth of where it started.
-    expect(heardHard(FOLD_EDGE_BAND[0])).toBe(FOLD_KEEP);
-    expect(heardHard(0.05)).toBeGreaterThan(FOLD_KEEP);
-    expect(heardHard(0.05)).toBeLessThan(heardHard(0.15));
-    expect(heardHard(0.15) - heardHard(0.05)).toBeGreaterThan(0.02);
-    expect(heardHard(4)).toBeCloseTo(FOLD_HARD_CEILING, 9);
-    expect(FOLD_HARD_CEILING).toBeLessThan(1);
+    expect(heardBite(FOLD_EDGE_BAND[0])).toBe(FOLD_BITE);
+    expect(heardBite(0.05)).toBeGreaterThan(FOLD_BITE);
+    expect(heardBite(0.05)).toBeLessThan(heardBite(0.15));
+    expect(heardBite(0.15) - heardBite(0.05)).toBeGreaterThan(0.02);
+    expect(heardBite(4)).toBeCloseTo(FOLD_BITE_CEILING, 9);
+    expect(FOLD_BITE_CEILING).toBeLessThan(1);
   });
 });

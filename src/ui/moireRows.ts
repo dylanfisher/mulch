@@ -30,8 +30,8 @@ import {
   PARAMS,
   paramKey,
 } from "@/audio/params";
-import { drawnParamIds } from "@/audio/effects/automator";
-import { effectById, isEffectId, isGrowable, type EffectId } from "@/audio/effects/registry";
+import { effectById, isEffectId, type EffectId } from "@/audio/effects/registry";
+import { grownReach, type GrownRun } from "@/ui/moireGrown";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import { grownOctaves } from "@/lib/effectGrowth";
@@ -42,7 +42,6 @@ import {
   DRIFT_REST,
   easedCentre,
   restingCentre,
-  shareOctaves,
   turnsOf,
   laneBend,
   LINEAR_GEOMETRY,
@@ -51,11 +50,18 @@ import {
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
-import { agedFoldReach, agedPitch } from "@/lib/moireAge";
-import { foldInto, foldNothing, type FractalFold } from "@/lib/moireFractal";
+import { agedPitch } from "@/lib/moireAge";
+import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
+import {
+  foldInto,
+  foldNothing,
+  foldStanding,
+  foldTravelled,
+  type FractalFold,
+} from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
-  heardHard,
+  heardBite,
   heardPitch,
   heardPulse,
   heardLevel,
@@ -87,7 +93,7 @@ import {
   type RowRead,
 } from "@/ui/moireRowsField";
 import type { MasterPeek } from "@/app/facade";
-import type { GrownEffect, EffectInstanceId } from "@/audio/effects/contract";
+import type { GrownEffect } from "@/audio/effects/contract";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
 import type { Loop } from "@/lib/timeline";
@@ -184,30 +190,6 @@ export function effectReach(instance: DeckState["effects"][number]): DriftReach[
     return {
       into,
       turn: normalize(paramIn(instance.params, param), spec.min, spec.max, spec.curve),
-    };
-  });
-}
-
-/**
- * The same, for an effect an automator grew rather than one a hand added: where each value its
- * registry entry declared a way into the picture for stands, read off what the run drew it at.
- *
- * A grown effect holds no session entry to read a knob out of, so the turns come from the run
- * itself — `GrownEffect.values` is already each drawn knob as a fraction of its own range, in the
- * order `drawnParamIds` declares (src/audio/effects/automator.ts, 0208). A dimension whose
- * parameter the pool does not draw — one a rebuild or a hold keeps back — stands at the entry's own
- * default, which is exactly where that knob is on a place nobody has moved.
- */
-export function grownReach(effect: EffectId, values: readonly number[]): DriftReach[] {
-  const plugin = effectById(effect);
-  const drawn = isGrowable(plugin) ? drawnParamIds(plugin) : [];
-  return plugin.driftFrom.map(({ param, into }) => {
-    const spec = PARAMS[param];
-    const at = drawn.indexOf(param);
-    const value = values[at];
-    return {
-      into,
-      turn: value ?? normalize(spec.default, spec.min, spec.max, spec.curve),
     };
   });
 }
@@ -405,6 +387,11 @@ export function moireRows(
   const macro = macroInto(rows, reads, loopPeriod, unbounded);
   washInto(rows, reads, loopPeriod);
   sessionInto(rows, reads, loopPeriod, sync);
+  // Then the whole picture is drawn at the scales the rack standing earns — every straight row and
+  // not the automator's own alone, which is what makes a run look self-similar rather than deep in
+  // one corner (`spreadOctaves`, 0244). Off the same summed presence the fold reads, so one run
+  // drives both (`foldStanding`).
+  spreadOctaves(rows, foldStanding(grown));
   // Last, because it is the whole set's bound and not any one row's: every copy past the first is
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
@@ -452,8 +439,9 @@ export function moireRows(
  * (`foldInto`, src/lib/moireFractal.ts). It is handed in and refilled in place, where the wash is
  * answered, because it is an object and there is nothing to answer it with that does not allocate
  * one a painting (0070). **And what that fold is cut by is what the output sounds like** — the
- * spiral tightens under a resonance and the stack hardens under a sharp sound, off the same
- * master window everything else here reads (`foldHeard`).
+ * spiral tightens under a resonance and the stack bites harder under a sharp sound, off the same
+ * master window everything else here reads (`foldHeard`) — while where the spiral has *got to* is
+ * carried by the reference row's own phase, which is the one clock the picture has (`foldTurning`).
  *
  * **And the one thing it is told rather than reads**: how long it is since the last read, on the
  * session's own clock. A ground move is travelled and not written (0235), so the rows carry where
@@ -499,7 +487,7 @@ export function refillRows(
   // automator is holding, and none at all for a yard growing nothing (`foldInto`, 0202, 0204). It
   // belongs to the whole field rather than to any row, so it is filled in place beside the rows
   // rather than written onto one of them (0213).
-  foldInto(fractal, peek.grown, agedFoldReach(age));
+  foldInto(fractal, peek.grown);
   foldHeard(fractal, master);
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -514,6 +502,10 @@ export function refillRows(
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
   const travel = groundTravel(rows, reads);
+  // Where the fold's spirals have got to, taken off the reference row as that row's own phase is
+  // written rather than by searching for it after: the read already says which row it is, and a
+  // second pass over the rows for one number is a pass a per-frame read need not make (0070).
+  let clock = 0;
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay
   // index-for-index with the rows, which is the shape the two builders above are waived for. See
@@ -591,15 +583,17 @@ export function refillRows(
     // different periods sweep past one another at their own rates and a crossing forms and comes
     // apart on the beat between the two (0229).
     if (read.anchor !== null) row.centre = driftedCentre(read.anchor, turnsOf(row), row.pulse);
+    if (read.heard !== null) clock = turnsOf(row);
   });
+  foldTurning(fractal, clock);
   return washAmount(peek.crest, peek.meter);
 }
 
 /**
  * And what the output *sounds* like onto the fold that read just filled: how tight each run's own
- * spiral is drawn, and how hard the whole stack is laid. Both are readings of the master bus and
- * neither is a depth — how deep the picture folds is the population an automator is standing and
- * nothing else says it (0240, 0145).
+ * spiral is drawn, and how hard the whole stack bites. Both are readings of the master bus and
+ * neither is a depth — how deep the picture folds is its own floor plus the population an automator
+ * is standing, and nothing else says it (0240, 0243, 0145).
  *
  * Written over the ratios `foldInto` wrote rather than handed into it, because the two halves have
  * two authors: how a spiral is aimed is the holding instance's own id, and how tight it is drawn is
@@ -608,9 +602,33 @@ export function refillRows(
  * last read's leavings, exactly as the fill above does (0070).
  */
 function foldHeard(fractal: FractalFold, master: Readonly<MasterPeek>): void {
-  fractal.keep = heardHard(master.edge);
+  fractal.bite = heardBite(master.edge);
   for (let each = 0; each < fractal.folds; each += 1) {
     fractal.ratios[each] = heardTight(fractal.ratios[each] ?? 0, master.flatness);
+  }
+}
+
+/**
+ * And how far every spiral in that fold has turned: its seeded start carried by `clock`, which is
+ * the reference row's own turn (0243). **A row's phase and never a second clock** — every motion in
+ * the picture is read off `turnsOf` (0126), so a halted yard's fold is painted exactly where it
+ * stopped and a picture drawn twice on one frame draws the same thing twice (0040, 0144). The
+ * reference row because the fold belongs to the whole field and that is the row the whole field is
+ * read against (`referenceInto`, src/ui/moireRowsField.ts).
+ *
+ * A yard with no loop has no reference row and its fold rests where its seeds put it. **That is the
+ * answer and not a fallback**, the same one `PLAIN_CUT` is for a source nothing has measured: a
+ * picture with no cycle in it has nowhere for a spiral to have got to, and the fold is still there
+ * at its floor and still turned by its seeds.
+ *
+ * A third writer over `foldInto`'s turns, for the reason `foldHeard` is a second over its ratios:
+ * where a spiral starts is a name and where it has got to is a clock, and the two have nothing to
+ * say to each other. In place and over the entries in force alone (0070).
+ */
+function foldTurning(fractal: FractalFold, clock: number): void {
+  if (clock === 0) return;
+  for (let each = 0; each < fractal.folds; each += 1) {
+    fractal.turns[each] = foldTravelled(fractal.turns[each] ?? 0, clock);
   }
 }
 
@@ -635,74 +653,6 @@ function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | n
   reads.push({ ...READS_NOTHING, tier: "part" });
   rows.push(playerTierRow(playerPeriod));
   reads.push({ ...READS_NOTHING, tier: "song" });
-}
-
-/**
- * What each instance holding a run of its own is holding right now — `DeckPeek.grown`, and nothing
- * this file may narrow: the picture reads the run, it does not keep one.
- */
-export type GrownRun = ReadonlyMap<EffectInstanceId, readonly GrownEffect[]>;
-
-/** The run nothing is holding, shared, so a caller with no automator allocates no map. */
-export const NO_GROWN: GrownRun = new Map();
-
-/**
- * What a run looked like the last time a picture was built from it: every place standing, and every
- * knob each of them was drawn at. Two flat arrays rather than a copy of the read, because it is
- * compared on the frame path and a copy per frame is the allocation 0070 exists to refuse.
- */
-export type GrownStanding = { ids: EffectInstanceId[]; draws: number[] };
-
-/** A caller that has never looked at a run. */
-export const grownNothing = (): GrownStanding => ({ ids: [], draws: [] });
-
-/**
- * Whether `was` already describes the run the read is holding — and, either way, it describes it
- * once this returns. **The one question a frame asks about the run**: which rows a picture has, and
- * what each is cut to, is a function of a population nothing stores and nothing renders (0204), so
- * the only way to notice one moving is to have looked at the last one.
- *
- * The ids and not the count: six places going and six arriving in one tick is a different picture
- * of the same length. And the draws beside them, because a place's knobs are rewritten in place
- * where a run wanders (`wander`, src/audio/effects/automator.ts) — a row reaches through the values
- * its plugin declared a way into the picture for, exactly as a rack instance's does, and a rack
- * instance's row is rebuilt the moment one of those values moves.
- *
- * Written into the caller's own arrays and answered without allocating, because every frame between
- * two of those moves must cost nothing (0070); a move is a tick of the run at most, which is a
- * second at its fastest (`TICK_MIN_SECS`). The read's own map is already free of a bypassed
- * instance's places (`growth`, src/audio/effects/rack.ts), so what it holds is what `moireRows`
- * draws.
- */
-export function grownStanding(was: GrownStanding, grown: GrownRun): boolean {
-  let at = 0;
-  let drawn = 0;
-  let same = true;
-  for (const held of grown.values()) {
-    for (const each of held) {
-      if (was.ids[at] !== each.instance) {
-        was.ids[at] = each.instance;
-        same = false;
-      }
-      at++;
-      for (const value of each.values) {
-        if (was.draws[drawn] !== value) {
-          was.draws[drawn] = value;
-          same = false;
-        }
-        drawn++;
-      }
-    }
-  }
-  if (was.ids.length !== at) {
-    was.ids.length = at;
-    same = false;
-  }
-  if (was.draws.length !== drawn) {
-    was.draws.length = drawn;
-    same = false;
-  }
-  return same;
 }
 
 /**

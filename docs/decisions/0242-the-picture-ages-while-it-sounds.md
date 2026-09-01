@@ -1,10 +1,17 @@
-# 0242 — The picture ages while it sounds, and only three named bands widen with it
+# 0242 — The picture ages while it sounds, and only named bands widen with it
 
 - **Date:** 2026-08-31
 - **Status:** accepted, extending
   [0145](0145-a-picture-may-rest-on-analysis.md) and
   [0240](0240-the-picture-folds-into-itself.md), constrained by
-  [0128](0128-every-motion-in-the-screen-belongs-to-a-parameter.md)
+  [0128](0128-every-motion-in-the-screen-belongs-to-a-parameter.md), **amended by**
+  [0243](0243-the-fold-cuts-and-travels.md)
+
+**Amended by 0243: the fold is no longer one of the bands.** `agedFoldReach` is deleted. Gating the
+fold's ceiling on the age made an automator's whole contribution zero on a fresh deck and at most one
+doubling after twenty minutes, which is a fold nobody sees a run buy; how deep the picture folds is
+the population standing and nothing else. The other two bands — the hue and the reference row's
+spacing — are unchanged, and so is everything below except that "three" is two.
 
 Nothing in the instrument knew how long it had been playing. Every motion in the picture was a
 phase, a meter or a knob, and all three say the same thing in the fortieth minute that they said in

@@ -4,7 +4,18 @@
 - **Status:** accepted, extending
   [0143](0143-a-row-is-drawn-at-more-than-one-scale.md) and
   [0212](0212-the-picture-draws-the-run-a-read-is-holding.md), constrained by
-  [0144](0144-the-picture-may-fall-behind-the-hand-may-not.md)
+  [0144](0144-the-picture-may-fall-behind-the-hand-may-not.md), **amended by**
+  [0243](0243-the-fold-cuts-and-travels.md)
+
+**Amended by 0243 in four clauses, and the shape below is otherwise what stands.** The fold is cut
+_out of_ the field and not laid _onto_ it, so "onto the field rather than out of it" below is
+reversed and `FOLD_KEEP` is `FOLD_BITE`; a pass cuts with a `repeat` pattern of the field rather than
+blitting one copy of it, so there is no rectangle anywhere; the levels sit near one another in scale
+and the bite falls once per pass rather than once per level, without which nothing above is visible;
+and "the tween is the run's own ramp and never a clock of the picture's" holds for the depth alone —
+the _turn_ travels on the reference row's phase. Each of those drew a square; 0243 says why. "How
+deep it goes is the summed presence of the standing places" is untouched and is now the whole of what
+says it: there is no floor under it and no age over it.
 
 An automator's run reached the picture twice and both times as rows — one per standing place
 (`grownInto`), and the run's own size spent on those rows as octaves

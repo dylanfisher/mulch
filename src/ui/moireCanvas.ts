@@ -50,12 +50,12 @@ import {
   DRIFT_REST,
   feedbackAlpha,
   LINEAR_GEOMETRY,
-  octavesOf,
   TAU,
   turnedScale,
   turnsOf,
   type MoireRow,
 } from "@/lib/moire";
+import { octaveAlpha, octaveShare, octavesOf } from "@/lib/moireOctaves";
 import { gratingFloor, gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
@@ -328,10 +328,11 @@ function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
 
 /**
  * How many gratings `rows` come to under a wash of `wash`: a row with no period of its own is not a
- * grating, and a row drawn at several scales is one grating per scale. Counted rather than measured,
- * because it is what `gratingDepth` solves the picture's own depth from — an octave copy cuts a
- * fraction of its row's depth, so counting each of them whole leaves the picture at or above the
- * floor rather than under it, which is the direction that error is allowed to run in.
+ * grating, and a row drawn at several scales is worth what its copies cut between them
+ * (`octaveShare`). Counted rather than measured, because it is what `gratingDepth` solves the
+ * picture's own depth from — and a copy is a *share* of a grating: counting each whole once the
+ * scales spread across the whole picture lifted the field's mean well off the floor and washed the
+ * structure out of it (0244).
  *
  * **A row with no depth of its own counts as the share of a grating the reading that draws it has
  * made of it.** The wash's row is nothing at all on a dry yard and the session's is nothing at all
@@ -348,7 +349,8 @@ function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
 export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
   rows.reduce((count, row) => {
     if (row.period <= 0) return count;
-    const scales = row.geometry === LINEAR_GEOMETRY ? octavesOf(row) : DRIFT_REST.octaves;
+    const scales =
+      row.geometry === LINEAR_GEOMETRY ? octaveShare(octavesOf(row)) : DRIFT_REST.octaves;
     const reading = Math.max(clamp(wash, 0, 1), clamp(row.pulse, 0, 1));
     return count + (row.depth > 0 ? scales : scales * reading);
   }, 0);
@@ -421,6 +423,10 @@ function cutGratings(
  * One extra fill each, through the tile and the matrix the first copy already used — except a swept
  * row, whose tile is keyed by the cycles its pitch comes to, so its copies bake a picture-wide row
  * of pixels each rather than sharing one.
+ *
+ * What holds the picture's weight while the scales spread across it is `drawnGratings` counting
+ * each copy as the share of a grating it actually cuts rather than as a whole one (`octaveShare`,
+ * 0244) — the depth handed in here is already the answer to how much the picture weighs.
  */
 function cutOctaves(
   field: HTMLCanvasElement,
@@ -432,9 +438,8 @@ function cutOctaves(
 ): boolean {
   const octaves = octavesOf(row);
   for (let octave = 0; octave < octaves; octave++) {
-    const scale = 2 ** octave;
-    ink.globalAlpha = depth / scale;
-    if (!cutStraight(field, ink, row, turns, pitch * scale)) return false;
+    ink.globalAlpha = octaveAlpha(depth, octave);
+    if (!cutStraight(field, ink, row, turns, pitch * 2 ** octave)) return false;
   }
   return true;
 }
