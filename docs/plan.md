@@ -50,7 +50,11 @@ fractal's motion may spend the bake budget for a fly-through.
 
 ---
 
-The three things the whole plan turns on
+The three things the whole plan turns on. All three are landed
+(`docs/decisions/0248-the-structure-travels-and-its-identity-is-the-automators.md`), so the rest of
+the plan is written against them as facts rather than as intentions: the picture's stops are on
+`MoireRowSet`, the travel across them is `fractalTravelInto`, and what the two rows _are_ is
+`fractalKind`.
 
 1.  The seed is a row's and it should be the picture's. placeCurved refolds
     fractalSeedInto(place, row.shape, …) per row per frame. But what an escape field is a picture of
@@ -73,85 +77,11 @@ The three things the whole plan turns on
 
 ---
 
-Step 0247 — The structure travels, and its identity is the automators
-
-docs/decisions/0247-the-structure-travels-and-its-identity-is-the-automators.md, amending 0245 and
-0246 on the clause above, resting on 0235. Durable shape moved: none — read per painting off a
-population nothing stores.
-
-src/lib/moireFractal.ts
-
-export type FractalStops = { cx: number; cy: number; ratio: number; turn: number };
-export const fractalStopsRest = (): FractalStops => ({ cx: 0.5, cy: 0.5, ratio: 0, turn: 0.5 });
-ps: Readonly<FractalStops>, zoom: number): void;
-export function fractalTravelInto(out: FractalStops, to: Readonly<FractalStops>,
-elapsed: number, over: number): void;
-export function fractalKind(grown: FractalRun): number; // a word of grown.keys(), not the places
-export const FRACTAL_TRAVEL = 1 / 2;
-export const fractalTravelSecs = (period: number): number;
-
-fractalTravelInto is four easedCentre calls (src/lib/moire.ts:399) and nothing else — every
-stop is already on 0..1 and DRIFT_CENTRE_REACH is 1, so the repo's one eased motion applies
-verbatim with no second rate declared anywhere. Constant rate and never a fraction of the gap: an
-exponential never arrives and another place lands every twenty seconds. fractalTravelSecs is
-xactly (src/lib/playerDrift.ts:90) — a
-fraction of a length the picture already has, never a clock of its own.
-
-fractalShape stays exactly as it is and stays off the frame path; it is the seed's identity now
-and no longer the row's. fractalRest, fractalSeed, escapeTurns, nestedTurns unchanged.
-
-src/ui/moireRowsField.ts
-
-fractalInto keeps its signature; kind replaces shape for the rows' identity and the geometry
-pick. Its doc gains the paragraph: the row's identity is the automators standing, because the tile's
-fallback slot and the row's own angle rest on it and neither may move when a place does; what the
-population says is where the structure stands on the plane, and that travels.
-
-MoireRowSet gains two flat facts beside wash and age, documented the same way ("belongs to the
-field rather than to a row"):
-
-seed: FractalStops; // where the travel has got to
-toward: FractalStops; // and where the population it is standing on folds to
-
-src/ui/moireRows.ts
-
-- moireRows returns them at fractalStopsRest() and fills toward once via
-  fractalStopsInto(toward, fractalShape(grown)).
-- carryFractal(from, to) directly under carryGround (:255) — Object.assign(to.seed, from.seed)
-  — so a rebuilt set starts from where the picture stands. Same argument carryGround makes:
-  "neither of these rebuilds is a jump".
-- refillRows gains seed: FractalStops, toward: Readonly<FractalStops>. The travel runs once in
-  the prologue beside groundTravel, never inside the row walk, and over comes from a
-  fractalTravel(rows, reads) walk mirroring groundTravel (:279) so the window has no second
-  author.
-
-src/ui/moireCanvas.ts
-
-- paintMoire(canvas, rows, windowSecs, color, wash, age, seed) → cutGratings(…, seed) →
-  placeCurved(row, at, turns, pitch, width, height, ref, seed).
-- placeCurved steps the picture's stops onto DRIFT_STEPS (8) — the ladder every tile key in
-  the picture is already on, not a stop count of its own — into a module-level stepping: FractalStops
-  scratch beside order, then fractalSeedInto(place, stepping, fractalZoom(turns)). The frame path
-  allocates nothing (0070). fractalSeedInto no longer folds; the fold leaves the painter.
-- And the key is cut per coordinate, which is a free saving the current line already argues for
-  and then does not take: escapeTurns reads only cx, cy, zoom, so an escape row's key carries
-  three fields and a nested row's five. That halves an escape row's key churn under travel.
-
-src/ui/MoireStrip.tsx
-
-Cost
-
-Eight stops per field over fractalTravelSecs(windowSecs): at most 17 distinct keys for an escape
-row and 33 for a nested one, ×2 rows, against BAKES_PER_PAINTING 1 over hundreds of paintings.
-Comfortable. The real pressure is CURVED_CACHE = 8 (src/ui/driftTiles.ts:55): a travelling row
-visits each key once and evicts, so the picture is carried between landings by the standing
-fallback map — which is exactly why the identity fix belongs in this step and not a later one.
-
----
-
 Step 0248 — A run standing nothing is not a run gone
 
-docs/decisions/0248-a-run-standing-nothing-is-not-a-run-gone.md, amending 0246 and 0213.
+docs/decisions/0249-a-run-standing-nothing-is-not-a-run-gone.md, amending 0246 and 0213. The
+numbers moved: the travel's own decision took 0248, so every decision this plan still owes is one
+higher than its step's own number.
 
 src/ui/moireRowsField.ts: if (grown.size === 0) return; replaces if (runStanding(grown) <= 0) return;. A yard with no automator still has no fractal row and bakes nothing — 0246's "the
 automator's own mark and nothing else's" is preserved to the letter, because such a yard has an empty
@@ -177,8 +107,8 @@ no fallback touched; and nought in drawnGratings, so every other row weighs what
 presence ramp carries the depth back up through fractalCut with no row arriving or leaving, and
 the seed has been travelling underneath the whole time. That is the no-flash-off.
 
-Ordering: 0247 before 0248. Without the stable slot, holding the rows through a standing-nothing
-run only makes the blank last longer.
+Ordering: the travel landed first (0248), which is what makes this step worth taking — without the
+stable slot, holding the rows through a standing-nothing run only makes the blank last longer.
 
 ---
 
@@ -238,26 +168,21 @@ docs/decisions/0250-the-structure-stands-on-the-ground-and-opens-with-the-age.md
 
 Tests that must fail first
 
-src/lib/moireFractal.test.ts (261 lines, room) — travels toward the population's stops and
-arrives without overshooting; starts a new travel from where the last one stood (write half a travel,
-move the target, assert the next step continues from the middle); folds its kind off the automators
-and not off the places (add/remove a place → kind unchanged; add a second automator → kind moves);
-keeps every stop on its own band at every travelled value.
+src/lib/moireFractal.test.ts — the travel's own arithmetic is written ("the travel", 0248): it
+rests where the seed rests, moves every stop at one rate and arrives, stands on the population where
+there is no window, folds its kind off the automators and not off the places, keeps every stop on
+its own band, and keys a row by the stops its own coordinate reads.
 
-Split before writing, not after. src/ui/moireRowsField.test.ts is at 708 of the 800-line cap
-that scripts/arch enforces and these cases need ~150 lines. New src/ui/moireRowsFractal.test.ts
-with the @role/@instead header, taking the existing "cuts the fractal row deeper under a resonant
-output" case with it (a move, so no coverage is lost and the field file drops ~60 lines). New cases:
-keeps the two rows and one slot through a turnover; carries a half-travelled structure onto the set
-that replaces it (twin of the ground case at :377); holds the rows while the run stands nothing
-and cuts nothing through them at wash: 1 — the case that fails loudest today; asks the picture to
-fold back into itself at the depth the run is standing.
+The split is made. src/ui/moireRowsFractal.test.ts holds the fractal row's own cases — it was
+split off src/ui/moireRows.test.ts, which is the file these cases took past the 800-line cap, and
+it took the two cases that were about the fractal row with it. The remaining case to move is
+moireRowsField.test.ts's "cuts the fractal row deeper under a resonant output", which is a move to
+make when a later step needs the room rather than for its own sake. Still to write there: holds the
+rows while the run stands nothing and cuts nothing through them at wash: 1 — the case that fails
+loudest today; asks the picture to fold back into itself at the depth the run is standing.
 
-src/ui/moireCanvasTiles.test.ts (272 lines, room) — modelled on "travels a moved ground up that
-same ladder" (:196): walks a travelling seed up the ladder its tile is keyed on and bakes a stop
-rather than a frame; keeps a fractal row's fallback across a seed step (fails today, and is the
-visible hard cut); keys an escape row only on the fields its coordinate reads (move ratio/turn,
-assert baked === 0).
+src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
+same ladder"). Still to write: keeps a fractal row's fallback across a seed step.
 
 src/lib/moireAge.test.ts (81 lines) — opens the structure inside its own band at every age and
 never past FRACTAL_OPENING; stands still between two steps of the age.

@@ -10,6 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH, DRIFT_REST, type MoireRow } from "@/lib/moire";
+import { fractalStopsRest } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   bandKeep,
@@ -169,7 +170,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, nextColor(), 0, 0);
+  paintMoire(canvas, rows, 20, nextColor(), 0, 0, fractalStopsRest());
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;

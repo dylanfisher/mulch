@@ -52,7 +52,16 @@ import {
 } from "@/lib/moire";
 import { agedPitch } from "@/lib/moireAge";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
-import { fractalCut, runStanding } from "@/lib/moireFractal";
+import {
+  fractalCut,
+  fractalShape,
+  fractalStopsInto,
+  fractalStopsRest,
+  fractalTravelInto,
+  fractalTravelSecs,
+  runStanding,
+  type FractalStops,
+} from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
   heardBite,
@@ -267,6 +276,18 @@ export function carryGround(from: MoireRowSet, to: MoireRowSet): void {
 }
 
 /**
+ * And where the picture's own structure had got to, carried onto the set that replaces them. The
+ * same argument `carryGround` makes and for the same rebuilds: neither of these is a jump, and a
+ * fresh set stands the structure at its own rest — so without this every population turnover would
+ * sweep the picture back to the middle of the plane and travel out again from there, which is the
+ * swap this replaced (0235, 0248). Where it is going is the new set's own and is not carried: that
+ * is what the population standing now says.
+ */
+export function carryFractal(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.seed, from.seed);
+}
+
+/**
  * How long this picture takes to travel a whole ground move, in real seconds — and nought on a
  * picture that holds no jumps row, which is a yard whose ground cannot move at all.
  *
@@ -281,6 +302,22 @@ function groundTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): num
     const read = reads[index];
     if (read === undefined || read.tier === null) continue;
     return playerGroundSecs(rows[index]?.period ?? 0);
+  }
+  return 0;
+}
+
+/**
+ * And how long it takes to travel a whole move of its own structure: a fraction of the window the
+ * fractal rows are drawn across, which is those rows' own period. Read off the row for the reason
+ * `groundTravel` reads the module's — the window is a fact the set already holds and asking the row
+ * for it is the one place the number can come from without a second author (principle 1) — and
+ * nought on a picture with no fractal row, which is a rack running nothing (`fractalTravelSecs`).
+ */
+function fractalTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): number {
+  for (let index = 0; index < reads.length; index += 1) {
+    const read = reads[index];
+    if (read === undefined || !read.fractal) continue;
+    return fractalTravelSecs(rows[index]?.period ?? 0);
   }
   return 0;
 }
@@ -395,7 +432,14 @@ export function moireRows(
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
   shareOctaves(rows);
-  return { rows, reads, wash: 0, age: 0, ...macro };
+  // And where that structure stands on the plane, which is the field's and no row's: at rest, with
+  // the place this population folds to filled once beside it. The travel between the two is the
+  // read's, and a set built on a population that has already moved starts from wherever the picture
+  // it replaces had got to (`carryFractal`, 0248).
+  const stops = fractalStopsRest();
+  const toward = fractalStopsRest();
+  fractalStopsInto(toward, fractalShape(grown));
+  return { rows, reads, wash: 0, age: 0, seed: stops, toward, ...macro };
 }
 
 /**
@@ -475,6 +519,8 @@ export function refillRows(
   master: Readonly<MasterPeek>,
   elapsed: number,
   age: number,
+  seed: FractalStops,
+  toward: Readonly<FractalStops>,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -489,6 +535,17 @@ export function refillRows(
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
   const travel = groundTravel(rows, reads);
+  // And one step of the picture's own travel, across the plane its structure stands on. Here in the
+  // prologue and never inside the walk: the two fractal rows are one structure, so a step taken per
+  // row would take it twice (0246, 0248).
+  //
+  // And not at all where there is no structure to travel, which is the one place this parts from the
+  // ground above it: a yard that is not jumping still has a ground and stands on it outright
+  // (`easedCentre`), but a rack running nothing has no plane and no place on it — travelled with no
+  // window, the picture would arrive at the stops an empty population folds to and hand *those* to
+  // the first run that arrives (`carryFractal`).
+  const flight = fractalTravel(rows, reads);
+  if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay
   // index-for-index with the rows, which is the shape the two builders above are waived for. See

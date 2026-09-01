@@ -9,13 +9,20 @@
  *   module's own three → src/lib/playerDrift.ts. The maths any of them rests on →
  *   src/lib/moireSound.ts. Drawing them → src/ui/moireCanvas.ts.
  */
+// Over the soft line cap, read and judged: this is what a picture is made of — the read one row is
+// filled from, the set those rows come back in, and the five rows no effect and no lane owns —
+// and every one of them is documented against the others. Splitting it would hand `rows` and
+// `reads`, which must stay index-for-index, between two files. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fold } from "@/lib/copy";
 import {
   FRACTAL_BEAT,
   FRACTAL_GEOMETRIES,
-  fractalShape,
+  fractalKind,
   runStanding,
   type FractalRun,
+  type FractalStops,
 } from "@/lib/moireFractal";
 import {
   COLOUR_REACH,
@@ -159,6 +166,18 @@ export type MoireRowSet = {
    * instrument had been anywhere.
    */
   age: number;
+  /**
+   * Where the picture's own structure has travelled to, and where the population it is standing on
+   * folds to — the third and fourth things here that belong to the field rather than to a row. What
+   * an escape field is a picture of is the whole run, which is no row's, and the two fractal rows
+   * are one structure on two periods (0246, 0248). The travel is written by `refillRows` and read
+   * by the paint; the target is filled once when the set is built, because a population that has
+   * moved is a set rebuilt (`fractalStopsInto`, `carryFractal`, src/ui/moireRows.ts). Per picture
+   * and not per yard, like the ground's own travel: a strip and an overlay of one yard each carry
+   * their own, so one opened mid-travel converges on its own (0235).
+   */
+  seed: FractalStops;
+  toward: FractalStops;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -262,7 +281,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "seed" | "toward"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
@@ -364,10 +383,18 @@ export function sessionInto(
  * before there was one — so what a run does to the drift is legible because it is the only thing
  * that does it.
  *
- * Its identity is the population, so the structure changes when the run turns over and never
- * between two turnovers — which is what lets it be baked at all (0142, 0204). Which of the two
- * coordinates it is cut along is folded off that same identity, so a run draws an escape field or a
- * folded plane and the same run always draws the same one.
+ * **Its identity is the automators standing** and not the places they are standing (`fractalKind`,
+ * 0248, amending 0245 and 0246). The row's own angle rests on it, and so does the half of its
+ * fallback slot that says which row is asking, and neither may move when a place does: a row that
+ * swung round at every turnover drew a structure unrelated to the one before it, which is the hard
+ * cut the eye reads. What the population says is *where the structure stands on the plane*, and
+ * that travels — carried on the set beside the wash rather than on any row, because a picture of a
+ * population belongs to the field (`FractalStops`, `seed` below, 0235).
+ *
+ * So the structure changes when the rack's automators turn over and never between two of those —
+ * which is what lets it be baked at all (0142, 0204). Which of the two coordinates it is cut along
+ * is folded off that same identity, so a rack draws an escape field or a folded plane and the same
+ * rack always draws the same one.
  *
  * **Its period is the whole window the picture is drawn across**, and that is not decoration. A row
  * is carried by its own cycle (`turnsOf`) and this one spends that on breathing into its own
@@ -390,10 +417,10 @@ export function fractalInto(
 ): void {
   if (windowSecs <= 0) return;
   if (runStanding(grown) <= 0) return;
-  const shape = fractalShape(grown);
-  const geometry = FRACTAL_GEOMETRIES[shape % FRACTAL_GEOMETRIES.length] ?? FRACTAL_GEOMETRIES[0];
+  const kind = fractalKind(grown);
+  const geometry = FRACTAL_GEOMETRIES[kind % FRACTAL_GEOMETRIES.length] ?? FRACTAL_GEOMETRIES[0];
   for (const period of [windowSecs, windowSecs * FRACTAL_BEAT]) {
-    rows.push({ ...plainRow(period, shape, false), geometry, depth: 0 });
+    rows.push({ ...plainRow(period, kind, false), geometry, depth: 0 });
     reads.push({ ...READS_NOTHING, fractal: true });
   }
 }

@@ -6,10 +6,14 @@
  * @instead Every other case the painter has → src/ui/moireCanvas.test.ts, which this split out of
  *   at the 800-line hard cap (0045). The shop itself → src/ui/driftTiles.ts.
  */
+// One import per thing a tile's key is built from, and the picture's own structure is the third of
+// them: the count tracks what a bake reads, exactly as it does in the file this split out of (0007).
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { DRIFT_CENTRE_REACH, DRIFT_STEPS } from "@/lib/moire";
+import { fractalStopsRest, fractalTravelSecs } from "@/lib/moireFractal";
 import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { moireRow as row } from "@/lib/moireRow";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -32,6 +36,13 @@ import { baked, painterOn, WINDOW } from "@/ui/moireCanvasPainted";
  * (`easedCentre`, src/lib/moire.ts).
  */
 const ARRIVED = Number.POSITIVE_INFINITY;
+
+/**
+ * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
+ * travels and every case reads the structure the picture would draw with nothing having moved
+ * (`fractalStopsRest`, src/lib/moireFractal.ts).
+ */
+const STOOD = fractalStopsRest();
 
 /**
  * An output with nothing in it: every case here is about what the painter bakes off a yard's own
@@ -178,7 +189,7 @@ describe("moireCanvas tiles", () => {
       advance: 0,
       between: (frame) => {
         peek.position = ((frame + 1) / sweep) * period;
-        refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0);
+        refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
         standing();
       },
     });
@@ -207,7 +218,7 @@ describe("moireCanvas tiles", () => {
     const loop = { in: 0, out: 1 };
     const peek = emptyDeckPeek();
     peek.player.step = curvedOn(0);
-    refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, ARRIVED, 0);
+    refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
     expect(module.geometry).not.toBe("linear");
     const from = module.centre;
 
@@ -224,7 +235,7 @@ describe("moireCanvas tiles", () => {
       frames: 40,
       advance: 0,
       between: () => {
-        refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, frame, 0);
+        refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, frame, 0, STOOD, STOOD);
         stood();
       },
     });
@@ -235,6 +246,74 @@ describe("moireCanvas tiles", () => {
     expect(stopsSeen.size).toBeGreaterThan(2);
     expect(stopsSeen.size).toBeLessThanOrEqual(DRIFT_STEPS + 1);
     expect(baked(painted, 100)).toBeLessThanOrEqual(DRIFT_STEPS + 1);
+  });
+
+  // One case, and what is over the cap is the sweep it is measured across: a whole travel read
+  // frame by frame, with the per-frame read spelled out in full. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
+  it("walks a travelling structure up that same ladder, and bakes a stop rather than a frame", () => {
+    // The third of the three things that move a picture-sized tile's key, and the one 0248 added:
+    // the structure travels across the plane between the places a run stands, so unless the stops
+    // are stepped onto the ladder `stepped` already quantises the anchor onto, a picture on the
+    // move asks for a picture-sized bake at every frame for as long as the travel lasts (0142,
+    // 0144). Two rows are on it, because one structure is cut at two periods (0246).
+    forgetDriftTiles();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const grown = new Map([
+      [
+        "an automator",
+        [
+          {
+            effect: "delay",
+            instance: "a far place",
+            presence: 1,
+            remain: 30,
+            life: 30,
+            values: [],
+          },
+        ],
+      ],
+    ]);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, grown, null);
+    const peek = { ...emptyDeckPeek(), grown };
+    const over = fractalTravelSecs(set.windowSecs);
+    expect(over).toBeGreaterThan(0);
+    // A whole travel, read frame by frame the way a painting reads it, with every row's phase held
+    // so the only thing moving in the picture is where its structure stands.
+    const sweep = 32;
+    const painted = paintedOn(100, 50, set.rows, 2, WINDOW, {
+      frames: sweep,
+      advance: 0,
+      seed: set.seed,
+      between: () => {
+        refillRows(
+          set.rows,
+          set.reads,
+          peek,
+          1,
+          null,
+          0,
+          null,
+          SILENT_MASTER,
+          over / sweep,
+          0,
+          set.seed,
+          set.toward,
+        );
+      },
+    });
+    // It arrived, so the picture really did travel across the sweep.
+    expect(set.seed).toEqual(set.toward);
+    const stops = baked(painted, 100);
+    // It moved — a standing structure is one tile a row for the whole sweep — and it moved onto a
+    // handful of stops rather than onto a tile a painting for each of its two rows.
+    // And no painting of that travel goes blank: only the first draws nothing — one bake a
+    // painting, and neither row has a tile yet — and every painting after it draws both rows,
+    // wherever on the plane the picture has got to (0144, 0248).
+    expect(painted.surfaces[0]?.drew.length).toBe(2 * sweep - 2);
+    expect(stops).toBeGreaterThan(2);
+    expect(stops).toBeLessThanOrEqual(2 * DRIFT_STEPS);
   });
 
   it("gives two rows of one kind their own fallback, and not each other's", () => {

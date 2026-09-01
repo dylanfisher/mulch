@@ -17,7 +17,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { FRACTAL_BITE, FRACTAL_GEOMETRIES } from "@/lib/moireFractal";
+import { fractalStopsRest } from "@/lib/moireFractal";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
@@ -95,6 +95,13 @@ const ARRIVED = Number.POSITIVE_INFINITY;
 const FRESH = 0;
 
 /**
+ * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
+ * travels and every case reads the structure the picture would draw with nothing having moved
+ * (`fractalStopsRest`, src/lib/moireFractal.ts).
+ */
+const STOOD = fractalStopsRest();
+
+/**
  * The per-frame read with nothing measured behind it, which is what every case here but the
  * reference row's own is about: a yard whose source the analyser has not answered for draws the
  * cut the picture drew before there was one (0145, 0196).
@@ -108,7 +115,20 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): number =>
-  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED, FRESH);
+  filledRows(
+    rows,
+    reads,
+    peek,
+    rate,
+    loop,
+    duration,
+    analysis,
+    SILENT_MASTER,
+    ARRIVED,
+    FRESH,
+    STOOD,
+    STOOD,
+  );
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -433,66 +453,6 @@ describe("moireRows", () => {
   });
 
   /**
-   * P183: the support is baked when the population turns over and cut at every painting, so what
-   * seeds a map has to be a fact that rests. A place's own id is one; a playhead is not (0245).
-   */
-  it("seeds the fractal row off the places standing and off no clock at all", () => {
-    // A run standing, because that is the only thing there is a fractal row for at all.
-    const auto = instance("auto", { effect: "automator" });
-    const grown = runOf("auto", place("delay", "g0"));
-    const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
-    const peek = emptyDeckPeek();
-    for (const [id, held] of grown) peek.grown.set(id, [...held]);
-    const fractalAt = (position: number): MoireRow => {
-      const at = { ...peek, position };
-      filledRows(rows, reads, at, 1, null, 0, null, SILENT_MASTER, ARRIVED, FRESH);
-      const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
-      if (found === undefined) throw new Error("the picture holds no fractal row");
-      return { ...found };
-    };
-    const still = fractalAt(0);
-    const moved = fractalAt(2);
-    // Its identity is the population and nothing else, and it is the same wherever the playhead
-    // stands: a seed that moved with the clock would bake a picture-sized tile at every frame.
-    expect(still.shape).not.toBe(0);
-    expect(moved.shape).toBe(still.shape);
-    expect(moved.geometry).toBe(still.geometry);
-    // And its phase does move, which is what opens it into itself and back out (`fractalZoom`).
-    expect(moved.phase).not.toBeCloseTo(still.phase, 6);
-  });
-
-  /**
-   * P179 widened the fold's ceiling with the picture's age, and 0243 took it back; 0246 keeps the
-   * rule for the fractal row that replaced it. What says how hard the picture is cut is the
-   * population standing and nothing else — an age has nothing to add to it.
-   */
-  it("cuts by the population standing, at any age, and never past the row's own bite", () => {
-    const auto = instance("auto", { effect: "automator" });
-    // A population past the reach, so what the cut answers is the bite itself rather than what
-    // the automator happened to be standing.
-    const grown = runOf(
-      "auto",
-      place("delay", "g0"),
-      place("reverb", "g1"),
-      place("filter", "g2"),
-      place("delay", "g3"),
-    );
-    const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
-    const peek = emptyDeckPeek();
-    for (const [id, held] of grown) peek.grown.set(id, [...held]);
-    const cutAt = (age: number): number => {
-      filledRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, age);
-      const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
-      if (found === undefined) throw new Error("the picture holds no fractal row");
-      return found.depth;
-    };
-    // The deck that has just begun is cut as hard as the one that has sounded an hour: the run
-    // bought the structure and an age has nothing to add to it.
-    expect(cutAt(0)).toBeCloseTo(FRACTAL_BITE, 9);
-    expect(cutAt(1)).toBeCloseTo(FRACTAL_BITE, 9);
-  });
-
-  /**
    * The run's own size is the depth of the rows it grew, so a rack six times busier draws six
    * times as many rows and never a deeper one — and because the set is rebuilt whenever the
    * population turns over (0212), the depth turns over with it rather than standing where the
@@ -555,6 +515,22 @@ describe("moireRows", () => {
     expect(grownStanding(was, runOf("auto", place("delay", "g2", [0.25])))).toBe(false);
     expect(grownStanding(was, runOf("auto", place("delay", "g2", [0.25])))).toBe(true);
     expect(grownStanding(was, runOf("auto", place("delay", "g2", [0.75])))).toBe(false);
+    // And an automator holding nothing yet: a key with an empty row, which the rack files the
+    // moment the instance is added and before its first place arrives (`growth`,
+    // src/audio/effects/rack.ts). It is invisible among the places and not invisible in the
+    // picture — what the two fractal rows *are* is folded off these keys — so the run has moved
+    // (`fractalKind`, 0248).
+    expect(grownStanding(was, new Map([["auto", []]]))).toBe(false);
+    expect(grownStanding(was, new Map([["auto", []]]))).toBe(true);
+    expect(
+      grownStanding(
+        was,
+        new Map([
+          ["auto", []],
+          ["another", []],
+        ]),
+      ),
+    ).toBe(false);
     expect(grownStanding(was, NO_GROWN)).toBe(false);
     expect(was.ids).toEqual([]);
     expect(was.draws).toEqual([]);

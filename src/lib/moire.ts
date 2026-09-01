@@ -91,7 +91,7 @@ const EFFECT_ROW_SHIFT = 1024;
  * says are already spent. **The read and not the spread** — a caller divides by `stops` where the
  * top of its band is open and by one less where both ends have to be reachable, and it is that
  * choice, not this arithmetic, that differs between the four things a fold is read for
- * (`effectRowPeriod` and `effectRowCentre` below, and the four slices `fractalSeedInto` takes
+ * (`effectRowPeriod` and `effectRowCentre` below, and the four slices `fractalStopsInto` takes
  * in src/lib/moireFractal.ts). Named here because this file owns where a fold's halves end (0076).
  */
 export const foldStop = (seed: number, shift: number, stops: number): number =>
@@ -378,7 +378,7 @@ export function effectRowCentre(seed: number): number {
  * How far up a fold the three reads above have got to: the waveform's, the period's and the
  * anchor's. Exported because another file reading the same fold has to start above them or it is
  * drawing a second thing off bits already spent — one fold, independent halves, and where the
- * halves end is a fact this file owns (0076, `fractalSeedInto` in src/lib/moireFractal.ts).
+ * halves end is a fact this file owns (0076, `fractalStopsInto` in src/lib/moireFractal.ts).
  */
 export const FOLD_SPENT = EFFECT_ROW_CENTRE_SHIFT * EFFECT_ROW_CENTRES;
 

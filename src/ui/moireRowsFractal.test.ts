@@ -1,0 +1,254 @@
+/**
+ * @role The one row in a yard's drift that is the picture's own structure: that a rack running an
+ *   automator has it at all, that what the row *is* — its angle, and the half of its tile slot that
+ *   says which row is asking — is the automators standing and not the places they are standing,
+ *   that where the structure
+ *   stands on the plane belongs to the field and travels there rather than swapping, and that how
+ *   hard it cuts is the run and never the picture's age.
+ * @instead The rows a lane, a rack instance, a grown run and the macro row make →
+ *   src/ui/moireRows.test.ts, which this was the tail of until these cases took it past the
+ *   800-line hard cap (0045). The
+ *   two that belong to the whole field, and what the output's own edge does to this one →
+ *   src/ui/moireRowsField.test.ts. The coordinate and the travel as arithmetic →
+ *   src/lib/moireFractal.test.ts. Drawing any of it → src/ui/moireCanvas.test.ts.
+ */
+import { describe, expect, it } from "vitest";
+
+import { emptyDeckPeek } from "@/audio/deckPeek";
+import { emptyMasterPeek } from "@/audio/context";
+import { type MoireRow } from "@/lib/moire";
+import {
+  FRACTAL_BITE,
+  FRACTAL_GEOMETRIES,
+  fractalShape,
+  fractalStopsInto,
+  fractalStopsRest,
+  fractalTravelSecs,
+} from "@/lib/moireFractal";
+import { PLAIN_CUT } from "@/lib/moireSound";
+import { NO_GROWN } from "@/ui/moireGrown";
+import { carryFractal, moireRows, refillRows } from "@/ui/moireRows";
+import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
+import type { DeckPeek } from "@/audio/deckPeek";
+import type { MoireRowSet } from "@/ui/moireRowsField";
+
+/** One place an automator is standing, at its whole presence, which is a place in the picture. */
+const place = (instance: EffectInstanceId): GrownEffect => ({
+  effect: "delay",
+  instance,
+  presence: 1,
+  remain: 30,
+  life: 30,
+  values: [],
+});
+
+/** The run one automator instance is holding, keyed the way `DeckPeek.grown` keys it. */
+const runOf = (
+  id: EffectInstanceId,
+  ...places: readonly EffectInstanceId[]
+): Map<EffectInstanceId, GrownEffect[]> =>
+  new Map([[id, places.map((instance) => place(instance))]]);
+
+/** An output with nothing in it: what the row *is* is the run's, and never the session's bus. */
+const SILENT_MASTER = emptyMasterPeek();
+
+/**
+ * A read with all the time in the world behind it, which is a travel that has already finished:
+ * a case about where the structure ends up rather than about how it got there
+ * (`easedCentre`, src/lib/moire.ts).
+ */
+const ARRIVED = Number.POSITIVE_INFINITY;
+
+/** And a picture of a performance that has just begun, which is where every case here reads it. */
+const FRESH = 0;
+
+/** The picture a yard running `grown` and nothing else draws, and the peek that reads it back. */
+const pictureOf = (
+  grown: Map<EffectInstanceId, GrownEffect[]>,
+): { set: MoireRowSet; peek: DeckPeek } => {
+  const set = moireRows([], [], 4, PLAIN_CUT, null, grown, null);
+  return { set, peek: { ...emptyDeckPeek(), grown } };
+};
+
+/** The first of the two rows the structure is cut on, which is one structure on two periods. */
+const fractalRow = (rows: readonly MoireRow[]): MoireRow => {
+  const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
+  if (found === undefined) throw new Error("the picture holds no fractal row");
+  return found;
+};
+
+/** One per-frame read of a whole picture, `elapsed` seconds after the one before it. */
+const readAt = (set: MoireRowSet, peek: DeckPeek, elapsed: number): void => {
+  refillRows(
+    set.rows,
+    set.reads,
+    peek,
+    1,
+    null,
+    0,
+    null,
+    SILENT_MASTER,
+    elapsed,
+    FRESH,
+    set.seed,
+    set.toward,
+  );
+};
+
+// One flat list of the fractal row's cases, every one of them built through the one builder and
+// read through the one per-frame read (0007), exactly as the tile shop's cases are.
+// oxlint-disable-next-line max-lines-per-function
+describe("the picture's own structure", () => {
+  /**
+   * P183: the support is baked when the population turns over and cut at every painting, so what
+   * seeds a map has to be a fact that rests. A place's own id is one; a playhead is not (0245).
+   */
+  it("seeds the fractal row off the run standing and off no clock at all", () => {
+    const grown = runOf("auto", "g0");
+    const { set, peek } = pictureOf(grown);
+    const fractalAt = (position: number): MoireRow => {
+      readAt(set, { ...peek, position }, ARRIVED);
+      return { ...fractalRow(set.rows) };
+    };
+    const still = fractalAt(0);
+    const moved = fractalAt(2);
+    // Its identity is the rack's own run and it is the same wherever the playhead stands: a row
+    // that moved with the clock would bake a picture-sized tile at every frame.
+    expect(still.shape).not.toBe(0);
+    expect(moved.shape).toBe(still.shape);
+    expect(moved.geometry).toBe(still.geometry);
+    // And its phase does move, which is what opens it into itself and back out (`fractalZoom`).
+    expect(moved.phase).not.toBeCloseTo(still.phase, 6);
+  });
+
+  /**
+   * 0248, amending 0245 and 0246: what a row *is* rests on the automators, because the row's own
+   * angle and the slot its last tile is held in both rest on it and neither may move when a place
+   * does. Where the structure *stands* is the population, and that is the thing that travels.
+   */
+  it("stands its rows on the automators and aims the picture at the places", () => {
+    const one = pictureOf(runOf("auto", "g0")).set;
+    const two = pictureOf(runOf("auto", "g0", "g1")).set;
+    const other = pictureOf(runOf("another auto", "g0")).set;
+    // A place arriving under the same automator: the same rows, angle for angle.
+    expect(fractalRow(two.rows).shape).toBe(fractalRow(one.rows).shape);
+    expect(fractalRow(two.rows).geometry).toBe(fractalRow(one.rows).geometry);
+    // And a different automator holding the same run is a different structure outright.
+    expect(fractalRow(other.rows).shape).not.toBe(fractalRow(one.rows).shape);
+    // But the place it stands on has moved, and that is what the picture travels toward.
+    const aimed = fractalStopsRest();
+    fractalStopsInto(aimed, fractalShape(runOf("auto", "g0", "g1")));
+    expect(two.toward).toEqual(aimed);
+    expect(two.toward).not.toEqual(one.toward);
+    // Both start where the last picture stood, which on a fresh set is the plane's own rest.
+    expect(one.seed).toEqual(fractalStopsRest());
+  });
+
+  /**
+   * And the travel itself, through the one read a picture is actually filled by: the structure
+   * moves from where it stands toward where the population stands, at one rate, and is there
+   * inside the window the rows are drawn across (0235, 0248).
+   */
+  it("travels toward where the population stands and arrives inside the window", () => {
+    const { set, peek } = pictureOf(runOf("auto", "g0"));
+    const over = fractalTravelSecs(set.windowSecs);
+    expect(over).toBeGreaterThan(0);
+    expect(set.toward).not.toEqual(fractalStopsRest());
+
+    // A step of the travel, and the picture is neither where it was nor where it is going.
+    readAt(set, peek, over / 8);
+    expect(set.seed).not.toEqual(fractalStopsRest());
+    expect(set.seed).not.toEqual(set.toward);
+    // Nothing overshoots: every stop is between where it started and where it is going.
+    for (const key of ["cx", "cy", "ratio", "turn"] as const) {
+      const from = fractalStopsRest()[key];
+      const to = set.toward[key];
+      expect(Math.abs(set.seed[key] - from)).toBeLessThanOrEqual(Math.abs(to - from) + 1e-12);
+      expect(Math.sign(set.seed[key] - from) * Math.sign(to - from)).toBeGreaterThanOrEqual(0);
+    }
+
+    // And a whole window's worth of travel arrives, exactly, and stays there.
+    readAt(set, peek, over);
+    expect(set.seed).toEqual(set.toward);
+    readAt(set, peek, over);
+    expect(set.seed).toEqual(set.toward);
+  });
+
+  /**
+   * And a picture with no structure in it does not travel at all. The one place this parts from the
+   * ground: a yard that is not jumping has a ground and stands on it outright, but a rack running
+   * nothing has no plane — travelled with no window it would arrive at the stops an empty
+   * population folds to, and `carryFractal` would hand those to the first run that arrives.
+   */
+  it("leaves the plane alone in a picture with no structure on it", () => {
+    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const peek = emptyDeckPeek();
+    for (const elapsed of [ARRIVED, 1, 0.016]) {
+      refillRows(
+        set.rows,
+        set.reads,
+        peek,
+        1,
+        null,
+        0,
+        null,
+        SILENT_MASTER,
+        elapsed,
+        FRESH,
+        set.seed,
+        set.toward,
+      );
+      expect(set.seed).toEqual(fractalStopsRest());
+    }
+  });
+
+  /**
+   * A rebuilt set is not a jump: a knob touch and a population turnover both build fresh rows, and
+   * a picture that started its travel again from the plane's rest each time would be the swap the
+   * travel replaced (0235, 0248).
+   */
+  it("carries the travel onto the set that replaces it", () => {
+    const { set, peek } = pictureOf(runOf("auto", "g0"));
+    readAt(set, peek, fractalTravelSecs(set.windowSecs) / 8);
+    const halfway = { ...set.seed };
+    expect(halfway).not.toEqual(fractalStopsRest());
+
+    const next = pictureOf(runOf("auto", "g0", "g1")).set;
+    carryFractal(set, next);
+    // Where it had got to, and where the population standing now says it is going.
+    expect(next.seed).toEqual(halfway);
+    expect(next.toward).not.toEqual(set.toward);
+  });
+
+  /**
+   * P179 widened the fold's ceiling with the picture's age, and 0243 took it back; 0246 keeps the
+   * rule for the fractal row that replaced it. What says how hard the picture is cut is the
+   * population standing and nothing else — an age has nothing to add to it.
+   */
+  it("cuts by the population standing, at any age, and never past the row's own bite", () => {
+    // A population past the reach, so what the cut answers is the bite itself rather than what
+    // the automator happened to be standing.
+    const { set, peek } = pictureOf(runOf("auto", "g0", "g1", "g2", "g3"));
+    const cutAt = (age: number): number => {
+      refillRows(
+        set.rows,
+        set.reads,
+        peek,
+        1,
+        null,
+        0,
+        null,
+        SILENT_MASTER,
+        ARRIVED,
+        age,
+        set.seed,
+        set.toward,
+      );
+      return fractalRow(set.rows).depth;
+    };
+    // The deck that has just begun is cut as hard as the one that has sounded an hour: the run
+    // bought the structure and an age has nothing to add to it.
+    expect(cutAt(0)).toBeCloseTo(FRACTAL_BITE, 9);
+    expect(cutAt(1)).toBeCloseTo(FRACTAL_BITE, 9);
+  });
+});

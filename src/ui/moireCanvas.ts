@@ -62,7 +62,14 @@ import {
   gratingTurns,
   PICTURE_FLOOR,
 } from "@/lib/moireGrating";
-import { fractalRest, fractalSeedInto, fractalZoom, isFractalGeometry } from "@/lib/moireFractal";
+import {
+  fractalKeyed,
+  fractalRest,
+  fractalSeedInto,
+  fractalStopsRest,
+  fractalZoom,
+  type FractalStops,
+} from "@/lib/moireFractal";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -168,6 +175,14 @@ const order: DriftOrder = {
   ref: 1,
   place: { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1, ...fractalRest() },
 };
+
+/**
+ * And where the picture's structure is standing, stepped onto the ladder every tile in the picture
+ * is keyed through — one object refilled beside the order, for the same reason. `DRIFT_STEPS` and
+ * not a stop count of its own: the stops travel continuously and a tile is picture-sized, so what
+ * may reach a bake is the one fact `stepped` already is (0142, 0248, principle 1).
+ */
+const stepping: FractalStops = fractalStopsRest();
 
 /**
  * One straight row's tile: `cycles` cycles of `profileBlock` across `span` pixels at full depth,
@@ -292,6 +307,7 @@ function placeCurved(
   width: number,
   height: number,
   ref: number,
+  seed: Readonly<FractalStops>,
 ): void {
   const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
@@ -301,12 +317,16 @@ function placeCurved(
   place.x = centreAcross(centre, width);
   place.y = centreAcross(centre, height);
   place.cover = geometryCover(row.geometry, place.pitch, width, height);
-  // And the structure a fractal row is cut through, off the row's own identity — which is the
-  // population standing, because that is what the row was folded from (`fractalShape`) — opened by
-  // where its phase has carried it. Stepped, like everything else here, and for the same reason:
-  // it is baked, so a seed that moved on every frame would ask for a picture-sized tile on every
-  // frame (0142, 0246). Every row fills it and only the two fractal geometries read it.
-  fractalSeedInto(place, row.shape, fractalZoom(turns));
+  // And the structure a fractal row is cut through: where the picture's travel has got to on the
+  // plane — the field's own and no row's (0248) — opened by where this row's phase has carried it.
+  // Stepped, like everything else here, and for the same reason: it is baked, so stops that moved
+  // on every frame would ask for a picture-sized tile on every frame (0142, 0246). Every row fills
+  // it and only the two fractal geometries read it.
+  stepping.cx = stepped(seed.cx, DRIFT_CENTRE_REACH);
+  stepping.cy = stepped(seed.cy, DRIFT_CENTRE_REACH);
+  stepping.ratio = stepped(seed.ratio, DRIFT_CENTRE_REACH);
+  stepping.turn = stepped(seed.turn, DRIFT_CENTRE_REACH);
+  fractalSeedInto(place, stepping, fractalZoom(turns));
   order.geometry = row.geometry;
   order.profile = row.profile;
   order.width = width;
@@ -314,10 +334,9 @@ function placeCurved(
   order.ref = ref;
   // And the seed into the key for the two geometries that read it, and never for the four that do
   // not: a ring family's tile is shared by every row that would bake the identical one, and folding
-  // a seed no bake reads into every key would give each of them a tile of its own.
-  const cut = isFractalGeometry(row.geometry)
-    ? `|${place.cx}|${place.cy}|${place.ratio}|${place.turn}|${place.zoom}`
-    : "";
+  // a seed no bake reads into every key would give each of them a tile of its own. Per coordinate
+  // and not per fractal row, because an escape row reads three of the five (`fractalKeyed`).
+  const cut = fractalKeyed(row.geometry, place);
   order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${width}x${height}`;
   // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
   // so the slot has to survive every step of the knob that changes the key (0144). Where it stands
@@ -386,6 +405,7 @@ function cutGratings(
   dpr: number,
   count: number,
   wash: number,
+  seed: Readonly<FractalStops>,
 ): boolean {
   const { height, width } = field;
   const depth = gratingDepth(count, PICTURE_FLOOR);
@@ -414,7 +434,7 @@ function cutGratings(
       continue;
     }
     ink.globalAlpha = cut;
-    placeCurved(row, at, turns, pitch, width, height, ref);
+    placeCurved(row, at, turns, pitch, width, height, ref, seed);
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
     // painting rather than holding the whole picture up for it (0144). Every other row goes on.
@@ -537,6 +557,10 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `age`, how old the performance behind it is on 0..1 (`driftAge`, src/lib/moireAge.ts), which
  * is the band the ink is carried across. A picture with nothing sounding behind it is drawn at an
  * age of nought, which is the picture drawn before the instrument had been anywhere.
+ *
+ * And `seed`, where the picture's own structure has travelled to on its plane — the field's and no
+ * row's, like the two above, and travelled there by the same read that filled them
+ * (`fractalTravelInto`, 0248). A picture with no fractal row in it never reads it.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -548,6 +572,7 @@ export function paintMoire(
   color: string,
   wash: number,
   age: number,
+  seed: Readonly<FractalStops>,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -577,7 +602,7 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash)) {
+  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed)) {
     forget(canvas);
     endPainting();
     return;

@@ -1,12 +1,18 @@
 /**
  * @role What the two fractal coordinates actually are: that the escape field is one continuous
  *   field rather than a set of steps, that the inside of the set has a coordinate at all, that the
- *   nested one recurses by exactly one level per scale, and that a seed is the population standing
- *   and nothing else.
+ *   nested one recurses by exactly one level per scale, that where the picture stands is the
+ *   population standing and what its rows *are* is the automators holding them, and that it travels
+ *   between the two at one rate (0248).
  * @instead That a picture cut along one of them is *drawn* — that the tile is baked, keyed and
  *   placed → src/ui/moireCanvas.test.ts and src/ui/moireCanvasTiles.test.ts. That the row exists at
- *   all and is cut by what the output sounds like → src/ui/moireRowsField.test.ts.
+ *   all, travels through the one per-frame read and is cut by what the output sounds like →
+ *   src/ui/moireRowsFractal.test.ts and src/ui/moireRowsField.test.ts.
  */
+// Over the per-function cap, and what is over it is a coordinate's own list of cases: each one is
+// the arithmetic it measures plus the sweep it measures it across, and a helper per case would be a
+// fixture nothing else reads. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
 
 import { fold } from "@/lib/copy";
@@ -19,9 +25,18 @@ import {
   FRACTAL_OPENING,
   FRACTAL_RATIO_BAND,
   fractalCut,
+  fractalKeyed,
+  fractalKind,
   fractalRest,
   fractalSeed,
+  fractalSeedInto,
   fractalShape,
+  fractalStopsInto,
+  fractalStopsRest,
+  FRACTAL_TRAVEL,
+  fractalTravelInto,
+  fractalTravelSecs,
+  type FractalStops,
   fractalZoom,
   isFractalGeometry,
   nestedTurns,
@@ -34,6 +49,13 @@ const run = (...places: readonly (readonly [string, number])[]): FractalRun =>
   new Map([["an automator", places.map(([instance, presence]) => ({ instance, presence }))]]);
 
 const SEED = fractalSeed(fold("a run of three standing"), 1);
+
+/** Where a run's population stands on the plane, as the four stops it folds to, written out. */
+const stopsOf = (grown: FractalRun): string => {
+  const out = fractalStopsRest();
+  fractalStopsInto(out, fractalShape(grown));
+  return `${out.cx}/${out.cy}/${out.ratio}/${out.turn}`;
+};
 
 describe("the escape coordinate", () => {
   /**
@@ -257,5 +279,111 @@ describe("how hard it cuts", () => {
     expect(runStanding(run(["a", 0.5], ["b", 0.25]))).toBeCloseTo(0.75, 9);
     expect(runStanding(run(["a", 4]))).toBe(1);
     expect(runStanding(new Map())).toBe(0);
+  });
+});
+
+describe("the travel", () => {
+  /**
+   * 0248: the stops are what travels and the seed is what they are denormalized into, so the rest
+   * of one has to be the rest of the other or a picture nothing has moved would stand somewhere
+   * else than the picture that has nothing standing in it.
+   */
+  it("rests exactly where the seed rests", () => {
+    const out = fractalRest();
+    fractalSeedInto(out, fractalStopsRest(), 1);
+    expect(out).toEqual(fractalRest());
+    // And a zoom of nothing is still a zoom of one, wherever the stops are.
+    fractalSeedInto(out, { cx: 1, cy: 0, ratio: 1, turn: 0 }, 0);
+    expect(out.zoom).toBe(1);
+    expect(out.ratio).toBeCloseTo(FRACTAL_RATIO_BAND[1], 12);
+  });
+
+  /** Half the window, off the length the picture already has, and nought where there is none. */
+  it("is a fraction of the window and never a clock of its own", () => {
+    expect(fractalTravelSecs(20)).toBeCloseTo(20 * FRACTAL_TRAVEL, 12);
+    expect(fractalTravelSecs(0)).toBe(0);
+    expect(fractalTravelSecs(-4)).toBe(0);
+  });
+
+  /**
+   * One rate for all four stops, and it arrives: an exponential would never land, and another
+   * population arrives every twenty seconds or so.
+   */
+  it("moves every stop at one rate and arrives inside the window", () => {
+    const at = fractalStopsRest();
+    const to: FractalStops = { cx: 1, cy: 0, ratio: 1, turn: 0 };
+    // A quarter of the way, in the one unit every stop and the ground's own centre share.
+    fractalTravelInto(at, to, 1, 4);
+    expect(at).toEqual({ cx: 0.75, cy: 0.25, ratio: 0.25, turn: 0.25 });
+    // The distance travelled is the distance jumped: a stop half the plane away takes twice as
+    // long as one a quarter away, at the same rate.
+    fractalTravelInto(at, to, 1, 4);
+    expect(at.cy).toBe(0);
+    expect(at.turn).toBe(0);
+    expect(at.cx).toBeCloseTo(1, 12);
+    expect(at.ratio).toBeCloseTo(0.5, 12);
+    fractalTravelInto(at, to, 4, 4);
+    expect(at).toEqual(to);
+  });
+
+  /** And it arrives outright where there is no travel to time it against. */
+  it("stands on the population where there is no window", () => {
+    const at = fractalStopsRest();
+    const to: FractalStops = { cx: 0.2, cy: 0.3, ratio: 0.4, turn: 0.6 };
+    fractalTravelInto(at, to, 0.5, 0);
+    expect(at).toEqual(to);
+  });
+
+  /**
+   * The identity of the rows and the place they stand are two different reads of one run: a place
+   * arriving moves the picture across the plane, and only an automator arriving swings the rows.
+   */
+  it("keeps the rows on the automators while the picture travels off the places", () => {
+    const one = new Map([["an automator", [{ instance: "a delay", presence: 1 }]]]);
+    const two = new Map([
+      [
+        "an automator",
+        [
+          { instance: "a delay", presence: 1 },
+          { instance: "a reverb", presence: 1 },
+        ],
+      ],
+    ]);
+    const another = new Map([
+      ...one,
+      ["another automator", [{ instance: "a filter", presence: 1 }]],
+    ]);
+    expect(fractalKind(two)).toBe(fractalKind(one));
+    expect(fractalShape(two)).not.toBe(fractalShape(one));
+    expect(fractalKind(another)).not.toBe(fractalKind(one));
+    // And the stops those identities fold to move with the population, not with the rack.
+    expect(stopsOf(two)).not.toBe(stopsOf(one));
+    // Every stop is a fraction of its own band and nothing is outside one.
+    const out = fractalStopsRest();
+    fractalStopsInto(out, fractalShape(two));
+    for (const value of [out.cx, out.cy, out.ratio, out.turn]) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  /**
+   * And what rides through to a tile's key is what the bake actually reads: an escape row is
+   * `escapeTurns`, which takes three of the five numbers, so its key carries three.
+   */
+  it("keys a row by the stops its own coordinate reads and no others", () => {
+    const seed = fractalSeed(fold("a run standing somewhere"), 2);
+    expect(fractalKeyed("escape", seed)).toBe(`|${seed.cx}|${seed.cy}|${seed.zoom}`);
+    expect(fractalKeyed("nested", seed)).toBe(
+      `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}`,
+    );
+    expect(fractalKeyed("linear", seed)).toBe("");
+    // And every coordinate that reads a seed keys on one: a third fractal geometry added to the
+    // list and forgotten in `fractalKeyed` would give every structure it draws one shared tile.
+    for (const geometry of FRACTAL_GEOMETRIES) expect(fractalKeyed(geometry, seed)).not.toBe("");
+    // A ratio that only a nested row reads never reaches an escape row's key.
+    const turned = { ...seed, ratio: seed.ratio + 1, turn: seed.turn + 0.1 };
+    expect(fractalKeyed("escape", turned)).toBe(fractalKeyed("escape", seed));
+    expect(fractalKeyed("nested", turned)).not.toBe(fractalKeyed("nested", seed));
   });
 });

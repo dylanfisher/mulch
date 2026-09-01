@@ -1,16 +1,23 @@
 /**
  * @role The coordinate a fractal row's grating is cut along, and the seed it is cut from: the
  *   escape-time field of `z → z² + c` with an orbit trap through it, the folded coordinate a
- *   box-within-box family recurses on, and the five numbers a run of effects an automator is
- *   standing folds into. Pure arithmetic — no canvas, no clock, no context.
+ *   box-within-box family recurses on, the five numbers a row's grating is cut from, the four
+ *   stops a run of effects an automator is standing folds to, and the travel across them. Pure
+ *   arithmetic — no canvas, no clock, no context.
  * @instead The straight, ring, spoke and spiral coordinates this stands beside, and the pixel loop
  *   all of them are written through → src/lib/moireGeometry.ts, which reads this and which this
  *   never reads. What a row *is* → src/lib/moire.ts; how deep a stack of gratings cuts →
  *   src/lib/moireGrating.ts. How many scales one straight row is drawn at, which is the
  *   self-similarity built into the ink rather than into its axis → src/lib/moireOctaves.ts.
  */
+// Over the soft line cap, read and judged: this is one coordinate's whole arithmetic — the two
+// turns functions, the bands their seed is denormalized out of, the stops that seed is a fraction
+// of and the travel across them — and splitting it would put the stops in one file and the bands
+// they are fractions of in another, which is the one thing a fraction of a band may not be apart
+// from. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fold } from "./copy.ts";
-import { cosTurn, FOLD_SPENT, foldStop, type DriftGeometry } from "./moire.ts";
+import { cosTurn, easedCentre, FOLD_SPENT, foldStop, type DriftGeometry } from "./moire.ts";
 import { clamp, denormalize } from "./range.ts";
 
 /**
@@ -198,28 +205,114 @@ export const fractalRest = (): FractalSeed => ({
 });
 
 /**
- * The four resting halves of a seed into `out`, folded off the one number a row's identity already
- * is (0076) — one fold, independent slices, exactly as a rack card's period and its anchor are
- * drawn — and the opening its phase has carried it to.
- *
- * Written in place and answering nothing, because it is filled once a painting for the one row in
- * the picture that has a seed, and a painting allocates nothing (0070).
+ * Where the picture stands on the plane, as four fractions of their own bands rather than as the
+ * bands' own numbers. **A fold has no between and a plane does** (0248): a seed is folded off an
+ * identity and the identity of a population jumps whole, but `cx`, `cy`, `ratio` and `turn` are
+ * coordinates on a continuum and a picture may be carried across them the way a ground is (0235).
+ * So this is what travels, and `fractalSeedInto` below denormalizes it into a seed as it always
+ * did. Every one is on 0..1, which is `DRIFT_CENTRE_REACH` — so the repo's one eased motion moves
+ * them with no second rate declared anywhere (`fractalTravelInto`).
  */
-export function fractalSeedInto(out: FractalSeed, seed: number, zoom: number): void {
+export type FractalStops = { cx: number; cy: number; ratio: number; turn: number };
+
+/** The stops a picture with nothing standing in it stands at: exactly `fractalRest`'s own. */
+export const fractalStopsRest = (): FractalStops => ({ cx: 0.5, cy: 0.5, ratio: 0, turn: 0.5 });
+
+/**
+ * The four stops a population folds to, into `out`: one fold, independent slices, exactly as a
+ * rack card's period and its anchor are drawn (0076). Written in place and answering nothing,
+ * because it is filled once when the population turns over.
+ */
+export function fractalStopsInto(out: FractalStops, seed: number): void {
   const stop = (shift: number, stops: number): number =>
     foldStop(seed, shift, stops) / Math.max(1, stops - 1);
-  out.cx = FRACTAL_REST_X + FRACTAL_WANDER * (stop(FRACTAL_CX_SHIFT, FRACTAL_WANDER_STOPS) - 0.5);
-  out.cy = FRACTAL_REST_Y + FRACTAL_WANDER * (stop(FRACTAL_CY_SHIFT, FRACTAL_WANDER_STOPS) - 0.5);
-  out.ratio = denormalize(stop(FRACTAL_RATIO_SHIFT, FRACTAL_RATIO_STOPS), ...FRACTAL_RATIO_BAND);
-  out.turn = denormalize(stop(FRACTAL_TURN_SHIFT, FRACTAL_TURN_STOPS), ...FRACTAL_TURN_BAND);
+  out.cx = stop(FRACTAL_CX_SHIFT, FRACTAL_WANDER_STOPS);
+  out.cy = stop(FRACTAL_CY_SHIFT, FRACTAL_WANDER_STOPS);
+  out.ratio = stop(FRACTAL_RATIO_SHIFT, FRACTAL_RATIO_STOPS);
+  out.turn = stop(FRACTAL_TURN_SHIFT, FRACTAL_TURN_STOPS);
+}
+
+/**
+ * The seed those stops are cut from into `out`: each one denormalized into the band it is a
+ * fraction of, and the opening the row's phase has carried the picture to.
+ *
+ * Written in place and answering nothing, because it is filled once a painting for the one row in
+ * the picture that has a seed, and a painting allocates nothing (0070). It no longer folds
+ * anything: what the picture stands on is the field's, travelled there by the read, so the fold
+ * has left the painter altogether (0248).
+ */
+export function fractalSeedInto(
+  out: FractalSeed,
+  stops: Readonly<FractalStops>,
+  zoom: number,
+): void {
+  out.cx = FRACTAL_REST_X + FRACTAL_WANDER * (stops.cx - 0.5);
+  out.cy = FRACTAL_REST_Y + FRACTAL_WANDER * (stops.cy - 0.5);
+  out.ratio = denormalize(stops.ratio, ...FRACTAL_RATIO_BAND);
+  out.turn = denormalize(stops.turn, ...FRACTAL_TURN_BAND);
   out.zoom = zoom > 0 ? zoom : 1;
 }
 
-/** The same seed, allocated — what a caller with nowhere to put one asks for. */
+/** The same seed, allocated, straight off an identity — what a caller with nowhere to put one asks for. */
 export function fractalSeed(seed: number, zoom: number): FractalSeed {
+  const stops = fractalStopsRest();
+  fractalStopsInto(stops, seed);
   const out = fractalRest();
-  fractalSeedInto(out, seed, zoom);
+  fractalSeedInto(out, stops, zoom);
   return out;
+}
+
+/**
+ * Which of a seed's numbers a row cut along `geometry` actually reads, as the tail of that row's
+ * tile key — and nothing at all for the four coordinates that read none of them. Declared here,
+ * beside the two functions that do the reading: an escape row is `escapeTurns`, which takes `cx`,
+ * `cy` and `zoom` and no more, so its key carries three fields where a nested one's carries five.
+ * That halves an escape row's key churn while the picture is travelling — and the field list is
+ * kept beside the signatures it has to agree with, so a coordinate that grows a number is one
+ * file's edit rather than two.
+ */
+export const fractalKeyed = (geometry: DriftGeometry, seed: Readonly<FractalSeed>): string => {
+  // Nothing at all for a row that reads none of them, and everything for a fractal coordinate this
+  // does not know by name: a third one added to `FRACTAL_GEOMETRIES` and forgotten here would
+  // otherwise give every structure it can draw one shared tile, silently (principle 5).
+  if (!isFractalGeometry(geometry)) return "";
+  if (geometry === "escape") return `|${seed.cx}|${seed.cy}|${seed.zoom}`;
+  return `|${seed.cx}|${seed.cy}|${seed.ratio}|${seed.turn}|${seed.zoom}`;
+};
+
+/**
+ * What fraction of the window the picture is given to travel a whole move of its structure, and how
+ * long that is on a picture whose window is `period` seconds. **A fraction of a length the picture
+ * already has and never a clock of its own**, exactly as a ground move is timed off the landing the
+ * module already resolves (`playerGroundSecs`, src/lib/playerDrift.ts). Half, for the reason that
+ * one is a half: the travel is well over before the next place lands, and there is still enough of
+ * the window left for the eye to read the move as one motion.
+ */
+export const FRACTAL_TRAVEL = 1 / 2;
+
+export const fractalTravelSecs = (period: number): number =>
+  period > 0 ? period * FRACTAL_TRAVEL : 0;
+
+/**
+ * One step of the picture's travel, from where its structure has got to toward where the population
+ * standing now folds to — four `easedCentre` calls and nothing else. Every stop is already on the
+ * 0..1 the ground's own centre is measured in, so the repo's one eased motion applies verbatim and
+ * there is no second rate anywhere (`easedCentre`, src/lib/moire.ts, 0235).
+ *
+ * Constant rate and never a fraction of the gap: an exponential never arrives, and another place
+ * lands every twenty seconds or so — a picture permanently chasing the population two turnovers
+ * back is the smear this exists to replace.
+ */
+export function fractalTravelInto(
+  out: FractalStops,
+  to: Readonly<FractalStops>,
+  elapsed: number,
+  over: number,
+): void {
+  out.cx = easedCentre(out.cx, to.cx, elapsed, over);
+  out.cy = easedCentre(out.cy, to.cy, elapsed, over);
+  out.ratio = easedCentre(out.ratio, to.ratio, elapsed, over);
+  out.turn = easedCentre(out.turn, to.turn, elapsed, over);
 }
 
 /**
@@ -240,9 +333,13 @@ export function runStanding(grown: FractalRun): number {
 }
 
 /**
- * The identity a fractal row is folded from: every place standing anywhere in the rack, in the
- * order the read holds them. **The population and not one place of it** — the structure is what the
- * whole run is standing, so a run of six draws one set and the same six less one draws another.
+ * Where the picture stands on the plane, folded off every place standing anywhere in the rack, in
+ * the order the read holds them. **The population and not one place of it** — the structure is what
+ * the whole run is standing, so a run of six stands somewhere and the same six less one stands
+ * somewhere else, and the picture *travels* between the two rather than swapping (0248).
+ *
+ * The seed's identity and no longer the row's: what a row *is* — its angle, and the slot its
+ * fallback tile is held in — may not move when a place does, so that is `fractalKind` below.
  *
  * A word rather than an arithmetic mix, because that is what `fold` is for and what every other
  * identity in the picture is taken off (0076). Read once when the population turns over and never
@@ -255,6 +352,27 @@ export function fractalShape(grown: FractalRun): number {
       if (clamp(place.presence, 0, 1) > 0) word += ` ${place.instance}`;
     }
   }
+  return fold(word);
+}
+
+/**
+ * And what the fractal rows themselves *are*: the automators holding the run, and not the places
+ * they are standing. **The one thing in the picture that may not move when a place does** — the
+ * row's own angle is folded off it (`gratingTurns`, src/lib/moireGrating.ts), and so is the half of
+ * the slot its last baked tile is held in that says which row is asking (`order.slot`,
+ * src/ui/moireCanvas.ts). A picture travelling between places would otherwise swing its rows around
+ * at every turnover, which is the blank the eye reads as a hard cut (0248). The other half of that
+ * slot is where the row stands in the picture's own order, which a place arriving still moves,
+ * because a slot keyed on the shape alone would hand one row another's tile (0144, 0248).
+ *
+ * A word of the map's keys, for the reason `fractalShape` is a word: the keys are the automator
+ * instances the run is filed under, which is a fact about the rack and not about the run
+ * (`grownInto`, src/ui/moireRows.ts). So an automator arriving or retiring is a different
+ * structure, and a place coming and going inside one is the same structure somewhere new.
+ */
+export function fractalKind(grown: FractalRun): number {
+  let word = "the structure the rack is running";
+  for (const instance of grown.keys()) word += ` ${instance}`;
   return fold(word);
 }
 

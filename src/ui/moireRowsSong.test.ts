@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { fold } from "@/lib/copy";
+import { fractalStopsRest } from "@/lib/moireFractal";
 import {
   DRIFT_PITCH_REACH,
   DRIFT_REST,
@@ -91,6 +92,13 @@ const ARRIVED = Number.POSITIVE_INFINITY;
 /** And a picture of a performance that has just begun, which is where every case here reads it. */
 const FRESH = 0;
 
+/**
+ * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
+ * travels and every case reads the structure the picture would draw with nothing having moved
+ * (`fractalStopsRest`, src/lib/moireFractal.ts).
+ */
+const STOOD = fractalStopsRest();
+
 /** The per-frame read with nothing measured behind it, which is what every case here is about. */
 const refillRows = (
   rows: readonly MoireRow[],
@@ -101,7 +109,20 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): void => {
-  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED, FRESH);
+  filledRows(
+    rows,
+    reads,
+    peek,
+    rate,
+    loop,
+    duration,
+    analysis,
+    SILENT_MASTER,
+    ARRIVED,
+    FRESH,
+    STOOD,
+    STOOD,
+  );
 };
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */

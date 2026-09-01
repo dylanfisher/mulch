@@ -21,6 +21,7 @@ import {
   effectParamDefaults,
 } from "@/audio/params";
 import { fold } from "@/lib/copy";
+import { fractalStopsRest } from "@/lib/moireFractal";
 import { DRIFT_FEEDBACK_CEILING, type MoireRow } from "@/lib/moire";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
@@ -57,6 +58,13 @@ import { oneSong } from "@/lib/playerSongs";
  * (`easedCentre`, src/lib/moire.ts).
  */
 const ARRIVED = Number.POSITIVE_INFINITY;
+
+/**
+ * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
+ * travels and every case reads the structure the picture would draw with nothing having moved
+ * (`fractalStopsRest`, src/lib/moireFractal.ts).
+ */
+const STOOD = fractalStopsRest();
 
 const fedRow = () => row({ period: 3, feedback: 1 });
 
@@ -138,7 +146,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0);
+  refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, STOOD, STOOD);
   return rows;
 };
 

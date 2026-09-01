@@ -63,8 +63,13 @@ export const grownNothing = (): GrownStanding => ({ ids: [], draws: [] });
  * what each is cut to, is a function of a population nothing stores and nothing renders (0204), so
  * the only way to notice one moving is to have looked at the last one.
  *
- * The ids and not the count: six places going and six arriving in one tick is a different picture
- * of the same length. And the draws beside them, because a place's knobs are rewritten in place
+ * The automator's own id before each of its places, and the ids and not the count: six places going
+ * and six arriving in one tick is a different picture of the same length, and an automator that has
+ * grown nothing yet is a key with an empty row (`growth`, src/audio/effects/rack.ts) — invisible in
+ * its places and not invisible in the picture, because what the two fractal rows *are* is folded off
+ * these keys (`fractalKind`, 0248). Left out, a rack gaining an automator moved nothing until that
+ * automator's first place arrived, and the structure then swung round on a place rather than on a
+ * rack, which is the hard cut 0248 exists to remove. And the draws beside them, because a place's knobs are rewritten in place
  * where a run wanders (`wander`, src/audio/effects/automator.ts) — a row reaches through the values
  * its plugin declared a way into the picture for, exactly as a rack instance's does, and a rack
  * instance's row is rebuilt the moment one of those values moves.
@@ -79,7 +84,12 @@ export function grownStanding(was: GrownStanding, grown: GrownRun): boolean {
   let at = 0;
   let drawn = 0;
   let same = true;
-  for (const held of grown.values()) {
+  for (const [id, held] of grown) {
+    if (was.ids[at] !== id) {
+      was.ids[at] = id;
+      same = false;
+    }
+    at++;
     for (const each of held) {
       if (was.ids[at] !== each.instance) {
         was.ids[at] = each.instance;

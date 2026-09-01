@@ -67,7 +67,14 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
-import { deckLanes, moireRows, paintsPerFrame, carryGround, refillRows } from "@/ui/moireRows";
+import {
+  deckLanes,
+  moireRows,
+  paintsPerFrame,
+  carryFractal,
+  carryGround,
+  refillRows,
+} from "@/ui/moireRows";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
@@ -190,15 +197,21 @@ function useMoireRows(
   // analysis goes in whole rather than as the cut above: the reference row rests at the cut the
   // whole file makes and is recut by the stretch under the playhead, which only the onsets can
   // say (0196).
+  // One frame's read, and the two rebuilds that must happen before it: a helper would take the
+  // three refs this holds and have one caller. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   const refill = useCallback(() => {
     const peek = instrument.peek(deck);
     // Back to the session's own set whenever anything durable has moved, so a run's rows are grown
     // onto this build's picture and never onto the last one's.
     if (from.current !== session) {
-      // Carrying the ground rows' travel across, because neither of these rebuilds is a jump: a
-      // fresh set stands them in the middle of the picture, and a knob touch that swept the whole
-      // field back from there would be the smear the travel exists to replace (0235).
+      // Carrying the ground rows' travel across, and the picture's own structure with it, because
+      // neither of these rebuilds is a jump: a fresh set stands them in the middle of the picture,
+      // and a knob touch that swept the whole field back from there would be the smear the travel
+      // exists to replace (0235, 0248).
       carryGround(painted.current, session);
+      carryFractal(painted.current, session);
       painted.current = session;
       from.current = session;
       run.current.ids.length = 0;
@@ -210,6 +223,7 @@ function useMoireRows(
     if (!grownStanding(run.current, peek.grown)) {
       const grown = grow(peek.grown);
       carryGround(painted.current, grown);
+      carryFractal(painted.current, grown);
       painted.current = grown;
     }
     const set = painted.current;
@@ -236,6 +250,8 @@ function useMoireRows(
       master,
       elapsed,
       set.age,
+      set.seed,
+      set.toward,
     );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
@@ -273,7 +289,7 @@ function useMoirePicture(
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
-      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash, set.age);
+      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash, set.age, set.seed);
     },
     [refill],
   );

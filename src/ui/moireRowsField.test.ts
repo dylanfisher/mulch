@@ -19,7 +19,12 @@
 // makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { FRACTAL_BITE, FRACTAL_GEOMETRIES, FRACTAL_REACH } from "@/lib/moireFractal";
+import {
+  FRACTAL_BITE,
+  FRACTAL_GEOMETRIES,
+  FRACTAL_REACH,
+  fractalStopsRest,
+} from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
@@ -134,10 +139,31 @@ const refillRows = (
   analysis: BeatAnalysis | null,
   master: Readonly<MasterPeek>,
   elapsed: number,
-): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, master, elapsed, FRESH);
+): number =>
+  filledRows(
+    rows,
+    reads,
+    peek,
+    rate,
+    loop,
+    duration,
+    analysis,
+    master,
+    elapsed,
+    FRESH,
+    STOOD,
+    STOOD,
+  );
 
 /** And a picture of a performance that has just begun, which is where every case here reads it. */
 const FRESH = 0;
+
+/**
+ * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
+ * travels and every case reads the structure the picture would draw with nothing having moved
+ * (`fractalStopsRest`, src/lib/moireFractal.ts).
+ */
+const STOOD = fractalStopsRest();
 
 /** How far apart the deepest and the shallowest of these cuts stand. */
 const spread = (depths: readonly number[]): number => Math.max(...depths) - Math.min(...depths);
