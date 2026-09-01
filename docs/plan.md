@@ -38,21 +38,22 @@ Four things follow, and all four are visible on screen:
   at, so the place count re-slots both rows at a turnover — is what still blinks at its edges, and
   moireCanvasTiles.test.ts's "keeps a fractal row's fallback across a seed step" is where the rest
   of it is owed.
-- It barely moves — less so than it did. Its one motion is fractalZoom, a cosine breath over the
-  picture's window, twelve stops deep; the band that breath opens through is now how long the yard
-  has been sounding (`agedOpening`, 0251) and the row itself now travels with the ground the
-  reference row, the wash and the module's tiers travel with (0235, 0251). What is left is the
-  fly-through: the picture flying through its own structure while it plays, which is a motion of
-  its own and not a wider band on the breath.
+- It barely moved, and now it moves. fractalZoom is a cosine breath over the picture's window,
+  twelve stops deep; the band that breath opens through is how long the yard has been sounding
+  (`agedOpening`, 0251), the row travels with the ground the reference row, the wash and the
+  module's tiers travel with (0235, 0251), and the picture now flies through its own structure
+  while it plays — a motion of its own on the performance's own clock and not a wider band on the
+  breath (`fractalFlight`, 0261).
 
 The outcome wanted: the structure travels between the places a run stands rather than swapping; a
 place fading out while another fades in reads as one continuous run and never as an ending; the
 picture flies through its own structure while it plays; and the whole moiré is laid back into itself,
-so the picture zooms into itself the way the fractal does — the last of which is landed
-(`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`) — as are the ground
-anchor and the age's own opening
-(`docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md`), leaving the
-fly-through as the one item of the four still open.
+so the picture zooms into itself the way the fractal does. All four are landed
+(`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`; the ground anchor and
+the age's own opening in
+`docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md`; the fly-through
+in `docs/decisions/0261-the-picture-flies-through-its-structure-on-a-clock-of-its-own.md`), so what
+is left of this feature is the one case named under the tests below.
 
 Decided before planning: all four in one plan; the picture's self-zoom is frame feedback; and the
 fractal's motion may spend the bake budget for a fly-through.
@@ -103,13 +104,14 @@ moireRowsField.test.ts's "cuts the fractal row deeper under a resonant output", 
 make when a later step needs the room rather than for its own sake. "holds the rows while the run
 stands nothing and cuts nothing through them at wash: 1" is written (0249), and so is "asks the
 picture to fold back into itself at the depth the run is standing" (0250), and "stands its rows on
-the ground the yard is reading, and both of them on the one ground" (0251). Nothing is owed there
-until the fly-through has a step of its own.
+the ground the yard is reading, and both of them on the one ground" (0251), and "flies its two rows
+through the one structure at their own two rates" (0261). Nothing is owed there.
 
 src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
 same ladder"), and so is the age's own stop on it ("opens a fractal row's tile with the age, and
-asks for none between two steps of one", 0251). Still to write: keeps a fractal row's fallback
-across a seed step.
+asks for none between two steps of one", 0251) and the flight's ("flies a fractal row's tile through
+the structure as the yard sounds", 0261). Still to write: keeps a fractal row's fallback across a
+seed step, which is the whole of what this feature has left.
 
 src/lib/moireAge.test.ts — nothing is owed. "lays back what a standing run earns, over the band the
 age has opened" is written (0250), and so are "opens the structure inside its own band at every age,
@@ -122,8 +124,8 @@ composite. No claim here may rest on a whole-picture getImageData read —
 the harness stub answers one pixel, and that is the fault that let 0245's compensation ship
 (src/ui/moireCanvasPainted.ts:119-129).
 
-Mechanical ripple: moireCanvasPainted.ts:179 and moireScreen.test.ts:172 take paintMoire's new
-argument; the local refillRows wrapper at moireRowsField.test.ts:136 pins the two new ones.
+Mechanical ripple: moireCanvasPainted.ts and moireScreen.test.ts take paintMoire's arguments as
+they grow; the local refillRows wrapper at moireRowsField.test.ts:136 pins the ones it takes.
 
 ---
 
@@ -144,7 +146,7 @@ Verification
       while the coarse-block contrast rises.
     - Does the structure still read as a layer once it travels and is fed back? Answered yes on
       0251's own shot — broad arcs standing over a straight weave, on a yard six seconds into a
-      run — which is why the ground anchor was taken. Ask it again of the fly-through.
+      run — which is why the ground anchor was taken, and asked again of the fly-through on 0261's.
 3.  ./scripts/profile at the end of the feature and again inside the feedback step's own gate, against the
     ~10.4ms frame p95 band.
 4.  A decision record per step, no longer than the decision is.
@@ -427,7 +429,7 @@ pattern.
     `grain`? The ratio case answers the arithmetic; only a shot answers whether the eye agrees.
 3.  `./scripts/profile` at the end of the feature, against the ~10.4ms frame p95 band: two more
     processors on the audio thread, in a rack that holds every entry.
-4.  A decision record per step, no longer than the decision is. Next free is 0261.
+4.  A decision record per step, no longer than the decision is. Next free is 0262.
 
 ## Refused
 
@@ -570,7 +572,7 @@ wash does (0213) and `runStanding` does; neither is a parameter and neither is d
     ~10.4ms frame p95 band — steps 1 and 2 spend no bake by construction, and step 4 spends a read
     of the field per frame, which is the one that can cost.
 4.  A decision record per step, no longer than the decision is. The numbers follow whatever the
-    rack's three steps take; next free today is 0261.
+    rack's three steps take; next free today is 0262.
 
 ## Refused
 
@@ -583,7 +585,7 @@ staircase after they are walked.
 
 **A `washy` flag, tag or list on the effect registry.** Which effects wash out is a fact about their
 tails, and their tails are declared. A list would be that fact said twice and wrong the first time an
-entry is added (principle 1) — and 0261's own note should name the refusal, since it is the obvious
+entry is added (principle 1) — and that step's own note should name the refusal, since it is the obvious
 thing to propose.
 
 **Giving scatter a `driftFrom` into the new shatter.** The displacement is the whole field's and a

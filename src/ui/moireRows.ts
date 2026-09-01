@@ -448,7 +448,7 @@ export function moireRows(
   const stops = fractalStopsRest();
   const toward = fractalStopsRest();
   fractalStopsInto(toward, fractalShape(grown));
-  return { rows, reads, wash: 0, age: 0, seed: stops, toward, ...macro };
+  return { rows, reads, wash: 0, age: 0, sounding: 0, seed: stops, toward, ...macro };
 }
 
 /**

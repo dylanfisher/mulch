@@ -16,6 +16,10 @@
 // made agree, and they are declared in two files — so the case that holds them to each other has to
 // name both. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the soft file cap: this is one flat list of the fractal row's cases, all built through
+// the one builder and read through the one per-frame read, and the file it would split into is the
+// one it was already split out of. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -23,7 +27,9 @@ import { emptyMasterPeek } from "@/audio/context";
 import { DRIFT_REST, type MoireRow } from "@/lib/moire";
 import { DRIFT_RUN_FEEDBACK, runFeedback } from "@/lib/moireAge";
 import {
+  FRACTAL_BEAT,
   FRACTAL_BITE,
+  fractalFlight,
   fractalShape,
   fractalStopsInto,
   fractalStopsRest,
@@ -391,5 +397,25 @@ describe("the picture's own structure", () => {
     // One structure on two periods stands in one place: two anchors would beat the structure
     // against itself across the picture rather than at the scales it holds (`FRACTAL_BEAT`).
     expect(structure[0]?.centre).toBe(structure[1]?.centre);
+  });
+
+  /**
+   * 0261: the flight through the structure is the picture's and no row's, so what the rows owe it
+   * is the two periods it is *not* measured in — the window and the beat on it — and the field's
+   * own reading of how long the yard has sounded, which is where the flight is taken from. The
+   * window moves with what the picture is drawing (`moireWindowSecs`), which is exactly why a
+   * flight counted in windows would jump when the population turned over.
+   */
+  it("stands its two rows on the window and the beat on it, and has sounded nothing yet", () => {
+    const { set } = pictureOf(runOf("auto", "g0"));
+    const flying = set.rows.filter((row) => isFractalGeometry(row.geometry));
+    expect(flying).toHaveLength(2);
+    expect(set.windowSecs).toBeGreaterThan(0);
+    expect(flying[0]?.period).toBeCloseTo(set.windowSecs, 12);
+    expect(flying[1]?.period).toBeCloseTo(set.windowSecs * FRACTAL_BEAT, 12);
+    // And a picture nothing has sounded behind stands where the breath alone draws it, which is
+    // the reading the read fills and the paint spends (`sounding`, `fractalFlight`).
+    expect(set.sounding).toBe(0);
+    expect(fractalFlight(set.sounding)).toBe(1);
   });
 });

@@ -408,9 +408,55 @@ export const fractalCut = (standing: number, bite = FRACTAL_BITE): number =>
  * steps cost is nothing the eye can find.
  */
 export const FRACTAL_OPENING = 4;
-const FRACTAL_ZOOM_STEPS = 12;
+export const FRACTAL_ZOOM_STEPS = 12;
 export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
   opening ** (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS) / FRACTAL_ZOOM_STEPS);
+
+/**
+ * How far the picture is carried through its own structure while it plays, past wherever its
+ * breath alone would stand, and how long one whole flight takes.
+ *
+ * **A motion of its own and never a wider band on the breath.** The breath is the row's phase over
+ * the picture's window — the same journey every time it comes round — so on its own the picture
+ * opens into one part of the structure and closes back out of the same part for ever. The flight is
+ * the performance's own elapsed sounding, and what it moves is *where that breath is taken from*:
+ * `FRACTAL_OPENING` is untouched and an age still says how much of it this performance has earned,
+ * and the same opening is a different part of the structure at every pass. Which is the thing
+ * setting `FRACTAL_OPENING` higher cannot buy — that is one breath over a wider band, returning to
+ * the same place every window, and a dozenfold in and out inside one window is a flicker rather
+ * than a flight.
+ *
+ * **Seconds, and not a count of the picture's own windows.** That is the whole of why this takes no
+ * period: a window is recomputed from the longest row in the picture (`moireWindowSecs`,
+ * src/lib/moire.ts), so a run turnover that lays or retires a long row moves it — and a flight
+ * counted in windows would divide an unbounded sounding by a number that moves, which is many whole
+ * turns of jump an hour into a performance and the whole band inside one frame. The length this
+ * motion is a fraction of is the performance, and a performance is measured in seconds
+ * (`DRIFT_AGE_REACH_SECS`, src/lib/moireAge.ts). Four minutes is a dozen of an automator's
+ * turnovers, so the flight is the slow motion the travel is not, and several whole flights are over
+ * before the picture is old.
+ *
+ * **The picture's and not a row's**, for the same reason its stops are (0248): the two fractal rows
+ * are one structure, so one flight carries both and their beat stays the one `FRACTAL_BEAT` gives
+ * them.
+ *
+ * **On the sounding and not on wall time**, for `driftAge`'s own reason (src/lib/moireAge.ts): a
+ * paused instrument is not flying anywhere. A halt sends the sounding back to nought
+ * (`DeckPeek.sounding`), so the flight lands back where a picture with nothing sounded stands —
+ * exactly as the age lands back on its floor, and the same fact rather than a second one.
+ *
+ * **And a breath rather than a dive, which is measured rather than chosen.** An endless dive has to
+ * wrap, and a wrap is only invisible where the structure repeats: a folded plane repeats exactly
+ * every `ratio` of scale, and an escape field repeats at no scale at all — so a dive would step one
+ * of the two coordinates from deep to wide inside one frame, which is the hard cut 0248 and 0249
+ * spent themselves removing. Cut on the one ramp above instead, so it opens and closes and its
+ * slope comes back where it left.
+ */
+export const FRACTAL_FLIGHT = 3;
+export const FRACTAL_FLIGHT_SECS = 4 * 60;
+
+export const fractalFlight = (sounding: number): number =>
+  sounding > 0 ? fractalZoom(sounding / FRACTAL_FLIGHT_SECS, FRACTAL_FLIGHT) : 1;
 
 /**
  * Where a point stands along an escape-time row's own axis, in cycles: the smooth iteration count

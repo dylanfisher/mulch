@@ -65,8 +65,9 @@ export type DeckPeek = {
    * sounding and not wall time**: a paused instrument is not a maturing one and a session left
    * open overnight has not been anywhere, so it counts from the instant the worklet reported the
    * standing plan started and any halt sends it back to nought. Raw seconds, the way the crest
-   * above is raw — what a picture makes of them is `driftAge` (src/lib/moireAge.ts) and nowhere
-   * else. Nothing durable rests on it: it is a reading of the transport exactly as `position` is
+   * above is raw — what a picture makes of them is `driftAge` (src/lib/moireAge.ts), and the flight
+   * through the picture's own structure, which spends the raw seconds rather than the age
+   * (`fractalFlight`, src/lib/moireFractal.ts, 0261). Nothing durable rests on it: it is a reading of the transport exactly as `position` is
    * (0145, 0128).
    */
   sounding: number;

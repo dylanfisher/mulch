@@ -66,6 +66,7 @@ import {
   fractalKeyed,
   fractalRest,
   fractalSeedInto,
+  fractalFlight,
   fractalStopsRest,
   fractalZoom,
   isFractalGeometry,
@@ -304,13 +305,12 @@ function aim(
 function placeCurved(
   row: MoireRow,
   at: number,
-  turns: number,
   pitch: number,
   width: number,
   height: number,
   ref: number,
   seed: Readonly<FractalStops>,
-  age: number,
+  zoom: number,
 ): void {
   const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
@@ -329,9 +329,9 @@ function placeCurved(
   stepping.cy = stepped(seed.cy, DRIFT_CENTRE_REACH);
   stepping.ratio = stepped(seed.ratio, DRIFT_CENTRE_REACH);
   stepping.turn = stepped(seed.turn, DRIFT_CENTRE_REACH);
-  // And how far that opening may go, which is how long the performance behind it has sounded, on
-  // the ladder every other key here is on (`agedOpening`, 0251).
-  fractalSeedInto(place, stepping, fractalZoom(turns, agedOpening(age)));
+  // And how far the picture has opened into that structure, which the caller resolved: two scales
+  // multiplied, on the one ladder every other key here is on (`cutGratings`).
+  fractalSeedInto(place, stepping, zoom);
   order.geometry = row.geometry;
   order.profile = row.profile;
   order.width = width;
@@ -407,6 +407,10 @@ export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =
  * pitch says how fast and the angle says which parameter (0137). How deep it cuts and how fine it
  * is drawn are its own share of both, which is what its effect is set to (0139).
  */
+// One pass over the rows, and every line of it is one row's own reading: the spacing, the phase,
+// the depth, and — for a curved row — the flight its period puts it on before it is placed. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function cutGratings(
   field: HTMLCanvasElement,
   ink: CanvasRenderingContext2D,
@@ -417,8 +421,13 @@ function cutGratings(
   wash: number,
   seed: Readonly<FractalStops>,
   age: number,
+  sounding: number,
 ): boolean {
   const { height, width } = field;
+  // How far the picture has flown through its own structure, resolved once for the whole pass: the
+  // flight is the picture's and no row's, exactly as the plane its structure stands on is (0248,
+  // 0261).
+  const flight = fractalFlight(sounding);
   const depth = gratingDepth(count, PICTURE_FLOOR);
   const ref = geometryRef(width, height);
   let at = -1;
@@ -445,7 +454,19 @@ function cutGratings(
       continue;
     }
     ink.globalAlpha = cut;
-    placeCurved(row, at, turns, pitch, width, height, ref, seed, age);
+    // How far the picture has opened into its own structure: this row's breath, over the band the
+    // performance behind it has earned (`agedOpening`, 0251), carried by the flight that same
+    // performance is on. Two scales multiplied and never one band widened (0261).
+    placeCurved(
+      row,
+      at,
+      pitch,
+      width,
+      height,
+      ref,
+      seed,
+      fractalZoom(turns, agedOpening(age)) * flight,
+    );
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
     // painting rather than holding the whole picture up for it (0144). Every other row goes on.
@@ -573,6 +594,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `seed`, where the picture's own structure has travelled to on its plane — the field's and no
  * row's, like the two above, and travelled there by the same read that filled them
  * (`fractalTravelInto`, 0248). A picture with no fractal row in it never reads it.
+ *
+ * And `sounding`, how long the deck behind it has sounded without a break in seconds — the number
+ * `age` is resolved off (`DeckPeek.sounding`), handed in beside it because the flight through the
+ * structure is a row's own and cannot be resolved once beside the set: the two fractal rows fly at
+ * their two periods (`fractalFlight`).
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -585,6 +611,7 @@ export function paintMoire(
   wash: number,
   age: number,
   seed: Readonly<FractalStops>,
+  sounding: number,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -614,7 +641,7 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age)) {
+  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding)) {
     forget(canvas);
     endPainting();
     return;

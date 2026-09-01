@@ -13,12 +13,20 @@
 // the arithmetic it measures plus the sweep it measures it across, and a helper per case would be a
 // fixture nothing else reads. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
+// And over the soft file cap, for the reason the file it tests is (0007): this is one coordinate's
+// whole arithmetic, and the flight cannot be read apart from the breath it is multiplied against
+// any more than a stop can be read apart from the band it is a fraction of.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { fold } from "@/lib/copy";
 import {
   escapeTurns,
   FRACTAL_BITE,
+  FRACTAL_FLIGHT,
+  FRACTAL_FLIGHT_SECS,
+  fractalFlight,
+  FRACTAL_ZOOM_STEPS,
   FRACTAL_WANDER,
   FRACTAL_GEOMETRIES,
   FRACTAL_LEVEL_CYCLES,
@@ -262,6 +270,64 @@ describe("the opening", () => {
     const stops = new Set<number>();
     for (let at = 0; at < 200; at += 1) stops.add(fractalZoom(at / 200));
     expect(stops.size).toBeGreaterThan(8);
+  });
+});
+
+describe("the flight", () => {
+  /**
+   * 0261: the breath is the row's phase over the picture's window and is the same journey every
+   * time it comes round; the flight is the performance's own sounding, and what it moves is where
+   * that journey is taken from. So the band on the breath is untouched and the picture is
+   * somewhere new at every pass.
+   */
+  it("carries the picture through its structure on a clock of its own", () => {
+    // A yard that has sounded nothing is exactly the picture the breath alone draws.
+    expect(fractalFlight(0)).toBe(1);
+    expect(fractalFlight(FRACTAL_FLIGHT_SECS / 2)).toBeCloseTo(FRACTAL_FLIGHT, 12);
+    expect(fractalFlight(FRACTAL_FLIGHT_SECS)).toBeCloseTo(1, 12);
+    // And the breath's own band is the band it was: the flight is a second scale and never a
+    // wider opening (`FRACTAL_OPENING`).
+    expect(fractalZoom(0.5)).toBeCloseTo(FRACTAL_OPENING, 12);
+  });
+
+  /**
+   * Seconds and never a count of the picture's own windows, which is the whole of why it takes no
+   * period: a window is recomputed from the longest row in the picture, so a run turnover moves it
+   * — and an unbounded sounding divided by a number that moves is many whole turns of jump an hour
+   * into a performance. The flight is one number for the picture at any sounding, whatever the
+   * rows are doing.
+   */
+  it("is a length of the performance and not a count of the picture's windows", () => {
+    for (const secs of [7, 60, 137, 1200, 3600]) {
+      expect(fractalFlight(secs)).toBe(fractalZoom(secs / FRACTAL_FLIGHT_SECS, FRACTAL_FLIGHT));
+    }
+  });
+
+  /** Nothing sounded, and a halt, are the same picture: the one the breath alone draws. */
+  it("stands still with nothing sounded", () => {
+    expect(fractalFlight(-4)).toBe(1);
+    expect(fractalFlight(0)).toBe(1);
+  });
+
+  /**
+   * A breath and not a dive, and that is the whole of why it is safe: an endless dive has to wrap,
+   * a wrap is only invisible where the structure repeats, and an escape field repeats at no scale
+   * at all — so it would step one of the two coordinates from deep to wide inside one frame.
+   */
+  it("never steps the picture from deep to wide", () => {
+    // One stop of the one ramp both openings are cut on, which is the most it may ever move by.
+    const stop = FRACTAL_FLIGHT ** (1 / FRACTAL_ZOOM_STEPS);
+    let last = fractalFlight(0);
+    let moved = 0;
+    for (let at = 1; at <= 2000; at += 1) {
+      const now = fractalFlight((2 * FRACTAL_FLIGHT_SECS * at) / 2000);
+      const step = now > last ? now / last : last / now;
+      expect(step).toBeLessThanOrEqual(stop + 1e-12);
+      if (now !== last) moved += 1;
+      last = now;
+    }
+    // And it does fly: two whole flights climb every stop of the ramp and come back down them.
+    expect(moved).toBe(4 * FRACTAL_ZOOM_STEPS);
   });
 });
 

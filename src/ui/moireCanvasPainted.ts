@@ -60,7 +60,8 @@ export function painterOn(stubGlobal: StubGlobal) {
     // And how washed the yard the picture is of sounded, which the painter spends over every row's
     // own depth at once (0213) — and how old the performance behind it is, which is the band its
     // ink is carried across (src/lib/moireAge.ts) — and where the picture's own structure has
-    // travelled to, which belongs to the field the same way (0248).
+    // travelled to, which belongs to the field the same way (0248) — and how long the deck behind
+    // it has sounded, which is what the flight through that structure runs on (`fractalFlight`).
     {
       frames = 1,
       advance = FRAME_SECS,
@@ -68,6 +69,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       wash = 0,
       age = 0,
       seed = fractalStopsRest(),
+      sounding = 0,
     }: {
       frames?: number;
       advance?: number;
@@ -75,6 +77,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       wash?: number;
       age?: number;
       seed?: FractalStops;
+      sounding?: number;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -180,7 +183,16 @@ export function painterOn(stubGlobal: StubGlobal) {
       getPropertyValue: (token: string) => `the ${token} the theme resolved`,
     }));
     for (let frame = 0; frame < frames; frame++) {
-      paintMoire(canvas, rows, windowSecs, "the token the theme resolved", wash, age, seed);
+      paintMoire(
+        canvas,
+        rows,
+        windowSecs,
+        "the token the theme resolved",
+        wash,
+        age,
+        seed,
+        sounding,
+      );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.
       between?.(frame);

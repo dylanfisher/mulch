@@ -166,8 +166,16 @@ export type MoireRowSet = {
    */
   age: number;
   /**
+   * And how long that deck has sounded without a break, in seconds — the third, and the reading
+   * `age` above is resolved off it (`driftAge`, src/lib/moireAge.ts). Kept beside it because the
+   * paint spends the raw seconds too: the picture's flight through its own structure is measured in
+   * seconds of the performance and in no count of the picture's own windows
+   * (`fractalFlight`, src/lib/moireFractal.ts, 0261). Nought until a read has filled it.
+   */
+  sounding: number;
+  /**
    * Where the picture's own structure has travelled to, and where the population it is standing on
-   * folds to — the third and fourth things here that belong to the field rather than to a row. What
+   * folds to — the fourth and fifth things here that belong to the field rather than to a row. What
    * an escape field is a picture of is the whole run, which is no row's, and the two fractal rows
    * are one structure on two periods (0246, 0248). The travel is written by `refillRows` and read
    * by the paint; the target is filled once when the set is built, because a population that has
@@ -280,7 +288,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "seed" | "toward"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "sounding" | "seed" | "toward"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);

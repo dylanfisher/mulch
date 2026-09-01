@@ -9,11 +9,15 @@
 // One import per thing a tile's key is built from, and the picture's own structure is the third of
 // them: the count tracks what a bake reads, exactly as it does in the file this split out of (0007).
 // oxlint-disable import/max-dependencies
+// And over the soft file cap: every case here is one bake count taken off the one tile shop, and a
+// second file of them would be the same fixtures declared twice. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { DRIFT_CENTRE_REACH, DRIFT_STEPS } from "@/lib/moire";
-import { fractalStopsRest, fractalTravelSecs } from "@/lib/moireFractal";
+import { FRACTAL_FLIGHT_SECS, fractalStopsRest, fractalTravelSecs } from "@/lib/moireFractal";
 import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { moireRow as row } from "@/lib/moireRow";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -353,6 +357,52 @@ describe("moireCanvas tiles", () => {
     // And an age that has moved inside one step of the ladder is exactly the picture it was — as
     // is the age the picture was first drawn at, which the shop is still holding.
     expect(bakedAt(1 - 1e-6)).toBe(0);
+    expect(bakedAt(0)).toBe(0);
+  });
+
+  it("flies a fractal row's tile through the structure as the yard sounds, and asks for none between two stops", () => {
+    // 0261: the flight is the second thing that opens the row, on the performance's own clock
+    // rather than on the row's phase — so it lands in the tile's key exactly as the breath and the
+    // age do, and is stepped on the same ramp for the same reason (`fractalFlight`).
+    forgetDriftTiles();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    // The read that gives the structure its depth, so the rows are drawn at all. Their phases stay
+    // where it leaves them — at the bottom of the breath, where the opening is the flight's alone.
+    refillRows(
+      set.rows,
+      set.reads,
+      { ...emptyDeckPeek(), grown: ONE_PLACE },
+      1,
+      null,
+      0,
+      null,
+      SILENT_MASTER,
+      ARRIVED,
+      0,
+      set.seed,
+      set.toward,
+    );
+    const whole = FRACTAL_FLIGHT_SECS;
+    const bakedAt = (sounding: number): number =>
+      baked(
+        paintedOn(100, 50, set.rows, 2, WINDOW, {
+          frames: 3,
+          advance: 0,
+          seed: set.seed,
+          sounding,
+        }),
+        100,
+      );
+    // The structure is baked where a yard that has sounded nothing stands.
+    const fresh = bakedAt(0);
+    expect(fresh).toBeGreaterThan(0);
+    // A yard that has been sounding is deep in the same structure somewhere else, which is that
+    // many tiles again the shop is not holding.
+    expect(bakedAt(whole / 2)).toBe(fresh);
+    // And a sounding that has moved inside one stop of the ladder is exactly the picture it was —
+    // as is where the picture was first drawn, which the shop is still holding.
+    expect(bakedAt(whole / 2 + 1e-6)).toBe(0);
     expect(bakedAt(0)).toBe(0);
   });
 
