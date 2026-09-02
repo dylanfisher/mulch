@@ -70,11 +70,16 @@ function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanv
  * (0278, 0269) — so a rack of those alone hands the cut the field it was given and draws the
  * picture it drew before there was a chain. Reverb's bloom is the first that does take one (0280),
  * and every later pass arrives into this same loop by declaring itself into `LOOKS`.
+ *
+ * **And every pass is handed the same two numbers whether it reads them or not**: which way the
+ * whole picture is being blown (0282) and how long the deck behind it has sounded, which is the one
+ * clock the picture moves on (0126, 0285). A pass that wants neither takes four arguments.
  */
 function passLooks(
   field: HTMLCanvasElement,
   looks: readonly MoireLook[],
   veer: number,
+  clock: number,
 ): HTMLCanvasElement {
   let source = field;
   for (const { look, at, terms } of looks) {
@@ -96,7 +101,7 @@ function passLooks(
     // echoes are the first pass to leave anywhere but one (0282).
     ink.imageSmoothingEnabled = true;
     ink.clearRect(0, 0, into.width, into.height);
-    declared.pass(ink, source, at, terms, veer);
+    declared.pass(ink, source, at, terms, veer, clock);
     source = into;
   }
   return source;
@@ -129,12 +134,13 @@ export function cutField(
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
   veer: number,
+  clock: number,
 ): void {
   const { height, width } = field;
   // The chain first: the finished field through every pass the standing looks take, in rack order,
-  // each handed the one direction the whole picture is blowing in (0282). What comes back is the
-  // field itself wherever no standing look takes a slot.
-  const passed = passLooks(field, looks, veer);
+  // each handed the one direction the whole picture is blowing in (0282) and the one clock it moves
+  // on (0126). What comes back is the field itself wherever no standing look takes a slot.
+  const passed = passLooks(field, looks, veer, clock);
   const shatter = looksShatter(looks);
   const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);
   const lens = bold === null ? 0 : bold.lens;

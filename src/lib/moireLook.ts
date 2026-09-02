@@ -18,6 +18,9 @@
 // draw a look it has never heard of (0279, 0280). Splitting the draws off would put half of what a
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+import { cosTurn, wrap } from "@/lib/moire";
+import { mulberry32 } from "@/lib/random";
+import { LENS_SLICES } from "@/lib/moireGeometry";
 import { clamp, denormalize } from "@/lib/range";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
@@ -30,6 +33,7 @@ export const LOOK_NAMES = [
   "blocks",
   "echoes",
   "sharpen",
+  "wobble",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -47,6 +51,8 @@ export const LOOK_TERMS = [
   "count",
   "fade",
   "saturation",
+  "wobble",
+  "grain",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -82,6 +88,12 @@ export type LookAt = "field" | "bake" | "cut" | "pass";
  * and the picture already has exactly one — a second would be a way the picture moves that nothing
  * else agreed to (principle 1) — so the chain hands every pass the one it has and the two passes
  * that displace nothing take four arguments and ignore it.
+ *
+ * And `clock`, how long the deck behind the picture has sounded without a break, in seconds
+ * (`DeckPeek.sounding`). A pass that *moves* needs a clock, and the picture already has exactly one
+ * and it is the deck's (0126) — so the chain hands every pass the one it has, for the veer's reason,
+ * and a halted yard hands the same second twice and the motion stands still (0144). The wobble is
+ * the first pass to read it and the four before it take five arguments and ignore it.
  */
 export type LookPass = (
   into: CanvasRenderingContext2D,
@@ -89,6 +101,7 @@ export type LookPass = (
   presence: number,
   terms: LookTerms,
   veer: number,
+  clock: number,
 ) => void;
 
 /**
@@ -439,6 +452,204 @@ const sharpenPass: LookPass = (into, source, presence, terms) => {
 };
 
 /**
+ * The furthest one band of a wobbling picture swims sideways, as a share of the field's own width —
+ * the echoes' units and the echoes' reason (0282): a displacement of the picture lands on no grid,
+ * so the strip, the overlay and an export at any scale swim by the same amount of picture. **And a
+ * narrower band than the echoes take**, because what a wobble says is that the rows are *not
+ * straight*: the swim is read against the row above it, so a band slid further than the lattice's
+ * own cell no longer stands beside its neighbour at all and the picture reads as torn rather than as
+ * swimming.
+ */
+export const WOBBLE_CEILING = 1 / 64;
+
+/**
+ * How far one band of the field is slid at the most: the wobble term its entry declared — the tape's
+ * own Wow, which is how far the head wanders — weighted by how present the picture has travelled the
+ * instance to, under the ceiling. The fourth share weighed this way and the helper's whole point
+ * (principle 3). At nothing the field is drawn where it stands, so a tape arriving swims the picture
+ * out of the straight rather than switching between two pictures.
+ */
+export const wobbleSwim = (presence: number, wobble: number): number =>
+  weighed(presence, wobble, WOBBLE_CEILING);
+
+/**
+ * How fast the swim goes round, in cycles a second, and how many of those cycles stand down the
+ * picture at once. The rate is inside the band the tape's own head wanders on (`WOW_BAND`,
+ * src/audio/worklets/tape.js — a worklet imports nothing, so the picture states its own number and
+ * this is the sound's own band read off it): fast enough that a glance catches the picture moving
+ * and slow enough to read as wow rather than as flutter. Under two waves down the field, because a
+ * wave a band deep is noise and what this pass draws is one long swim the eye can follow.
+ */
+export const WOBBLE_HZ = 0.75;
+export const WOBBLE_WAVES = 1.5;
+
+/**
+ * Where one band stands in its own swim, on -1 to 1: a sine of the tape's own clock, offset down the
+ * picture so the bands are never all slid the same way at once — which is what makes it a swim and
+ * not the whole field sliding. Read off the deck's clock and never off a count of frames, for the
+ * feedback turn's reason: the picture has one clock and it is the deck's (0126).
+ */
+export const wobbleSlide = (clock: number, slice: number, slices: number): number =>
+  cosTurn(clock * WOBBLE_HZ + (slice / Math.max(1, slices)) * WOBBLE_WAVES);
+
+/**
+ * The most of the picture's ink the grain takes out. Well short of the whole of it: every speck is
+ * ink the screen keeps (0281), so a grain at one would be a picture of the noise floor rather than a
+ * picture with a noise floor under it.
+ */
+export const GRAIN_CEILING = 0.5;
+
+/**
+ * How hard the grain bites: the grain term its entry declared — the tape's own Hiss — weighted by
+ * how present the picture has travelled the instance to, under the ceiling. The fifth share the one
+ * helper weighs, and the ceiling is this look's own (0283).
+ */
+export const grainBite = (presence: number, grain: number): number =>
+  weighed(presence, grain, GRAIN_CEILING);
+
+/**
+ * The noise tile: how wide it is baked, how wide one speck of it is, how much of it is left clear,
+ * and how fast it is swept across the picture in its own pixels a second.
+ *
+ * **Big enough that the sweep is the motion and not the tiling.** A tile is drawn once per tile of
+ * field it covers, so a small one is a dozen draws a frame and a repeat the eye can find; this is
+ * three or four draws over an overlay and one over the strip. A speck of three device pixels stands
+ * under the lattice's own cell, which is what makes it grain and not blocks (0281). And half the
+ * tile is left clear on purpose: a noise laid over the whole picture is a wash that takes the same
+ * ink out everywhere, where sparse specks read as grain and shift the picture's own mean by half as
+ * much (0269's rule said of a mask).
+ */
+export const GRAIN_TILE = 512;
+export const GRAIN_SPECK = 3;
+export const GRAIN_FLOOR = 0.5;
+export const GRAIN_SWEEP = 24;
+
+/** The seed the specks are drawn from — one constant, so the grain is the same grain every run. */
+const GRAIN_SEED = 0x5f_37_59_df;
+
+/**
+ * The tile's own alpha, written once into the bytes a caller hands in: one value per speck, sparse
+ * by the floor, and nothing in the colour channels — what a grain does is take ink out, and the
+ * composite that does it reads the alpha alone. The lattice's tile is written this way and for this
+ * reason (`latticeTile`, src/lib/moireLattice.ts): the per-pixel work is a bake, and a bake is
+ * priced once and never on a frame (0129, 0144).
+ */
+export function grainTile(alpha: Uint8ClampedArray, size: number, speck: number): void {
+  if (!(speck > 0)) throw new Error(`A speck ${speck} wide grains nothing.`);
+  const across = Math.ceil(size / speck);
+  const random = mulberry32(GRAIN_SEED);
+  const specks = new Float64Array(across * across);
+  for (let at = 0; at < specks.length; at++) {
+    specks[at] = Math.max(0, ((random() - GRAIN_FLOOR) / (1 - GRAIN_FLOOR)) * 255);
+  }
+  for (let y = 0; y < size; y++) {
+    const row = Math.floor(y / speck) * across;
+    for (let x = 0; x < size; x++) {
+      alpha[(y * size + x) * 4 + 3] = Math.round(specks[row + Math.floor(x / speck)] ?? 0);
+    }
+  }
+}
+
+/**
+ * The tile itself, baked the first time a picture wobbles and never again — one tile for the whole
+ * app, because what is on it is noise and no picture's noise is another's (0142's key said of a
+ * surface). Kept here rather than handed down the chain: a seventh argument every pass carried for
+ * one look's sake would be the veer's mistake made twice (0282).
+ */
+let grain: HTMLCanvasElement | null | undefined;
+
+function grainOf(): HTMLCanvasElement | null {
+  if (grain !== undefined) return grain;
+  const made = document.createElement("canvas");
+  made.width = GRAIN_TILE;
+  made.height = GRAIN_TILE;
+  const ink = made.getContext("2d");
+  // An engine that will not hand back the tile's context draws the swim and no grain, which is
+  // louder than a picture silently left ungrained and quieter than no picture at all — **and the
+  // refusal is remembered**, exactly as a tile this engine would not bake is (`curvedTileFor`,
+  // src/ui/driftTiles.ts): a refusal retried is a surface allocated and dropped every painting.
+  if (ink === null) {
+    grain = null;
+    return null;
+  }
+  const field = ink.createImageData(GRAIN_TILE, GRAIN_TILE);
+  grainTile(field.data, GRAIN_TILE, GRAIN_SPECK);
+  ink.putImageData(field, 0, 0);
+  grain = made;
+  return grain;
+}
+
+/**
+ * The wobble, drawn: the field back down in the slices the lens already cuts it in, each slid
+ * sideways by a sine of the tape's own clock — and then the noise tile swept over the whole of it
+ * `destination-out`, which is a speck of ink kept everywhere the tile is opaque. Draws of what is
+ * already drawn and one tile baked before any of them, no fill over the picture and no pixel touched
+ * on a frame (0129, 0269).
+ *
+ * **Each band is drawn twice, a width apart, for the cut's own reason** (`cutAcross`,
+ * src/ui/moireCanvasField.ts): the column a slide leaves behind is covered by the copy on the far
+ * side of the edge rather than left blank down the picture. Written here rather than shared with the
+ * cut because that cut lands on the screen and this one lands on the pass's own surface — and
+ * because the file it lives in is a tier this one may not import from (docs/map.md).
+ *
+ * **And the grain takes ink out rather than masking it in.** The plan's draw was `destination-in`,
+ * and with a tile baked once it cannot be: the composite multiplies the field by the tile *and by
+ * the share*, so a grain at half its range would halve the whole field's coverage and the picture
+ * would go solid rather than speckled. `destination-out` is the same tile read from the other side —
+ * the field times one minus its own share of the noise — so the specks are the only thing that
+ * moves and the term rides the share the way every other pass's does.
+ */
+const wobblePass: LookPass = (into, source, presence, terms, _veer, clock) => {
+  const swim = wobbleSwim(presence, terms.wobble ?? 0);
+  const { width, height } = source;
+  // A tape at no wow at all, and one the picture has not travelled to yet, are both the field where
+  // it stands — and this is the one draw that says so. The grain still runs: hiss is not wow.
+  if (swim <= 0) into.drawImage(source, 0, 0);
+  else {
+    for (let slice = 0; slice < LENS_SLICES; slice++) {
+      const top = Math.floor((slice * height) / LENS_SLICES);
+      const deep = Math.floor(((slice + 1) * height) / LENS_SLICES) - top;
+      if (deep <= 0) continue;
+      const slid = swim * width * wobbleSlide(clock, slice, LENS_SLICES);
+      into.drawImage(source, 0, top, width, deep, slid, top, width, deep);
+      // The cut's own guard, for the cut's own reason: a band drawn twice where it already stands
+      // composes with itself rather than covering the column a slide left behind. A sine is never
+      // exactly nought in a double, so this is parity with `cutAcross` and not a bug it caught.
+      if (slid !== 0) {
+        into.drawImage(
+          source,
+          0,
+          top,
+          width,
+          deep,
+          slid - Math.sign(slid) * width,
+          top,
+          width,
+          deep,
+        );
+      }
+    }
+  }
+  const bite = grainBite(presence, terms.grain ?? 0);
+  if (bite <= 0) return;
+  const tile = grainOf();
+  if (tile === null) return;
+  into.globalCompositeOperation = "destination-out";
+  into.globalAlpha = bite;
+  // Swept diagonally on the same clock the swim rides, so the noise floor crawls rather than
+  // standing as one pattern printed on the picture — two dozen pixels a second, which is eight
+  // specks' worth and a crawl rather than a curtain drawn across the picture. The offset wraps into
+  // the tile, so nothing here depends on how long the deck has run.
+  // On whole pixels: the chain hands every pass a smoothing context (0281), so a tile placed on a
+  // fraction is filtered against what lies outside its own rect and the column where two tiles meet
+  // comes back under-grained — a hairline every tile across a surface wider than one.
+  const swept = Math.round(wrap(clock * GRAIN_SWEEP, GRAIN_TILE));
+  for (let down = -swept; down < height; down += GRAIN_TILE) {
+    for (let over = -swept; over < width; over += GRAIN_TILE) into.drawImage(tile, over, down);
+  }
+};
+
+/**
  * The looks, and the whole of what a look is to anything outside this file. **A look two entries
  * claim is refused at load, exactly as a drift profile is** (0122): an effect's look is its whole
  * identity in a glance at the picture, and two entries wearing one would draw the same move twice
@@ -493,6 +704,21 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * Colour is the tile's, and a pass that recoloured the field a frame is the one 0269 refused.
    */
   sharpen: { at: "pass", terms: { amount: "turn", saturation: "turn" }, pass: sharpenPass },
+  /**
+   * Tape's: the field swimming sideways band by band on the machine's own clock, with the medium's
+   * own grain taken out of the ink over it — so the picture keeps every row it had and stops being
+   * straight and stops being clean. How far a band swims is the Wow, on its own range; how thick the
+   * grain over it is, is the Hiss, on its.
+   *
+   * **And the third thing a tape does to the picture is already drawn.** Its Tone is the warm end of
+   * the machine, and it reaches the picture as the row's own `hue` — which is where between the cool
+   * ink and the hot one the row is drawn (0141, `driftFrom` in src/audio/effects/tape.ts). A tint
+   * term here could only land in the same place: colour is the tile's and no pass may recolour the
+   * field on a frame (0269), so it would reach the screen's ink — whose hue is claimed off the
+   * boldest row, which is the claim this knob already makes. One knob into two dimensions is a knob
+   * doing two jobs; two roads into one dimension is principle 1 (0285).
+   */
+  wobble: { at: "pass", terms: { wobble: "turn", grain: "turn" }, pass: wobblePass },
 };
 
 /**

@@ -17,10 +17,14 @@ import {
   ECHO_FADE,
   ECHO_SPACING,
   echoCount,
+  GRAIN_CEILING,
+  GRAIN_TILE,
   echoSpacing,
   LOOKS,
   SHARPEN_CEILING,
   SHARPEN_SCALE,
+  WOBBLE_CEILING,
+  wobbleSlide,
   type Look,
   type LookName,
   type LookTerms,
@@ -28,7 +32,7 @@ import {
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
-import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import type { MoireLook } from "@/ui/moireLooks";
 import { shapeRest } from "@/ui/moireShape";
 
@@ -481,6 +485,74 @@ describe("cutField", () => {
     });
     expect(off.surfaces[at]?.drew).toHaveLength(1);
     expect(fills(off)).toEqual(fills(plain));
+  });
+
+  // P285: tape's wobble, and the first pass that moves on the picture's own clock.
+  it("swims the field in bands and grains it with a tile, and never by filling over it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    // A clock standing at nought, so the sine of it is where the case can read it.
+    const taped = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("wobble", { wobble: 1, grain: 1 })],
+      sounding: 0,
+    });
+    const pass = taped.surfaces[at];
+    const field = taped.elements[0];
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written on this surface — the one pixel field
+    // this pass writes is the noise tile's own, baked on a surface of its own before any draw.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // One band per slice the lens already cuts the field in, each drawn twice a width apart so the
+    // column a slide leaves behind is covered by the copy on the far side of it (`cutAcross`).
+    const deep = Math.floor((field?.height ?? 0) / LENS_SLICES);
+    const bands = pass?.drew.filter((each) => each.over === "source-over") ?? [];
+    expect(bands).toHaveLength(2 * LENS_SLICES);
+    expect(bands.every((each) => each.tile === field)).toBe(true);
+    const wide = field?.width ?? 0;
+    const slid = WOBBLE_CEILING * wide * wobbleSlide(0, 0, LENS_SLICES);
+    expect(bands[0]?.box).toEqual([0, 0, wide, deep, slid, 0, wide, deep]);
+    expect(bands[1]?.box).toEqual([0, 0, wide, deep, slid - wide, 0, wide, deep]);
+    // And the bands are not all slid the same way at once, which is what makes it a swim rather
+    // than the whole field sliding sideways.
+    expect(bands[2 * (LENS_SLICES / 2)]?.box[4]).not.toBeCloseTo(slid, 6);
+    // Then the grain: the tile taken out of the ink at the bite, off a surface of its own that the
+    // painting baked one pixel field into and never the field.
+    const grained = pass?.drew.filter((each) => each.over === "destination-out") ?? [];
+    expect(grained.length).toBeGreaterThan(0);
+    // And the grain is taken out *after* the bands are laid, never before: bands drawn over it
+    // would put back the ink the tile had just taken and the grain would be nowhere in the picture.
+    expect(pass?.drew.findIndex((each) => each.over === "destination-out")).toBe(2 * LENS_SLICES);
+    expect(grained.every((each) => each.tile !== field)).toBe(true);
+    expect(grained[0]?.alpha).toBeCloseTo(GRAIN_CEILING, 10);
+    // Off a tile of its own, baked once and never on a later painting: this run bakes it or an
+    // earlier one did, and neither draws a second — the count is a ceiling and not an order.
+    expect(grained[0]?.tile).toEqual(expect.objectContaining({ width: GRAIN_TILE }));
+    expect(baked(taped, GRAIN_TILE)).toBeLessThanOrEqual(1);
+    // A tape at no wow and no hiss draws the field once and leaves the picture where it was.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const off = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("wobble", { wobble: 0, grain: 0 })],
+    });
+    expect(off.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(off)).toEqual(fills(plain));
+    // And one the picture has not travelled to yet is the same picture: presence weighs both terms.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const arriving = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("wobble", { wobble: 1, grain: 1 }), at: 0 }],
+    });
+    expect(arriving.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(arriving)).toEqual(fills(plain));
+    // The clock moves the picture and nothing else does: the same rack a second later swims its
+    // bands to somewhere else, and a yard whose deck is not sounding hands the same second twice.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const later = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("wobble", { wobble: 1, grain: 0 })],
+      sounding: 1,
+    });
+    expect(later.surfaces[at]?.drew[0]?.box[4]).not.toBeCloseTo(slid, 6);
   });
 
   // P281: and the chain's own half of that, which the blocks are the first pass to need.

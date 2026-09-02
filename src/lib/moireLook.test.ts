@@ -26,11 +26,22 @@ import {
   echoCount,
   echoFade,
   echoSpacing,
+  GRAIN_CEILING,
+  GRAIN_FLOOR,
+  GRAIN_SPECK,
+  GRAIN_TILE,
+  grainBite,
+  grainTile,
   isLookName,
   SHARPEN_CEILING,
   SHARPEN_SCALE,
   sharpenAmount,
   weighed,
+  WOBBLE_CEILING,
+  WOBBLE_HZ,
+  WOBBLE_WAVES,
+  wobbleSlide,
+  wobbleSwim,
   LOOK_NAMES,
   LOOK_TERMS,
   LOOKS,
@@ -285,5 +296,88 @@ describe("what a look is", () => {
     expect(sharpenAmount(mix, mix)).toBeLessThan(SHARPEN_CEILING);
     expect(sheen).toBeGreaterThan(0);
     expect(sheen).toBeLessThan(1);
+  });
+
+  // P285: tape's, and the first pass that moves on the picture's own clock.
+  it("swims the field on its own clock and grains the ink, on two terms under their own ceilings", () => {
+    expect(LOOKS.wobble.at).toBe("pass");
+    expect(LOOKS.wobble.terms).toEqual({ wobble: "turn", grain: "turn" });
+    // Two more shares weighed the one way, each under a ceiling of its own (0283): what a swim may
+    // take of the picture's width is not what a grain may take of its ink.
+    expect(wobbleSwim(1, 1)).toBe(WOBBLE_CEILING);
+    expect(wobbleSwim(0, 1)).toBe(0);
+    expect(wobbleSwim(1, 0)).toBe(0);
+    expect(wobbleSwim(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, WOBBLE_CEILING), 12);
+    expect(grainBite(1, 1)).toBe(GRAIN_CEILING);
+    expect(grainBite(1, 0)).toBe(0);
+    expect(grainBite(0, 1)).toBe(0);
+    expect(grainBite(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, GRAIN_CEILING), 12);
+    expect(grainBite(2, 2)).toBe(GRAIN_CEILING);
+    // A band swims further than nothing and never as far as the echoes step, because the swim is
+    // read against the row above it and a band slid past its neighbour is a tear (0282).
+    expect(WOBBLE_CEILING).toBeGreaterThan(0);
+    expect(WOBBLE_CEILING).toBeLessThan(ECHO_SPACING[0]);
+    expect(GRAIN_CEILING).toBeGreaterThan(0);
+    expect(GRAIN_CEILING).toBeLessThan(1);
+    // The slide is a sine of the deck's clock, bounded either side, and offset down the picture so
+    // the bands are never all slid the same way at once — which is what makes it a swim.
+    for (const clock of [0, 0.37, 12.5, 1000]) {
+      for (const slice of [0, 7, 63]) {
+        const slid = wobbleSlide(clock, slice, 64);
+        expect(slid).toBeGreaterThanOrEqual(-1);
+        expect(slid).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(wobbleSlide(0, 0, 64)).toBeCloseTo(1, 12);
+    expect(wobbleSlide(0, 32, 64)).not.toBeCloseTo(wobbleSlide(0, 0, 64), 2);
+    // One whole turn of the clock is where the swim started, and a stopped clock stands still: a
+    // halted yard hands the same second twice and the picture does not move (0144).
+    expect(wobbleSlide(1 / WOBBLE_HZ, 5, 64)).toBeCloseTo(wobbleSlide(0, 5, 64), 10);
+    // Slow enough to read as wow and not as flutter, and under two waves down the field.
+    expect(WOBBLE_HZ).toBeGreaterThan(0.3);
+    expect(WOBBLE_HZ).toBeLessThan(1.5);
+    expect(WOBBLE_WAVES).toBeGreaterThan(0.5);
+    expect(WOBBLE_WAVES).toBeLessThan(2);
+    // And the tile is baked once, into alpha alone: one value per speck, sparse by the floor, and
+    // nothing in the colour channels — a grain takes ink out, and the composite reads the alpha.
+    const bytes = new Uint8ClampedArray(GRAIN_TILE * GRAIN_TILE * 4);
+    grainTile(bytes, GRAIN_TILE, GRAIN_SPECK);
+    let lit = 0;
+    let colour = 0;
+    for (let at = 0; at < bytes.length; at += 4) {
+      if ((bytes[at + 3] ?? 0) > 0) lit += 1;
+      colour += (bytes[at] ?? 0) + (bytes[at + 1] ?? 0) + (bytes[at + 2] ?? 0);
+    }
+    expect(colour).toBe(0);
+    const specks = bytes.length / 4;
+    expect(lit / specks).toBeGreaterThan(0.2);
+    expect(lit / specks).toBeLessThan(1 - GRAIN_FLOOR + 0.1);
+    // One value per speck and the same value every run, which is what makes it a bake: the whole
+    // block a speck covers holds one number, and a second bake writes the first one again.
+    for (const at of [0, 5 * GRAIN_SPECK, 40 * GRAIN_SPECK]) {
+      const speck = bytes[(at * GRAIN_TILE + at) * 4 + 3];
+      for (let y = at; y < at + GRAIN_SPECK; y++) {
+        for (let x = at; x < at + GRAIN_SPECK; x++) {
+          expect(bytes[(y * GRAIN_TILE + x) * 4 + 3]).toBe(speck);
+        }
+      }
+    }
+    const again = new Uint8ClampedArray(GRAIN_TILE * GRAIN_TILE * 4);
+    grainTile(again, GRAIN_TILE, GRAIN_SPECK);
+    expect(again).toEqual(bytes);
+    // A speck no wide grains nothing, and says so rather than writing a tile of nothing (principle 5).
+    expect(() => {
+      grainTile(again, GRAIN_TILE, 0);
+    }).toThrow(/grains nothing/u);
+    // At tape's own declared defaults and ranges (src/audio/effects/tape.ts, spelt out here for the
+    // reason the bloom's are) the picture swims and grains, and neither term is at an end of its
+    // band: a tape standing at its defaults is visibly a tape and a long way off the most this pass
+    // can do.
+    const wow = normalize(0.35, 0, 1, "linear");
+    const hiss = normalize(0.25, 0, 1, "linear");
+    expect(wobbleSwim(1, wow)).toBeGreaterThan(0);
+    expect(wobbleSwim(1, wow)).toBeLessThan(WOBBLE_CEILING);
+    expect(grainBite(1, hiss)).toBeGreaterThan(0);
+    expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING);
   });
 });

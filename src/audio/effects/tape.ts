@@ -133,6 +133,20 @@ export const tapeEffect = defineEffect({
     { param: "tape.hiss", into: "pitch" },
     { param: "tape.amount", into: "depth" },
   ],
+  // And the whole-field move a tape makes: the finished picture swimming sideways band by band on
+  // the machine's own clock, with the medium's own grain taken out of the ink over it — which reads
+  // as rows that will not stand straight on a surface that will not stay clean (0285). How far a
+  // band swims is the Wow, which is how far the head wanders, and how thick the grain is, is the
+  // Hiss, which is the noise floor the medium lays under everything it carries. Both on their own
+  // ranges: a picture stated in turns reads the knob where it stands. The third thing this machine
+  // does to the picture — its warm tint — is the Tone above, already read as the row's own hue: a
+  // look term for it could only reach the same ink, off the same knob, by a second road, because
+  // colour is the tile's and no pass may recolour the field on a frame (0141, 0269, 0285).
+  look: "wobble",
+  lookFrom: [
+    { param: "tape.wow", into: "wobble" },
+    { param: "tape.hiss", into: "grain" },
+  ],
   // The loop's repeats — and `Infinity` at or above unity, which is not a guard but this effect's
   // whole point: past one the saturator is what bounds the loop rather than any decay, so what it
   // holds is everything it has been given and no window reconstructs it (`feedbackSettleSecs`).
