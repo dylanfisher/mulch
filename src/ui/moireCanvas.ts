@@ -24,7 +24,9 @@
  *   the axis it is cut along, the sweep, the anchor and the lens → src/lib/moireGeometry.ts — both
  *   of them maths Node can test without a canvas. The canvas this paints on — its size, its density,
  *   its colour and its frame loop → src/ui/canvasSurface.ts, which every surface that draws itself
- *   moving shares, and the cadence the drift asks it at → DRIFT_PAINT_MS in src/lib/moire.ts. The
+ *   moving shares, and the cadence the drift asks it at → DRIFT_PAINT_MS in src/lib/moire.ts, which
+ *   a chain of passes longer than the whole rate holds halves (`looksPaintMs`,
+ *   src/ui/moireLooks.ts, 0284). The
  *   curved rows' tiles, when each one is baked and what is drawn until it exists →
  *   src/ui/driftTiles.ts. The two fractal coordinates one of those tiles may be cut along, and the
  *   seed a run of effects an automator is growing folds into → src/lib/moireFractal.ts. Peaks →

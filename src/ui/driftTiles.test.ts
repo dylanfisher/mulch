@@ -123,9 +123,12 @@ describe("the curved rows' tile shop", () => {
     const now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
     let asked = orderAt(1);
-    const pace = paced(DRIFT_PAINT_MS, () => {
-      paintOne(asked);
-    });
+    const pace = paced(
+      () => DRIFT_PAINT_MS,
+      () => {
+        paintOne(asked);
+      },
+    );
     for (let move = 0; move < 40; move++) {
       asked = orderAt(1 + move);
       pace.ask();

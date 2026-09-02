@@ -38,7 +38,9 @@ export const MOIRE_CYCLES = 48;
 export const MIN_ROW_CYCLES = 2;
 
 /**
- * How many times a second the drift is drawn — its own cadence, declared here and nowhere else. The
+ * How many times a second the drift is drawn at most — its own cadence, and the ceiling no rack
+ * raises; how far under it a long chain of passes drops, and the floor that drop stops at, are
+ * declared once beside the looks that cost it (`looksPaintMs`, src/ui/moireLooks.ts, 0284). The
  * picture is a visualization of the sound and never the sound: it may lag, drop frames and arrive
  * late, and nothing about the instrument may wait on it. A drift at a third of sixty is a drift; a
  * knob at a third of sixty is a broken knob, so the painter takes a *budget* on the one frame loop

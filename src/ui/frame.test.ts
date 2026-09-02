@@ -107,9 +107,12 @@ describe("the one frame loop", () => {
     vi.spyOn(performance, "now").mockImplementation(() => now);
     const across = (frameMs: number): number => {
       let runs = 0;
-      const pace = paced(DRIFT_PAINT_MS, () => {
-        runs += 1;
-      });
+      const pace = paced(
+        () => DRIFT_PAINT_MS,
+        () => {
+          runs += 1;
+        },
+      );
       for (now = 0; now < 1000; now += frameMs) pace.ask();
       pace.stop();
       return runs;
@@ -130,9 +133,12 @@ describe("the one frame loop", () => {
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
     let runs = 0;
-    const pace = paced(50, () => {
-      runs += 1;
-    });
+    const pace = paced(
+      () => 50,
+      () => {
+        runs += 1;
+      },
+    );
     offs.push(pace.stop);
     // The first ask is always due: a surface's first paint is not something to wait for.
     pace.ask();
@@ -149,6 +155,42 @@ describe("the one frame loop", () => {
     expect(runs).toBe(2);
     // And an idle page runs zero frames: nothing is standing, so nothing is subscribed.
     expect(scheduled).toEqual([]);
+  });
+
+  it("asks the cadence each time, so a budget that grows costlier slows where it stands", () => {
+    // What a painting costs is what the rack it is of asks for, and that is read off the set the
+    // painting walked rather than off the commit that built it (`looksPaintMs`, 0284). So the gap
+    // is asked for on this timer: a budget rebuilt to change its length would restart the gap it
+    // was halfway through, and one that held its length would keep the old one until it was.
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    let every = 50;
+    let runs = 0;
+    const pace = paced(
+      () => every,
+      () => {
+        runs += 1;
+      },
+    );
+    offs.push(pace.stop);
+    pace.ask();
+    expect(runs).toBe(1);
+    now = 60;
+    pace.ask();
+    expect(runs).toBe(2);
+    // The work has grown expensive: the same gap is no longer due, on the same budget.
+    every = 100;
+    now = 120;
+    pace.ask();
+    expect(runs).toBe(2);
+    now = 161;
+    pace.ask();
+    expect(runs).toBe(3);
+    // And cheap again, without a rebuild.
+    every = 10;
+    now = 172;
+    pace.ask();
+    expect(runs).toBe(4);
   });
 
   /**

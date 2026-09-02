@@ -49,7 +49,7 @@ import {
   RECURRENCE_TOOLTIP,
   yardLabel,
 } from "@/lib/copy";
-import type { MoireRow } from "@/lib/moire";
+import { DRIFT_PAINT_MS, type MoireRow } from "@/lib/moire";
 import { sourceCut } from "@/lib/moireSound";
 import {
   describeRecurrence,
@@ -79,7 +79,7 @@ import {
   carryShape,
   carryWind,
 } from "@/ui/moireCarry";
-import { looksTravelInto, looksWander } from "@/ui/moireLooks";
+import { looksPaintMs, looksTravelInto, looksWander } from "@/ui/moireLooks";
 import { SHAPE_SECS, shapeTravelInto } from "@/ui/moireShape";
 import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
@@ -357,9 +357,20 @@ function useMoirePicture(
   const said = useRecurrence(recurrence);
   // The set the read has just filled and not the session's own: a run holding six is six rows the
   // session cannot account for, and the window they are drawn across is theirs too (`moireRows`).
+  /**
+   * How often this picture is worth painting, in milliseconds between paintings — written by the
+   * painting itself and read by the budget that asks for the next one (`looksPaintMs`, 0284). A ref
+   * and not React state, like everything else on this path (docs/boundaries.md), and off the set the
+   * painting *walked* rather than off the one the last commit built: a look the rack has let go of
+   * is still a pass in the chain until it has finished leaving (`carryLooks`, `looksTravelInto`), so
+   * a cadence read at the commit would speed the picture up while it was still drawing the old chain
+   * and leave it slow for as long as nothing else committed once the chain was short again.
+   */
+  const pace = useRef(DRIFT_PAINT_MS);
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
+      pace.current = looksPaintMs(set.looks);
       paintMoire(
         canvas,
         set.rows,
@@ -377,7 +388,10 @@ function useMoirePicture(
     },
     [refill],
   );
-  const surface = useDriftSurface(paint, paintsPerFrame(animating, rows.length));
+  // The cadence itself never changes identity, so the budget under it is built once and asks the
+  // ref for its length (`paced`, src/ui/frame.ts).
+  const paceOf = useCallback(() => pace.current, []);
+  const surface = useDriftSurface(paint, paintsPerFrame(animating, rows.length), paceOf);
   return { rows, recurrence: said, ...surface };
 }
 

@@ -94,6 +94,9 @@ export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
  */
 export const hairlinePx = (): number => Math.max(1, devicePixelRatio);
 
+/** No cadence at all: every ask is a paint, which is what a surface that is cheap to draw wants. */
+const AT_ONCE = (): number => 0;
+
 export type CanvasSurface = {
   rootRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -109,9 +112,11 @@ export type CanvasSurface = {
  * `paint`, asked for rather than taken: at this surface's own cadence, and where it stands when
  * that cadence is nothing. The budget outlives the renders that change what is painted — it is what
  * makes forty commits inside one frame one paint — so the paint it takes is reached through a ref
- * rather than closed over, and the budget itself is rebuilt only if the cadence changes.
+ * rather than closed over, and the cadence is asked for on the budget's own timer rather than held
+ * by it: a surface whose paintings have grown more expensive says so as it paints and never waits
+ * for a commit to say it (`useDriftSurface`, src/ui/driftTiles.ts, 0284).
  */
-function usePacedPaint(paint: () => void, everyMs: number): () => void {
+function usePacedPaint(paint: () => void, everyMs: () => number): () => void {
   const latest = useRef(paint);
   // oxlint-disable react/refs -- the latest-paint ref this whole hook is built on: the budget
   // outlives the renders, so the paint has to be reachable from a closure older than the commit
@@ -156,15 +161,15 @@ function useRebakeWhenDisplayed(
  * lanes and its playhead are frozen at the phase they were halted on (0040), so a frame that
  * repainted them would draw the same pixels again.
  *
- * `everyMs` is the cadence this surface keeps: nothing is every paint taken where it is asked for,
- * which is what a cheap surface wants, and a number is a *budget* on the one loop — the paint falls
- * behind the frame rate and the hand does not (0144). A commit asks like anything else, so a drag
- * that commits forty times inside one frame costs one paint and not forty.
+ * `everyMs` is the cadence this surface keeps, asked for rather than held: nothing is every paint
+ * taken where it is asked for, which is what a cheap surface wants, and a gap is a *budget* on the
+ * one loop — the paint falls behind the frame rate and the hand does not (0144). A commit asks like
+ * anything else, so a drag that commits forty times inside one frame costs one paint and not forty.
  */
 export function useCanvasSurface(
   paint: (canvas: HTMLCanvasElement, color: string) => void,
   animate: boolean,
-  everyMs = 0,
+  everyMs: () => number = AT_ONCE,
 ): CanvasSurface {
   const theme = useTheme();
   const rootRef = useRef<HTMLDivElement>(null);

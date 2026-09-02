@@ -8,11 +8,12 @@
  * @instead The pixel loop itself → src/lib/moireGeometry.ts, which Node tests without a canvas. The
  *   worker shell → src/workers/drift.ts. Drawing the tiles this hands back, and everything a
  *   straight row is drawn with → src/ui/moireCanvas.ts. The cadence a picture is asked at →
- *   DRIFT_PAINT_MS in src/lib/moire.ts, spent through `paced` in src/ui/frame.ts.
+ *   DRIFT_PAINT_MS in src/lib/moire.ts, halved under a long chain by `looksPaintMs` in
+ *   src/ui/moireLooks.ts (0284), and spent through `paced` in src/ui/frame.ts.
  */
 import { useEffect } from "react";
 
-import { DRIFT_PAINT_MS, type DriftGeometry } from "@/lib/moire";
+import { type DriftGeometry } from "@/lib/moire";
 import { type DriftProfile } from "@/lib/moireProfiles";
 import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
@@ -184,12 +185,19 @@ export function onDriftBaked(listener: () => void): () => void {
  * own cadence — declared in one place and slower than the frame rate, because the drift may lag and
  * the hand may not (0144) — and asked to draw again whenever a tile lands after the painting that
  * wanted it, which is every tile a worker baked and every one a painting could not afford.
+ *
+ * `everyMs` is the gap between two paintings — the picture's own cadence, or half of it under a
+ * chain longer than the whole rate holds (`looksPaintMs`, src/ui/moireLooks.ts, 0284). Asked for on
+ * the budget's own timer and never handed in as a number: what a painting costs is what the rack it
+ * is of asks for, that is read off the set the last painting walked, and a look still draining out
+ * of the chain is still a pass being drawn long after the commit that let it go (`carryLooks`).
  */
 export function useDriftSurface(
   paint: (canvas: HTMLCanvasElement, color: string) => void,
   animate: boolean,
+  everyMs: () => number,
 ): CanvasSurface {
-  const surface = useCanvasSurface(paint, animate, DRIFT_PAINT_MS);
+  const surface = useCanvasSurface(paint, animate, everyMs);
   const { repaint } = surface;
   useEffect(() => onDriftBaked(repaint), [repaint]);
   return surface;

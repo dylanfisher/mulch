@@ -742,9 +742,13 @@ whole-field move is the size a glance reads at.
   saturation is the first look term to reach the screen's ink rather than the field, through the
   stepped travel the ink already takes (`looksSaturate`, `ScreenInk.saturate`, 0266) — then tape,
   filter, eq, compressor, shift, scatter.
-- **The paint may slow under a full rack.** `DRIFT_PAINT_HZ` (24) stays the ceiling; a chain longer
-  than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve. Landed as its own step
-  once four new passes stand, because before that there is nothing to slow.
+- **The paint may slow under a full rack** — **landed,
+  [0284](decisions/0284-a-long-chain-paints-half-as-often.md)**: `DRIFT_PAINT_HZ` (24) stays the
+  ceiling; a chain longer than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve
+  (`looksPaintMs`, src/ui/moireLooks.ts, asked for by the budget `useDriftSurface` keeps, off the set
+  each painting walks — a pass still draining is still a pass drawn). `LOOK_FULL_RATE` is two,
+  priced on a loaded rack rather than guessed: at two passes the zoomed picture still left the frame
+  loop an idle frame between paintings and at three every frame was the painting, 46.4 ms of it.
 - **Warp, fold and shatter are re-homed.** They are sway's, the automator's and scatter's passes,
   declared on those entries under the one contract, and `rackShape` keeps only the lattice — which
   stays the rack's, and which no effect may claim (0278 stands). **Landed, 0279**: `rackShatter` and
@@ -832,7 +836,8 @@ its look out of the picture over the wind's seconds rather than between two fram
   so the step's first gate is a byte-identical shot. Per look, one case that the pass is a draw of
   the field and not a fill over it — the shatter's own rule (0269).
 - **src/ui/moireCanvas.test.ts** — the paint cadence halves above `LOOK_FULL_RATE` passes and never
-  falls under twelve, read off the set and not off the clock.
+  falls under twelve, read off the set and not off the clock. **Landed, 0284**, with the rack of
+  sways that is not a chain at all beside it.
 
 ## Verification
 
@@ -850,18 +855,22 @@ its look out of the picture over the wind's seconds rather than between two fram
 3.  `./scripts/profile` at the end of the feature and inside the cadence step's own gate, against the
     ~10.4ms frame p95 band. The profiler samples an idle page, so a loaded rack is priced by hand:
     `./scripts/drive --dev` with ten passes standing, the frame time read off the swing's own
-    timing, and the cadence rule's threshold set from that number and not guessed.
+    timing, and the cadence rule's threshold set from that number and not guessed. **Done in the
+    cadence step (0284)**: ten passes read 12.4ms at none through 99.4ms at ten, the crossing sits
+    between two and three, and the step's own gate read 9.4ms p95 inside the band.
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
     readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
-    bloom's is 0280, the blocks' is 0281, the echoes' is 0282 and the sharpen's is 0283. Next free today
-    is 0284.
+    bloom's is 0280, the blocks' is 0281, the echoes' is 0282, the sharpen's is 0283 and the
+    cadence's is 0284. Next free today is 0285.
 
 ## Refused
 
 **A shader.** One fragment chain over the field texture would draw every pass in this table in a
 line each. It is a second rendering path with its own tests, its own headless story and its own
-failure modes, for a picture that Canvas 2D already draws three passes of; revisit only if the
-cadence step finds that half rate is not enough for a full rack.
+failure modes, for a picture that Canvas 2D already draws four passes of; revisit only if the
+cadence step finds that half rate is not enough for a full rack. **It did not** (0284): the halving
+holds the picture inside a budget it would otherwise overspend every painting, and what a chain of
+ten costs headless is SwiftShader's number and not the chain's.
 
 **`ctx.filter`.** `blur()` and `saturate()` are the obvious way to write half this table. Headless
 SwiftShader draws them at tens of milliseconds a pass, support is uneven across the engines the

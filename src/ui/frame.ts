@@ -89,8 +89,17 @@ export function onFrame(callback: () => void): () => void {
  *
  * `everyMs` of nothing is every ask taken where it stands, which is what a surface with no cadence
  * of its own wants.
+ *
+ * It is asked for rather than held, because a budget's length can move under it while the budget
+ * stands: what the drift's painting costs is what the rack it is of asks for, and that is read off
+ * the set the painting walks and not off the commit that built it (`looksPaintMs`,
+ * src/ui/moireLooks.ts, 0284). A budget rebuilt to change its length would restart the gap it was
+ * halfway through.
  */
-export function paced(everyMs: number, work: () => void): { ask: () => void; stop: () => void } {
+export function paced(
+  everyMs: () => number,
+  work: () => void,
+): { ask: () => void; stop: () => void } {
   let last = Number.NEGATIVE_INFINITY;
   let standing: (() => void) | null = null;
   const stop = (): void => {
@@ -102,7 +111,7 @@ export function paced(everyMs: number, work: () => void): { ask: () => void; sto
     last = performance.now();
     work();
   };
-  const due = (): boolean => performance.now() - last >= everyMs;
+  const due = (): boolean => performance.now() - last >= everyMs();
   return {
     ask: () => {
       if (due()) {

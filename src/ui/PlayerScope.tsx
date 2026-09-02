@@ -113,6 +113,12 @@ type Held = {
 const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0, bars: [] };
 
 /**
+ * This scope's cadence as the budget asks for it — one gap that never moves, where the drift's own
+ * moves with what its rack costs (`paced`, src/ui/frame.ts, 0284).
+ */
+const scopePace = (): number => PLAYER_SCOPE_PAINT_MS;
+
+/**
  * How long one slot of this yard's grid lasts in wall seconds, or null where the loop has no grid
  * to jump around at all — the same question the transport asks before it lays a pattern down
  * (`gridOf`, src/audio/playerGrid.ts), asked here through the one export that says it (`playerJumps`),
@@ -532,7 +538,7 @@ export function PlayerScope({
   const { rootRef, canvasRef, repaint } = useCanvasSurface(
     paint,
     state.playing && slotSecs !== null,
-    PLAYER_SCOPE_PAINT_MS,
+    scopePace,
   );
 
   /**

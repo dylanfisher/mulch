@@ -24,6 +24,7 @@ import { fold } from "@/lib/copy";
 import { fractalStopsRest } from "@/lib/moireFractal";
 import {
   DRIFT_FEEDBACK_CEILING,
+  DRIFT_PAINT_MS,
   DRIFT_TRAVEL_CYCLES,
   feedbackAlpha,
   type MoireRow,
@@ -47,6 +48,15 @@ import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, refillRows } from "@/ui/moireRows";
+import {
+  LOOK_FULL_RATE,
+  LOOK_SLOW_HZ,
+  looksPaintMs,
+  looksTravelInto,
+  type MoireLook,
+} from "@/ui/moireLooks";
+import { carryLooks } from "@/ui/moireCarry";
+import type { MoireRowSet } from "@/ui/moireRowsField";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { NO_GROWN } from "@/ui/moireGrown";
@@ -54,7 +64,7 @@ import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
 import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
-import { shapeRest } from "@/ui/moireShape";
+import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
 import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -101,14 +111,15 @@ const keptAt = (
 };
 
 /**
- * The rows a yard holding these rack instances draws, out of the one builder a session's picture is
- * made with rather than out of a fixture — the entry's own defaults but for what a case names. So a
- * case here paints what a session would paint, through the registry's own declared way into the
- * picture and not through a second copy of the walk that reads it.
+ * The picture a yard holding these rack instances draws — its rows and everything beside them that
+ * belongs to the field — out of the one builder a session's picture is made with rather than out of
+ * a fixture, the entry's own defaults but for what a case names. So a case here paints what a
+ * session would paint, through the registry's own declared way into the picture and not through a
+ * second copy of the walk that reads it.
  */
-const rackRows = (
+const rackSet = (
   ...instances: readonly { id: string; effect: EffectId; params?: Record<string, number> }[]
-): MoireRow[] =>
+): MoireRowSet =>
   moireRows(
     [],
     instances.map(({ id, effect, params }) => ({
@@ -124,7 +135,15 @@ const rackRows = (
     null,
     NO_GROWN,
     null,
-  ).rows;
+  );
+
+const rackRows = (
+  ...instances: readonly { id: string; effect: EffectId; params?: Record<string, number> }[]
+): MoireRow[] => rackSet(...instances).rows;
+
+/** A rack of `count` instances of one effect, which is how a chain is made long enough to slow. */
+const rackOf = (effect: EffectId, count: number): MoireRowSet =>
+  rackSet(...Array.from({ length: count }, (_, at) => ({ id: `fx${at}`, effect })));
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
 const songPart = (id: string, length: number): SongPart => ({
@@ -723,5 +742,40 @@ describe("moireCanvas", () => {
     }
     // And a rack holding nothing lays no lattice at all.
     expect(rackRows().some((each) => each.geometry === LATTICE_GEOMETRY)).toBe(false);
+  });
+  it("halves the paint cadence above a full chain, never under twelve, and off the set", () => {
+    // Every pass is a draw of the whole field into a whole surface, so what the painting costs is
+    // how many of them the rack chains — read off the looks the set already holds and never off a
+    // clock, which would answer differently on two windows of one yard (0284).
+    const passes = (count: number): MoireLook[] => rackOf("reverb", count).looks;
+    expect(passes(LOOK_FULL_RATE)).toHaveLength(LOOK_FULL_RATE);
+    expect(looksPaintMs(passes(LOOK_FULL_RATE))).toBe(DRIFT_PAINT_MS);
+    expect(looksPaintMs(passes(0))).toBe(DRIFT_PAINT_MS);
+    // One pass past the rate is half of it, and every longer chain is the same half: the picture
+    // slows once and never further, so ten passes are painted at the floor and not under it.
+    const slowed = looksPaintMs(passes(LOOK_FULL_RATE + 1));
+    expect(slowed).toBeCloseTo(DRIFT_PAINT_MS * 2, 9);
+    for (const count of [LOOK_FULL_RATE + 1, 6, 10]) {
+      expect(looksPaintMs(passes(count))).toBe(slowed);
+      expect(1000 / looksPaintMs(passes(count))).toBeGreaterThanOrEqual(LOOK_SLOW_HZ);
+    }
+    // And a rack of looks that take no slot in the chain is not a chain: a sway is cut through the
+    // slices the field is read back in either way, so ten of them paint at the whole rate.
+    expect(rackOf("sway", 10).looks).toHaveLength(10);
+    expect(looksPaintMs(rackOf("sway", 10).looks)).toBe(DRIFT_PAINT_MS);
+    // And a pass the rack has let go of is still a pass while it is leaving: it is carried onto the
+    // set that replaced it and drawn until it reaches nought, so the cadence stays halved for as
+    // long as the chain is long — off the set the painting walks and never off the commit that
+    // built it (`carryLooks`, `looksTravelInto`).
+    const stood = rackOf("reverb", LOOK_FULL_RATE + 1);
+    looksTravelInto(stood.looks, SHAPE_SECS, ARRIVED, true);
+    const leaving = rackOf("reverb", 1);
+    carryLooks(stood, leaving);
+    expect(leaving.looks).toHaveLength(LOOK_FULL_RATE + 1);
+    expect(looksPaintMs(leaving.looks)).toBe(slowed);
+    // Until it has finished leaving, and then the picture is quick again on the frame it is dropped.
+    looksTravelInto(leaving.looks, SHAPE_SECS, ARRIVED, true);
+    expect(leaving.looks).toHaveLength(1);
+    expect(looksPaintMs(leaving.looks)).toBe(DRIFT_PAINT_MS);
   });
 });

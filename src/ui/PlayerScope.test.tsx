@@ -28,7 +28,7 @@ import type * as PlayerWalk from "@/lib/playerWalk";
 const surface = vi.hoisted(() => ({
   paints: [] as ((canvas: HTMLCanvasElement, color: string) => void)[],
   animate: [] as boolean[],
-  everyMs: [] as number[],
+  everyMs: [] as (() => number)[],
 }));
 
 /** And what each painting drew, since a server render has no canvas to draw it on. */
@@ -49,7 +49,7 @@ vi.mock("@/ui/canvasSurface", () => ({
   useCanvasSurface: (
     paint: (canvas: HTMLCanvasElement, color: string) => void,
     animate: boolean,
-    everyMs: number,
+    everyMs: () => number,
   ) => {
     surface.paints.push(paint);
     surface.animate.push(animate);
@@ -362,7 +362,9 @@ describe("PlayerScope", () => {
     const looped: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 } };
     expect(render(looped)).toContain("<canvas");
     expect(surface.animate.at(-1)).toBe(false);
-    expect(surface.everyMs.at(-1)).toBe(PLAYER_SCOPE_PAINT_MS);
+    // The cadence reaches the surface as the getter the budget asks each time it is due (0284);
+    // this one never moves, so what it answers is the scope's own number.
+    expect(surface.everyMs.at(-1)?.()).toBe(PLAYER_SCOPE_PAINT_MS);
     render({ ...looped, playing: true });
     expect(surface.animate.at(-1)).toBe(true);
   });

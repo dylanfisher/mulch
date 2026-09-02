@@ -5,7 +5,8 @@
  *   actually got to, travelled here one step a frame on the repo's one rate (`easedToward`, 0266)
  *   and carried across a rebuilt set by instance id (`carryLooks`, src/ui/moireCarry.ts). Beside
  *   them the reductions the painting spends: how far the field is bent, how fast that bend wanders,
- *   how many times the plane is folded and how much of the picture is drawn from elsewhere in it.
+ *   how many times the plane is folded, how much of the picture is drawn from elsewhere in it — and
+ *   how often a picture carrying this chain is painted at all (0284).
  * @instead What a look *is* — its name, its terms, how each is read and where it lands →
  *   src/lib/moireLook.ts, which the entries declare themselves into. The lattice, which is the one
  *   whole-field reading that is no effect's → src/ui/moireShape.ts. Where each look is drawn →
@@ -14,7 +15,7 @@
  */
 import { effectById } from "@/audio/effects/registry";
 import { effectHeard, PARAMS, paramIn } from "@/audio/params";
-import { easedToward } from "@/lib/moire";
+import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS, easedToward } from "@/lib/moire";
 import { foldsOf } from "@/lib/moireFold";
 import { LOOKS, type LookName, type LookTerm, type LookTerms } from "@/lib/moireLook";
 import { rackScatter } from "@/lib/moireSound";
@@ -173,6 +174,48 @@ export function looksFolds(looks: readonly MoireLook[]): number {
     if (look.look === "fold") folds += look.at;
   }
   return foldsOf(folds);
+}
+
+/**
+ * How long a chain still paints at the drift's whole rate. Every pass in it is a draw of the whole
+ * field into a whole surface, so a chain's cost is its length — and past this many the painting no
+ * longer fits inside the budget it is asked at, which stops being a budget the moment it is
+ * overspent every time (`DRIFT_PAINT_MS`, src/lib/moire.ts).
+ *
+ * **Measured on a loaded rack and not chosen** (0284): at two passes the zoomed picture still left
+ * the frame loop idle frames between paintings — 3.1 ms median against a 46.5 ms one — and at three
+ * every frame was the painting, 46.4 ms of it, with nothing between. That is the crossing, and this
+ * is the last count below it.
+ */
+export const LOOK_FULL_RATE = 2;
+
+/**
+ * And the slowest the picture may ever be painted, whatever a chain costs: a drift at half of
+ * twenty-four is still a drift, and a drift slower than this is a slideshow of one. The floor is
+ * stated rather than implied, so halving a cadence that was raised stays a halving and not a stall
+ * (`DRIFT_PAINT_HZ`, src/lib/moire.ts).
+ */
+export const LOOK_SLOW_HZ = 12;
+
+/**
+ * The cadence a picture carrying these looks is painted at, in milliseconds between paintings: the
+ * drift's own, or half of it where the chain is longer than the rate holds — never below the floor.
+ * Read off the looks the set already holds and never off a clock: a painting that timed itself would
+ * slow the picture for whatever else the machine was doing that second, and would answer differently
+ * on two windows of the same yard.
+ *
+ * **Only the passes count.** The lattice is a fill, the fold is a bake and the warp and the shatter
+ * are cut through slices the field is read back in either way (0278, 0269), so a rack of sways is
+ * not a chain at all and is painted at the whole rate.
+ */
+export function looksPaintMs(looks: readonly MoireLook[]): number {
+  let passes = 0;
+  for (const look of looks) {
+    if (LOOKS[look.look].at === "pass") passes += 1;
+  }
+  return passes > LOOK_FULL_RATE
+    ? 1000 / Math.max(DRIFT_PAINT_HZ / 2, LOOK_SLOW_HZ)
+    : DRIFT_PAINT_MS;
 }
 
 /**
