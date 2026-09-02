@@ -66,6 +66,7 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
+import { runStanding } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import {
@@ -74,8 +75,10 @@ import {
   carryGround,
   carryInk,
   carryJolt,
+  carryShape,
   carryWind,
 } from "@/ui/moireCarry";
+import { shapeTravelInto } from "@/ui/moireShape";
 import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -217,6 +220,7 @@ function useMoireRows(
       carryInk(painted.current, session);
       carryWind(painted.current, session);
       carryJolt(painted.current, session);
+      carryShape(painted.current, session);
       // And how much of the picture each row had become, which is the carry that is not a travel:
       // a rebuild is what an effect arriving or retiring already is, so without it the whole
       // field's weight restacks between two frames (`carryArrivals`).
@@ -236,6 +240,7 @@ function useMoireRows(
       carryInk(painted.current, grown);
       carryWind(painted.current, grown);
       carryJolt(painted.current, grown);
+      carryShape(painted.current, grown);
       carryArrivals(painted.current, grown);
       painted.current = grown;
     }
@@ -277,6 +282,18 @@ function useMoireRows(
       set.tail,
       elapsed,
       peek.sounding > 0 ? DRIFT_WIND_SECS : 0,
+    );
+    // And one step of the shape the same rack gives the whole field — the lattice, the bend and
+    // the folds — beside the wind and for the wind's reason: it reads no row. How much run the
+    // automators are holding is walked here a third time this frame (`fractalHeard` walks it
+    // twice), which is a map of a few entries and cheaper than a field to carry it in (0070).
+    shapeTravelInto(
+      set.shape,
+      set.shaping,
+      runStanding(peek.grown),
+      master,
+      elapsed,
+      peek.sounding > 0,
     );
     set.wash = refillRows(
       set.rows,

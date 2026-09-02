@@ -2,13 +2,17 @@
  * @role The arithmetic the drift bench's eight pictures are drawn off: the stand-in weave every one
  *   of them starts from, and the handful of shader-side moves — a cell fold, a rounded box, a
  *   domain warp, a mirror fold, a smooth minimum, a terrace, a ramp — each written once so eight
- *   pictures cannot disagree about what a fold or a rim is. Pure maths on picture units: the
+ *   pictures cannot disagree about what a fold or a rim is, and the ones the real picture took
+ *   re-exported from where they live now. Pure maths on picture units: the
  *   picture is `FIELD_ASPECT` wide and one high, no canvas, no clock, no context.
  * @instead The eight fields built out of these → src/ui/sketch/sketchDrift.ts. The canvas that
  *   writes one → src/ui/sketch/SketchDriftStage.tsx. The real picture's own arithmetic, which
  *   these stand in for and never read → src/lib/moire.ts and the files beside it.
  */
-import { cosTurn, halfCosine, TAU, wrap } from "@/lib/moire";
+import { cosTurn, halfCosine, TAU } from "@/lib/moire";
+import { kaleido } from "@/lib/moireFold";
+import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
+import { WARP_ACROSS, WARP_DOWN } from "@/lib/moireWarp";
 import { clamp } from "@/lib/range";
 import type { Ink } from "@/ui/moireScreen";
 import { SKETCH_VIEW } from "@/ui/sketch/SketchFrame";
@@ -58,61 +62,22 @@ export function lobes(x: number, y: number, phase = 0): number {
   return 0.5 + 0.5 * a * b;
 }
 
-/** Where a point falls once the picture is folded into `per` square cells per unit of height. */
-export function cellFold(
-  x: number,
-  y: number,
-  per: number,
-): { cx: number; cy: number; qx: number; qy: number } {
-  if (per <= 0) throw new Error(`A picture folded into ${per} cells is not folded.`);
-  const cx = Math.floor(x * per);
-  const cy = Math.floor(y * per);
-  return { cx, cy, qx: x * per - cx - 0.5, qy: y * per - cy - 0.5 };
-}
-
 /**
- * The signed distance to a rounded box centred on nought — negative inside, nought on the rim,
- * positive outside — which is what every cell in the reference is: a rounded square whose rim is
- * where the ramp turns hot.
- */
-export function roundedBox(qx: number, qy: number, half: number, round: number): number {
-  const dx = Math.abs(qx) - (half - round);
-  const dy = Math.abs(qy) - (half - round);
-  const outside = Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
-  return outside + Math.min(Math.max(dx, dy), 0) - round;
-}
-
-/** How lit a rim is at a distance from it: one on the line, falling off over `width` either side. */
-export const rim = (distance: number, width: number): number =>
-  Math.exp(-((distance / width) ** 2));
-
-/**
- * The coordinate bent by itself, twice — the swirl inside a reference cell is nothing but this.
- * At no amount it is the identity, so a warp of nought is the unwarped picture and not a near one.
+ * The coordinate bent by itself, twice over — the swirl inside a reference cell is nothing but
+ * this: the two sines the real warp slides the field's slices by (src/lib/moireWarp.ts), and a
+ * second pair at half the amount fed back through the first. At no amount it is the identity, so a
+ * warp of nought is the unwarped picture and not a near one.
  */
 export function warp(x: number, y: number, amount: number, phase = 0): [number, number] {
   if (amount === 0) return [x, y];
-  const x1 = x + amount * Math.sin(TAU * (1.3 * y + phase));
-  const y1 = y + amount * Math.sin(TAU * (0.9 * x1 - phase));
+  const x1 = x + amount * Math.sin(TAU * (WARP_DOWN * y + phase));
+  const y1 = y + amount * Math.sin(TAU * (WARP_ACROSS * x1 - phase));
   const x2 = x1 + amount * 0.5 * Math.sin(TAU * (2.1 * y1 + 0.3 + phase));
   const y2 = y1 + amount * 0.5 * Math.sin(TAU * (1.7 * x2 - 0.2 - phase));
   return [x2, y2];
 }
 
-/**
- * The plane folded into `sectors` mirrored wedges about nought — a kaleidoscope, which in shader
- * hands is one modulo and one absolute value. A whole number of sectors, two or more, or the fold
- * would not close.
- */
-export function kaleido(x: number, y: number, sectors: number): [number, number] {
-  if (!Number.isInteger(sectors) || sectors < 2) {
-    throw new Error(`A fold into ${sectors} sectors does not close.`);
-  }
-  const radius = Math.hypot(x, y);
-  const sector = TAU / sectors;
-  const angle = Math.abs(wrap(Math.atan2(y, x) + sector / 2, sector) - sector / 2);
-  return [radius * Math.cos(angle), radius * Math.sin(angle)];
-}
+export { cellFold, kaleido, rim, roundedBox };
 
 /**
  * The smooth minimum of two distances: the union of two shapes with the join between them rounded

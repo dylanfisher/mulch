@@ -34,6 +34,7 @@ import { effectById } from "@/audio/effects/registry";
 import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import { rackShape, shapeRest } from "@/ui/moireShape";
 import { rackShatter } from "@/ui/moireShatter";
 import { rackWind, windRest } from "@/ui/moireWind";
 import {
@@ -443,6 +444,10 @@ export function moireRows(
     wind: windRest(),
     jolt: joltRest(),
     shatter: rackShatter(effects),
+    // And how it shapes the whole field, read the same way and for the same reason, in a pass of
+    // its own: a third fact about the same population (`rackShape`, src/ui/moireShape.ts).
+    shaping: rackShape(effects),
+    shape: shapeRest(),
     ...macro,
   };
 }

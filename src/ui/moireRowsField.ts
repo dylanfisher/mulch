@@ -43,6 +43,7 @@ import {
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { heardBeat, heardBite, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import type { MoireJolt } from "@/ui/moireJolt";
+import type { MoireShape, MoireShaping } from "@/ui/moireShape";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
@@ -286,6 +287,15 @@ export type MoireRowSet = {
    * and accumulated, so it survives a rebuild the way the wind's own drift does (`carryJolt`).
    */
   jolt: MoireJolt;
+  /**
+   * And how the standing rack shapes the whole picture — how tight a lattice, how far a bend, how
+   * many folds — where it has got to and what the population is asking for (`rackShape`,
+   * `shapeTravelInto`, src/ui/moireShape.ts). The reading is filled once when the set is built,
+   * like the tail and the shatter; the travel is the read's and is carried onto whatever set
+   * replaces this one (`carryShape`), per picture and not per yard, like the wind.
+   */
+  shape: MoireShape;
+  shaping: MoireShaping;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -405,6 +415,8 @@ export function macroInto(
   | "wind"
   | "jolt"
   | "shatter"
+  | "shape"
+  | "shaping"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);

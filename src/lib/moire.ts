@@ -683,13 +683,21 @@ export const wrap = (value: number, span: number): number => ((value % span) + s
  * ring families at different centres are the picture two sources make
  * ([0142](../../docs/decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
  *
- * The last two are the two no effect claims and none may: an escape-time field and a plane folded
- * into itself are what a *run* is standing, not what one plugin is, so the row cut along either of
- * them is the field's own and is built beside the wash and the session's
- * (`fractalInto`, src/ui/moireRowsField.ts,
+ * The last three are the ones no effect claims and none may: an escape-time field and a plane
+ * folded into itself are what a *run* is standing, and a lattice is how much rack is standing —
+ * neither is what one plugin is, so a row cut along any of them is the field's own and is built
+ * beside the wash and the session's (`fractalInto`, `latticeInto`, src/ui/moireRowsField.ts,
  * [0246](../../docs/decisions/0246-the-fractal-is-a-row-and-not-a-mask.md)).
  */
-export const DRIFT_GEOMETRIES = ["linear", "radial", "spiral", "fan", "escape", "nested"] as const;
+export const DRIFT_GEOMETRIES = [
+  "linear",
+  "radial",
+  "spiral",
+  "fan",
+  "escape",
+  "nested",
+  "lattice",
+] as const;
 
 export type DriftGeometry = (typeof DRIFT_GEOMETRIES)[number];
 

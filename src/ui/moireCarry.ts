@@ -1,7 +1,8 @@
 /**
  * @role What a rebuilt row set carries over from the one it replaces: the ground the picture's rows
  *   had travelled to, the plane its structure had travelled across, the ink it had travelled
- *   toward, and how much of the picture each of its rows had become — with, behind that last one,
+ *   toward, how the rack had shaped it, and how much of the picture each of its rows had become —
+ *   with, behind that last one,
  *   every row the new set no longer holds, kept until it has finished leaving. A set is rebuilt on anything durable moving and on a run turning over, neither of which
  *   is a jump — every row in a fresh one stands at its own rest — so a travel that did not survive
  *   the rebuild would restart from the middle of the picture on every knob touch (0235, 0248).
@@ -92,6 +93,18 @@ export function carryInk(from: MoireRowSet, to: MoireRowSet): void {
  */
 export function carryWind(from: MoireRowSet, to: MoireRowSet): void {
   Object.assign(to.wind, from.wind);
+}
+
+/**
+ * And how the rack had shaped the picture so far: how tight the lattice had got, how far the bend
+ * and the folds had come, and where the sway's wander stood. The wind's argument exactly, and the
+ * rebuild it matters most for is the one that changes the shaping itself — adding an automator is
+ * a fold asked for, and a set that started unfolded would drop the picture flat and fold it back up
+ * from nothing, which is the snap the travel exists to remove. Where it is *going* is the new set's
+ * own reading and is never carried (`rackShape`, src/ui/moireShape.ts).
+ */
+export function carryShape(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.shape, from.shape);
 }
 
 /**
