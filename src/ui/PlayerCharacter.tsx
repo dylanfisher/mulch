@@ -8,8 +8,8 @@
  * @instead The same six on the card's own front, where they are the corners of a pad and a press
  *   takes one whole (0259) → src/ui/PlayerBlend.tsx. What each character is, and the arithmetic an
  *   amount moves by → src/lib/playerCharacter.ts. The die beside this one on a part's row, which
- *   is this menu with the name left out → src/ui/PlayerPart.tsx. Arranging several of them in
- *   order → src/ui/PlayerSong.tsx. The dials a press moves, and the command they all patch →
+ *   is this menu with the name left out → src/ui/PlayerGridPick.tsx. Arranging several of them in
+ *   order → src/ui/PlayerGrid.tsx. The dials a press moves, and the command they all patch →
  *   src/ui/PlayerCard.tsx.
  */
 // Over the dependency cap by one, and the one is the slider: this component says six words, draws

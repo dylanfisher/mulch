@@ -18,7 +18,7 @@ import { manualClock } from "@/app/clock";
 import { createInstrument, type Instrument } from "@/app/facade";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import type { PlayerSpec } from "@/lib/player";
-import type { SongPartId } from "@/lib/playerSong";
+import type { GridPick } from "@/ui/PlayerGridCell";
 import type { DeckState } from "@/state/store";
 import { PlayerCard } from "@/ui/PlayerCard";
 import { PlayerFront } from "@/ui/PlayerFront";
@@ -95,8 +95,9 @@ export type CardView = {
   /** Whether the card itself is folded shut, and the call a press on its heading makes. */
   folded?: boolean;
   setFolded?: (folded: boolean) => void;
-  /** Which part of the song the dials are pointed at, and which fold each register is behind. */
-  selected?: SongPartId | null;
+  /** What is picked for the row under the grid — the part the dials are pointed at — and which
+   *  fold each register is behind. */
+  pick?: GridPick | null;
   fine?: boolean;
   ground?: boolean;
   arrange?: boolean;
@@ -105,9 +106,6 @@ export type CardView = {
    *  (plan §2, P152). */
   burstHeld?: boolean;
   setBurstHeld?: (held: boolean) => void;
-  /** Which song the section is showing, since a selection reaches that run and no other (P170).
-   *  Null is the first, which is what a view preference nobody has set reads as. */
-  song?: string | null;
 };
 
 /**
@@ -130,10 +128,9 @@ export const playerCard = (
     groundFold: [view.ground ?? false, (): void => {}],
     arrangeFold: [view.arrange ?? false, (): void => {}],
     songFold: [false, (): void => {}],
-    songSelect: [view.selected ?? null, (): void => {}],
-    songOpen: [null, (): void => {}],
+    songPick: [view.pick ?? null, (): void => {}],
+    songDials: [false, (): void => {}],
     songSolo: [null, (): void => {}],
-    songViewOpen: [view.song ?? null, (): void => {}],
     burstHeld: [view.burstHeld ?? false, view.setBurstHeld ?? ((): void => {})],
   });
 

@@ -295,6 +295,8 @@ export const ACTION_TOOLTIPS = {
   // instrument's nouns (src/lib/copyCard.ts, src/ui/tooltips.test.ts).
   tap: PLAYER_TAP_TOOLTIP,
   reorder: "Drag to move this along its list, or use the arrow keys on it.",
+  earlier: "Move this one place earlier in its run.",
+  later: "Move this one place later in its run.",
   add: "Add another one.",
   remove: "Take this one away.",
   rename: "Change what this is called.",
@@ -606,13 +608,6 @@ export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
 export const PLAYER_STANDING_LABEL = "Playing";
 
 /**
- * What a song with no parts says, where the parts would be. A popover that opened on an empty box
- * would be a control that says nothing about what it is for, and this is the one place the shape
- * of a song — parts in order, one of them coming back — can be said in a sentence (P65).
- */
-export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials as they stand. Add one and it keeps those dials as they are right now, so the pattern starts moving between settings — one for eight jumps, another for four, and back.`;
-
-/**
  * What the section says over a song the pattern drew for itself, where the hand's own list would
  * be. The rows under it are what is playing; this is the one line saying where they came from and
  * how to have the written arrangement back, because a list nothing on screen can edit has to say
@@ -623,7 +618,7 @@ export const PLAYER_SONG_DRAWN = `Drawn from the seed: these are the parts the p
 /**
  * What joins the readings of a one-line readout: a song's parts, a part's own dials. Declared once
  * because two such lines that punctuated differently would read as two kinds of list, which is
- * exactly the claim the part row makes about its signature (src/ui/PlayerPart.tsx).
+ * exactly the claim the part row makes about its signature (src/ui/PlayerGridPick.tsx).
  */
 export const READOUT_JOIN = " · ";
 

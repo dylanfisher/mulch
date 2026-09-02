@@ -65,7 +65,7 @@ export type PlayerSongId = string;
  * `songLeft` counts the song's own *round* and never its whole run: a round is what `plays` counts
  * and the rounds still to come are what the counter beside it says (`PLAYER_PLAYS_MAX`). Jumps
  * rather than seconds: how long a jump lasts is a fact about the dials and the grid, which this
- * file may not reach (src/lib/player.ts, src/ui/PlayerSong.tsx).
+ * file may not reach (src/lib/player.ts, src/ui/PlayerGrid.tsx).
  */
 export type SongPlace = {
   song: PlayerSongId;
@@ -115,13 +115,24 @@ export const oneSong = (parts: readonly SongPart[]): readonly PlayerSong[] => [
   songOfParts("one-song", "One", parts),
 ];
 
-/** Which of the run is open in the section below: the one a hand pointed at, or the first, which
- *  is what "open" means before a hand has pointed at anything. A view preference and never
- *  durable: no command, nothing durable, no history entry (plan §2). */
-export const openIn = <Held extends { id: string }>(
-  run: readonly Held[],
-  id: string | null,
-): Held | undefined => run.find((held) => held.id === id) ?? run[0];
+/** The list with the entry at `at` moved one place — earlier for -1, later for 1 — or null where
+ *  that would carry it off either end, which the press that asks for it is refused at (0121). One
+ *  function for both tiers, because a song moved along the run and a part moved along its song
+ *  are one piece of arithmetic (principle 3). */
+export function nudged<Held>(
+  list: readonly Held[],
+  at: number,
+  by: -1 | 1,
+): readonly Held[] | null {
+  const to = at + by;
+  const held = list[at];
+  const other = list[to];
+  if (held === undefined || other === undefined) return null;
+  const next = [...list];
+  next[at] = other;
+  next[to] = held;
+  return next;
+}
 
 /** The run with one song's fields replaced — its parts, its count or its name — which is the road
  *  every gesture on a song row and on a part row takes: the whole spec goes out in one

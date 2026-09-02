@@ -70,7 +70,7 @@ export const GROWTH_LEFT_LABEL = "Time left";
  *
  * A clock and nothing else: "left" is what the slot's own label says (`GROWTH_LEFT_LABEL`), and
  * carried on the number instead it wrapped the arrangement rows' column onto a second line, which
- * moves the buttons beside it (P162, `ROW_LEFT`, src/ui/PlayerPart.tsx). Where a sentence wants
+ * moves the buttons beside it (P162, `ROW_LEFT`, src/ui/PlayerGridPick.tsx). Where a sentence wants
  * the word, the sentence says it around this (`waitLeftSaid`, src/lib/copy.ts).
  */
 export function growthLeft(secs: number): string {

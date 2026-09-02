@@ -260,15 +260,16 @@ export const playerRate = async ({ page }) => {
     fail("player song smoke: the jumps card still drew a corner of actions");
   }
   /**
-   * The tier over the parts, which is one list of songs, each holding the parts, and every gesture
-   * on it the ordinary `deck.player` carrying the whole spec (P170). What no unit test can say is
-   * that the area under the songs is a *view* onto the one that is open — the parts a hand adds
-   * land in the song the list is showing.
+   * The tier over the parts, drawn as a launch grid: a column per song, a row per part, and every
+   * gesture on it the ordinary `deck.player` carrying the whole spec (0275). What no unit test can
+   * say is that the row under the grid follows the pick — a song added is the song that row edits,
+   * and a part added lands in the column it was added to.
    */
   await section.getByLabel("Add Yard A Song", { exact: true }).click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs.length === 1);
   // A copy is a second song with an id of its own, all the way down, landing directly after the
-  // one it was taken from — and taken away again, so what follows runs on one song (0092, 0121).
+  // one it was taken from — and the pick moves onto it, so the row under the grid is the copy's
+  // and taking it away is one press. What follows runs on one song (0092, 0121).
   await section.getByLabel("Duplicate Yard A Song 1").click();
   const twinned = await (
     await page.waitForFunction(() => {
@@ -283,7 +284,9 @@ export const playerRate = async ({ page }) => {
   await section.getByLabel("Remove Yard A Song 2").click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs.length === 1);
   // And the one dial the tier carries, whose nought is the skip: durable like every other number
-  // on this card, so what the knob leaves is what the session holds (P170).
+  // on this card, so what the knob leaves is what the session holds (P170). Under the row the
+  // column's head fills when it is picked.
+  await section.getByLabel("Select Yard A Song 1", { exact: true }).click();
   const plays = section.getByRole("slider", { name: "Yard A Song 1 Plays", exact: true });
   await plays.focus();
   await page.keyboard.press("Home");
@@ -291,8 +294,11 @@ export const playerRate = async ({ page }) => {
   await page.keyboard.press("ArrowUp");
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs[0].plays === 1);
 
-  await section.getByLabel("Add Yard A Song Part").click();
+  await section.getByLabel("Add Yard A Song 1 Part").click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs[0].parts.length === 1);
+  // Adding picks the part, so the card's dials are pointed at it; let go of the pick, because what
+  // the next press turns is the card's own Repeats and not the part's (0176).
+  await section.getByLabel("Select Yard A Song 1 Part 1").click();
   // A part wears a badge of its own, drawn off the id minted at the gesture that added it: two
   // parts alike in every field are still two things a person can point at (0076, 0157) — and a name
   // drawn off that same id, two words off the part pools, because a part is never nameless and the
@@ -333,9 +339,9 @@ export const playerRate = async ({ page }) => {
           ...document.querySelectorAll('[aria-label="Yard A Mulcher"] [data-slot="knob"]'),
         ].find((slider) => slider.getAttribute("aria-label") === "Repeats");
         const read = knob?.parentElement?.querySelector("output")?.textContent ?? "";
-        // Keyed on a part row and not on whatever the page lit first: the tier over a part now
-        // wears the same standing mark, and a first match landing on a song row would read an
-        // undefined part forever rather than failing (src/ui/PlayerSongRow.tsx).
+        // Keyed on a part's cell and not on whatever the page lit first: the column's head wears
+        // the same standing mark, and a first match landing on it would read an undefined part
+        // forever rather than failing (src/ui/PlayerGridCell.tsx).
         const lit = document.querySelector('[data-part][data-standing="true"]')?.dataset.part;
         return read !== "" && read !== String(dial) && lit === standing.part
           ? { part: standing.part, read, lit }
@@ -353,7 +359,7 @@ export const playerRate = async ({ page }) => {
    * the two halves are one gesture on one card — no unit test can say that the dial a hand reaches
    * for is the dial the selection moved.
    */
-  await section.getByLabel("Select Yard A Song Part 1").click();
+  await section.getByLabel("Select Yard A Song 1 Part 1").click();
   await repeats.focus();
   await page.keyboard.press("Home");
   const aimed = await (
@@ -370,7 +376,7 @@ export const playerRate = async ({ page }) => {
    * can say is that the switch actually takes the part out of the *run*: a song whose every part
    * is skipped is no arrangement at all, so a playing yard stands in no part until it comes back.
    */
-  const skipping = section.getByLabel("Skip Yard A Song Part 1");
+  const skipping = section.getByLabel("Skip Yard A Song 1 Part 1");
   await skipping.click();
   await page.waitForFunction(
     () =>
@@ -387,7 +393,7 @@ export const playerRate = async ({ page }) => {
   // And that a copy is a second part with an id of its own, landing directly after the one it was
   // taken from: two parts alike in every other field are still two things a hand can point at
   // (0076, 0092).
-  await section.getByLabel("Duplicate Yard A Song Part 1").click();
+  await section.getByLabel("Duplicate Yard A Song 1 Part 1").click();
   const copied = await (
     await page.waitForFunction(() => {
       const song = window.mulch.probe().decks.a.player.songs[0].parts;
@@ -426,7 +432,8 @@ export const playerRate = async ({ page }) => {
     undefined,
     { timeout: 10_000 },
   );
-  await section.getByLabel("Audition Yard A Song Part 2").click();
+  // The copy is what the row under the grid holds now, so its audition is the one on screen.
+  await section.getByLabel("Audition Yard A Song 1 Part 2").click();
   const cued = await (
     await page.waitForFunction(
       () => {
@@ -462,7 +469,43 @@ export const playerRate = async ({ page }) => {
   }
   // Let go, and the song carries on from the part that was being heard: part 2 runs out its eight
   // jumps and part 1 stands again, which is a run rather than one part repeating.
-  await section.getByLabel("Audition Yard A Song Part 2").click();
+  await section.getByLabel("Audition Yard A Song 1 Part 2").click();
+  /**
+   * And the grid's own gesture, which no unit test can hear: a cell pressed is armed, and the
+   * pass lands it at the next part boundary rather than now or never (0275). Part 2 is standing
+   * with its eight jumps running out, and the run's own next turn is part 1 — so arming part 2
+   * makes the boundary cross into part 2 again, and once it has, the ring goes back to saying
+   * what the run comes to on its own.
+   */
+  await section.getByLabel("Arm Yard A Song 1 Part 2").click();
+  const armed = await (
+    await page.waitForFunction(() => {
+      const song = window.mulch.probe().decks.a.player.songs[0].parts;
+      const queued = window.mulch.peek("a").player.armed;
+      const ringed = document.querySelector('[data-part][data-armed="true"]')?.dataset.part;
+      return queued === song[1].id && ringed === queued ? { queued, ringed } : null;
+    })
+  ).jsonValue();
+  const landed = await (
+    await page.waitForFunction(
+      () => {
+        const song = window.mulch.probe().decks.a.player.songs[0].parts;
+        const held = window.mulch.peek("a").player;
+        const ringed = document.querySelector('[data-part][data-armed="true"]')?.dataset.part;
+        return held.armed === null && held.step?.part === song[1].id && ringed === song[0].id
+          ? { standing: held.step.part, ringed }
+          : null;
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+  ).jsonValue();
+  if (armed.queued !== landed.standing) {
+    fail("player song smoke: the armed part was not the one the boundary crossed into", {
+      armed,
+      landed,
+    });
+  }
   await page.waitForFunction(
     () =>
       window.mulch.peek("a").player.step?.part ===
@@ -492,13 +535,14 @@ export const playerRate = async ({ page }) => {
    * road end to end is a *playing* yard landing only on the slots the row names (0188). Written on
    * the part's own fold, which is where a part is edited.
    */
-  await section.getByLabel("Open Yard A Song Part 1").click();
-  const adding = section.getByLabel("Add Cell Yard A Song Part 1");
+  await section.getByLabel("Select Yard A Song 1 Part 1").click();
+  await section.getByLabel("Open Yard A Song 1 Part 1").click();
+  const adding = section.getByLabel("Add Cell Yard A Song 1 Part 1");
   await adding.click();
   await adding.click();
   // The second cell is the one the row lit when it was added, so this steps that one alone —
   // leaving a row of two cells reading two different slots.
-  await section.getByLabel("Slot up Yard A Song Part 1").click();
+  await section.getByLabel("Slot up Yard A Song 1 Part 1").click();
   const written = await (
     await page.waitForFunction(() => {
       const row = window.mulch.probe().decks.a.player.songs[0].parts[0].steps;
@@ -632,6 +676,6 @@ export const playerRate = async ({ page }) => {
   await page.mouse.move(0, 0);
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the pad's own corners drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}, and a hover of the word Riff said what that corner sounds like; a press on the walk's own picture read the landing under it and wrote nothing, and a drag across the pad beside it weighed the whole cast into burst ${blended.burst.toFixed(3)}s and repeats ${blended.repeats} while the ground and the arrangement stood where they were; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else`,
+    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the pad's own corners drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}, and a hover of the word Riff said what that corner sounds like; a press on the walk's own picture read the landing under it and wrote nothing, and a drag across the pad beside it weighed the whole cast into burst ${blended.burst.toFixed(3)}s and repeats ${blended.repeats} while the ground and the arrangement stood where they were; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1, except that the copy's cell, armed while it still sounded, ringed ${armed.ringed} and was what the next boundary crossed into, after which the ring fell back to the run's own next, ${landed.ringed}; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else`,
   );
 };

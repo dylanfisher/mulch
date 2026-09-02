@@ -13,7 +13,9 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 
+import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { ArrowLineRightIcon } from "@phosphor-icons/react/ArrowLineRight";
+import { ArrowUpIcon } from "@phosphor-icons/react/ArrowUp";
 import { ArrowUUpLeftIcon } from "@phosphor-icons/react/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
 import { CameraIcon } from "@phosphor-icons/react/Camera";
@@ -73,6 +75,9 @@ export const ACTION_ICONS = {
   // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
   // same grip are its keyboard path (0062).
   reorder: DotsSixVerticalIcon,
+  // And two presses where a list has no card to drag: one place earlier along a run, one later.
+  earlier: ArrowUpIcon,
+  later: ArrowDownIcon,
   add: PlusIcon,
   remove: TrashIcon,
   // Naming a thing that is already named: the name itself reads as text wherever it is shown, and

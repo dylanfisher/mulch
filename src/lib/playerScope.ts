@@ -193,7 +193,7 @@ export function pickOnSheet(geometry: ScopeGeometry, base: number, ordinal: numb
  *
  * Exported for the arrangement's own countdown, which is this length times the jumps a row has
  * still to come: how long a landing occupies is one spelling whether it is being laid out or
- * counted down (principle 1, src/ui/PlayerSong.tsx).
+ * counted down (principle 1, src/ui/PlayerGrid.tsx).
  *
  * Four numbers rather than a step, because a countdown is priced off the *dials* and a step is
  * what those dials drew: `burst` strays, `rest` is rolled or placed per jump, and a row costing

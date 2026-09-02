@@ -83,14 +83,17 @@ const strip = (
   // Every fold open, because what nearly every claim below reads is a control under one of them:
   // the yard opens three of them shut and that is the yard's own claim, made once where the state
   // lives (src/ui/playerCardDouble.ts, src/ui/Deck.tsx).
+  // The pick names the first song unless a case says otherwise: what nearly every claim here
+  // reads is a part of a run of one song.
+  const pick =
+    selected === null ? null : { song: song ?? over.player?.songs[0]?.id ?? "", part: selected };
   const element = playerCard(instrument, over, {
     folded,
     setFolded,
-    selected,
+    pick,
     fine,
     ground,
     arrange,
-    song,
   });
   return { element, instrument, sent, setFolded };
 };
@@ -245,14 +248,15 @@ describe("the jumps card", () => {
    * left behind when a hand opens another song is a card pointed at a part no gesture on screen
    * can take it off, and a dial turned then would edit a row nobody can see (P147, 0176).
    */
-  it("takes the dials off a part of a song the section is not showing", () => {
+  it("takes the dials off a pick naming a part its song does not hold", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
     const [first] = oneSong([held]);
     const player = {
       ...PLAYER,
       songs: [first!, { id: "song-2", name: "Two", plays: 1, parts: [] }],
     };
-    // The second song is the one open, and the selection names a part of the first.
+    // The pick names the second song, and a part of the first: a pick is resolved through the
+    // song it names and never flat across the spec, so this points the dials at nothing.
     const { element, sent } = strip({ player }, false, held.id, false, false, false, "song-2");
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
     const [, , , gate] = handlers(element);

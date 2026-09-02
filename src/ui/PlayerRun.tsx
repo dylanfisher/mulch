@@ -28,7 +28,7 @@ export type PlayerRunProps = {
    * another set on screen. The empty string is the card's own, which is named by its captions and
    * its yard alone; a part's fold draws the very boxes the card draws, so with a part open there
    * are two Gate dials and two Hold runs in one yard, and `aria-label` is the only thing between
-   * them (0055, 0176, src/ui/PlayerDial.tsx, src/ui/PlayerPart.tsx).
+   * them (0055, 0176, src/ui/PlayerDial.tsx, src/ui/PlayerGridPick.tsx).
    */
   named: string;
   /** The spec every dial in the run reads and patches, which is the card's own (0089). */

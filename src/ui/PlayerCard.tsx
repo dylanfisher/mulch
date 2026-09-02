@@ -31,7 +31,7 @@ import {
 import { deckRate } from "@/audio/params";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { songsArePlayed, openIn, withSongsPart } from "@/lib/playerSongs";
+import { songsArePlayed, withSongsPart } from "@/lib/playerSongs";
 import { songsLabel, PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import {
@@ -62,7 +62,8 @@ import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PlayerBeds } from "@/ui/PlayerBeds";
 import { PlayerGround } from "@/ui/PlayerGround";
 import { slotSecsOf } from "@/ui/PlayerScope";
-import { PlayerSong } from "@/ui/PlayerSong";
+import { PlayerGrid } from "@/ui/PlayerGrid";
+import type { GridPick } from "@/ui/PlayerGridCell";
 import { PlayerStanding } from "@/ui/PlayerStanding";
 import { Says } from "@/ui/Says";
 import { FoldCaret } from "@/ui/FoldCaret";
@@ -137,10 +138,9 @@ export function PlayerCard({
   groundFold,
   arrangeFold,
   songFold,
-  songSelect,
-  songOpen,
+  songPick,
+  songDials,
   songSolo,
-  songViewOpen,
   burstHeld,
 }: {
   instrument: Instrument;
@@ -187,20 +187,19 @@ export function PlayerCard({
    *  drawn under this fold, and state living here would be thrown away every time that one is
    *  used (0157, src/ui/EffectRack.tsx). */
   songFold: [folded: boolean, setFolded: (folded: boolean) => void];
-  /** Which part of the song this card's dials are pointed at, held by the yard for the reason both
-   *  folds are: it is state about a card that a fold may put away, and a view preference either
-   *  way — no command, nothing durable, no history entry (plan §2, 0176). */
-  songSelect: [selected: SongPartId | null, setSelected: (selected: SongPartId | null) => void];
-  /** And which part has its own dials open under it, held by the yard for the reason the selection
-   *  is: a fold that reopened a part shut is the bug those lines are written against (0176). */
-  songOpen: [open: SongPartId | null, setOpen: (open: SongPartId | null) => void];
+  /** What is picked for the row under the grid — the song, and the part this card's dials are
+   *  pointed at — held by the yard for the reason both folds are: it is state about a card that a
+   *  fold may put away, and a view preference either way — no command, nothing durable, no
+   *  history entry (plan §2, 0176). */
+  songPick: [picked: GridPick | null, setPick: (pick: GridPick | null) => void];
+  /** And whether the picked part has its own dials open under its row, held by the yard for the
+   *  reason the pick is: a fold that reopened a part shut is the bug those lines are written
+   *  against (0176). */
+  songDials: [open: boolean, setOpen: (open: boolean) => void];
   /** And which part the pass is playing on its own, held by the yard on exactly those terms and
    *  read by two things here: the section that toggles it, and the picture, which draws the song
    *  being *heard* (0190, src/ui/PlayerScope.tsx). */
   songSolo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
-  /** And which song the section's part list is a view onto — held by the yard on exactly those
-   *  terms and for that reason (plan §2, P170). */
-  songViewOpen: [open: string | null, setOpen: (open: string | null) => void];
   /** Whether a burst written on this card is rounded onto the beat — held by the yard for the
    *  reason every line above it is, and for one more: it is not a field of the spec. It changes no
    *  number the walk reads and holds no value of its own, so it is the card's own state and the
@@ -216,7 +215,7 @@ export function PlayerCard({
   // few lines down, and one word for a fold and for a run of parts is the drift this file would
   // have to keep straight forever (principle 1).
   const [arrangeShut] = arrangeFold;
-  const [selected] = songSelect;
+  const [picked] = songPick;
   const player = state.player;
   /**
    * The pattern as the card treats it, which is the pattern the graph is hearing: null while the
@@ -243,24 +242,19 @@ export function PlayerCard({
   );
 
   /**
-   * Which part the dials are pointed at, or none at all. Three things make it none, and every one
-   * of them is the list rather than the id: a selection naming a part the song no longer holds,
-   * since the id is view state and the list is durable; a pattern drawing its own arrangement,
-   * since the written list is then held and not played; and a selection naming a part of a song
-   * the section is not showing, since the Select toggle goes with the rows — a selection outliving
-   * the rows would be a card pointed at a part no gesture on screen could take it off, which is
-   * exactly what the tier over the parts made reachable (0158, 0176, P170,
-   * src/ui/PlayerSong.tsx).
-   *
-   * So it is looked up in the open song alone and never flat across the spec, which is the same
-   * run the section draws — one answer to "which part is a hand pointed at", read the one way
-   * (principle 1, `openIn`).
+   * Which part the dials are pointed at, or none at all. Two things make it none, and both are
+   * the list rather than the id: a pick naming a song or a part the run no longer holds, since the
+   * pick is view state and the list is durable; and a pattern drawing its own arrangement, since
+   * the written list is then held and not played — a pick outliving the cells would be a card
+   * pointed at a part no gesture on screen could take it off (0158, 0176). Looked up through the
+   * song the pick names, which is the same road the grid resolves it by (principle 1).
    */
-  const shown = openIn(live?.songs ?? [], songViewOpen[0]);
   const part =
-    live === null || songIsDrawn(live)
+    live === null || songIsDrawn(live) || picked === null
       ? undefined
-      : shown?.parts.find((one) => one.id === selected);
+      : live.songs
+          .find((song) => song.id === picked.song)
+          ?.parts.find((one) => one.id === picked.part);
   /**
    * And what a dial writes, which is the selection when there is one: a knob a part carries goes
    * into that part, and everything else — the four the song itself is drawn by, the seed, the list
@@ -425,7 +419,7 @@ export function PlayerCard({
   const dialled = {
     // The card's own, so its dials are named by their captions and the amounts beside them by the
     // dial they shape (0195): a part's fold is what names a second set of them (0176,
-    // src/ui/PlayerPart.tsx).
+    // src/ui/PlayerGridPick.tsx).
     named: "",
     player: painted,
     defaults: PLAYER_DEFAULTS,
@@ -694,7 +688,7 @@ export function PlayerCard({
                 Part is a gesture with nothing to add a part to. What it would say while the switch
                 is off is what the empty-song sentence already says (0157, 0158, 0173). */}
             {live !== null && (
-              <PlayerSong
+              <PlayerGrid
                 instrument={instrument}
                 deck={deck}
                 player={live}
@@ -703,10 +697,9 @@ export function PlayerCard({
                 voice={captured}
                 patch={patch}
                 fold={songFold}
-                select={songSelect}
-                open={songOpen}
+                pick={songPick}
+                dials={songDials}
                 solo={songSolo}
-                songView={songViewOpen}
               />
             )}
           </CardContent>

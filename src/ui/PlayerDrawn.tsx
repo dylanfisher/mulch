@@ -4,7 +4,7 @@
  *   and the one standing lit as it plays (0158, 0157, 0176). Read-only, and it has to be — a drawn
  *   arrangement is a function of the seed and the four amounts at walk time and nothing stores
  *   one, so there is nothing here a gesture could edit and the dials above are what shapes it.
- * @instead The list a hand writes, and every gesture that shapes one → src/ui/PlayerSong.tsx. The
+ * @instead The list a hand writes, and every gesture that shapes one → src/ui/PlayerGrid.tsx. The
  *   four amounts → src/ui/PlayerArrange.tsx. What lays the run → src/lib/playerSong.ts. What fills
  *   the read → src/audio/player.ts.
  */

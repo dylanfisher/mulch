@@ -24,6 +24,7 @@ import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
 import { type SongPartId } from "@/lib/playerSong";
+import type { GridPick } from "@/ui/PlayerGridCell";
 import { type BlobId, genOf, type GenSource } from "@/lib/source";
 import { DEFAULT_HZ, effectiveGenHz, GEN_HZ_STEP, type GenKind, isGenHz } from "@/lib/waveform";
 import { sourceBlobId } from "@/state/session";
@@ -199,26 +200,20 @@ export function Deck({
    *  under the card's fold, so a fold of its own would be forgotten every time that one closed
    *  (0157). */
   const songFold = useState(false);
-  /** And which part of that song the card's dials are pointed at, held here for the same reason
-   *  again: a fold may put the section away, and a selection that went with it would be a hand's
-   *  aim forgotten by a caret (0176). A view preference: no command, nothing durable, no history
-   *  entry (plan §2). */
-  const songSelect = useState<SongPartId | null>(null);
-  /** And which part of it has its own dials open under it, held here for the same reason a third
-   *  time: a part unfolded and then folded away with the card would come back shut, which is the
-   *  bug every one of these lines is written against (0176). One at a time, because a card has one
-   *  set of dials and a list showing several sets of them is a list nothing can be read down. */
-  const songOpen = useState<SongPartId | null>(null);
+  /** And what of that song is picked for the row under the grid — the song, and the part the
+   *  card's dials are pointed at — held here for the same reason again: a fold may put the
+   *  section away, and a pick that went with it would be a hand's aim forgotten by a caret
+   *  (0176). A view preference: no command, nothing durable, no history entry (plan §2). */
+  const songPick = useState<GridPick | null>(null);
+  /** And whether the picked part's own dials are open under its row, held here for the same
+   *  reason a third time: a part unfolded and then folded away with the card would come back
+   *  shut, which is the bug every one of these lines is written against (0176). */
+  const songDials = useState(false);
   /** And which part of it the pass is playing on its own, held here for the reason the two above
    *  are: it outlives the section that asked for it, so it may not be held inside a fold. It
    *  outlives a stop too — the pass keeps its own solo and opens on it when the yard plays again,
    *  so the toggle and the transport say one thing at every moment (plan §2, 0190). */
   const songSolo = useState<SongPartId | null>(null);
-  /** And which song the section's part list is a view onto — held here for the reason every line
-   *  above it is: a fold may put the section away, and a view forgotten by a caret is the bug all
-   *  of these are written against (plan §2, P170). Null until a hand presses one, which reads as
-   *  the first (`openIn`, src/lib/playerSongs.ts). */
-  const songViewOpen = useState<string | null>(null);
   /** And whether a burst written on that card is held to the beat, held here for the reason every
    *  line above it is — and for one more: it is not a field of the spec. It writes no number of its
    *  own and the walk never hears about it, so a burst it rounded is an ordinary burst and the
@@ -487,10 +482,9 @@ export function Deck({
             groundFold={groundFold}
             arrangeFold={arrangeFold}
             songFold={songFold}
-            songSelect={songSelect}
-            songOpen={songOpen}
+            songPick={songPick}
+            songDials={songDials}
             songSolo={songSolo}
-            songViewOpen={songViewOpen}
             burstHeld={burstHeld}
           />
 

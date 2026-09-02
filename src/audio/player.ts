@@ -12,6 +12,10 @@
 // one pass closure below, and every line of it is beside the arming it moves. The alternative is
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And one over the dependency cap, which is the window arithmetic handed to a file of its own
+// under the hard cap: what the pass reads is one module more than it was, not one thing more.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
 import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid, type Span } from "./playerGrid";
 import { seam } from "./playerSeam";

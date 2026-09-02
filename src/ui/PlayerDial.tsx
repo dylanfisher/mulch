@@ -64,7 +64,7 @@ const PARSERS: Partial<Record<PlayerKnob, ReadingParser>> = {
  * One of this module's numbers, spelled the way its own dial spells it — the dial's default is
  * `String`, which is what every knob but those two reads as (src/ui/Knob.tsx). Exported because a
  * part's signature reads three of them out in a row, and a second table of readouts would be a
- * burst saying `0.25` in one place and `250` in the other (principle 1, src/ui/PlayerPart.tsx).
+ * burst saying `0.25` in one place and `250` in the other (principle 1, src/ui/PlayerGridPick.tsx).
  */
 export const playerReadout = (knob: PlayerKnob, value: number): string =>
   (READOUTS[knob] ?? String)(value);
@@ -119,7 +119,7 @@ export function PlayerDial({
    * The same thing said as a prefix rather than as a whole name, which is what a *set* of dials
    * drawn twice on one card needs: a part's fold draws the very boxes the card draws, so every
    * caption in it is a second slider under one word unless the part it belongs to is in front of
-   * it (0176, src/ui/PlayerPart.tsx). Empty — the card's own — is the caption alone.
+   * it (0176, src/ui/PlayerGridPick.tsx). Empty — the card's own — is the caption alone.
    */
   named?: string;
   /**

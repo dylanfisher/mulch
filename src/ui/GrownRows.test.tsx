@@ -17,7 +17,7 @@ import {
   markupOf,
   POOL,
 } from "@/ui/effectRackDouble";
-import { ROW_LEFT } from "@/ui/PlayerPart";
+import { ROW_LEFT } from "@/ui/playerLit";
 
 // One case per thing a row is made of, which is what the suite is: a `describe` is not a function
 // to split, and splitting it by size rather than by subject would name groups nothing means. Read

@@ -7,7 +7,7 @@
  *   the unfolding can be proven.
  * @instead The fixtures it reads back → src/ui/sketch/sketchWalk.ts. The eight pictures →
  *   src/ui/sketch/song/. The real tier over a part, and the cursor that walks it →
- *   src/lib/playerSongs.ts. The list the card draws it as today → src/ui/PlayerSong.tsx.
+ *   src/lib/playerSongs.ts. The list the card draws it as today → src/ui/PlayerGrid.tsx.
  */
 import { READOUT_JOIN } from "@/lib/copy";
 import { PLAYER_PLAYS_LABEL } from "@/lib/copySongs";

@@ -3,7 +3,7 @@
  *   stepped inside the bound the module declares, the slot wraps because the grid is a ring, and a
  *   part nobody has written says so rather than drawing an empty row (0188).
  * @instead What the walk does with a row → src/lib/playerStrip.test.ts. The one `deck.player` this
- *   row's `onChange` becomes → src/ui/PlayerPart.tsx and src/ui/PlayerSong.test.tsx. What a cell
+ *   row's `onChange` becomes → src/ui/PlayerGridPick.tsx and src/ui/PlayerSong.test.tsx. What a cell
  *   is → src/lib/playerStrip.ts.
  */
 import { isValidElement } from "react";

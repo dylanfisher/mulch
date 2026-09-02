@@ -11,7 +11,7 @@
  *   What a painting is made of → src/ui/playerScopeCanvas.ts. The numbers of the landing a press
  *   picked → src/ui/PlayerLanding.tsx. How fast the module is going, which is the drift's one moiré
  *   row and not this → src/lib/playerDrift.ts. The part list itself, which this is the shape of →
- *   src/ui/PlayerSong.tsx.
+ *   src/ui/PlayerGrid.tsx.
  */
 // Over the dependency cap, and what is over it is the two tiers a per-frame picture needs at once:
 // the module's own maths — the walk, the geometry, the grid, the song — and the surface, the
@@ -58,9 +58,14 @@ import type { DeckState } from "@/state/store";
 import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { Explains } from "@/ui/Explains";
-import { SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
-import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
-import { litRows, sameRow, standingIn, type StandingRow } from "@/ui/PlayerSong";
+import {
+  litRows,
+  PART_ATTRIBUTE,
+  sameRow,
+  SONG_ATTRIBUTE,
+  standingIn,
+  type StandingRow,
+} from "@/ui/playerLit";
 import { PlayerLanding } from "@/ui/PlayerLanding";
 import { paintScope } from "@/ui/playerScopeCanvas";
 // oxlint-enable import/max-dependencies
@@ -115,7 +120,7 @@ const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0, bars: [] };
  *
  * The arrangement's rows count down through the same answer: a yard whose loop has no grid has no
  * seconds to say and says none, which is the answer this picture already gives by not being there
- * (0159, src/ui/PlayerSong.tsx).
+ * (0159, src/ui/PlayerGrid.tsx).
  */
 export function slotSecsOf(state: DeckState): number | null {
   // The deck's own rate, exactly as `gridOf` reads it: a yard at half speed jumps a loop twice as
@@ -247,7 +252,7 @@ type ScopeLanes = { songs: LaneSegment[]; parts: LaneSegment[] };
  * The two lanes lit at once, each tier's segment marked by the row the walk is standing in.
  *
  * Which row that is, is `standingIn`'s answer and never a second read of the place (principle 1,
- * src/ui/PlayerSong.tsx): the section below and the lanes above it are two pictures of one run, and
+ * src/ui/PlayerGrid.tsx): the section below and the lanes above it are two pictures of one run, and
  * a lane that worked out where the walk was for itself could disagree with the row it sits over.
  *
  * A segment is still a width with nowhere to put a countdown, so `litRows` finds no clock in one
@@ -264,7 +269,7 @@ export function litLanes(strip: HTMLElement, standing: StandingRow): void {
 }
 
 /** Where a lane writes the standing row's name — the label's counterpart to a row's clock slot
- *  (`ROW_LEFT_SLOT`, src/ui/PlayerPart.tsx), one per tier and told apart by the tier's own
+ *  (`ROW_LEFT_SLOT`, src/ui/PlayerGridPick.tsx), one per tier and told apart by the tier's own
  *  attribute so the two labels are two targets and not one. */
 export const LANE_NAME_SLOT = "lane-name";
 
@@ -293,7 +298,7 @@ const NOTHING_LIT = standingIn(null, null);
 /**
  * One tier as a shape: a segment per row of it, at the share of the played run that row holds
  * (`songShare`, src/lib/playerSong.ts), with the standing one lit once a frame straight into the
- * element — exactly the mechanism the part list itself uses (0157, src/ui/PlayerSong.tsx). It
+ * element — exactly the mechanism the part list itself uses (0157, src/ui/PlayerGrid.tsx). It
  * replaces nothing; it is what the list looks like from a distance.
  *
  * The tier is carried by the attribute each segment wears — the same attribute its row wears in
@@ -424,7 +429,7 @@ export function PlayerScope({
    * part of it because React never wrote a segment's mark — a lane swapped out and back arrives
    * with every segment dark, and a guard on the rows alone would skip it until one of them changed,
    * which is exactly the hole `paint(true)` fills in the part list itself (0157,
-   * src/ui/PlayerSong.tsx). A new set of lanes is a new `paint`, and `useCanvasSurface` paints on
+   * src/ui/PlayerGrid.tsx). A new set of lanes is a new `paint`, and `useCanvasSurface` paints on
    * the commit that changes one.
    */
   const lit = useRef<{ standing: StandingRow; lanes: ScopeLanes | null }>({
@@ -469,7 +474,7 @@ export function PlayerScope({
    * Lighting the lane's standing segment, straight into the DOM. Its own call because a frame is
    * not the only thing that has to write it: a stopped yard registers no frame callback at all, so
    * the commit that stops one is the only thing left to put a lit segment back — the same hole
-   * `paint(true)` fills in the part list itself (0157, src/ui/PlayerSong.tsx).
+   * `paint(true)` fills in the part list itself (0157, src/ui/PlayerGrid.tsx).
    */
   const light = useCallback(() => {
     // No seconds: a lane says which row is standing and never how long it has left, so the tiers'

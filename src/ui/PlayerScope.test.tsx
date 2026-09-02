@@ -105,9 +105,7 @@ import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
 import { LANE_NAME_SLOT, litLanes, PlayerScope, waitSaid } from "@/ui/PlayerScope";
-import { standingIn, type StandingRow } from "@/ui/PlayerSong";
-import { SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
-import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
+import { PART_ATTRIBUTE, SONG_ATTRIBUTE, standingIn, type StandingRow } from "@/ui/playerLit";
 import { oneSong } from "@/lib/playerSongs";
 
 // oxlint-enable import/max-dependencies

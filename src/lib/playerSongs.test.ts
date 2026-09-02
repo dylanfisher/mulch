@@ -26,7 +26,7 @@ import {
   songsOnset,
   songsParts,
   createSongs,
-  openIn,
+  nudged,
   PLAYER_SONGS_MAX,
   soloSongs,
   withSongsPart,
@@ -292,7 +292,7 @@ describe("songs of parts", () => {
    * hand has open, and the two rebuilds an edit is — a part written where it stands, and a song's
    * parts replaced whole (0089, plan §2).
    */
-  it("reads a run flat, opens the first until a hand says otherwise, and rebuilds in place", () => {
+  it("reads a run flat, moves one along it one place at a time, and rebuilds in place", () => {
     const [one, two] = [part(), part()];
     const first = song([one]);
     const second = song([two]);
@@ -301,10 +301,10 @@ describe("songs of parts", () => {
     // The first of a run until a hand points at another, and the first again where the one it
     // pointed at has gone: a view preference names a thing, and a name nothing answers is no
     // selection at all (plan §2).
-    expect(openIn(songs, null)).toBe(first);
-    expect(openIn(songs, second.id)).toBe(second);
-    expect(openIn(songs, "song-nobody-minted")).toBe(first);
-    expect(openIn<PlayerSong>([], null)).toBeUndefined();
+    expect(nudged(songs, 1, -1)).toEqual([second, first]);
+    expect(nudged(songs, 0, 1)).toEqual([second, first]);
+    expect(nudged(songs, 0, -1)).toBeNull();
+    expect(nudged(songs, 1, 1)).toBeNull();
     const renamed = withSongsPart(songs, two.id, (each) => ({ ...each, name: "Break" }));
     expect(songsParts(renamed).map((each) => each.name)).toEqual([one.name, "Break"]);
     expect(songsParts(withSong(songs, second.id, { parts: [one, two] }))).toEqual([one, one, two]);

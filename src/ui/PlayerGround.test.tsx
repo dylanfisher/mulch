@@ -13,7 +13,7 @@ import type * as PeakCanvas from "@/ui/peakCanvas";
 import { describe, expect, it, vi } from "vitest";
 
 // The two hooks this surface calls, made callable outside a renderer so its own handler can be
-// pressed — the same stand-in src/ui/PlayerPart.test.tsx uses.
+// pressed — the same stand-in src/ui/PlayerGridPick.test.tsx uses.
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
@@ -70,7 +70,7 @@ const LOOP = { in: 1, out: 2 };
 /**
  * One strip, called rather than mounted: the element it drew, the markup that renders to, and the
  * press its root answers. Called, because what a press does with the bed it names is this
- * surface's own — the same stand-in a part's row is drawn through (src/ui/PlayerPart.test.tsx).
+ * surface's own — the same stand-in a part's row is drawn through (src/ui/PlayerGridPick.test.tsx).
  */
 const drawn = (over: Partial<PlayerSpec> = {}, loop: typeof LOOP | null = LOOP) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();

@@ -6,7 +6,7 @@
  *   Per-frame and nothing else — no command, nothing durable, no React state
  *   (plan §2), the same seam an automated knob's live read runs on (0035).
  * @instead The arrangement itself, read out beside this → `songsLabel`, src/lib/copySongs.ts. The
- *   section that edits it, where the same part is lit → src/ui/PlayerSong.tsx. What fills the read
+ *   section that edits it, where the same part is lit → src/ui/PlayerGrid.tsx. What fills the read
  *   → src/audio/player.ts.
  */
 import { useCallback, useLayoutEffect, useRef } from "react";

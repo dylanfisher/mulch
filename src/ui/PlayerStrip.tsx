@@ -5,7 +5,7 @@
  *   — which cell is selected is a view preference and never leaves this component (plan §2).
  * @instead What a cell *is*, and every bound one of its three numbers sits inside →
  *   src/lib/playerStrip.ts. What the walk does with a row → src/lib/playerWalk.ts. The part this
- *   is drawn in the fold of, and the road its edits take → src/ui/PlayerPart.tsx. The words on it
+ *   is drawn in the fold of, and the road its edits take → src/ui/PlayerGridPick.tsx. The words on it
  *   → src/lib/copyStrip.ts. The picture of what the row actually played → src/ui/PlayerScope.tsx.
  */
 // Keyed by place, which is what a cell is: unlike a part, a cell carries no id, because what tells
@@ -73,7 +73,7 @@ const FIELDS = [
 
 /**
  * One cell of the row: the jump into it, and the press that points the editor at it. A component
- * of its own for the reason `PartCard` is — every handler has to carry which cell it is, and a
+ * of its own for the reason a grid cell is — every handler has to carry which cell it is, and a
  * closure built in the parent's own render is a new prop on every draw of the row.
  */
 function StripCell({
