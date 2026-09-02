@@ -324,8 +324,13 @@ export type ColourDimension = keyof typeof COLOUR_REACH;
  * src/ui/moireScreen.ts). Here rather than beside that painter because the field the picture's
  * travel is kept on names it too (`MoireRowSet`, src/ui/moireRowsField.ts), and the three names are
  * the reaches above rather than a second list of them (principle 1).
+ *
+ * And how saturated all of it is drawn, which is the fourth thing the tile is keyed by and the one
+ * no row claims: it is the standing rack's looks' and not a value's, so it is not in `COLOUR_REACH`
+ * and its own reach is stated where it is spent (`SCREEN_SATURATE_REACH`, src/ui/moireScreen.ts,
+ * 0283). Here rather than there because a tile is filmed through the whole of this object at once.
  */
-export type ScreenInk = Record<ColourDimension, number>;
+export type ScreenInk = Record<ColourDimension, number> & { saturate: number };
 
 /**
  * And where the wind a standing rack blows has carried that same screen to: how far, in turns of one

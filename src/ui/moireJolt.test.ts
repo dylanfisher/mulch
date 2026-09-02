@@ -28,7 +28,7 @@ import {
   joltWalked,
 } from "@/ui/moireJolt";
 import { moireRows, refillRows } from "@/ui/moireRows";
-import { screenInkRest } from "@/ui/moireScreen";
+import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 import type { PlayerPeek } from "@/audio/deckPeek";
 import type { PlayerSpec } from "@/lib/player";
@@ -148,6 +148,7 @@ describe("the jolt the picture answers a hit with", () => {
       fractalStopsRest(),
       fractalStopsRest(),
       screenInkRest(),
+      [],
       set.jolt,
       shapeRest(),
     );

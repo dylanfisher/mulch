@@ -12,7 +12,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DRIFT_DISPERSE_REACH,
   DRIFT_FRINGE_REACH,
-  DRIFT_HUE_REACH,
   DRIFT_REST,
   type MoireRow,
   type ScreenInk,
@@ -28,12 +27,6 @@ import {
   blobKeep,
   channelFringe,
   channelKeep,
-  screenDisperse,
-  screenFringe,
-  screenHue,
-  screenInkRest,
-  inkTravelInto,
-  DRIFT_INK_SECS,
   columnKeep,
   gridPitchPx,
   rowKeep,
@@ -41,10 +34,10 @@ import {
   scanKeep,
   termTurns,
   tilePx,
-  stepped,
   SCREEN_FLOOR,
   SCREEN_TERMS,
 } from "@/ui/moireScreen";
+import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -569,6 +562,45 @@ describe("moireScreen", () => {
     expect(spreadAt(0, DRIFT_DISPERSE_REACH)).toBeGreaterThan(0.1);
   });
 
+  // P283: pop's saturation, the one thing about the picture's colour that no row claims.
+  it("saturates the ink a standing look asks for, without moving what the cell averages to", () => {
+    // The whole reading, over one tile: how far the three channels of a pixel stand apart, and how
+    // much ink the tile carries in total. A saturated picture says the same colour more strongly —
+    // each third of a cell purer in its own channel — so the first moves and the second does not.
+    const measured = (saturate: number): { spread: number; total: number } => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 640, [row({ period: 3 })], {
+        ...screenInkRest(),
+        saturate,
+      });
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      let spread = 0;
+      let total = 0;
+      for (let at = 0; at < pixels.length; at += 4) {
+        const red = pixels[at] ?? 0;
+        const green = pixels[at + 1] ?? 0;
+        const blue = pixels[at + 2] ?? 0;
+        spread += Math.max(red, green, blue) - Math.min(red, green, blue);
+        total += red + green + blue;
+      }
+      return { spread, total };
+    };
+    const rest = measured(0);
+    const lit = measured(1);
+    const half = measured(0.5);
+    expect(lit.spread).toBeGreaterThan(rest.spread);
+    expect(half.spread).toBeGreaterThan(rest.spread);
+    expect(half.spread).toBeLessThan(lit.spread);
+    // And the cell still comes back very nearly to the ink that was sent, which is what a subpixel
+    // is (0130): each third gains in its own channel exactly what it gives up in the other two, at
+    // any saturation. Nearly, and not exactly, because a purer third is a brighter one and a pixel
+    // is a byte — the few per cent lost at the top of the range is the clip, and it is the reason
+    // the split is pushed to twice its resting depth rather than to the 0.45 it was first written
+    // at.
+    expect(lit.total / rest.total).toBeGreaterThan(0.95);
+    expect(lit.total / rest.total).toBeLessThanOrEqual(1);
+  });
+
   it("keeps SCREEN_FLOOR across the widest fringe and the whole of disperse", () => {
     // What stops a screen becoming a grille is the floor, and neither dimension that is colour may
     // spend it: they divide the ink the row was already drawn in among the three channels it is
@@ -637,75 +669,6 @@ describe("moireScreen", () => {
     expect(meanOf(DRIFT_REST.hue, 0)).toBeGreaterThan(meanOf(0, 0));
   });
 
-  it("travels the picture's ink to a claim that moved rather than cutting to it", () => {
-    // Every claim below is the *boldest* row's, so an automator retiring the place that held one
-    // hands the picture another ink between two frames. The travel is rated and it arrives: a whole
-    // reach in `DRIFT_INK_SECS`, which is what makes the eight stops `stepped` rounds onto a
-    // staircase the picture walks up rather than one it jumps.
-    const claim = [
-      row({
-        period: 3,
-        hue: 1,
-        fringe: DRIFT_FRINGE_REACH,
-        disperse: DRIFT_DISPERSE_REACH,
-      }),
-    ];
-    const ink = screenInkRest();
-    // At an age of one, because how far a claim is spent is the performance's own age and this case
-    // is about the travel rather than about that band (`agedHue`, src/lib/moireAge.ts).
-    // One frame of a picture drawn at sixty a second: a hundred-and-twentieth of each reach.
-    inkTravelInto(ink, claim, 0, 1, 1 / 60, DRIFT_INK_SECS);
-    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue + DRIFT_HUE_REACH / (60 * DRIFT_INK_SECS), 10);
-    expect(ink.fringe).toBeCloseTo(
-      DRIFT_REST.fringe + DRIFT_FRINGE_REACH / (60 * DRIFT_INK_SECS),
-      10,
-    );
-    // And it is nowhere near the claim on that frame, or on the next one either.
-    expect(ink.hue).toBeLessThan(1);
-    inkTravelInto(ink, claim, 0, 1, 1 / 60, DRIFT_INK_SECS);
-    expect(ink.hue).toBeLessThan(1);
-    // A whole reach of travel arrives, and the three arrive together: each is rated in its own
-    // dimension's units, so `fringe` reaching twice as far does not take twice as long.
-    inkTravelInto(ink, claim, 0, 1, DRIFT_INK_SECS, DRIFT_INK_SECS);
-    expect(ink).toEqual({ hue: 1, fringe: DRIFT_FRINGE_REACH, disperse: DRIFT_DISPERSE_REACH });
-  });
-
-  it("turns toward a claim that moved again mid-travel, and overshoots neither", () => {
-    const hot = [row({ period: 3, hue: 1 })];
-    const cool = [row({ period: 3, hue: 0 })];
-    const ink = screenInkRest();
-    inkTravelInto(ink, hot, 0, 1, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
-    const partway = ink.hue;
-    expect(partway).toBeGreaterThan(DRIFT_REST.hue);
-    expect(partway).toBeLessThan(1);
-    // The claim moves again before the first travel is over: the picture turns round from where it
-    // has got to rather than resuming from where it set off, and it never passes the new claim.
-    inkTravelInto(ink, cool, 0, 1, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
-    expect(ink.hue).toBeLessThan(partway);
-    expect(ink.hue).toBeGreaterThan(0);
-    // And a step longer than what is left lands on the claim exactly rather than beyond it, which
-    // is the whole of why the travel arrives.
-    inkTravelInto(ink, cool, 0, 1, 10 * DRIFT_INK_SECS, DRIFT_INK_SECS);
-    expect(ink.hue).toBe(0);
-  });
-
-  it("leaves a resting yard's ink and the key it is filmed through exactly where they are", () => {
-    // The travelled value is what `stepped` rounds, and a key that moved would be a picture-sized
-    // bake (0129, 0142). A yard claiming nothing moves neither, however long it is left running.
-    const resting = [row({ period: 3 })];
-    const ink = screenInkRest();
-    const keyed = (): number[] => [
-      stepped(ink.fringe, DRIFT_FRINGE_REACH),
-      stepped(ink.disperse, DRIFT_DISPERSE_REACH),
-      stepped(ink.hue, DRIFT_HUE_REACH),
-    ];
-    const first = keyed();
-    for (let frame = 0; frame < 120; frame++)
-      inkTravelInto(ink, resting, 0, 0, 1 / 60, DRIFT_INK_SECS);
-    expect(ink).toEqual(screenInkRest());
-    expect(keyed()).toEqual(first);
-  });
-
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
     const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
       vi.stubGlobal("devicePixelRatio", 2);
@@ -720,35 +683,19 @@ describe("moireScreen", () => {
     // it claimed anything — the claim is where the travel is *going*, and the tile is keyed by
     // where it has got to.
     const partway = screenInkRest();
-    inkTravelInto(partway, [row({ period: 3, hue: 1 })], 0, 0, DRIFT_INK_SECS / 8, DRIFT_INK_SECS);
+    inkTravelInto(
+      partway,
+      [row({ period: 3, hue: 1 })],
+      0,
+      0,
+      0,
+      DRIFT_INK_SECS / 8,
+      DRIFT_INK_SECS,
+    );
     const held = meanOf(screenInkRest(), 0);
     const onTheWay = meanOf(partway, 0);
     const arrived = meanOf(undefined, 0);
     expect(onTheWay).toBeGreaterThan(held);
     expect(arrived).toBeGreaterThan(onTheWay);
-  });
-
-  it("reads each thing a row says about colour off the row that says it loudest", () => {
-    // One tile is one screen, so unlike a pitch or a depth these cannot be per row. The boldest
-    // claim wins rather than the mean: an effect that says nothing about colour leaves the picture
-    // where it rests, and a mean would let it dilute the knob whose travel this is.
-    const quiet = row({ period: 3 });
-    const loud = row({
-      period: 5,
-      fringe: DRIFT_FRINGE_REACH,
-      disperse: DRIFT_DISPERSE_REACH,
-      hue: 1,
-    });
-    expect(screenFringe([quiet])).toBe(DRIFT_REST.fringe);
-    expect(screenFringe([quiet, loud])).toBe(DRIFT_FRINGE_REACH);
-    expect(screenDisperse([quiet, loud], 0)).toBe(DRIFT_DISPERSE_REACH);
-    expect(screenHue([quiet, loud])).toBe(1);
-    // Loud is either way round rest: a knob at nothing takes the picture monochrome as surely as
-    // one at the top takes it chromatic.
-    expect(screenFringe([quiet, row({ period: 5, fringe: 0 })])).toBe(0);
-    // A row with no period of its own is not drawn, so it does not vote — and a picture with no
-    // rows in it at all is the one every yard drew before an effect could turn any of this.
-    expect(screenHue([quiet, row({ period: 0, hue: 1 })])).toBe(DRIFT_REST.hue);
-    expect(screenFringe([])).toBe(DRIFT_REST.fringe);
   });
 });

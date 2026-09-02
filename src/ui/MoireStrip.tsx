@@ -318,6 +318,9 @@ function useMoireRows(
       set.seed,
       set.toward,
       set.ink,
+      // And the looks themselves, for the one term of the ink no row claims — travelled above, so
+      // what the read spends is where each has actually got to (`looksSaturate`, 0283).
+      set.looks,
       set.jolt,
       set.shape,
     );

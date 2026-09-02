@@ -11,7 +11,7 @@ import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
-import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
 
 /**
@@ -23,7 +23,9 @@ import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
  */
 export function arrivedInk(rows: readonly MoireRow[], wash = 0, age = 0): ScreenInk {
   const ink = screenInkRest();
-  inkTravelInto(ink, rows, wash, age, DRIFT_INK_SECS, DRIFT_INK_SECS);
+  // Saturated at nothing, because that term is the standing rack's looks' and no row's (0283): a
+  // case about what a *look* does to the ink hands the painter one of its own.
+  inkTravelInto(ink, rows, wash, age, 0, DRIFT_INK_SECS, DRIFT_INK_SECS);
   return ink;
 }
 

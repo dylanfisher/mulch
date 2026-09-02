@@ -22,7 +22,7 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
 import { ROW_KEYS } from "@/ui/moireRowsField";
-import { screenInkRest } from "@/ui/moireScreen";
+import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 
 /** One deck lane as a row: something in the picture beside the field's own (moireRowsField.test.ts). */
@@ -100,6 +100,7 @@ describe("the lattice the rack stands in", () => {
       STOOD,
       STOOD,
       screenInkRest(),
+      [],
       joltRest(),
       shapeRest(),
     );
@@ -118,6 +119,7 @@ describe("the lattice the rack stands in", () => {
       STOOD,
       STOOD,
       screenInkRest(),
+      [],
       joltRest(),
       { ...shapeRest(), loud: 1 },
     );

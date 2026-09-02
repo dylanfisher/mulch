@@ -21,7 +21,7 @@ import {
 } from "@/lib/moireLattice";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import { curvedTileFor, heldStraight, type DriftOrder, type DriftTileImage } from "@/ui/driftTiles";
-import { stepped } from "@/ui/moireScreen";
+import { stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 
 /**

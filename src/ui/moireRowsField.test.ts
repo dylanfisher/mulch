@@ -68,7 +68,8 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
 import { joltRest } from "@/ui/moireJolt";
-import { bandTurns, screenDisperse, screenInkRest } from "@/ui/moireScreen";
+import { bandTurns } from "@/ui/moireScreen";
+import { screenDisperse, screenInkRest } from "@/ui/moireScreenInk";
 import type { Loop } from "@/lib/timeline";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
@@ -157,6 +158,7 @@ const refillRows = (
     STOOD,
     STOOD,
     screenInkRest(),
+    [],
     joltRest(),
     shapeRest(),
   );

@@ -13,8 +13,11 @@
  *   read position — and the other four motions each belong to the parameter whose fold claims them
  *   (0126, 0128), so a halted yard's screen stands exactly as still as its picture. All four move
  *   the tile as a whole: the lean was once per row drawn, and no row is drawn on its own any more.
- * @instead The picture this is the ink for — one grating per row, and the field their product
- *   makes → src/ui/moireCanvas.ts, which is this file's only caller and which cuts every one of
+ * @instead The ink itself — which row's claim about colour a whole picture takes, how saturated a
+ *   standing rack asks it to be, where the travel toward both has got to and the ladder each is
+ *   rounded onto → src/ui/moireScreenInk.ts, which this split out of at the 800-line hard cap
+ *   (0045) and which every tile here is keyed through. The picture this is the ink for — one
+ *   grating per row, and the field their product makes → src/ui/moireCanvas.ts, which is this file's only caller and which cuts every one of
  *   those gratings back out of what `inkThrough` lays down. What a row is, the fold it is drawn
  *   from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
@@ -29,8 +32,6 @@ import {
   DRIFT_FRINGE_REACH,
   DRIFT_HUE_REACH,
   DRIFT_REST,
-  DRIFT_STEPS,
-  easedToward,
   rowOffset,
   TAU,
   turnedScale,
@@ -40,10 +41,8 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { gratingKeep } from "@/lib/moireGrating";
-import { agedHue } from "@/lib/moireAge";
-import { arrived } from "@/lib/moireArrival";
-import { washedToward } from "@/lib/moireSound";
-import { snapToStep } from "@/lib/range";
+import { denormalize } from "@/lib/range";
+import { screenInkRest, SCREEN_SATURATE_REACH, stepped } from "@/ui/moireScreenInk";
 import { viewOf } from "@/ui/canvasSurface";
 
 /**
@@ -123,6 +122,20 @@ const INK_TOKENS = ["--drift-cool", "--drift-hot"] as const;
  * any more.
  */
 const CHANNEL_MIX = 0.16;
+
+/**
+ * And how far a wholly saturated picture pushes it — where a standing pop's Sheen carries the same
+ * split, on the ink's own travel and the ink's own steps (`looksSaturate`, src/ui/moireLooks.ts,
+ * 0283). Twice the resting split, so a saturated yard is visibly more chromatic than a plain one
+ * and the cell still averages back to the row's colour at either end (0130). Short of the 0.45 the
+ * split was first written at and by a wide margin, because that number is the one this picture
+ * already knows reads as candy stripes rather than as its own ink.
+ */
+const CHANNEL_MIX_FULL = 0.32;
+
+/** How far a third of a cell is pushed onto its own channel, at how saturated the picture is. */
+const channelMix = (saturate: number): number =>
+  denormalize(saturate, CHANNEL_MIX, CHANNEL_MIX_FULL);
 
 /**
  * How far apart the three channels' blob lattices stand, as a fraction of one beat cell. **This is
@@ -371,137 +384,6 @@ export function bandTurns(rows: readonly MoireRow[]): number {
 }
 
 /**
- * The row that says the most about one thing a picture can only say once — the ink's three
- * lattices, or the lens the finished field is bent through: those are one tile and one field over
- * the whole picture, so unlike a pitch or a depth they cannot be per row. **The boldest claim
- * wins** rather than the mean or the first — an effect that says nothing leaves the picture where
- * it rests, and a mean would let it dilute the one that does, which is exactly the knob whose
- * travel these dimensions exist to spend (0141, 0142). A row with no period is not drawn and does
- * not vote.
- */
-export function boldestRow(
-  rows: readonly MoireRow[],
-  pick: (row: MoireRow) => number,
-  rest: number,
-): MoireRow | null {
-  let bold: MoireRow | null = null;
-  for (const row of rows) {
-    if (row.period <= 0) continue;
-    // Nor does a row that has wholly left, which is the third reader of the one test: what it
-    // claimed about the ink or the lens would otherwise hold the whole picture there for as long
-    // as the yard stood unrebuilt (`arrived`, src/lib/moireArrival.ts).
-    if (!arrived(row.arrival)) continue;
-    if (Math.abs(pick(row) - rest) > Math.abs((bold === null ? rest : pick(bold)) - rest)) {
-      bold = row;
-    }
-  }
-  return bold;
-}
-
-/**
- * That row's own claim, or where the picture rests when every row does. The row itself is what the
- * lens the painter draws its slices through asks for — a slide has a phase, so it needs the row and
- * not only the amount — and the three colour readings below need the number alone.
- */
-const boldest = (
-  rows: readonly MoireRow[],
-  pick: (row: MoireRow) => number,
-  rest: number,
-): number => {
-  const bold = boldestRow(rows, pick, rest);
-  return bold === null ? rest : pick(bold);
-};
-
-// Named here rather than written at each call, which would allocate a closure a frame (0070).
-const fringeOf = (row: MoireRow): number => row.fringe;
-const disperseOf = (row: MoireRow): number => row.disperse;
-const hueOf = (row: MoireRow): number => row.hue;
-
-/** How far apart the three channel lattices of this picture's screen stand. */
-export const screenFringe = (rows: readonly MoireRow[]): number =>
-  boldest(rows, fringeOf, DRIFT_REST.fringe);
-
-/**
- * How far those three lattices' own pitches and angles have diverged: the boldest row's claim,
- * carried toward the reach by however washed the field has become — the one dimension of the screen
- * that moves with a reading rather than with a parameter, and it moves with the depth of every row
- * at once rather than with any one of them (0128, 0213).
- */
-export const screenDisperse = (rows: readonly MoireRow[], wash: number): number =>
-  washedToward(boldest(rows, disperseOf, DRIFT_REST.disperse), DRIFT_DISPERSE_REACH, wash);
-
-/** Where between the picture's cool ink and its hot one this picture is drawn. */
-export const screenHue = (rows: readonly MoireRow[]): number =>
-  boldest(rows, hueOf, DRIFT_REST.hue);
-
-/**
- * A knob-driven key rounded onto the ladder every tile in the picture is keyed through
- * (`DRIFT_STEPS`, src/lib/moire.ts). Exported because the picture's own tiles are keyed the same
- * way and by the same argument (0142): one fact about what may reach a tile, declared once
- * (principle 1).
- */
-export const stepped = (value: number, reach: number): number =>
-  snapToStep(value, 0, reach, reach / DRIFT_STEPS);
-
-/** Where a picture's ink stands before any row has claimed a thing about it. */
-export const screenInkRest = (): ScreenInk => ({
-  fringe: DRIFT_REST.fringe,
-  disperse: DRIFT_REST.disperse,
-  hue: DRIFT_REST.hue,
-});
-
-/**
- * How long the picture takes to travel a whole reach of one of them, in seconds, on a yard whose
- * clock is running. Every claim above
- * is the *boldest* row's, so an automator retiring the instance holding it hands the picture another
- * ink between two frames and a hand dragging past a stop cuts to it — and every other travel in the
- * picture is rated rather than written (`easedToward`, 0235, 0248). This is that one rate spent on
- * colour: a whole reach in two seconds, so a claim that moves a little moves for a little.
- *
- * **Two seconds is what the ladder costs.** The travelled value is what `stepped` rounds, so a whole
- * reach walks `DRIFT_STEPS` stops and each stop is one bake: eight over two seconds, four a second,
- * and none of them twice, the travel running one way. Three terms travelling at once off each
- * other's step lines is three of those ladders and up to twenty-odd keys, which is what `TILE_CACHE`
- * below is sized against. Shorter spends the same bakes closer together; longer is a picture still
- * catching up with a knob the hand let go of.
- */
-export const DRIFT_INK_SECS = 2;
-
-/**
- * One step of the picture's ink travel, from where it has got to toward what the rows claim now —
- * three `easedToward` calls and nothing else, in the shape the structure's own travel across its
- * plane is taken in (`fractalTravelInto`, src/lib/moireFractal.ts). Each in its own dimension's
- * units, so the three arrive together rather than `fringe` taking twice as long as `hue`.
- *
- * The whole reading and not the bare claim: how washed the field is carries `disperse` and how old
- * the performance is carries `hue`. The age crawls and the travel arrives on it every read; the
- * wash does not — `washAmount` is gated at a floor, so a deck falling under it moves `disperse`
- * half a reach between two frames and the travel now walks that too, a second at its widest. That
- * is the same kind of jump as a retiring place and it is walked for the same reason, not an
- * oversight: the alternative is one of the three terms cutting while the other two travel (0266).
- *
- * `over` is how long a whole reach takes — `DRIFT_INK_SECS`, or nothing where there is no clock to
- * travel against, which arrives outright (`easedToward`).
- *
- * Written in place, because it is read once a picture on the frame path and allocates nothing
- * (0070).
- */
-export function inkTravelInto(
-  out: ScreenInk,
-  rows: readonly MoireRow[],
-  wash: number,
-  age: number,
-  elapsed: number,
-  over: number,
-): void {
-  out.fringe = easedToward(out.fringe, screenFringe(rows), elapsed, over, DRIFT_FRINGE_REACH);
-  const disperse = screenDisperse(rows, wash);
-  out.disperse = easedToward(out.disperse, disperse, elapsed, over, DRIFT_DISPERSE_REACH);
-  const hue = agedHue(screenHue(rows), age);
-  out.hue = easedToward(out.hue, hue, elapsed, over, DRIFT_HUE_REACH);
-}
-
-/**
  * The tiles built so far, by what they are of rather than by who asked: a screen is the same screen
  * on every canvas of the same height, colour, density and tint, and a rack card added or removed
  * remounts the strips — which under a cache keyed by the canvas rebuilt an identical tile every
@@ -518,11 +400,18 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * one on a frame, which is `stepped` doing the work rather than this number.
  *
  * **Doubled for what moves a tint with no hand on it**: how washed a yard is carries `disperse`
- * across its own stops while it plays (0213), the age carries `hue`, and every one of the three
- * walks its own ladder when a claim moves (`inkTravelInto`, 0266) — so a travel visits its stops in
+ * across its own stops while it plays (0213), the age carries `hue`, and every one of them walks its
+ * own ladder when a claim moves (`inkTravelInto`, 0266) — so a travel visits its stops in
  * turn rather than its two ends, and both surfaces of both yards visit them. Held together they cost a build apiece, once; evicted they would cost the
  * pixel loop on a frame, which is the one thing 0129 forbids. A tile is one beat wide, so the room
  * is a few kilobytes rather than a picture.
+ *
+ * **A fourth ladder walks it now, and the number is knowingly left where it is** (0283): a standing
+ * pop saturates the ink, and pop's own Sheen is declared into `hue` as well, so one drag of it walks
+ * two of these ladders at once. This room was never enough to hold a whole travel — three ladders
+ * already asked more of it than it holds — and what a miss costs is the build above on a later
+ * paint, which is the same eight-stop cost every colour move has paid since 0266. Raising it is a
+ * number nobody has measured, and the measurement belongs to the step that prices a loaded rack.
  */
 const TILE_CACHE = 24;
 
@@ -551,12 +440,17 @@ const FLAT_GAIN: readonly [number, number, number] = [1, 1, 1];
  * three thirds average back to the colour that was sent (0130). A token with no light in it would
  * divide by nothing, and is the third that changes nothing rather than a pixel of no colour: a
  * missing fringe shows the wrong token where a blank screen would hide it.
+ *
+ * `saturate` is how far the split is pushed past where it rests, which is how saturated the standing
+ * rack's looks ask this picture to be (0283). It moves how *pure* each third is and never what the
+ * three of them average to, so a saturated cell is the same colour more strongly said.
  */
-function channelGain(lit: Ink): readonly [number, number, number] {
+function channelGain(lit: Ink, saturate: number): readonly [number, number, number] {
   const total = lit[0] + lit[1] + lit[2];
   if (total <= 0) return FLAT_GAIN;
-  const rest = 1 - CHANNEL_MIX;
-  const share = CHANNEL_MIX * CHANNEL_TOKENS.length;
+  const pushed = channelMix(saturate);
+  const rest = 1 - pushed;
+  const share = pushed * CHANNEL_TOKENS.length;
   return [
     rest + (share * lit[0]) / total,
     rest + (share * lit[1]) / total,
@@ -633,7 +527,7 @@ function screenOf(
   tint: ScreenInk,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
-  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}`;
+  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const width = beatPx(pitch);
@@ -670,7 +564,7 @@ function build(
   const style = getComputedStyle(canvas);
   const row = towardInk(inkOf(color), style, tint.hue);
   const gains = CHANNEL_TOKENS.map((token) =>
-    channelGain(inkOf(style.getPropertyValue(token).trim())),
+    channelGain(inkOf(style.getPropertyValue(token).trim()), tint.saturate),
   );
   const field = ink.createImageData(width, height);
   const pixels = field.data;
@@ -731,6 +625,7 @@ export function inkThrough(
   tinted.fringe = stepped(ink.fringe, DRIFT_FRINGE_REACH);
   tinted.disperse = stepped(ink.disperse, DRIFT_DISPERSE_REACH);
   tinted.hue = stepped(ink.hue, DRIFT_HUE_REACH);
+  tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;
   // Each over the span the term comes round in, so every one of them arrives back where it left

@@ -130,6 +130,19 @@ export const popEffect = defineEffect({
     { param: "pop.sheen", into: "hue" },
     { param: "pop.mix", into: "depth" },
   ],
+  // And the whole-field move a pop makes: the finished picture with its own blurred copy taken out
+  // of it and the mask that leaves added back on, which reads as edges biting and contrast lifting where
+  // there is an edge to lift (0283). How hard the mask bites is the Mix — how much of the stage is
+  // heard is how much of the picture is brought into focus — and the Sheen is the top end of the
+  // sound, which is how saturated the ink the whole picture is filmed through is drawn. Both on
+  // their own ranges: a picture stated in turns reads the knob where it stands. The saturation is
+  // the one term no pass draws — it reaches the screen's ink through the stepped travel that ink
+  // already takes, because colour is the tile's (`inkTravelInto`, 0266).
+  look: "sharpen",
+  lookFrom: [
+    { param: "pop.mix", into: "amount" },
+    { param: "pop.sheen", into: "saturation" },
+  ],
   // The pivot the expander measures from, which is the slowest state in the stage by a long way
   // and is deliberately slow (../worklets/pop.js). A few time constants to arrive at the programme.
   settle: () => Math.max(PIVOT_SECS * SETTLE_TIME_CONSTANTS, SETTLE_FLOOR_SECS),

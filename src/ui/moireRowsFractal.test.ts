@@ -135,6 +135,7 @@ const readAt = (
     set.seed,
     set.toward,
     set.ink,
+    [],
     set.jolt,
     shapeRest(),
   );
@@ -243,6 +244,7 @@ describe("the picture's own structure", () => {
         set.seed,
         set.toward,
         set.ink,
+        [],
         set.jolt,
         shapeRest(),
       );
@@ -324,6 +326,7 @@ describe("the picture's own structure", () => {
         set.seed,
         set.toward,
         set.ink,
+        [],
         set.jolt,
         shapeRest(),
       );

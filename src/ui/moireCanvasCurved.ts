@@ -30,7 +30,7 @@ import {
 import { steppedFolds } from "@/lib/moireFold";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import type { DriftOrder } from "@/ui/driftTiles";
-import { stepped } from "@/ui/moireScreen";
+import { stepped } from "@/ui/moireScreenInk";
 
 /** A 2D transform as `setTransform` takes it, refilled in place by the painter (0070). */
 export type Aim = { a: number; b: number; c: number; d: number; e: number; f: number };

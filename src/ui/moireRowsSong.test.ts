@@ -55,7 +55,7 @@ import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { joltRest } from "@/ui/moireJolt";
-import { screenHue, screenInkRest } from "@/ui/moireScreen";
+import { screenHue, screenInkRest } from "@/ui/moireScreenInk";
 import type { PlayerSpec } from "@/lib/player";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
@@ -125,6 +125,7 @@ const refillRows = (
     STOOD,
     STOOD,
     screenInkRest(),
+    [],
     joltRest(),
     shapeRest(),
   );

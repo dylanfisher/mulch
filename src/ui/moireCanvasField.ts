@@ -15,7 +15,7 @@ import { LENS_SLICES, lensSlide, shatterPieces, shatterSlide } from "@/lib/moire
 import { LOOKS } from "@/lib/moireLook";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
 import { looksShatter, looksWarp, type MoireLook } from "@/ui/moireLooks";
-import { boldestRow } from "@/ui/moireScreen";
+import { boldestRow } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 
 /** How far one row asks the finished field to be bent, read off the row that asks it loudest. */

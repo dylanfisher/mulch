@@ -33,9 +33,9 @@ import {
 import { effectById } from "@/audio/effects/registry";
 import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
-import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
+import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import { rackShape, shapeRest, type MoireShape } from "@/ui/moireShape";
-import { rackLooks } from "@/ui/moireLooks";
+import { looksSaturate, rackLooks, type MoireLook } from "@/ui/moireLooks";
 import { rackWind, windRest } from "@/ui/moireWind";
 import {
   DRIFT_JOLT_SECS,
@@ -548,6 +548,7 @@ export function refillRows(
   seed: FractalStops,
   toward: Readonly<FractalStops>,
   ink: ScreenInk,
+  looks: readonly MoireLook[],
   jolt: MoireJolt,
   shape: Readonly<MoireShape>,
 ): number {
@@ -706,12 +707,25 @@ export function refillRows(
   // now. After the walk and never inside it: a lane riding a colour writes its row's claim in there,
   // and the ink is the boldest of them all — one screen being one tile (`inkTravelInto`).
   //
+  // The one term in it no row claims is how saturated the standing rack's own looks ask the picture
+  // to be drawn, which is read off the set's looks rather than off any row — handed in already
+  // travelled, so a pop on its way out saturates by what is left of it (`looksSaturate`,
+  // src/ui/moireLooks.ts, 0283).
+  //
   // **And no travel at all on a yard that is not sounding**, which is the same answer the ground
   // gives a yard that cannot jump: there is nothing to time a travel against. A halted picture is
   // painted on a commit and never on a frame (0144) and the clock it would be timed on is the deck's
   // (0126), which does not run — so a knob dragged on a stopped yard would strand its ink wherever
   // the last commit left it and leave it there, and the ink arrives outright instead.
-  inkTravelInto(ink, rows, wash, age, elapsed, peek.sounding > 0 ? DRIFT_INK_SECS : 0);
+  inkTravelInto(
+    ink,
+    rows,
+    wash,
+    age,
+    looksSaturate(looks),
+    elapsed,
+    peek.sounding > 0 ? DRIFT_INK_SECS : 0,
+  );
   return wash;
 }
 

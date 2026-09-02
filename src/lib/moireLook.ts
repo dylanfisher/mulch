@@ -12,6 +12,12 @@
  *   `rackScatter` in src/lib/moireSound.ts, except a look that takes a slot in the chain, whose one
  *   draw is here beside its declaration (0280).
  */
+// Over the soft cap and well under the hard one, and for the reason the whole file exists: every
+// look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
+// at its declaration, which is what lets the registry refuse a dishonest one at load and the painter
+// draw a look it has never heard of (0279, 0280). Splitting the draws off would put half of what a
+// look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { clamp, denormalize } from "@/lib/range";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
@@ -23,6 +29,7 @@ export const LOOK_NAMES = [
   "bloom",
   "blocks",
   "echoes",
+  "sharpen",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -39,6 +46,7 @@ export const LOOK_TERMS = [
   "spacing",
   "count",
   "fade",
+  "saturation",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -95,6 +103,20 @@ export type Look =
   | { at: "pass"; terms: Readonly<Partial<Record<LookTerm, LookRead>>>; pass: LookPass };
 
 /**
+ * A share of the picture one pass lays down, under that pass's own ceiling: how present the look has
+ * travelled to (0279), times the share its own terms state, times the most of the picture that look
+ * ever takes. Both ends closed, because each is read off a number the picture eases toward and a
+ * travel is asked for its value before it has arrived.
+ *
+ * **Three passes weigh a share this way, which is what makes it a helper and not a third copy**
+ * (principle 3): the bloom's amount, the echoes' first rung and the sharpen's amount. The ceiling
+ * stays each look's own number and is never shared — what a halo may take of the picture is not
+ * what a ladder of ghosts may (0280, 0282).
+ */
+export const weighed = (presence: number, share: number, ceiling: number): number =>
+  clamp(presence, 0, 1) * clamp(share, 0, 1) * ceiling;
+
+/**
  * How small the field is drawn before it is drawn back up again, as a share of its own size: the
  * band the bloom's radius is stated across, widest halo last. A blur by downscale and upscale is
  * the working size *being* the radius — a third of the field is a haze the eye reads as a soft
@@ -121,7 +143,7 @@ export const BLOOM_CEILING = 0.9;
  * wet room bloom and a dry one leave the picture alone.
  */
 export const bloomAmount = (presence: number, amount: number): number =>
-  clamp(presence, 0, 1) * clamp(amount, 0, 1) * BLOOM_CEILING;
+  weighed(presence, amount, BLOOM_CEILING);
 
 /**
  * The bloom, drawn: the field small, that small copy back up over the whole surface at the amount,
@@ -304,7 +326,7 @@ export const ECHO_CEILING = 0.45;
  * arrive on top of one another, and a wind standing still draws the field once.
  */
 export const echoAlpha = (presence: number, veer: number): number =>
-  clamp(presence, 0, 1) * Math.abs(clamp(veer, -1, 1)) * ECHO_CEILING;
+  weighed(presence, Math.abs(veer), ECHO_CEILING);
 
 /**
  * The echoes, drawn: the field itself at the whole of itself, and then the field again behind it
@@ -334,6 +356,86 @@ const echoesPass: LookPass = (into, source, presence, terms, veer) => {
     into.drawImage(source, step * echo, 0);
     alpha *= fade;
   }
+};
+
+/**
+ * The working size the copy an unsharp mask is taken out by is drawn at, as a share of the field's
+ * own size — the blur's radius, the bloom's way round (`BLOOM_SCALE`) and the bloom's units, because
+ * a blur *is* its working size and nothing about one lands on a grid (0280, 0281). One number and
+ * not a band: pop declares two terms and neither of them is a radius, and a mask blurred much wider
+ * than the picture's own cell stops being a local mean and becomes the bloom under another name.
+ * A sixth of the field is about one cell of the lattice the picture is drawn on, which is the
+ * distance an edge has to stand out against for the eye to read it as an edge.
+ */
+export const SHARPEN_SCALE = 1 / 6;
+
+/**
+ * How much of the mask is added back to the field at the most. Short of the whole of it for the
+ * bloom's reason and at a number of pop's own: the mask is added and not blended, so at the whole of
+ * it every window with any structure in it goes blank, and a picture whose windows are gone says
+ * nothing about the edges this pass exists to bite. Shot at both: at 0.6 the zoomed crop's edge
+ * energy is 23% over `BASE` and the whole picture 7% lighter, and at this number it is 15% over at
+ * 4% lighter — sharper, and the one question the pass is asked at the crop is whether it is sharper
+ * and not whether it is louder.
+ */
+export const SHARPEN_CEILING = 0.35;
+
+/**
+ * How hard the mask bites: the amount its entry declared — pop's own Mix, which is how much of the
+ * stage is heard at all — weighted by how present the picture has travelled the instance to, under
+ * the ceiling. At nothing the mask is added at nothing, which is the field, so a pop arriving walks
+ * the picture out of what it was rather than switching between two pictures.
+ */
+export const sharpenAmount = (presence: number, amount: number): number =>
+  weighed(presence, amount, SHARPEN_CEILING);
+
+/**
+ * The sharpen, drawn: the field's own blurred copy, the field taken through it `source-out` — which
+ * is the field wherever its own neighbourhood is not, the mask an unsharp mask is — and that mask
+ * added back onto the field at the amount. Draws of what is already drawn, no fill over the picture
+ * and no pixel touched (0129, 0269).
+ *
+ * **The blur is the destination and the field is the source, which is what makes one surface
+ * enough.** The only place the downscale can be kept without allocating a third surface is the
+ * pass's own (0280), so the two are swapped and the composite with them: `source-out` keeps the
+ * field exactly where the blurred copy is not, which is `destination-out` read from the other side.
+ *
+ * **And the mask is added rather than laid over, which the shot decided.** The field is a hole mask
+ * — every window in it is ink the screen keeps, and a covered pixel is ink taken out (0281) — so
+ * where the picture is at its darkest the field is already at nothing and there is no headroom to
+ * sharpen into: the whole of what a mask can do here is push the *light* side of an edge the rest of
+ * the way to nothing. `source-over` cannot: laid over the field it adds a share of what is *left*,
+ * which is most of the picture at the middle of the mask and nothing at either end, so the picture
+ * came back hazed: at the zoomed 1:1 crop its own spread fell from 19.3 to 17.1 and its edge energy
+ * from 9.3 to 8.9 against the same rack at `BASE`, which is a picture washed rather than sharpened
+ * (shot before this landed). `lighter` adds the mask itself: nothing where the field is nothing, the
+ * whole of it where the field already stands, and clipped at solid where it is over — the same crop
+ * comes back at a spread of 20.8 and an edge energy of 10.7. So the edge bites on the side that has
+ * room to bite and the ink is left where the picture is already dense.
+ */
+const sharpenPass: LookPass = (into, source, presence, terms) => {
+  const alpha = sharpenAmount(presence, terms.amount ?? 0);
+  // A pop at no mix at all, and one the picture has not travelled to yet, are both the field
+  // itself — and this is the one draw that says so.
+  if (alpha <= 0) {
+    into.drawImage(source, 0, 0);
+    return;
+  }
+  const { width, height } = source;
+  const wide = Math.max(1, Math.round(width * SHARPEN_SCALE));
+  const deep = Math.max(1, Math.round(height * SHARPEN_SCALE));
+  into.drawImage(source, 0, 0, wide, deep);
+  // `copy` takes that small corner back up over the whole surface rather than blending it over
+  // itself, which is the bloom's second draw exactly (0280). At the whole of itself, because what
+  // the amount weighs is how much of the mask is added and not how blurred the mask is.
+  into.globalCompositeOperation = "copy";
+  into.drawImage(into.canvas, 0, 0, wide, deep, 0, 0, width, height);
+  into.globalCompositeOperation = "source-out";
+  into.globalAlpha = alpha;
+  into.drawImage(source, 0, 0);
+  into.globalCompositeOperation = "lighter";
+  into.globalAlpha = 1;
+  into.drawImage(source, 0, 0);
 };
 
 /**
@@ -379,6 +481,18 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * feedback delay's count and its fade are one number in the sound as well.
    */
   echoes: { at: "pass", terms: { spacing: "turn", count: "turn", fade: "turn" }, pass: echoesPass },
+  /**
+   * Pop's: the field with its own blurred copy taken out of it and the mask that leaves added back
+   * on, so every row keeps where it is and gains what of it stands above its neighbours. How hard the mask
+   * bites is the Mix, on its own range — how much of the stage is heard is how much of the picture
+   * is brought into focus.
+   *
+   * **And the one term that is not drawn here at all**: the saturation is the Sheen, and it reaches
+   * the screen's ink through the stepped travel that ink already takes rather than through this
+   * pass (`looksSaturate`, src/ui/moireLooks.ts; `inkTravelInto`, src/ui/moireScreen.ts, 0266).
+   * Colour is the tile's, and a pass that recoloured the field a frame is the one 0269 refused.
+   */
+  sharpen: { at: "pass", terms: { amount: "turn", saturation: "turn" }, pass: sharpenPass },
 };
 
 /**

@@ -68,6 +68,7 @@ describe("the picture's own ink", () => {
       STOOD,
       STOOD,
       was.ink,
+      [],
       was.jolt,
       shapeRest(),
     );
@@ -105,6 +106,7 @@ describe("the picture's own ink", () => {
         STOOD,
         STOOD,
         set.ink,
+        [],
         set.jolt,
         shapeRest(),
       );

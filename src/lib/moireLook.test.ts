@@ -27,6 +27,10 @@ import {
   echoFade,
   echoSpacing,
   isLookName,
+  SHARPEN_CEILING,
+  SHARPEN_SCALE,
+  sharpenAmount,
+  weighed,
   LOOK_NAMES,
   LOOK_TERMS,
   LOOKS,
@@ -242,5 +246,44 @@ describe("what a look is", () => {
     expect(echoSpacing(time)).toBeGreaterThan(ECHO_SPACING[0]);
     expect(echoSpacing(time)).toBeLessThan(ECHO_SPACING[1]);
     expect(echoFade(feedback) ** echoCount(feedback)).toBeLessThan(0.5);
+  });
+
+  it("sharpens on one amount under its ceiling, and saturates on a term no pass draws", () => {
+    expect(LOOKS.sharpen.at).toBe("pass");
+    expect(LOOKS.sharpen.terms).toEqual({ amount: "turn", saturation: "turn" });
+    // One number for both halves of the draw, and both ends of it closed: the amount is read off a
+    // presence the picture eases toward and is asked for its value before it has arrived.
+    expect(sharpenAmount(1, 1)).toBe(SHARPEN_CEILING);
+    expect(sharpenAmount(0, 1)).toBe(0);
+    expect(sharpenAmount(1, 0)).toBe(0);
+    expect(sharpenAmount(0.5, 1)).toBeCloseTo(SHARPEN_CEILING / 2, 10);
+    expect(sharpenAmount(1, 0.5)).toBeCloseTo(SHARPEN_CEILING / 2, 10);
+    expect(sharpenAmount(-1, 1)).toBe(0);
+    expect(sharpenAmount(2, 2)).toBe(SHARPEN_CEILING);
+    // Short of the whole of it, for the bloom's reason at a number of pop's own: what the mask adds
+    // is what stands above its own local mean, and a mask driven at the whole of it reads as a
+    // picture turned up rather than as one brought into focus.
+    expect(SHARPEN_CEILING).toBeGreaterThan(0);
+    expect(SHARPEN_CEILING).toBeLessThan(1);
+    // And the copy is blurred at a working size well inside the bloom's own band and nearer its
+    // wide end, because a mask blurred as far as a halo stops being a local mean (0280).
+    expect(SHARPEN_SCALE).toBeLessThan(BLOOM_SCALE[0]);
+    expect(SHARPEN_SCALE).toBeGreaterThan(BLOOM_SCALE[1]);
+    // The three passes that weigh a share under a ceiling weigh it the same way, which is the one
+    // helper they share and not three copies of it (principle 3). Each keeps its own ceiling.
+    expect(weighed(0.5, 0.5, 1)).toBeCloseTo(0.25, 10);
+    expect(bloomAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, BLOOM_CEILING), 12);
+    expect(echoAlpha(0.5, -0.5)).toBeCloseTo(weighed(0.5, 0.5, ECHO_CEILING), 12);
+    expect(sharpenAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, SHARPEN_CEILING), 12);
+    // At pop's own declared defaults and ranges (src/audio/effects/pop.ts, spelt out here for the
+    // reason the bloom's are) the mask bites and neither term is at an end of its band: a pop
+    // standing at its defaults is a picture visibly sharper and one still a long way off the most
+    // this pass can do.
+    const mix = normalize(0.5, 0, 1, "linear");
+    const sheen = normalize(0.2, 0, 1, "linear");
+    expect(sharpenAmount(mix, mix)).toBeGreaterThan(0);
+    expect(sharpenAmount(mix, mix)).toBeLessThan(SHARPEN_CEILING);
+    expect(sheen).toBeGreaterThan(0);
+    expect(sheen).toBeLessThan(1);
   });
 });

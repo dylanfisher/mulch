@@ -20,7 +20,7 @@ import type { Loop } from "@/lib/timeline";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { moireRows, refillRows } from "@/ui/moireRows";
-import { screenInkRest } from "@/ui/moireScreen";
+import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 
 /** An output with nothing in it: the ground is read off the loop and never off the bus. */
@@ -32,6 +32,9 @@ const FRESH = 0;
 /** The picture's own structure at rest, so nothing here but the ground travels. */
 const STOOD = fractalStopsRest();
 
+// One case over one ground, a line past the cap since the ink travel gained the term no row claims
+// (0283). See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the loop as the ground", () => {
   it("travels the field to a moved loop over half the loop while the yard sounds, and stands on it outright halted", () => {
     // 0274: a loop is a place the yard really is reading, so a hand moving it across the file is a
@@ -56,6 +59,7 @@ describe("the loop as the ground", () => {
         STOOD,
         STOOD,
         screenInkRest(),
+        [],
         joltRest(),
         shapeRest(),
       );

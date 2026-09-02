@@ -19,6 +19,8 @@ import {
   echoCount,
   echoSpacing,
   LOOKS,
+  SHARPEN_CEILING,
+  SHARPEN_SCALE,
   type Look,
   type LookName,
   type LookTerms,
@@ -434,6 +436,51 @@ describe("cutField", () => {
     });
     expect(turning.surfaces[at]?.drew[1]?.box).toEqual([step / 2, 0]);
     expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING / 2, 10);
+  });
+
+  // P283: pop's sharpen, and the one pass whose second term is not drawn here at all.
+  it("sharpens the field by taking its own blurred copy out of it, and never by filling over it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const sharp = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("sharpen", { amount: 1, saturation: 1 })],
+    });
+    const pass = sharp.surfaces[at];
+    const field = sharp.elements[0];
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // The field small, that copy back up over the whole surface, the field taken through it at the
+    // amount — which is the mask: the field wherever its own neighbourhood is not — and that mask
+    // added back onto the field. Added, and not laid over it: the field is a hole mask, so where the
+    // picture is darkest there is no headroom to sharpen into, and a share of what is left is a haze
+    // over the whole picture rather than an edge (shot before this landed).
+    expect(pass?.drew.map((each) => each.over)).toEqual([
+      "source-over",
+      "copy",
+      "source-out",
+      "lighter",
+    ]);
+    expect(pass?.drew.map((each) => each.tile)).toEqual([field, sharp.elements[at], field, field]);
+    expect(pass?.drew[1]?.alpha).toBe(1);
+    expect(pass?.drew[2]?.alpha).toBeCloseTo(SHARPEN_CEILING, 10);
+    expect(pass?.drew[3]?.alpha).toBe(1);
+    // The copy is taken at the mask's own working size, which is one number and not a term: pop
+    // declares two terms and neither of them is a radius.
+    const wide = field?.width ?? 0;
+    expect(pass?.drew[1]?.box.slice(0, 2)).toEqual([0, 0]);
+    expect(pass?.drew[0]?.box[2]).toBe(Math.round(wide * SHARPEN_SCALE));
+    // A pop at no mix at all draws the field once and leaves the picture exactly where it was —
+    // and its saturation is nowhere in this pass either way, because colour is the tile's (0266).
+    vi.stubGlobal("devicePixelRatio", 2);
+    const off = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("sharpen", { amount: 0, saturation: 1 })],
+    });
+    expect(off.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(off)).toEqual(fills(plain));
   });
 
   // P281: and the chain's own half of that, which the blocks are the first pass to need.

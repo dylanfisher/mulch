@@ -41,7 +41,7 @@ import type { DriftBakeRequest, DriftBakeResult, DriftPort } from "@/app/drift";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
-import { screenInkRest, stepped } from "@/ui/moireScreen";
+import { screenInkRest, stepped } from "@/ui/moireScreenInk";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import type { MoireLook } from "@/ui/moireLooks";
@@ -173,6 +173,7 @@ const readRows = (
     STOOD,
     STOOD,
     screenInkRest(),
+    [],
     joltRest(),
     shapeRest(),
   );
@@ -198,6 +199,7 @@ const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
     set.seed,
     set.toward,
     set.ink,
+    [],
     set.jolt,
     shapeRest(),
   );
@@ -470,6 +472,7 @@ describe("moireCanvas tiles", () => {
           set.seed,
           set.toward,
           set.ink,
+          [],
           set.jolt,
           shapeRest(),
         );

@@ -144,6 +144,24 @@ export function looksWander(looks: readonly MoireLook[]): number {
 }
 
 /**
+ * And how saturated the ink the whole picture is filmed through is drawn: every sharpen standing,
+ * each weighted by how much of it the picture has taken, bounded at the whole of it. Two pops
+ * saturate further than one and a pop on its way out saturates less than it did, which is the warp's
+ * bend said of colour rather than of shape.
+ *
+ * **Spent through the ink's own travel and never on the field** (`inkTravelInto`,
+ * src/ui/moireScreen.ts, 0266): colour is the tile's, so what this answers is where the ink is
+ * *going*, and the picture walks there on the ladder every other colour term walks (0283).
+ */
+export function looksSaturate(looks: readonly MoireLook[]): number {
+  let lit = 0;
+  for (const look of looks) {
+    if (look.look === "sharpen") lit += look.at * termAt(look, "saturation");
+  }
+  return clamp(lit, 0, 1);
+}
+
+/**
  * And how many times the plane is folded before every curved row is cut along it: one fold per
  * automator standing, never past the cap, and fractional on the way there — a fold arriving is two
  * folded pictures crossfaded, which is what a whole number could not be (`foldPlane`,

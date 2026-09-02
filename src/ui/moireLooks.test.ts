@@ -25,6 +25,7 @@ import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
 import {
   looksFolds,
+  looksSaturate,
   looksShatter,
   looksTravelInto,
   looksWander,
@@ -33,6 +34,7 @@ import {
   type MoireLook,
 } from "@/ui/moireLooks";
 import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
+import { DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
 import type { SessionEffect } from "@/state/session";
 
@@ -185,6 +187,48 @@ describe("the looks a standing rack gives the picture", () => {
     expect(looksWander([])).toBe(0);
   });
 
+  it("saturates the picture's ink by the pops it can hear, and never past the whole of it", () => {
+    // A pop wholly in and wholly bright: the Mix is what the mask bites by and the Sheen is what
+    // this reading is, so a pop with no sheen sharpens the field and leaves its colour alone.
+    const bright = { "pop.mix": 1, "pop.sheen": 1 };
+    expect(looksSaturate([])).toBe(0);
+    expect(looksSaturate(arrived([instance("p", { effect: "pop", params: bright })]))).toBe(1);
+    expect(
+      looksSaturate(
+        arrived([instance("p", { effect: "pop", params: { ...bright, "pop.sheen": 0 } })]),
+      ),
+    ).toBe(0);
+    // Nothing a bypassed rack says reaches the picture, and neither does a pop nobody can hear:
+    // the presence the term is weighted by is the Mix, which is what the entry declares silence at.
+    expect(
+      looksSaturate(arrived([instance("p", { effect: "pop", params: bright, bypassed: true })])),
+    ).toBe(0);
+    expect(
+      looksSaturate(
+        arrived([instance("p", { effect: "pop", params: { ...bright, "pop.mix": 0 } })]),
+      ),
+    ).toBe(0);
+    const half = looksSaturate(
+      arrived([instance("p", { effect: "pop", params: { ...bright, "pop.sheen": 0.5 } })]),
+    );
+    expect(half).toBeGreaterThan(0);
+    expect(half).toBeLessThan(1);
+    // Two sum, and never past the whole of it — the warp's bend said of colour rather than shape.
+    expect(
+      looksSaturate(
+        arrived([
+          instance("p", { effect: "pop", params: bright }),
+          instance("q", { effect: "pop", params: bright }),
+        ]),
+      ),
+    ).toBe(1);
+    // And it is weighted by how much of the pop the picture has actually taken, not by what the
+    // knob says: a pop halfway in saturates halfway (`looksTravelInto`, 0279).
+    const coming = rackLooks([instance("p", { effect: "pop", params: bright })]);
+    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS / 2, true);
+    expect(looksSaturate(coming)).toBeCloseTo(0.5);
+  });
+
   it("folds the plane once per automator standing, and never past the cap", () => {
     expect(looksFolds([])).toBe(0);
     expect(looksFolds(arrived([instance("x", { effect: "automator" })]))).toBe(1);
@@ -275,6 +319,7 @@ describe("the looks a standing rack gives the picture", () => {
         built.seed,
         built.toward,
         built.ink,
+        [],
         built.jolt,
         shapeRest(),
       );
@@ -285,5 +330,49 @@ describe("the looks a standing rack gives the picture", () => {
     expect(built.rows.some((row) => "look" in row)).toBe(false);
     // A knob touch is the rebuild that moves them, and a rack turned up is a picture further broken.
     expect(looksShatter(arrived(scatters(6))) > looksShatter(arrived(scatters(3)))).toBe(true);
+  });
+
+  // P283: and the one thing a look says about the picture that is not drawn as a pass at all.
+  it("saturates the set's own ink off the looks the read is handed, and off nothing else", () => {
+    const bright = { "pop.mix": 1, "pop.sheen": 1 };
+    const built = moireRows(
+      [],
+      [instance("p", { effect: "pop", params: bright })],
+      4,
+      PLAIN_CUT,
+      null,
+      NO_GROWN,
+      null,
+    );
+    looksTravelInto(built.looks, SHAPE_SECS, SHAPE_SECS, true);
+    expect(built.ink.saturate).toBe(0);
+    const read = (looks: MoireLook[]): number => {
+      filledRows(
+        built.rows,
+        built.reads,
+        { ...emptyDeckPeek(), sounding: 1 },
+        1,
+        null,
+        0,
+        null,
+        emptyMasterPeek(),
+        DRIFT_INK_SECS,
+        0,
+        built.seed,
+        built.toward,
+        built.ink,
+        looks,
+        built.jolt,
+        shapeRest(),
+      );
+      return built.ink.saturate;
+    };
+    // The read travels the ink toward what the standing looks ask for, and a whole reach of it
+    // arrives: a pop wholly in and wholly bright is the picture at the whole of its saturation.
+    expect(read(built.looks)).toBe(1);
+    // And off the looks alone — handed none, the same rows drain it back out again. This is the
+    // one line that joins a standing pop to the tile it is filmed through: the pass draws no
+    // colour, and the ink is where the Sheen lands (`looksSaturate`, `inkTravelInto`, 0266, 0283).
+    expect(read([])).toBe(0);
   });
 });

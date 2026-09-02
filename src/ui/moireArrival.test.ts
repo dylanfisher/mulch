@@ -21,7 +21,7 @@ import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { joltRest } from "@/ui/moireJolt";
-import { screenInkRest } from "@/ui/moireScreen";
+import { screenInkRest } from "@/ui/moireScreenInk";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { shapeRest } from "@/ui/moireShape";
 import type { DeckState } from "@/state/store";
@@ -60,6 +60,7 @@ function read(set: MoireRowSet, elapsed: number): void {
     fractalStopsRest(),
     fractalStopsRest(),
     screenInkRest(),
+    [],
     joltRest(),
     shapeRest(),
   );
@@ -163,6 +164,7 @@ describe("a row arriving in the picture", () => {
       fractalStopsRest(),
       fractalStopsRest(),
       screenInkRest(),
+      [],
       joltRest(),
       shapeRest(),
     );

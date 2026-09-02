@@ -87,7 +87,8 @@ import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
 import { looksFolds, type MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
-import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
+import { inkThrough } from "@/ui/moireScreen";
+import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 // oxlint-enable import/max-dependencies
 
@@ -500,7 +501,7 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * structure is spent in raw seconds where the age is spent on its own 0..1, and the paint is what
  * resolves it, once for the whole pass and for both fractal rows (`fractalFlight`, 0268).
  *
- * And `tint`, where the picture's colour has travelled to across its three dimensions — the field's
+ * And `tint`, where the picture's colour has travelled to across its four dimensions — the field's
  * again, and travelled there by the same read that filled the rest (`inkTravelInto`,
  * src/ui/moireScreen.ts). What the rows claim is read off the boldest of them and is what the travel
  * is going toward; this is where it actually stands, and it is what the screen tile is keyed by.
