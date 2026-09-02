@@ -44,7 +44,28 @@ import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import type { MoireLook } from "@/ui/moireLooks";
 import { shapeRest } from "@/ui/moireShape";
+
+/**
+ * The automators' own looks folding the plane `folds` times: one apiece all the way in, and one
+ * part of the way where the count is fractional, which is a fold still arriving (0279).
+ */
+const folding = (folds: number): MoireLook[] => {
+  const whole = Math.floor(folds);
+  const looks: MoireLook[] = Array.from({ length: whole }, (_each, at) => ({
+    key: `automator ${at}`,
+    look: "fold",
+    presence: 1,
+    at: 1,
+    terms: {},
+  }));
+  if (folds > whole) {
+    looks.push({ key: "arriving", look: "fold", presence: 1, at: folds - whole, terms: {} });
+  }
+  return looks;
+};
+
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
 
@@ -663,7 +684,9 @@ describe("moireCanvas tiles", () => {
       return paintedOn(96, 48, [spiral], 2, WINDOW, {
         frames,
         advance: 0,
-        shape: { ...shapeRest(), folds },
+        // A fold is the automator's own declared look: one per automator standing, and fractional
+        // where one of them is still arriving (0279).
+        looks: folding(folds),
       });
     };
     expect(baked(folded(0), 96)).toBe(1);

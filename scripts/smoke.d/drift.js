@@ -193,8 +193,8 @@ export const driftOpens = async ({ page }) => {
 
   // 0278: and the rack shapes the picture. How tight the lattice stands, how far a sway bends the
   // field and how many times an automator folds the plane are each measured where the maths is
-  // (src/ui/moireShape.test.ts, src/lib/moireLattice.test.ts, src/lib/moireWarp.test.ts,
-  // src/lib/moireFold.test.ts); what only a browser can say is that each reading reaches a real
+  // (src/ui/moireLooks.test.ts, src/ui/moireShape.test.ts, src/lib/moireLattice.test.ts,
+  // src/lib/moireWarp.test.ts, src/lib/moireFold.test.ts); what only a browser can say is that each reading reaches a real
   // rack through the one per-frame read, that the lattice's cell bakes on a real surface, and that
   // the picture goes on drawing through all three — a fold is a picture-sized bake per curved row
   // and a lattice is a pattern fill, either of which could leave a blank canvas behind.

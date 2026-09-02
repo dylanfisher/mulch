@@ -8,9 +8,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, SHATTER_BANDS, SHATTER_CEILING } from "@/lib/moireGeometry";
+import { LOOKS, type Look, type LookName, type LookTerms } from "@/lib/moireLook";
 import { moireRow as row } from "@/lib/moireRow";
+import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
 import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import type { MoireLook } from "@/ui/moireLooks";
 import { shapeRest } from "@/ui/moireShape";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -21,6 +24,33 @@ const paintedOn = painterOn((name, value) => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/**
+ * One look of a standing rack, arrived — the shape `rackLooks` answers with (src/ui/moireLooks.ts).
+ * Built here rather than read off a rack of instances because what these cases are about is the
+ * draw, and a knob's own range is the reading's case and not the painter's.
+ */
+const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireLook => ({
+  key,
+  look: name,
+  presence: 1,
+  at: 1,
+  terms,
+});
+
+/**
+ * The shatter looks whose reading is `share`: whole broken instances and a part of one, because the
+ * reading is stated across a band of them and no single instance can reach the top of it.
+ */
+const shattering = (share: number): MoireLook[] => {
+  const sum = RACK_SHATTER_BAND[0] + share * (RACK_SHATTER_BAND[1] - RACK_SHATTER_BAND[0]);
+  const whole = Math.floor(sum);
+  const looks = Array.from({ length: whole }, (_each, at) =>
+    look("shatter", { share: 1 }, `whole ${at}`),
+  );
+  if (sum > whole) looks.push(look("shatter", { share: sum - whole }, "part"));
+  return looks;
+};
 
 /** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */
 const fills = (painted: Painted): string[] =>
@@ -69,7 +99,8 @@ describe("cutField", () => {
     expect(flat.slices).toEqual([]);
     vi.stubGlobal("devicePixelRatio", 2);
     const warped = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
-      shape: { ...shapeRest(), warp: 1, sway: 0.3 },
+      looks: [look("warp", { bend: 1, wander: 0 })],
+      shape: { ...shapeRest(), sway: 0.3 },
     });
     // One more surface than an unbent picture makes: the one between the two passes.
     expect(warped.elements).toHaveLength(flat.elements.length + 1);
@@ -95,7 +126,8 @@ describe("cutField", () => {
     // And the phase is the sway's own: a wander on is a different bend of the same picture.
     vi.stubGlobal("devicePixelRatio", 2);
     const later = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
-      shape: { ...shapeRest(), warp: 1, sway: 0.55 },
+      looks: [look("warp", { bend: 1, wander: 0 })],
+      shape: { ...shapeRest(), sway: 0.55 },
     });
     expect(later.slices.map((slice) => slice.down)).not.toEqual(
       warped.slices.map((slice) => slice.down),
@@ -110,7 +142,7 @@ describe("cutField", () => {
     expect(plain.slices).toEqual([]);
     vi.stubGlobal("devicePixelRatio", 2);
     // A scattering rack with no row asking for a lens: the unbroken pieces stand where they were.
-    const broken = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 1 });
+    const broken = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: shattering(1) });
     const bands = new Map<number, typeof broken.slices>();
     for (const slice of broken.slices) {
       bands.set(slice.top, [...(bands.get(slice.top) ?? []), slice]);
@@ -144,15 +176,79 @@ describe("cutField", () => {
     );
     expect(halves).toEqual([2, 2]);
     // Half the reading is half of that: a yard turning up its scatters breaks further, in pieces.
-    const half = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.5 });
+    const half = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: shattering(0.5) });
     const halved = new Set(
       half.slices.filter((cut) => cut.slid > 0 && cut.slid < 128).map((cut) => cut.slid),
     );
     expect(halved.size).toBe((SHATTER_BANDS * SHATTER_CEILING) / 2);
     // And a reading too small to break a whole piece leaves the picture exactly as it was.
-    expect(paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.1 }).slices).toEqual(
-      [],
-    );
+    expect(
+      paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: shattering(0.1) }).slices,
+    ).toEqual([]);
+  });
+
+  // P279: the chain the looks are drawn through, which every later pass arrives into.
+  it("steps over every look that lands elsewhere, and draws the field once", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    vi.stubGlobal("devicePixelRatio", 2);
+    // A rack whose looks all land somewhere other than the chain — the fold at the bake, the warp
+    // and the shatter at the cut — takes no slot in it: no surface is made for a pass that does not
+    // exist, and the field reaches the screen through exactly the draws it did before (0278, 0279).
+    const looked = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("fold"), look("shatter", { share: 1 }), look("warp", { bend: 0, wander: 0 })],
+    });
+    expect(looked.elements).toHaveLength(plain.elements.length);
+    expect(looked.slices).toEqual([]);
+    expect(fills(looked)).toEqual(fills(plain));
+    expect(looked.laid.length).toBe(plain.laid.length);
+  });
+
+  it("draws the passes that do take a slot in rack order, each off what the one before it left", () => {
+    // A look's maths belongs to `LOOKS` and to nothing else, which is what makes a pass arrive by
+    // declaration — so the only way to stand a pass up before its own effect's step is to lend one
+    // to a look that has none, and take it back afterwards (0279).
+    const drew: { look: string; source: unknown }[] = [];
+    // `LOOKS` is written once and read everywhere, which is what makes a pass arrive by
+    // declaration — so standing one up before its own effect's step means reaching around that on
+    // purpose, at this one site. See docs/decisions/0007-reviewed-oversized-functions.md.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const record = LOOKS as Record<LookName, Look>;
+    const held = { shatter: LOOKS.shatter, warp: LOOKS.warp };
+    const lend = (name: "shatter" | "warp") => {
+      record[name] = {
+        at: "pass",
+        terms: held[name].terms,
+        pass: (into, source) => {
+          drew.push({ look: name, source });
+          into.drawImage(source, 0, 0);
+        },
+      };
+    };
+    try {
+      lend("shatter");
+      lend("warp");
+      vi.stubGlobal("devicePixelRatio", 2);
+      const chained = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+        // Rack order, and the order the sound goes through the rack: the shatter is ahead of the
+        // warp here, and the chain must draw it first however `LOOKS` happens to list them.
+        looks: [look("shatter", { share: 0 }), look("warp", { bend: 0, wander: 0 })],
+      });
+      expect(drew.map((each) => each.look)).toEqual(["shatter", "warp"]);
+      // The first pass reads the field itself — the product's own surface, which is the first one a
+      // painting makes — and the second reads what the first left, never the surface the first
+      // read: a chain that read and wrote one surface would draw over itself.
+      expect(drew[0]?.source).toBe(chained.elements[0]);
+      expect(drew[1]?.source).not.toBe(chained.elements[0]);
+      expect(drew[1]?.source).not.toBe(drew[0]?.source);
+      // And the last one written is what the screen is cut with: two surfaces more than a picture
+      // that took no pass, and the ink reaching the screen through them.
+      expect(chained.elements.length).toBeGreaterThan(2);
+      expect(chained.laid.length).toBeGreaterThan(0);
+    } finally {
+      record.shatter = held.shatter;
+      record.warp = held.warp;
+    }
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

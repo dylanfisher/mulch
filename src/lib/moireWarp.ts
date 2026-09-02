@@ -4,9 +4,9 @@
  *   the rack does to the whole finished field. Pure maths on picture units, and the one place a
  *   warp is a number.
  * @instead Where the field is actually bent — in slices of the finished picture, one pass each way
- *   → `cutField` in src/ui/moireCanvasField.ts. How much sway the rack is holding, and the phase
- *   its own rate has walked → src/ui/moireShape.ts. The bench picture this came off →
- *   src/ui/sketch/sketchDrift.ts.
+ *   → `cutField` in src/ui/moireCanvasField.ts. How much sway the rack is holding — sway's own
+ *   declared look → src/ui/moireLooks.ts (0279); the phase its own rate has walked →
+ *   src/ui/moireShape.ts. The bench picture this came off → src/ui/sketch/sketchDrift.ts.
  */
 import { TAU } from "./moire.ts";
 import { clamp } from "./range.ts";

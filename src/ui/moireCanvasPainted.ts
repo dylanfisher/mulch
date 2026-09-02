@@ -9,6 +9,7 @@
  */
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
+import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import type { Aim, MoireRow, ScreenInk } from "@/lib/moire";
@@ -102,10 +103,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // screen's grid: nowhere unless a case says otherwise, which is the picture a dry rack draws
       // (`windTravelInto`, src/ui/moireWind.ts, 0267).
       wind = 0,
-      // And how much of the rack standing behind it is scatter, which is the share of the field
-      // drawn back through itself displaced: nothing unless a case says otherwise, which is the
-      // picture drawn before there was a scatter in it (`rackShatter`, src/ui/moireShatter.ts).
-      shatter = 0,
+      // And every whole-field look the standing rack is making: none unless a case says otherwise,
+      // which is the picture drawn before there was anything in the rack (`rackLooks`,
+      // src/ui/moireLooks.ts, 0279).
+      looks = [],
       shape = shapeRest(),
     }: {
       frames?: number;
@@ -117,7 +118,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       sounding?: number;
       tint?: ScreenInk;
       wind?: number;
-      shatter?: number;
+      looks?: readonly MoireLook[];
       shape?: MoireShape;
     } = {},
   ) {
@@ -243,7 +244,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         sounding,
         tint,
         wind,
-        shatter,
+        looks,
         shape,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows

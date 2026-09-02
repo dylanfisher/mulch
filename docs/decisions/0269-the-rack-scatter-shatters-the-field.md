@@ -1,7 +1,10 @@
 # 0269 — The rack's scatter shatters the field
 
 - **Date:** 2026-09-01
-- **Status:** accepted, on
+- **Status:** accepted, amended by
+  [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (the shatter is scatter's own declared
+  look: it rests on the set among `looks` rather than in a field of its own, and its presence
+  travels where it used to snap); on
   [0213](0213-a-reading-of-the-output-belongs-to-the-field.md),
   [0250](0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md) and
   [0267](0267-the-rack-tail-blows-the-field.md)

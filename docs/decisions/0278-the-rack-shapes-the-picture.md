@@ -1,7 +1,10 @@
 # 0278 — The rack shapes the picture: a lattice, a warp and a fold
 
 - **Date:** 2026-09-02
-- **Status:** accepted, taking three of the drift bench's eight under
+- **Status:** accepted, amended by
+  [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (the warp, the fold and the shatter
+  become their entries' own declared looks; the lattice alone stays the rack's); taking three of the
+  drift bench's eight under
   [0254](0254-the-bench-argues-the-card-fold-by-fold.md)'s rule; extending
   [0246](0246-the-fractal-is-a-row-and-not-a-mask.md) (the field's own geometries),
   [0266](0266-the-picture-travels-its-ink.md) (what a baked reading costs) and

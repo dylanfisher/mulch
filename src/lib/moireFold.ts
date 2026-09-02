@@ -4,8 +4,9 @@
  *   folds already there — so n automators are 2^n images of every row cut on the folded plane. Pure
  *   maths on the row's own coordinate, and the one place a fold is a number.
  * @instead Where a row is folded — inside the one loop over a curved row's pixels →
- *   src/lib/moireGeometry.ts. How many automators are standing, read off the rack and travelled →
- *   src/ui/moireShape.ts. The bench picture this came off → src/ui/sketch/sketchDrift.ts.
+ *   src/lib/moireGeometry.ts. How many automators are standing — the automator's own declared look,
+ *   read off the rack and travelled → src/ui/moireLooks.ts (0279). The bench picture this came off →
+ *   src/ui/sketch/sketchDrift.ts.
  */
 import { DRIFT_STEPS, TAU, wrap } from "./moire.ts";
 import { snapToStep } from "./range.ts";
@@ -68,9 +69,12 @@ export function foldPlane(out: Folded, u: number, v: number, folds: number): voi
   out.v = radius * Math.sin(angle);
 }
 
-/** How many folds a rack of `automators` standing asks for: one each, and never past the cap. */
-export const foldsOf = (automators: number): number =>
-  Math.min(Math.max(0, Math.floor(automators)), FOLD_CAP);
+/**
+ * How many folds a rack of `automators` standing asks for: one each, and never past the cap.
+ * Fractional where one of them is still arriving — a fold on its way in is two folded pictures
+ * crossfaded, and never a whole number rounded to (`curvedField`, src/lib/moireGeometry.ts, 0278).
+ */
+export const foldsOf = (automators: number): number => Math.min(Math.max(0, automators), FOLD_CAP);
 
 /**
  * A fold count on the ladder a tile is keyed through: `DRIFT_STEPS` stops per fold, so a fold

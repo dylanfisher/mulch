@@ -8,6 +8,7 @@ import type { ParamBinding } from "@/audio/ramp";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { assertDurableText } from "@/lib/guards";
 import type { DriftDimension, DriftGeometry } from "@/lib/moire";
+import type { LookName, LookTerm } from "@/lib/moireLook";
 import type { DriftProfile } from "@/lib/moireProfiles";
 
 export type ParamSpec = {
@@ -306,6 +307,15 @@ export type Effect<
    * ([0148](../../../docs/decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
    */
   driftUnreached?: readonly { param: Params[number]["id"]; because: string }[];
+  /**
+   * The whole-field move this effect makes — a name from `LOOKS` (src/lib/moireLook.ts), declared
+   * beside the drift profile and for its reason: a row says what an effect is *set to*, a look says
+   * *that it is there*, at a glance's size. Claimed exclusively, and absent where a look has not
+   * landed, because no entry names one before its maths exists. `lookFrom` maps its values into that
+   * look's terms as `driftFrom` maps them into a row's — every term reached and no other (0122, 0279).
+   */
+  look?: LookName;
+  lookFrom?: readonly { param: Params[number]["id"]; into: LookTerm }[];
   /**
    * How long this entry, at these values, goes on sounding like what it was given rather than like
    * what it is being given — its memory, in seconds. An export's warm-up is bounded by the longest

@@ -14,6 +14,7 @@
  *   the picture at all, and how long one takes to join it or leave it → src/lib/moireArrival.ts.
  */
 import { arrived } from "@/lib/moireArrival";
+import type { MoireLook } from "@/ui/moireLooks";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 
 /**
@@ -96,15 +97,46 @@ export function carryWind(from: MoireRowSet, to: MoireRowSet): void {
 }
 
 /**
- * And how the rack had shaped the picture so far: how tight the lattice had got, how far the bend
- * and the folds had come, and where the sway's wander stood. The wind's argument exactly, and the
- * rebuild it matters most for is the one that changes the shaping itself — adding an automator is
- * a fold asked for, and a set that started unfolded would drop the picture flat and fold it back up
- * from nothing, which is the snap the travel exists to remove. Where it is *going* is the new set's
- * own reading and is never carried (`rackShape`, src/ui/moireShape.ts).
+ * And how the rack had shaped the picture so far: how tight the lattice had got, and where the
+ * warp's wander stood. The wind's argument exactly, and the rebuild it matters most for is the one
+ * that changes the shaping itself — adding an effect is a tighter lattice asked for, and a set that
+ * started at its loosest would drop the picture open and close it back up from nothing, which is the
+ * snap the travel exists to remove. Where it is *going* is the new set's own reading and is never
+ * carried (`rackShape`, src/ui/moireShape.ts). How far each of its *looks* had come is the carry
+ * below, per instance and not as one number (0279).
  */
 export function carryShape(from: MoireRowSet, to: MoireRowSet): void {
   Object.assign(to.shape, from.shape);
+}
+
+/**
+ * And how much of each of its looks the picture had taken, carried onto the set that replaces them —
+ * with, behind them, every look the new set no longer holds, kept at a presence of nothing until it
+ * has finished leaving. The shape's argument and `carryArrivals`' shape, for the reason a rebuild is
+ * what an effect added or bypassed already is: a set that started at nothing would drain every pass
+ * out of the picture and bloom it back in on each knob touch (0279).
+ *
+ * **Matched by the instance's own id and never by its index**, which is the whole of why the reading
+ * carries a key: removing one instance shifts every look after it, so an index would hand a reverb's
+ * travel to the crush that took its place — and two of one kind are two looks that must not swap.
+ *
+ * A look the picture has never held is not in the map and stands at nought here, which is what makes
+ * an arrival an arrival: the first set a picture ever holds still travels in from nothing, because
+ * nothing carried onto it. Where each look is *going* is the new set's own reading and is never
+ * carried — that is what the standing rack says now.
+ */
+export function carryLooks(from: MoireRowSet, to: MoireRowSet): void {
+  const held = new Map<string, MoireLook>();
+  for (const look of from.looks) held.set(look.key, look);
+  for (const look of to.looks) {
+    look.at = held.get(look.key)?.at ?? 0;
+    held.delete(look.key);
+  }
+  for (const look of held.values()) {
+    if (look.at <= 0) continue;
+    look.presence = 0;
+    to.looks.push(look);
+  }
 }
 
 /**

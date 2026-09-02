@@ -7,11 +7,14 @@
  *   src/ui/moireCanvas.ts, which this split out of at the 800-line hard cap (0045) and which is this
  *   file's only caller. The slices, the lens's slide and the shatter's own →
  *   src/lib/moireGeometry.ts; the warp's two sines → src/lib/moireWarp.ts. How much of the standing
- *   rack is scatter → src/ui/moireShatter.ts, and how much is sway → src/ui/moireShape.ts.
+ *   rack is scattering and how much of it is swaying, as the looks their entries declare →
+ *   src/ui/moireLooks.ts; what a look is → src/lib/moireLook.ts.
  */
 import { DRIFT_REST, turnsOf, wrap, type MoireRow } from "@/lib/moire";
 import { LENS_SLICES, lensSlide, shatterPieces, shatterSlide } from "@/lib/moireGeometry";
+import { LOOKS } from "@/lib/moireLook";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
+import { looksShatter, looksWarp, type MoireLook } from "@/ui/moireLooks";
 import { boldestRow } from "@/ui/moireScreen";
 import type { MoireShape } from "@/ui/moireShape";
 
@@ -32,6 +35,60 @@ function betweenFor(field: HTMLCanvasElement): HTMLCanvasElement {
   if (held.height !== field.height) held.height = field.height;
   betweens.set(field, held);
   return held;
+}
+
+/**
+ * The two surfaces the chain ping-pongs between, one pair per field and kept at the field's own
+ * size — never the field itself, which every pass reads from, and never the warp's surface between,
+ * which is written after the chain has finished. Made the first time a chain has a pass to run and
+ * never for one that has none.
+ */
+const chains = new WeakMap<HTMLCanvasElement, [HTMLCanvasElement, HTMLCanvasElement]>();
+
+function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanvasElement {
+  const pair = chains.get(field) ?? [
+    document.createElement("canvas"),
+    document.createElement("canvas"),
+  ];
+  chains.set(field, pair);
+  const into = pair[0] === source ? pair[1] : pair[0];
+  if (into.width !== field.width) into.width = field.width;
+  if (into.height !== field.height) into.height = field.height;
+  return into;
+}
+
+/**
+ * The chain, and the whole of it: every standing look that takes a slot, in the order the rack holds
+ * it — which is the order the sound goes through the rack, so a crush before a reverb blurs the
+ * blocks and a reverb before a crush pixelates the bloom. Each pass reads one surface and writes the
+ * other, at the presence the picture has travelled to and the terms its entry declared, and the last
+ * one written is what the lens, the shatter and the warp cut into the screen below (0279).
+ *
+ * **Three of the four looks that exist take no slot, and say so at the declaration.** The lattice is
+ * the whole rack standing, the fold is a bake on a curved row's coordinate before any field exists,
+ * and the warp and the shatter are cut through the slices this file already reads the field back in
+ * (0278, 0269) — so today the chain runs no pass at all and hands the cut the field it was given,
+ * which is what makes this step's picture the one before it. A look with a pass arrives with the
+ * effect whose look it is, and this loop is what it arrives into.
+ */
+function passLooks(field: HTMLCanvasElement, looks: readonly MoireLook[]): HTMLCanvasElement {
+  let source = field;
+  for (const { look, at, terms } of looks) {
+    const declared = LOOKS[look];
+    if (declared.at !== "pass") continue;
+    const into = chainFor(field, source);
+    const ink = into.getContext("2d");
+    // An engine that will not hand back this surface's context draws the picture the chain has got
+    // to and no further, which is louder than a pass silently skipped and quieter than a blank.
+    if (ink === null) return source;
+    ink.setTransform(1, 0, 0, 1, 0, 0);
+    ink.globalCompositeOperation = "source-over";
+    ink.globalAlpha = 1;
+    ink.clearRect(0, 0, into.width, into.height);
+    declared.pass(ink, source, at, terms);
+    source = into;
+  }
+  return source;
 }
 
 /**
@@ -58,16 +115,20 @@ export function cutField(
   context: CanvasRenderingContext2D,
   field: HTMLCanvasElement,
   rows: readonly MoireRow[],
-  shatter: number,
+  looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
 ): void {
   const { height, width } = field;
+  // The chain first: the finished field through every pass the standing looks take, in rack order.
+  // What comes back is the field itself wherever no look takes a slot, which is every rack today.
+  const passed = passLooks(field, looks);
+  const shatter = looksShatter(looks);
   const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);
   const lens = bold === null ? 0 : bold.lens;
   const broken = shatterPieces(shatter);
-  const bent = warpShare(shape.warp);
+  const bent = warpShare(looksWarp(looks));
   if (lens <= 0 && broken <= 0 && bent <= 0) {
-    context.drawImage(field, 0, 0);
+    context.drawImage(passed, 0, 0);
     return;
   }
   // A yard scattering with no row asking for a lens has nothing to take a phase off, and needs
@@ -99,7 +160,7 @@ export function cutField(
       lensSlide(lens, turns, slice, LENS_SLICES) * width +
       warpSlideX(bent, shape.sway, (top + deep / 2) / height) * height;
     const off = shatterSlide(shatter, slice, LENS_SLICES);
-    cutAcross(ink, field, top, deep, off > 0 ? wrap(slid / width + off, 1) * width : slid);
+    cutAcross(ink, passed, top, deep, off > 0 ? wrap(slid / width + off, 1) * width : slid);
   }
   if (between === null) return;
   // The second sine, down the columns of what the first pass left, and out to the screen.

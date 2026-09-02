@@ -212,7 +212,7 @@ function paintedOn(
     0,
     ink ?? arrivedInk(rows),
     wind,
-    0,
+    [],
     shapeRest(),
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to

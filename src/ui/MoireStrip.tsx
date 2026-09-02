@@ -75,10 +75,12 @@ import {
   carryGround,
   carryInk,
   carryJolt,
+  carryLooks,
   carryShape,
   carryWind,
 } from "@/ui/moireCarry";
-import { shapeTravelInto } from "@/ui/moireShape";
+import { looksTravelInto, looksWander } from "@/ui/moireLooks";
+import { SHAPE_SECS, shapeTravelInto } from "@/ui/moireShape";
 import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -221,6 +223,7 @@ function useMoireRows(
       carryWind(painted.current, session);
       carryJolt(painted.current, session);
       carryShape(painted.current, session);
+      carryLooks(painted.current, session);
       // And how much of the picture each row had become, which is the carry that is not a travel:
       // a rebuild is what an effect arriving or retiring already is, so without it the whole
       // field's weight restacks between two frames (`carryArrivals`).
@@ -241,6 +244,7 @@ function useMoireRows(
       carryWind(painted.current, grown);
       carryJolt(painted.current, grown);
       carryShape(painted.current, grown);
+      carryLooks(painted.current, grown);
       carryArrivals(painted.current, grown);
       painted.current = grown;
     }
@@ -287,6 +291,10 @@ function useMoireRows(
     // the folds — beside the wind and for the wind's reason: it reads no row. How much run the
     // automators are holding is walked here a third time this frame (`fractalHeard` walks it
     // twice), which is a map of a few entries and cheaper than a field to carry it in (0070).
+    // And one step of every look the same rack gives the picture, before the shape that spends the
+    // speed one of them names: a look that has left the rack is dropped on the frame it reaches
+    // nought, so the wander below is weighted by what is actually standing (`looksTravelInto`, 0279).
+    looksTravelInto(set.looks, SHAPE_SECS, elapsed, peek.sounding > 0);
     shapeTravelInto(
       set.shape,
       set.shaping,
@@ -294,6 +302,7 @@ function useMoireRows(
       master,
       elapsed,
       peek.sounding > 0,
+      looksWander(set.looks),
     );
     set.wash = refillRows(
       set.rows,
@@ -359,7 +368,7 @@ function useMoirePicture(
         set.sounding,
         set.ink,
         set.wind.drift,
-        set.shatter,
+        set.looks,
         set.shape,
       );
     },

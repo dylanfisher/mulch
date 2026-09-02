@@ -118,6 +118,15 @@ export const swayEffect = defineEffect({
     { param: "sway.feedback", into: "feedback" },
     { param: "sway.mix", into: "depth" },
   ],
+  // And the whole-field move a sway makes: the finished picture bent through two sines, which reads
+  // as *sway* at any zoom (0278, 0279). How deep it bends is the depth, on its own range; how fast
+  // that bend goes round is the rate, in the cycles a second the parameter is already stated in —
+  // the wander is a speed, and a turn on a range would be a second unit for one number.
+  look: "warp",
+  lookFrom: [
+    { param: "sway.depth", into: "bend" },
+    { param: "sway.rate", into: "wander" },
+  ],
   // A delay line's repeats falling to the same silence the delay's are stated against, over the
   // longest loop the head reaches: the centre plus whatever share of the span the depth is asking
   // for, because a deeper wander is a longer line to empty.

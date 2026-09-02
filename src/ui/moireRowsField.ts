@@ -43,6 +43,7 @@ import {
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { heardBeat, heardBite, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import type { MoireJolt } from "@/ui/moireJolt";
+import type { MoireLook } from "@/ui/moireLooks";
 import type { MoireShape, MoireShaping } from "@/ui/moireShape";
 import { LATTICE_GEOMETRY, latticeCut } from "@/lib/moireLattice";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
@@ -273,14 +274,15 @@ export type MoireRowSet = {
    */
   veering: number;
   /**
-   * And how much of that same standing rack is scatter, on the band that reading is stated across
-   * (`rackShatter`, src/ui/moireShatter.ts) — the eighth thing here that belongs to the field rather
-   * than to a row, and the second of them that is not a per-frame read at all. What it buys is the
-   * field drawn back through itself displaced, so a share of the picture comes from somewhere else
-   * in the picture; a fact about what the rack is *set to*, filled once when the set is built, and
-   * bounded where it is spent rather than here (`shatterShare`, src/lib/moireGeometry.ts).
+   * And every look that same standing rack gives the whole picture, in the rack's own order — which
+   * is the order the sound goes through it, and so the order the picture is chained in (`rackLooks`,
+   * src/ui/moireLooks.ts, 0279). The eighth thing here that belongs to the field rather than to a
+   * row, and the one that is both a reading and a travel: which looks stand and what each is set to
+   * is filled once when the set is built, exactly as the tail is, and how much of each the picture
+   * has taken is walked by the read and carried onto whatever set replaces this one by instance id
+   * (`looksTravelInto`, `carryLooks`).
    */
-  shatter: number;
+  looks: MoireLook[];
   /**
    * And where that wind has actually blown the picture to, and which way it is blowing this frame —
    * the third accumulated thing in the picture beside the ground and the ink, travelled by the read
@@ -297,11 +299,12 @@ export type MoireRowSet = {
    */
   jolt: MoireJolt;
   /**
-   * And how the standing rack shapes the whole picture — how tight a lattice, how far a bend, how
-   * many folds — where it has got to and what the population is asking for (`rackShape`,
-   * `shapeTravelInto`, src/ui/moireShape.ts). The reading is filled once when the set is built,
-   * like the tail and the shatter; the travel is the read's and is carried onto whatever set
-   * replaces this one (`carryShape`), per picture and not per yard, like the wind.
+   * And how the standing rack shapes the whole picture — how tight a lattice it folds the field
+   * into, which is the one whole-field move no effect may claim — where it has got to and what the
+   * population is asking for (`rackShape`, `shapeTravelInto`, src/ui/moireShape.ts). The reading is
+   * filled once when the set is built, like the tail and the looks; the travel is the read's and is
+   * carried onto whatever set replaces this one (`carryShape`), per picture and not per yard, like
+   * the wind.
    */
   shape: MoireShape;
   shaping: MoireShaping;
@@ -423,7 +426,7 @@ export function macroInto(
   | "veering"
   | "wind"
   | "jolt"
-  | "shatter"
+  | "looks"
   | "shape"
   | "shaping"
 > {

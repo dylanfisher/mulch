@@ -82,6 +82,9 @@ describe("the plane folded for the automators standing", () => {
     expect(foldsOf(0)).toBe(0);
     expect(foldsOf(1)).toBe(1);
     expect(foldsOf(FOLD_CAP + 3)).toBe(FOLD_CAP);
+    // And fractional on the way in, because a fold arriving is a crossfade and not a round (0279).
+    expect(foldsOf(0.5)).toBe(0.5);
+    expect(foldsOf(-1)).toBe(0);
     const stops = new Set<number>();
     for (let at = 0; at <= 1; at += 1 / 200) stops.add(steppedFolds(at));
     expect(stops.size).toBe(DRIFT_STEPS + 1);

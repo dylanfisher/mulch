@@ -723,32 +723,38 @@ whole-field move is the size a glance reads at.
   crop. On the thirty-two-pixel strip a pass may vanish under its own scale, and may never alias,
   flash or shift the picture's mean by more than the swing already allows.
 - **Infrastructure, then one pass a step.** The contract, the chain, the travel and the re-homing
-  land first, with the picture byte-identical; then one effect a step, in this order: reverb, crush,
-  delay, pop, tape, filter, eq, compressor, shift, scatter.
+  land first, with the picture byte-identical — **landed, [0279](decisions/0279-a-look-is-declared-and-the-chain-draws-it.md)**:
+  `look`/`lookFrom` on the entry checked at load against `LOOKS` (src/lib/moireLook.ts), `rackLooks`,
+  `looksTravelInto` and the four reductions (src/ui/moireLooks.ts) on `MoireRowSet`, `carryLooks`
+  (src/ui/moireCarry.ts), and the chain in `cutField` that no look takes a slot in yet. Then one
+  effect a step, in this order: reverb, crush, delay, pop, tape, filter, eq, compressor, shift,
+  scatter.
 - **The paint may slow under a full rack.** `DRIFT_PAINT_HZ` (24) stays the ceiling; a chain longer
   than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve. Landed as its own step
   once four new passes stand, because before that there is nothing to slow.
 - **Warp, fold and shatter are re-homed.** They are sway's, the automator's and scatter's passes,
   declared on those entries under the one contract, and `rackShape` keeps only the lattice — which
-  stays the rack's, and which no effect may claim (0278 stands).
+  stays the rack's, and which no effect may claim (0278 stands). **Landed, 0279**: `rackShatter` and
+  its file are gone, the bend and the fold left `MoireShaping`, and each of the three lands where its
+  declaration says — the fold at the bake, the warp and the shatter at the cut.
 
 **What each pass is,** its terms read off the entry's own values through the same presence-weighting
 `rackShape` uses, and the one Canvas 2D move that draws it:
 
-| Effect     | Look                                                                  | Terms                                               | The draw                                                                                                                                |
-| ---------- | --------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| reverb     | **bloom** — a soft halo, contrast washes out                          | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself `source-over` at the amount; the original stays under it                       |
-| crush      | **blocks** — pixelated, levels posterised                             | rate → block size, bits → level count               | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it      |
-| delay      | **echoes** — ghosted repeats, spaced, fading                          | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
-| pop        | **sharpen** — edges bite, contrast lifts, colour saturates            | mix → amount, sheen → saturation                    | the blurred copy taken out `destination-out` at the amount then the field re-laid (an unsharp mask); saturation is a stepped ink term   |
-| tape       | **wobble** — rows swim sideways, grain in the ink, warm tint          | wow → wobble, hiss → grain, tone → tint             | slices slid by a sine of the tape's own clock (`cutAcross`); a noise tile baked once and swept, `destination-in`; tint is already `hue` |
-| filter     | **soften** — fine detail dissolves as the cutoff falls                | cutoff → radius                                     | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom                            |
-| eq         | **band** — one lit band across the field at the frequency             | frequency → position, gain → lift or cut, q → width | the band's slice re-laid `source-over` (lift) or taken out `destination-out` (cut), edges softened by the width                         |
-| compressor | **squash** — range flattened toward mid, windows dim, ink thins       | ratio → floor, threshold → ceiling                  | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                   |
-| shift      | **double** — a second picture at the interval's ratio                 | interval → zoom ratio, mix → amount                 | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                         |
-| scatter    | **shatter** (landed, 0269) — pieces drawn from elsewhere in the field | odds → share, span → piece size                     | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                  |
-| sway       | **warp** (landed, 0278)                                               | depth → bend, rate → wander                         | as today                                                                                                                                |
-| automator  | **fold** (landed, 0278)                                               | run → folds                                         | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                      |
+| Effect     | Look                                                                                  | Terms                                               | The draw                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| reverb     | **bloom** — a soft halo, contrast washes out                                          | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself `source-over` at the amount; the original stays under it                       |
+| crush      | **blocks** — pixelated, levels posterised                                             | rate → block size, bits → level count               | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it      |
+| delay      | **echoes** — ghosted repeats, spaced, fading                                          | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
+| pop        | **sharpen** — edges bite, contrast lifts, colour saturates                            | mix → amount, sheen → saturation                    | the blurred copy taken out `destination-out` at the amount then the field re-laid (an unsharp mask); saturation is a stepped ink term   |
+| tape       | **wobble** — rows swim sideways, grain in the ink, warm tint                          | wow → wobble, hiss → grain, tone → tint             | slices slid by a sine of the tape's own clock (`cutAcross`); a noise tile baked once and swept, `destination-in`; tint is already `hue` |
+| filter     | **soften** — fine detail dissolves as the cutoff falls                                | cutoff → radius                                     | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom                            |
+| eq         | **band** — one lit band across the field at the frequency                             | frequency → position, gain → lift or cut, q → width | the band's slice re-laid `source-over` (lift) or taken out `destination-out` (cut), edges softened by the width                         |
+| compressor | **squash** — range flattened toward mid, windows dim, ink thins                       | ratio → floor, threshold → ceiling                  | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                   |
+| shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                 | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                         |
+| scatter    | **shatter** (landed, 0269; declared, 0279) — pieces drawn from elsewhere in the field | odds → share, span → piece size                     | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                  |
+| sway       | **warp** (landed, 0278; declared, 0279)                                               | depth → bend, rate → wander                         | as today                                                                                                                                |
+| automator  | **fold** (landed, 0278; declared, 0279)                                               | none — one fold per automator standing              | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                      |
 
 **The outcome wanted:** a glance at the picture says which effects are standing, in what order, and
 how many; two of one kind read as twice as much of that one thing; and turning an effect off drains
@@ -756,7 +762,9 @@ its look out of the picture over the wind's seconds rather than between two fram
 
 ## The two things every step turns on
 
-1.  **A look is a declaration on the entry, checked at load, and drawn by nobody else.** Every
+1.  **A look is a declaration on the entry, checked at load, and drawn by nobody else.** _(Landed,
+    0279 — `look` stays optional until the last effect's pass lands, because a look cannot be named
+    before the maths that draws it exists.)_ Every
     registered effect declares one `look` — a name from `LOOKS` (src/lib/moireLook.ts) and a
     `lookFrom` mapping of its own parameters into that look's terms — beside `drift` and
     `driftFrom`, and the registry refuses at load what it refuses of a profile: a look no maths
@@ -771,6 +779,7 @@ its look out of the picture over the wind's seconds rather than between two fram
     painter, and no painter code names an effect id: the painter draws whatever `LOOKS` says a look
     is, and an effect added tomorrow gets its pass by declaring one (principle 1).
 2.  **A pass is a draw of the finished field, between the field and the screen, and never a bake.**
+    _(The chain landed with 0279; no look takes a slot in it yet, and the first is reverb's.)_
     The chain runs where `cutField` runs today: after every row is cut and the frame fed back, and
     before the field is taken out of the screen `destination-out`. Each pass reads one surface and
     writes the other — `field` and the `between` surface that already exists — and the last one
@@ -826,8 +835,9 @@ its look out of the picture over the wind's seconds rather than between two fram
     ~10.4ms frame p95 band. The profiler samples an idle page, so a loaded rack is priced by hand:
     `./scripts/drive --dev` with ten passes standing, the frame time read off the swing's own
     timing, and the cadence rule's threshold set from that number and not guessed.
-4.  A decision record per step, no longer than the decision is. The first amends 0278 (three
-    readings become three declared looks; the lattice alone stays the rack's). Next free today is 0279.
+4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
+    readings became three declared looks; the lattice alone stays the rack's) and is 0279. Next free
+    today is 0280.
 
 ## Refused
 

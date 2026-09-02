@@ -8,6 +8,7 @@
 // oxlint-disable import/max-dependencies
 import { isDriftGeometry, LINEAR_GEOMETRY, STRAIGHT_DIMENSIONS } from "@/lib/moire";
 import { isFieldGeometry } from "@/lib/moireLattice";
+import { isLookName, LOOKS, RESERVED_LOOKS } from "@/lib/moireLook";
 import { RESERVED_PROFILES } from "@/lib/moireProfiles";
 
 import { compressorEffect } from "./compressor";
@@ -92,6 +93,56 @@ type AutomationParamsOf<T> =
     : never;
 export type EffectAutomationParamId = AutomationParamsOf<(typeof EFFECTS)[number]>;
 
+/**
+ * The whole-field move this entry claims in the picture, answered here for exactly the reasons the
+ * drift declarations above are (0122, 0279): a look the picture has no maths for would reach the
+ * painter as a move nothing draws, two entries on one look would draw the same move twice and read
+ * as more of one thing, and the lattice is the whole rack standing and no plugin's (0278).
+ *
+ * **An entry with no look is not a failure yet.** A look is drawn by the maths `LOOKS` holds for
+ * it and the passes land one a step, so an entry cannot name one before its own step; what is
+ * checked is that an entry which *does* name one names it honestly. Every term the look declares is
+ * reached and no other, because a look reading a number nobody stated is the silence a registry
+ * answers for.
+ *
+ * Its own function rather than another paragraph of `validateEffects`, which is already waived at
+ * the line cap: this is a rule about a different declaration and reads on its own.
+ */
+function validateLook(effect: Effect, owned: ReadonlySet<string>, seen: Set<string>): void {
+  // Read as a plain string, not as the union the type says: what this rule exists to catch is a
+  // declaration reaching the registry from outside its own literal, which is what a plugin written
+  // by hand is (0122).
+  const look: string | undefined = effect.look;
+  if (look === undefined) {
+    if (effect.lookFrom !== undefined) {
+      throw new Error(`effect maps look terms without a look: ${effect.id}`);
+    }
+    return;
+  }
+  if (!isLookName(look)) throw new Error(`unknown effect look: ${effect.id}.${look}`);
+  if (RESERVED_LOOKS.includes(look)) {
+    throw new Error(`effect claims a reserved look: ${effect.id}`);
+  }
+  if (seen.has(look)) throw new Error(`duplicate effect look: ${look}`);
+  seen.add(look);
+  const terms = LOOKS[look].terms;
+  const reached = new Set<string>();
+  for (const { param, into } of effect.lookFrom ?? []) {
+    if (!owned.has(param)) {
+      throw new Error(`effect maps a look value it does not own: ${effect.id}.${param}`);
+    }
+    if (terms[into] === undefined) {
+      throw new Error(`a look has no such term: ${effect.id}.${into}`);
+    }
+    if (reached.has(into)) throw new Error(`two look values reach one term: ${effect.id}.${into}`);
+    reached.add(into);
+  }
+  for (const term of Object.keys(terms)) {
+    if (!reached.has(term))
+      throw new Error(`effect leaves a look term unread: ${effect.id}.${term}`);
+  }
+}
+
 // One rule per paragraph over one list of entries, each throwing with the id it read. Splitting it
 // would put half a registry's contract in a helper nobody would think to read beside the other half.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -100,6 +151,7 @@ export function validateEffects(effects: readonly Effect[]): void {
   const effectIds = new Set<string>();
   const paramIds = new Set<string>();
   const profiles = new Set<string>();
+  const looks = new Set<string>();
   for (const effect of effects) {
     if (effectIds.has(effect.id)) throw new Error(`duplicate effect id: ${effect.id}`);
     effectIds.add(effect.id);
@@ -141,6 +193,7 @@ export function validateEffects(effects: readonly Effect[]): void {
       throw new Error(`effect declares no drift mapping: ${effect.id}`);
     }
     const owned = new Set<string>(effect.params.map((param) => param.id));
+    validateLook(effect, owned, looks);
     // The same list keyed, because a presence is checked against its parameter's own range and
     // lane rather than only against the set of names (0202).
     const specs = new Map(effect.params.map((param) => [param.id, param] as const));

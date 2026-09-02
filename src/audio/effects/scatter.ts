@@ -145,6 +145,12 @@ export const scatterEffect = defineEffect({
     { param: "scatter.edge", into: "bend" },
     { param: "scatter.stray", into: "disperse" },
   ],
+  // And the whole-field move a scatter makes: the picture read back out of order, a share of it
+  // drawn from somewhere else along itself (0269, 0279). How much of it is that share is how
+  // crowded the windows are, on Odds' own range — the reading this entry's claim on the field has
+  // always been, now declared here rather than read off the id in a pass of its own.
+  look: "shatter",
+  lookFrom: [{ param: "scatter.odds", into: "share" }],
   // Exactly the capture, and exactly once: a window is taken from the stage's own last few seconds
   // and can reach no further back than they go, so when the capture has been overwritten once this
   // stage is playing back only what it is being given now.

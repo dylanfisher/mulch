@@ -35,7 +35,7 @@ import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import { rackShape, shapeRest, type MoireShape } from "@/ui/moireShape";
-import { rackShatter } from "@/ui/moireShatter";
+import { rackLooks } from "@/ui/moireLooks";
 import { rackWind, windRest } from "@/ui/moireWind";
 import {
   DRIFT_JOLT_SECS,
@@ -435,11 +435,11 @@ export function moireRows(
   // (`rackWind`, src/ui/moireWind.ts). Where the wind has actually blown to is the read's, and it
   // is carried onto whatever set replaces this one, exactly as the ink is (`carryWind`).
   const blowing = rackWind(effects);
-  // And how much of that same rack is scatter, which is the other thing it does to the whole field:
-  // read here for the same reason and off the same standing population, in a pass of its own —
-  // where the wind's two numbers are two readings of one tail, this is a reading of a different
-  // fact, and folding it into that pass would be one loop answering two questions (`rackShatter`,
-  // src/ui/moireShatter.ts).
+  // And every look that same rack gives the whole picture, in the order the rack holds them: read
+  // here for the same reason and off the same standing population, in a pass of its own — where the
+  // wind's two numbers are two readings of one tail, this is a reading of a different fact, and
+  // folding it into that pass would be one loop answering two questions (`rackLooks`,
+  // src/ui/moireLooks.ts).
   return {
     rows,
     reads,
@@ -453,7 +453,7 @@ export function moireRows(
     veering: blowing.veering,
     wind: windRest(),
     jolt: joltRest(),
-    shatter: rackShatter(effects),
+    looks: rackLooks(effects),
     // And how it shapes the whole field, read the same way and for the same reason, in a pass of
     // its own: a third fact about the same population (`rackShape`, src/ui/moireShape.ts).
     shaping: rackShape(effects),

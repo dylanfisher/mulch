@@ -178,6 +178,12 @@ export function createAutomator(
       { param: "auto.drift", into: "pitch" },
     ],
     driftUnreached: AUTO_UNREACHED,
+    // And the whole-field move an automator makes: the plane folded once about the picture's own
+    // anchor, which reads as *an automator standing* at any zoom (0278, 0279). The one look with no
+    // terms at all — how many times the plane is folded is how many automators are standing, which
+    // is a fact about the run each of them *is* and not about any value one holds — and the one
+    // applied before a field exists, so it takes no slot in the chain.
+    look: "fold",
     // An automator holding nothing is already inaudible, but it is not a thing another automator
     // may fade: one growing inside another is refused by the pool it draws from, which holds only
     // the entries that declared a presence of their own (0202).

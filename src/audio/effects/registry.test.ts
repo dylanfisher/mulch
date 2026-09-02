@@ -1,3 +1,8 @@
+// One file, one registry contract: every rule holds over the same one list of entries, and the
+// look cases are the drift declarations' own complaint said of the whole-field move (0122, 0279).
+// Waived at the file rather than raised for the tree.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { LATTICE_GEOMETRY } from "@/lib/moireLattice";
@@ -9,6 +14,7 @@ import {
   STRAIGHT_DIMENSIONS,
   type DriftGeometry,
 } from "@/lib/moire";
+import { LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
@@ -320,6 +326,91 @@ describe("effect registry", () => {
   // what the registry answers for is that the picture has maths to cut a row along it at all.
   it("carries a coordinate the picture can cut a row along, per entry", () => {
     for (const effect of EFFECTS) expect(DRIFT_GEOMETRIES).toContain(effect.geometry);
+  });
+
+  // Beside the drift declarations, and answered at load for the same reasons: a look the picture
+  // has no maths for reaches the painter as a move nothing draws, two entries on one look draw the
+  // same move twice, and the lattice is the whole rack standing and no plugin's (0122, 0278, 0279).
+  it("carries an honest look on every entry that declares one", () => {
+    const claimed = new Set<LookName>();
+    for (const effect of EFFECTS) {
+      const { look, lookFrom, params } = effect;
+      if (look === undefined) {
+        expect(lookFrom).toBeUndefined();
+        continue;
+      }
+      expect(LOOKS[look]).toBeDefined();
+      expect(RESERVED_LOOKS).not.toContain(look);
+      expect(claimed.has(look)).toBe(false);
+      claimed.add(look);
+      const terms = Object.keys(LOOKS[look].terms);
+      const reached = (lookFrom ?? []).map(({ into }) => into);
+      expect(new Set(reached)).toEqual(new Set(terms));
+      expect(reached).toHaveLength(terms.length);
+      const owned = new Set(params.map(({ id }) => id));
+      for (const { param } of lookFrom ?? []) expect(owned.has(param)).toBe(true);
+    }
+    // The three that stand today, on the three entries whose whole-field moves have landed (0278).
+    expect(claimed).toEqual(new Set(["warp", "fold", "shatter"]));
+  });
+
+  it("rejects a look the picture has no maths for, and one two entries claim", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      // The one shape of this the type system cannot refuse: a declaration reaching the registry
+      // from outside its own literal, which is what a plugin written by hand is.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      validateEffects([{ ...one, look: "bloom" as LookName }]);
+    }).toThrow(/unknown effect look: one\.bloom/u);
+    expect(() => {
+      validateEffects([
+        { ...one, look: "shatter", lookFrom: [{ param: "one.a", into: "share" }] },
+        {
+          ...unbuilt("two", "two.a", "twin"),
+          look: "shatter",
+          lookFrom: [{ param: "two.a", into: "share" }],
+        },
+      ]);
+    }).toThrow(/duplicate effect look: shatter/u);
+  });
+
+  it("rejects an effect claiming the lattice, which is the rack's own", () => {
+    const one = unbuilt("one", "one.a");
+    for (const look of RESERVED_LOOKS) {
+      expect(() => {
+        validateEffects([{ ...one, look }]);
+      }).toThrow(/effect claims a reserved look: one/u);
+    }
+  });
+
+  it("rejects a look term the entry does not own, reaches twice, or leaves unread", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, look: "shatter", lookFrom: [{ param: "two.a", into: "share" }] }]);
+    }).toThrow(/maps a look value it does not own: one\.two\.a/u);
+    expect(() => {
+      validateEffects([
+        {
+          ...one,
+          look: "shatter",
+          lookFrom: [
+            { param: "one.a", into: "share" },
+            { param: "one.a", into: "share" },
+          ],
+        },
+      ]);
+    }).toThrow(/two look values reach one term: one\.share/u);
+    expect(() => {
+      validateEffects([{ ...one, look: "shatter", lookFrom: [{ param: "one.a", into: "bend" }] }]);
+    }).toThrow(/a look has no such term: one\.bend/u);
+    // A term nothing reaches is a look reading a number nobody stated.
+    expect(() => {
+      validateEffects([{ ...one, look: "shatter" }]);
+    }).toThrow(/effect leaves a look term unread: one\.share/u);
+    // And a mapping with no look to reach is the same silence from the other side.
+    expect(() => {
+      validateEffects([{ ...one, lookFrom: [{ param: "one.a", into: "share" }] }]);
+    }).toThrow(/maps look terms without a look: one/u);
   });
 
   it("rejects an effect cut along a coordinate the picture cannot draw", () => {

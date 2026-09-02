@@ -29,7 +29,7 @@
  *   src/ui/driftTiles.ts. The two fractal coordinates one of those tiles may be cut along, and the
  *   seed a run of effects an automator is growing folds into → src/lib/moireFractal.ts. Peaks →
  *   src/ui/peakCanvas.ts, which is this file's sibling and not its source. Taking the finished field
- *   back out of the screen, whole or through the slices a lens bends and a shatter breaks it in →
+ *   back out of the screen, whole or through the chain and the slices a lens bends and a shatter breaks it in →
  *   src/ui/moireCanvasField.ts, which this splits the painting's last pass into.
  */
 // Past the soft cap by the swept rows' tiles, which are a picture wide and are cut with the same
@@ -84,6 +84,7 @@ import { viewOf } from "@/ui/canvasSurface";
 import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/driftTiles";
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
+import { looksFolds, type MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
 import type { MoireShape } from "@/ui/moireShape";
@@ -291,6 +292,7 @@ function cutGratings(
   age: number,
   sounding: number,
   shape: Readonly<MoireShape>,
+  folds: number,
   tint: Readonly<ScreenInk>,
 ): boolean {
   const { height, width } = field;
@@ -362,7 +364,7 @@ function cutGratings(
       roamed,
       fractalZoom(turns, agedOpening(age)),
       flight,
-      shape.folds,
+      folds,
     );
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
@@ -507,17 +509,18 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is blown nowhere, which is the
  * picture drawn before there was a tail in it.
  *
- * And `shatter`, how much of that same rack is scatter (`rackShatter`, src/ui/moireShatter.ts): the
- * share of the finished field that is drawn back through itself displaced, bounded where it is spent
- * (`shatterShare`, src/lib/moireGeometry.ts). A picture with nothing scattering behind it is drawn
- * from itself alone, which is the picture drawn before there was a scatter in it.
+ * And `looks`, every whole-field move the standing rack is making, in the rack's own order and each
+ * at the presence the picture has travelled to (`rackLooks`, src/ui/moireLooks.ts, 0279). The chain
+ * runs them where the field is taken back out of the screen; three of them land elsewhere and say so
+ * at the declaration — how many times the plane is folded before every curved row is cut along it,
+ * which reaches the tile's key; how far the finished field is bent, and how much of it is drawn back
+ * through itself displaced, both spent in the slices the lens already reads it back in. A picture
+ * with nothing standing behind it takes no pass at all, which is the picture drawn before there was
+ * a rack in it.
  *
  * And `shape`, how that same rack shapes the whole field (`shapeTravelInto`, src/ui/moireShape.ts,
- * 0278): how many times the plane is folded before every curved row is cut along it, which reaches
- * the tile's key; how far the finished field is bent, which is spent in slices where the lens is;
- * and how tight a lattice stands over it, which is a pattern and costs a fill. A picture with
- * nothing standing behind it is folded nought times, bent nowhere and latticed at its loosest,
- * which is the picture drawn before there was a rack in it.
+ * 0278): how tight a lattice stands over it, which is a pattern and costs a fill, and how far the
+ * warp's wander has gone round, which the bend above is slid on.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -533,7 +536,7 @@ export function paintMoire(
   sounding: number,
   tint: Readonly<ScreenInk>,
   wind: number,
-  shatter: number,
+  looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
 ): void {
   const context = canvas.getContext("2d");
@@ -564,8 +567,23 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
+  const folds = looksFolds(looks);
   if (
-    !cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding, shape, tint)
+    !cutGratings(
+      field,
+      ink,
+      rows,
+      windowSecs,
+      dpr,
+      count,
+      wash,
+      seed,
+      age,
+      sounding,
+      shape,
+      folds,
+      tint,
+    )
   ) {
     forget(canvas);
     endPainting();
@@ -577,7 +595,7 @@ export function paintMoire(
   inkThrough(canvas, context, rows, color, tint, wind);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
-  cutField(context, field, rows, shatter, shape);
+  cutField(context, field, rows, looks, shape);
   context.globalCompositeOperation = "source-over";
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).
