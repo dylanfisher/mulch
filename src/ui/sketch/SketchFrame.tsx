@@ -1,6 +1,7 @@
 /**
  * @role The frame every sketch on the bench sits in — its number, its name, the one sentence it
- *   argues, what it gives up to argue it, and the stage the sketch itself is drawn on.
+ *   argues, what it gives up to argue it, how it would be built where an entry says so, and the
+ *   stage the sketch itself is drawn on.
  * @instead The bench's own layout and the list of what is on it → src/ui/sketch/SketchPage.tsx.
  */
 import type { ReactNode } from "react";
@@ -18,6 +19,7 @@ export function SketchFrame({
   title,
   thesis,
   trades,
+  built,
   children,
 }: {
   id: string;
@@ -26,6 +28,9 @@ export function SketchFrame({
   thesis: string;
   /** What the approach cannot do, said out loud: every one of these trades something away. */
   trades: string;
+  /** Where in the real thing it would land, and what it costs there — for a bench whose entries
+   *  are directions to build rather than surfaces to pick between. */
+  built?: string;
   children: ReactNode;
 }) {
   return (
@@ -41,6 +46,11 @@ export function SketchFrame({
         <p className="type-body text-muted-foreground">
           <span className="type-eyebrow">Trades</span> {trades}
         </p>
+        {built === undefined ? null : (
+          <p className="type-body text-muted-foreground">
+            <span className="type-eyebrow">Built</span> {built}
+          </p>
+        )}
       </header>
       <div className="rounded-lg border border-border bg-card p-4">{children}</div>
     </section>

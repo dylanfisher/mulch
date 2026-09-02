@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
-import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_DRIFTS, SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
 
 /**
  * The bench is a list of arguments drawn out of the same primitives the instrument is, so rendering
@@ -14,7 +14,7 @@ import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
 const markup = renderToStaticMarkup(<SketchPage />);
 
 /** The bench as one list, since every rule about an entry is a rule about all of them. */
-const BENCH = SKETCH_GROUNDS;
+const BENCH = [...SKETCH_GROUNDS, ...SKETCH_DRIFTS];
 
 describe("the sketch route", () => {
   it("resolves its own hash and leaves everything else on the instrument", () => {
@@ -43,6 +43,7 @@ describe("SketchPage", () => {
    */
   it("mounts every entry of the bench", () => {
     expect(SKETCH_GROUNDS).not.toHaveLength(0);
+    expect(SKETCH_DRIFTS).not.toHaveLength(0);
     for (const entry of BENCH) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
       expect(markup, `${entry.id} has an entry and no nav link`).toContain(

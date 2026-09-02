@@ -596,6 +596,16 @@ anywhere. Both were drawn, in two sections of eight, and a third question was dr
   and `bedWay`, beside the Counted-in row that was already drawn that way (src/ui/PlayerBed.tsx,
   0277). The six and their arithmetic are deleted, per 0254's rule; the fourth row, whether the
   loop itself grows or shrinks, is not built and is a step of its own.
+- **Where the picture goes. Drawn, not decided.** The drift's structure was meant to read as a
+  lattice of cells (0268) and still reads as a weave, and the reference (gpuworld.org's hero, a
+  five-by-five lattice of rounded cells with a ramped palette and lit rims) is a shader's picture.
+  Eight directions stand on the bench's second section — the lattice, the ramp, the warp, the fold,
+  the tunnel, the terrace, the blobs and the cells that hear — each one move a shader would make,
+  painted by a pixel loop on the bench (src/ui/sketch/sketchDrift.ts) and each carrying a `built`
+  line saying where in the painter it lands and whether it is a bake or a frame. None is exclusive
+  of another; the lattice is the one the bands need first. Taking any of them is a step of its own
+  against the bake line (0129, 0144) and, for the ramp, the colour boundary (0236): a plan is
+  written off the `built` lines and not off this paragraph.
 
 **The outcome wanted, and had:** twenty-two drawings, in three sections, that make each question
 answerable by looking. Fun, simple and intuitive was the brief, and on this bench that is a

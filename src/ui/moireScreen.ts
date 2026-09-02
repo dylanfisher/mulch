@@ -540,7 +540,7 @@ const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: st
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
 /** One colour the theme resolved, as the four channels a pixel is written in. */
-type Ink = [number, number, number, number];
+export type Ink = [number, number, number, number];
 
 /** What a third of a cell does to each of the row's own channels, when no token says otherwise. */
 const FLAT_GAIN: readonly [number, number, number] = [1, 1, 1];
@@ -578,7 +578,7 @@ let swatch: CanvasRenderingContext2D | null = null;
  * reading of the theme (principle 1). A canvas that will not give a context back leaves the colour
  * black and transparent, which draws nothing rather than drawing a guess.
  */
-function inkOf(css: string): Ink {
+export function inkOf(css: string): Ink {
   if (swatch === null) {
     const pixel = document.createElement("canvas");
     pixel.width = 1;
