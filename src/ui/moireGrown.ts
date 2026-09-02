@@ -1,17 +1,20 @@
 /**
  * @role What an automator's run looks like to the picture: where each knob of a grown effect
  *   stands, what every instance is holding right now, and whether that has moved since the last
- *   picture was built. A run is drawn from a seed and never stored (0204), so this is the whole of
- *   what the drift can know about one.
- * @instead The rows those places are drawn as, and every other row of the picture →
+ *   picture was built — and the rows those places are drawn as. A run is drawn from a seed and
+ *   never stored (0204), so this is the whole of what the drift can know about one.
+ * @instead Every other row of the picture, and the read that fills them all →
  *   src/ui/moireRows.ts. What a run *is*, and how a place is drawn → src/audio/effects/automator.ts
  *   and src/lib/effectGrowth.ts. What a run cuts the picture through → src/lib/moireFractal.ts.
  */
 import { drawnParamIds } from "@/audio/effects/automator";
-import { effectById, isGrowable, type EffectId } from "@/audio/effects/registry";
+import { effectById, isEffectId, isGrowable, type EffectId } from "@/audio/effects/registry";
 import { PARAMS } from "@/audio/params";
+import { fold } from "@/lib/copy";
+import { grownOctaves } from "@/lib/effectGrowth";
+import { driftReached, restingCentre, type DriftReach, type MoireRow } from "@/lib/moire";
 import { normalize } from "@/lib/range";
-import type { DriftReach } from "@/lib/moire";
+import { READS_NOTHING, ROW_KEYS, type RowRead } from "@/ui/moireRowsField";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 
 /**
@@ -114,4 +117,66 @@ export function grownStanding(was: GrownStanding, grown: GrownRun): boolean {
     same = false;
   }
   return same;
+}
+
+/**
+ * How a row belonging to one registry entry is cut: the shape of its wave and the coordinate that
+ * wave runs down, both declared beside the entry's icon (0137, 0142). Three rows ask it — a lane on
+ * one of that effect's knobs, the instance's own row, and a row the automator grew — and one
+ * lookup answers, so a fourth kind of row cannot be cut to a fifth kind of thing (principle 3).
+ */
+export const driftCut = (effect: EffectId): Pick<MoireRow, "profile" | "geometry"> => {
+  const plugin = effectById(effect);
+  return { profile: plugin.drift, geometry: plugin.geometry };
+};
+
+/**
+ * Every effect one automator is holding, a row apiece, onto the picture its own instance's row was
+ * just pushed onto. **The rows the session cannot see**: a grown effect is drawn from a seed and
+ * never stored (0204), so without this a run of six turning over completely leaves the picture
+ * exactly as it was — the automator's own knobs reached one row and the six they grew reached none.
+ *
+ * Each is cut the way a rack instance's is and by the same three things: its identity folded off
+ * the id the run minted for it, which is the same word its row in the card carries (0076), and the
+ * profile and geometry its own registry entry declares — so what the picture shows is which plugins
+ * are standing, not that something is. What it is *set* to comes off the run rather than off the
+ * session (`grownReach`), because there is no session entry to read.
+ *
+ * A place laid but not yet arrived is not among them: the read already withholds one, for the same
+ * reason a bypassed instance carries no row — what nobody can hear is not in the picture (0139).
+ * Nothing is read per frame for one: a grown row's phase runs on the deck's own clock, and its
+ * fading in and out is the automator's row to tell.
+ */
+export function grownInto(
+  rows: MoireRow[],
+  reads: RowRead[],
+  grown: readonly GrownEffect[] | undefined,
+): void {
+  if (grown === undefined) return;
+  for (const held of grown) {
+    if (!isEffectId(held.effect)) continue;
+    const seed = fold(held.instance);
+    const cut = driftCut(held.effect);
+    const reach = grownReach(held.effect, held.values);
+    const reached = driftReached(seed, reach, cut.geometry);
+    rows.push({
+      ...reached,
+      // The run's own size, spent on the rows it grew (`grownOctaves`, 0143). Never below what the
+      // plugin's own value already claimed, so what the run asks for is added to that row and never
+      // swapped for it. What the whole set can afford is `shareOctaves` below, and that one may
+      // take a copy back off any row here — a set-wide budget is nobody's preference (0230).
+      octaves: Math.max(reached.octaves, grownOctaves(grown.length, cut.geometry)),
+      phase: 0,
+      pulse: 0,
+      arrival: 1,
+      reference: false,
+      shape: seed,
+      ...cut,
+    });
+    reads.push({
+      ...READS_NOTHING,
+      key: `${ROW_KEYS.grown}${held.instance}`,
+      anchor: restingCentre(seed, cut.geometry, reach),
+    });
+  }
 }

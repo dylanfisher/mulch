@@ -17,7 +17,8 @@ import { describe, expect, it } from "vitest";
 
 import { fold } from "@/lib/copy";
 import type { DRIFT_GEOMETRIES } from "@/lib/moire";
-import { DRIFT_CHIRP_REACH, DRIFT_PICKED_GEOMETRIES, DRIFT_TRAVEL_CYCLES, TAU } from "@/lib/moire";
+import { DRIFT_CHIRP_REACH, DRIFT_TRAVEL_CYCLES, TAU } from "@/lib/moire";
+import { DRIFT_PICKED_GEOMETRIES } from "@/lib/playerDrift";
 import { FRACTAL_GEOMETRIES, fractalSeed, type FractalSeed } from "@/lib/moireFractal";
 import { PITCH_SPREAD } from "@/lib/moireGrating";
 import { DRIFT_PROFILES, profileBlock, type DriftProfile } from "@/lib/moireProfiles";

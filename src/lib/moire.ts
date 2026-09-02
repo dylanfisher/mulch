@@ -701,23 +701,6 @@ export const isDriftGeometry = (value: unknown): value is DriftGeometry =>
   DRIFT_GEOMETRIES.some((geometry) => geometry === value);
 
 /**
- * The coordinates anything in the picture may *pick*: the four above, and never the two a fractal
- * has. An effect declares one and the jumps module folds one off the part standing, and neither of
- * those is a picture of a run — where an escape field or a folded plane is exactly that, and is
- * built for the whole field off the population (`fractalInto`, src/ui/moireRowsField.ts, 0246).
- *
- * Held here rather than as a subtraction at either call site, because it is one fact: the pool a
- * fold reaches into. A fold takes a remainder, so a pool that grew under one would silently move
- * every part's coordinate the day a fifth axis was added — which is what this exists not to do.
- */
-export const DRIFT_PICKED_GEOMETRIES: readonly DriftGeometry[] = [
-  "linear",
-  "radial",
-  "spiral",
-  "fan",
-];
-
-/**
  * The `harmonic`th cosine of a cycle at `turn`. The one cosine this app's gratings are built out
  * of: both painters, the plain profile and every harmonic below go through it, so there is one
  * wave here and not a copy per caller (principle 1).

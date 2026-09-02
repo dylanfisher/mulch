@@ -30,8 +30,8 @@ import {
   PARAMS,
   paramKey,
 } from "@/audio/params";
-import { effectById, isEffectId, type EffectId } from "@/audio/effects/registry";
-import { grownReach, type GrownRun } from "@/ui/moireGrown";
+import { effectById } from "@/audio/effects/registry";
+import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import { rackShatter } from "@/ui/moireShatter";
@@ -46,7 +46,6 @@ import {
 } from "@/ui/moireJolt";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
-import { grownOctaves } from "@/lib/effectGrowth";
 import {
   colourReached,
   driftedCentre,
@@ -111,7 +110,6 @@ import {
   type RowRead,
 } from "@/ui/moireRowsField";
 import type { MasterPeek } from "@/app/facade";
-import type { GrownEffect } from "@/audio/effects/contract";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
 import type { Loop } from "@/lib/timeline";
@@ -183,17 +181,6 @@ export function deckLanes(
   }
   return lanes;
 }
-
-/**
- * How a row belonging to one registry entry is cut: the shape of its wave and the coordinate that
- * wave runs down, both declared beside the entry's icon (0137, 0142). Three rows ask it — a lane on
- * one of that effect's knobs, the instance's own row, and a row the automator grew — and one
- * lookup answers, so a fourth kind of row cannot be cut to a fifth kind of thing (principle 3).
- */
-const driftCut = (effect: EffectId): Pick<MoireRow, "profile" | "geometry"> => {
-  const plugin = effectById(effect);
-  return { profile: plugin.drift, geometry: plugin.geometry };
-};
 
 /**
  * Where each value an instance's registry entry declared a way into the picture for stands in its
@@ -727,57 +714,6 @@ function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | n
   reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.tier}part`, tier: "part" });
   rows.push(playerTierRow(playerPeriod));
   reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.tier}song`, tier: "song" });
-}
-
-/**
- * Every effect one automator is holding, a row apiece, onto the picture its own instance's row was
- * just pushed onto. **The rows the session cannot see**: a grown effect is drawn from a seed and
- * never stored (0204), so without this a run of six turning over completely leaves the picture
- * exactly as it was — the automator's own knobs reached one row and the six they grew reached none.
- *
- * Each is cut the way a rack instance's is and by the same three things: its identity folded off
- * the id the run minted for it, which is the same word its row in the card carries (0076), and the
- * profile and geometry its own registry entry declares — so what the picture shows is which plugins
- * are standing, not that something is. What it is *set* to comes off the run rather than off the
- * session (`grownReach`), because there is no session entry to read.
- *
- * A place laid but not yet arrived is not among them: the read already withholds one, for the same
- * reason a bypassed instance carries no row — what nobody can hear is not in the picture (0139).
- * Nothing is read per frame for one: a grown row's phase runs on the deck's own clock, and its
- * fading in and out is the automator's row to tell.
- */
-function grownInto(
-  rows: MoireRow[],
-  reads: RowRead[],
-  grown: readonly GrownEffect[] | undefined,
-): void {
-  if (grown === undefined) return;
-  for (const held of grown) {
-    if (!isEffectId(held.effect)) continue;
-    const seed = fold(held.instance);
-    const cut = driftCut(held.effect);
-    const reach = grownReach(held.effect, held.values);
-    const reached = driftReached(seed, reach, cut.geometry);
-    rows.push({
-      ...reached,
-      // The run's own size, spent on the rows it grew (`grownOctaves`, 0143). Never below what the
-      // plugin's own value already claimed, so what the run asks for is added to that row and never
-      // swapped for it. What the whole set can afford is `shareOctaves` below, and that one may
-      // take a copy back off any row here — a set-wide budget is nobody's preference (0230).
-      octaves: Math.max(reached.octaves, grownOctaves(grown.length, cut.geometry)),
-      phase: 0,
-      pulse: 0,
-      arrival: 1,
-      reference: false,
-      shape: seed,
-      ...cut,
-    });
-    reads.push({
-      ...READS_NOTHING,
-      key: `${ROW_KEYS.grown}${held.instance}`,
-      anchor: restingCentre(seed, cut.geometry, reach),
-    });
-  }
 }
 
 /**
