@@ -13,6 +13,8 @@
  */
 import { cosTurn, DRIFT_TRAVEL_CYCLES, TAU, wrap, type DriftGeometry } from "./moire.ts";
 import { escapeTurns, nestedTurns, type FractalSeed } from "./moireFractal.ts";
+import { type Folded, foldPlane } from "./moireFold.ts";
+import { LATTICE_GEOMETRY, latticeTile } from "./moireLattice.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
 import { clamp } from "./range.ts";
 
@@ -137,6 +139,15 @@ export type DriftPlace = FractalSeed & {
   cover: number;
   rings: number;
   spokes: number;
+  /**
+   * How many times the plane is folded about the anchor before the row is cut along it, on the
+   * fold's own ladder (`steppedFolds`, src/lib/moireFold.ts): the automators standing, travelled.
+   * A fraction is a fold arriving, and is two folded pictures crossfaded rather than one point
+   * slid toward its image.
+   */
+  folds: number;
+  /** How wide a lattice cell's rim is lit, in cell units — read by the lattice and nothing else. */
+  rim: number;
 };
 
 /**
@@ -164,15 +175,63 @@ export function curvedField(
   // every pixel. Reassociating a multiply and a divide is not bit-exact either, and is licensed the
   // same way — the harness beside the maths holds both rewrites to a fraction of an alpha step
   // before the round, which is the bar every rewrite of this kernel is held to (0211).
+  // The lattice is a cell and not a place: one tile, square, repeated by the painter (0278).
+  if (geometry === LATTICE_GEOMETRY) {
+    if (width !== height) throw new Error(`A lattice cell ${width} by ${height} is not a cell.`);
+    latticeTile(alpha, width, profile, place.rim);
+    return;
+  }
   const scale = place.cover / ref;
+  // The fold, resolved once for the tile: how many whole folds, and how far the next has arrived.
+  // A whole fold is the plane folded before the row is cut along it; a fold arriving is the two
+  // pictures either side of it crossfaded, never a point slid toward its mirror image — halfway
+  // there every point would lie on the seam and the whole picture would be one stripe (0278).
+  const whole = Math.floor(place.folds);
+  const arriving = place.folds - whole;
+  const flat = whole === 0 && arriving === 0;
   for (let y = 0; y < height; y++) {
     const v = (y - place.y) * scale;
     for (let x = 0; x < width; x++) {
       const u = (x - place.x) * scale;
-      const turns = geometryTurns(geometry, u, v, place.rings, place.spokes, place);
-      alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
+      // The unfolded kernel is left exactly as it was, byte for byte: a fold of nought makes no
+      // call and reads no scratch (0211).
+      const block = flat
+        ? profileBlock(profile, geometryTurns(geometry, u, v, place.rings, place.spokes, place))
+        : foldedBlock(geometry, profile, place, u, v, whole, arriving);
+      alpha[(y * width + x) * 4 + 3] = Math.round(255 * block);
     }
   }
+}
+
+/** The one folded point the kernel writes into, a pixel at a time: a bake allocates once (0070). */
+const folded: Folded = { u: 0, v: 0 };
+
+/**
+ * How much one folded pixel blocks: the plane folded `whole` times about the anchor and the row
+ * cut along the folded point — and, where a fold is `arriving`, that much of the way toward the
+ * same pixel folded once more.
+ */
+function foldedBlock(
+  geometry: DriftGeometry,
+  profile: DriftProfile,
+  place: DriftPlace,
+  u: number,
+  v: number,
+  whole: number,
+  arriving: number,
+): number {
+  foldPlane(folded, u, v, whole);
+  const block = profileBlock(
+    profile,
+    geometryTurns(geometry, folded.u, folded.v, place.rings, place.spokes, place),
+  );
+  if (arriving <= 0) return block;
+  foldPlane(folded, u, v, whole + 1);
+  const next = profileBlock(
+    profile,
+    geometryTurns(geometry, folded.u, folded.v, place.rings, place.spokes, place),
+  );
+  return block + arriving * (next - block);
 }
 
 /**

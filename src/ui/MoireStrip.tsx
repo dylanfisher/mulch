@@ -359,6 +359,7 @@ function useMoirePicture(
         set.ink,
         set.wind.drift,
         set.shatter,
+        set.shape,
       );
     },
     [refill],

@@ -45,6 +45,7 @@ import {
   SCREEN_FLOOR,
   SCREEN_TERMS,
 } from "@/ui/moireScreen";
+import { shapeRest } from "@/ui/moireShape";
 
 import { moireRow as row } from "@/lib/moireRow";
 
@@ -212,6 +213,7 @@ function paintedOn(
     ink ?? arrivedInk(rows),
     wind,
     0,
+    shapeRest(),
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).

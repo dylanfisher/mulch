@@ -84,6 +84,7 @@ import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/dr
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
+import type { MoireShape } from "@/ui/moireShape";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -326,6 +327,7 @@ function cutGratings(
   seed: Readonly<FractalStops>,
   age: number,
   sounding: number,
+  shape: Readonly<MoireShape>,
 ): boolean {
   const { height, width } = field;
   // How far the picture has flown through its own structure, resolved once for the whole pass: the
@@ -386,6 +388,7 @@ function cutGratings(
       roamed,
       fractalZoom(turns, agedOpening(age)),
       flight,
+      shape.folds,
     );
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
@@ -534,6 +537,13 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * share of the finished field that is drawn back through itself displaced, bounded where it is spent
  * (`shatterShare`, src/lib/moireGeometry.ts). A picture with nothing scattering behind it is drawn
  * from itself alone, which is the picture drawn before there was a scatter in it.
+ *
+ * And `shape`, how that same rack shapes the whole field (`shapeTravelInto`, src/ui/moireShape.ts,
+ * 0278): how many times the plane is folded before every curved row is cut along it, which reaches
+ * the tile's key; how far the finished field is bent, which is spent in slices where the lens is;
+ * and how tight a lattice stands over it, which is a pattern and costs a fill. A picture with
+ * nothing standing behind it is folded nought times, bent nowhere and latticed at its loosest,
+ * which is the picture drawn before there was a rack in it.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -550,6 +560,7 @@ export function paintMoire(
   tint: Readonly<ScreenInk>,
   wind: number,
   shatter: number,
+  shape: Readonly<MoireShape>,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -579,7 +590,7 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding)) {
+  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding, shape)) {
     forget(canvas);
     endPainting();
     return;

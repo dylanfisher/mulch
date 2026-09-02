@@ -44,6 +44,7 @@ import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { shapeRest } from "@/ui/moireShape";
 
 /**
  * A read with all the time in the world behind it, which is a ground move that has already finished
@@ -644,5 +645,40 @@ describe("moireCanvas tiles", () => {
     // painting — the rows are walked in the same order each time, so the entry thrown out is
     // always the one asked for next — which is the one thing this cap may never do (0144).
     expect(baked(painted, 400)).toBe(swept.length);
+  });
+
+  it("bakes a folded row once a fold stop, keyed on the fold, and never between two", () => {
+    // A fold is baked: the automators standing fold the plane every curved row is cut on, so a
+    // fold arriving walks the tile's key up its own ladder and asks for one bake a stop — and a
+    // picture whose fold has not moved asks for nothing (0278).
+    const spiral = row({ period: 3, phase: 0, geometry: "spiral", centre: 0.5 });
+    const folded = (folds: number, frames = 1) => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      return paintedOn(96, 48, [spiral], 2, WINDOW, {
+        frames,
+        advance: 0,
+        shape: { ...shapeRest(), folds },
+      });
+    };
+    expect(baked(folded(0), 96)).toBe(1);
+    expect(baked(folded(0), 96)).toBe(0);
+    // One fold is a different tile — and its own key, so the unfolded tile is still held.
+    expect(baked(folded(1), 96)).toBe(1);
+    expect(baked(folded(1), 96)).toBe(0);
+    expect(baked(folded(0), 96)).toBe(0);
+    // A fold a hair further on is the same stop and the same tile; a whole stop on is a bake.
+    expect(baked(folded(1 + 0.4 / DRIFT_STEPS), 96)).toBe(0);
+    expect(baked(folded(1 + 1 / DRIFT_STEPS), 96)).toBe(1);
+    // And what was baked is the mirror the fold promises: the tile's two halves about the anchor's
+    // own row agree, where the unfolded spiral's did not.
+    const written = folded(2).surfaces.find((surface) => surface.wrote.length > 0);
+    const field = written?.wrote[0];
+    expect(field).toBeDefined();
+    const alpha = (x: number, y: number): number => field?.data[(y * 96 + x) * 4 + 3] ?? -1;
+    for (let x = 4; x < 96; x += 8) {
+      for (let k = 1; k < 20; k += 3) {
+        expect(Math.abs(alpha(x, 24 - k) - alpha(x, 24 + k))).toBeLessThanOrEqual(1);
+      }
+    }
   });
 });

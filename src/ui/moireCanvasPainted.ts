@@ -9,6 +9,7 @@
  */
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
+import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import type { Aim, MoireRow, ScreenInk } from "@/lib/moire";
 
@@ -105,6 +106,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       // drawn back through itself displaced: nothing unless a case says otherwise, which is the
       // picture drawn before there was a scatter in it (`rackShatter`, src/ui/moireShatter.ts).
       shatter = 0,
+      shape = shapeRest(),
     }: {
       frames?: number;
       advance?: number;
@@ -116,6 +118,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       tint?: ScreenInk;
       wind?: number;
       shatter?: number;
+      shape?: MoireShape;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -238,6 +241,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         tint,
         wind,
         shatter,
+        shape,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

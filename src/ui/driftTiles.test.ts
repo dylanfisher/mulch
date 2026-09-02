@@ -51,7 +51,17 @@ const orderAt = (rings: number, slot = "the one radial row"): DriftOrder => ({
   width: WIDE,
   height: DEEP,
   ref: 4,
-  place: { x: 4, y: 2, pitch: 3, cover: 1.05, rings, spokes: 8, ...fractalRest() },
+  place: {
+    x: 4,
+    y: 2,
+    pitch: 3,
+    cover: 1.05,
+    rings,
+    spokes: 8,
+    folds: 0,
+    rim: 0,
+    ...fractalRest(),
+  },
 });
 
 /** One painting, as the painter makes one: a row asked for, and whatever it was handed back. */

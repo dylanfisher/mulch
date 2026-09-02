@@ -11,6 +11,10 @@
  *   src/lib/moireGeometry.ts. The other two whole-field readings of the same population →
  *   src/ui/moireWind.ts and src/ui/moireShatter.ts.
  */
+// Two imports over the cap, and they are the three things a shape is made of: the cell, the bend
+// and the fold each live in a file of their own maths, and the reading reaches all three.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { effectById } from "@/audio/effects/registry";
 import { swayEffect } from "@/audio/effects/sway";
 import { effectHeard, PARAMS, paramIn } from "@/audio/params";
@@ -23,6 +27,7 @@ import { DRIFT_INK_SECS } from "@/ui/moireScreen";
 import { DRIFT_WIND_SECS } from "@/ui/moireWind";
 import type { MasterPeek } from "@/app/facade";
 import type { DeckState } from "@/state/store";
+// oxlint-enable import/max-dependencies
 
 /** How much a sway bends, as a turn on its own range — the value that is its claim on the picture. */
 const SWAY_DEPTH = "sway.depth";
