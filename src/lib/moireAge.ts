@@ -122,3 +122,15 @@ export const runFeedback = (standing: number, age: number): number =>
  */
 export const agedOpening = (age: number): number =>
   FRACTAL_OPENING ** spent(snapToStep(age, 0, 1, 1 / DRIFT_STEPS));
+
+/**
+ * And how far a hit may throw the whole picture: the strike the output or the walk just made, over
+ * the band this performance has earned. A fresh yard lurches over half the room and one that has
+ * been running lurches over the whole of it — the age widening what a term may reach rather than
+ * inventing one (0141), so a picture jolts at every age and never the same amount.
+ *
+ * **The age alone, and not the run standing beside it** (0244's refusal, applied again): how busy
+ * the rack is already reaches the jolt, because a jolt is spent on every row's own reading and a
+ * busier rack is more rows to throw. Multiplied in here as well it would be one hand on two dials.
+ */
+export const agedJolt = (jolt: number, age: number): number => jolt * spent(age);

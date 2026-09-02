@@ -124,6 +124,7 @@ describe("how much of a standing rack is scatter", () => {
         built.seed,
         built.toward,
         built.ink,
+        built.jolt,
       );
     }
     expect(built.shatter).toBe(shatter);

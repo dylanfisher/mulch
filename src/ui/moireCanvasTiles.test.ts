@@ -39,6 +39,7 @@ import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { DriftBakeRequest, DriftBakeResult, DriftPort } from "@/app/drift";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { NO_GROWN } from "@/ui/moireGrown";
+import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
@@ -147,6 +148,7 @@ const readRows = (
     STOOD,
     STOOD,
     screenInkRest(),
+    joltRest(),
   );
 };
 
@@ -170,6 +172,7 @@ const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
     set.seed,
     set.toward,
     set.ink,
+    set.jolt,
   );
 };
 
@@ -440,6 +443,7 @@ describe("moireCanvas tiles", () => {
           set.seed,
           set.toward,
           set.ink,
+          set.jolt,
         );
       },
     });

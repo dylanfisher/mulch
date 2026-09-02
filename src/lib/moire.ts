@@ -152,7 +152,9 @@ export type MoireRow = {
   /**
    * How hard the instance this row belongs to is working right now, 0..1, read off its own meter
    * and off no parameter — the second per-frame field, refilled beside `phase` and resting at 0
-   * for every row nothing is metering (0128 amended).
+   * for every row nothing is metering (0128 amended). **Or the field's own jolt, whichever is
+   * bolder**: a hit belongs to the whole picture and is written onto every row the way the one
+   * ground is written onto every row standing on it (`joltInto`, src/ui/moireJolt.ts, 0213, 0271).
    */
   pulse: number;
   /**

@@ -36,6 +36,14 @@ import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
 import { rackShatter } from "@/ui/moireShatter";
 import { rackWind, windRest } from "@/ui/moireWind";
+import {
+  DRIFT_JOLT_SECS,
+  joltHeard,
+  joltInto,
+  joltRest,
+  joltWalked,
+  type MoireJolt,
+} from "@/ui/moireJolt";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import { grownOctaves } from "@/lib/effectGrowth";
@@ -55,11 +63,10 @@ import {
   type MoireRow,
   type ScreenInk,
 } from "@/lib/moire";
-import { agedPitch, runFeedback } from "@/lib/moireAge";
+import { agedPitch } from "@/lib/moireAge";
 import { arrivedInto, DRIFT_ARRIVAL_SECS } from "@/lib/moireArrival";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
 import {
-  fractalCut,
   fractalShape,
   fractalStopsInto,
   fractalStopsRest,
@@ -70,8 +77,6 @@ import {
 } from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
-  heardBite,
-  heardBeat,
   heardPitch,
   heardPulse,
   heardLevel,
@@ -93,6 +98,7 @@ import {
   isColour,
   laneRead,
   macroInto,
+  fractalHeard,
   READS_NOTHING,
   ROW_KEYS,
   referenceInto,
@@ -431,6 +437,7 @@ export function moireRows(
     tail: blowing.tail,
     veering: blowing.veering,
     wind: windRest(),
+    jolt: joltRest(),
     shatter: rackShatter(effects),
     ...macro,
   };
@@ -522,6 +529,7 @@ export function refillRows(
   seed: FractalStops,
   toward: Readonly<FractalStops>,
   ink: ScreenInk,
+  jolt: MoireJolt,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -552,6 +560,20 @@ export function refillRows(
   // above and for their reason: nothing at all where nothing is sounding, a halted picture being
   // painted on a commit rather than on a frame (0144, `inkTravelInto`).
   const arrivalSecs = peek.sounding > 0 ? DRIFT_ARRIVAL_SECS : 0;
+  // And one step of the jolt the whole field answers a hit with: the bolder of what the output just
+  // struck at and how far the walk just jumped, snapped up outright and let fall (0271). In the
+  // prologue and never inside the walk, because it is the field's and no row's — every row spends
+  // it below as a floor under its own reading, exactly as every row on the ground is written with
+  // the one ground (0213). The walk's own strike is taken before the step below writes the landing
+  // it was measured against.
+  joltInto(
+    jolt,
+    Math.max(joltHeard(peek.crest, peek.meter), joltWalked(peek.player, jolt)),
+    peek.player,
+    age,
+    elapsed,
+    peek.sounding > 0 ? DRIFT_JOLT_SECS : 0,
+  );
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay
@@ -579,14 +601,16 @@ export function refillRows(
     // A reading and never a setting: an instance whose plugin meters nothing is absent from the
     // map, and its row rests where its knobs put it (0128 amended).
     const reading = read.instance === null ? undefined : peek.meters.get(read.instance);
-    row.pulse = reading === undefined ? 0 : meterPulse(reading);
+    // The field's own jolt is the floor under every row's own reading: a hit belongs to the whole
+    // picture, and a row nothing is metering answers it exactly as one being metered hard does.
+    row.pulse = Math.max(jolt.at, reading === undefined ? 0 : meterPulse(reading));
     // The reference row is the one row the sound itself cuts: how fine it is drawn is the onset
     // density of the stretch the yard is actually reading — which is what makes two grounds two
     // pictures — and how deep it cuts is the deck's own level, bounded so a silent yard still
     // draws its loop (0196, 0128 amended). Both are read off the peek and neither is stored.
     if (read.heard !== null) {
       row.pitch = agedPitch(heardPitch(analysis, duration, peek.position, read.heard), age);
-      row.pulse = heardPulse(peek.meter);
+      row.pulse = Math.max(jolt.at, heardPulse(peek.meter));
       // And anchored where in the source the yard is reading, the way the module's row is: two
       // combs of one pitch measured from two places differ by where their crests fall, so a ground
       // move stands the axis somewhere new against every row fanned off it (P161, 0185).
@@ -617,7 +641,7 @@ export function refillRows(
     // output is is how finely it is drawn (`heardTilt`). Both off the master bus and neither
     // stored, so two yards open at once are beaten against one layer (0213, 0145).
     if (read.session) {
-      row.pulse = heardLevel(master.level);
+      row.pulse = Math.max(jolt.at, heardLevel(master.level));
       row.pitch = heardTilt(master.tilt);
       // And its phase off the session's own clock rather than this deck's playhead, which is the
       // whole of what makes it one layer rather than one per yard: two pictures open at once stand
@@ -660,51 +684,6 @@ export function refillRows(
   // the last commit left it and leave it there, and the ink arrives outright instead.
   inkTravelInto(ink, rows, wash, age, elapsed, peek.sounding > 0 ? DRIFT_INK_SECS : 0);
   return wash;
-}
-
-/**
- * And what the output *sounds* like onto the fractal row that read just filled: how hard it cuts,
- * how far the finished field is bent back through its own lens, and how much of the frame before it
- * the whole picture is laid back into.
- *
- * **Three per-frame numbers and never the seed.** Which structure the picture is cut along is the
- * population an automator is standing and nothing else says it (0245 kept, 0246): the seed rides
- * through to a baked tile's key, and a spectrum never rests — spent on the seed, a flatness would
- * ask for a picture-sized tile at every frame. So the sound is spent on the two things a frame can
- * move without a bake.
- *
- * How hard it cuts is the rack's own standing ramped over `FRACTAL_REACH` and sharpened by how
- * sharp the output is — the two halves have two authors, how much of the picture is cut being the
- * automator's doing and how hard being the output of a session that knows nothing about which yard
- * is open (0213). And how far it is bent is how resonant that output is: a ringing sound draws the
- * structure through a lens and a broad one leaves it standing square, which is where 0241's third
- * reading is spent now that there is no second copy of a mask to beat against (`heardBeat`).
- *
- * **And a row that cuts nothing bends nothing.** The rows are held through a run standing nothing
- * now (0249), and the lens is the third reader of "is the structure there": `boldestRow` skips only
- * a row with no period, so two held rows claiming a resonance would slide the whole finished field
- * through a lens no automator is standing — the same thing `washedDepth` and `drawnGratings` are
- * kept from doing, one reading further on. At rest with the depth, so the three agree — and the
- * fourth reader agrees for free: what a run lays back is the same standing that cuts it, so a held
- * row asks for no ghost and a picture with no automator in it is a picture of this frame alone.
- *
- * The row's *depth* and not a field of the set's, because there is a row now and there was not
- * before: what the picture is cut through is one grating among its own (0131). Written in place, so
- * it allocates nothing (0070).
- */
-function fractalHeard(
-  row: MoireRow,
-  grown: DeckPeek["grown"],
-  master: Readonly<MasterPeek>,
-  age: number,
-): void {
-  // Walked once and read three times: `runStanding` is the one number "how busy is the rack" has,
-  // and a second walk of the same map in the same frame would be the same answer paid for twice
-  // (0070).
-  const standing = runStanding(grown);
-  row.depth = fractalCut(standing, heardBite(master.edge));
-  row.lens = row.depth > 0 ? heardBeat(master.flatness) : DRIFT_REST.lens;
-  row.feedback = runFeedback(standing, age);
 }
 
 /**

@@ -189,6 +189,7 @@ describe("how that wind travels", () => {
         built.seed,
         built.toward,
         built.ink,
+        built.jolt,
       );
     }
     expect(built.tail).toBe(tail);

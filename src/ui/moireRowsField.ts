@@ -19,10 +19,13 @@ import { fold } from "@/lib/copy";
 import {
   FRACTAL_BEAT,
   FRACTAL_GEOMETRIES,
+  fractalCut,
   fractalKind,
+  runStanding,
   type FractalRun,
   type FractalStops,
 } from "@/lib/moireFractal";
+import { runFeedback } from "@/lib/moireAge";
 import {
   COLOUR_REACH,
   DRIFT_REST,
@@ -38,10 +41,13 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
-import { PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
+import { heardBeat, heardBite, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
+import type { MoireJolt } from "@/ui/moireJolt";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { DeckPeek } from "@/audio/deckPeek";
+import type { MasterPeek } from "@/app/facade";
 import type { AutomationPoint } from "@/lib/automation";
 import type { NamedTier } from "@/lib/copyNames";
 
@@ -273,6 +279,13 @@ export type MoireRowSet = {
    * blow their own.
    */
   wind: MoireWind;
+  /**
+   * And how hard the whole field is jolting: what the output just struck at and how far the walk
+   * just jumped, snapped up and let fall (`joltInto`, src/ui/moireJolt.ts, 0271). On the set beside
+   * the wind and for the wind's reason — it is a reading of the yard and belongs to no row (0213) —
+   * and accumulated, so it survives a rebuild the way the wind's own drift does (`carryJolt`).
+   */
+  jolt: MoireJolt;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -390,6 +403,7 @@ export function macroInto(
   | "tail"
   | "veering"
   | "wind"
+  | "jolt"
   | "shatter"
 > {
   const periods = rows.map(({ period }) => period);
@@ -537,4 +551,54 @@ export function fractalInto(
     rows.push({ ...plainRow(period, kind, false), geometry, depth: 0 });
     reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.fractal}${at}`, fractal: true });
   }
+}
+
+/**
+ * And what the output *sounds* like onto the fractal row that read just filled: how hard it cuts,
+ * how far the finished field is bent back through its own lens, and how much of the frame before it
+ * the whole picture is laid back into.
+ *
+ * **Three per-frame numbers and never the seed.** Which structure the picture is cut along is the
+ * population an automator is standing and nothing else says it (0245 kept, 0246): the seed rides
+ * through to a baked tile's key, and a spectrum never rests — spent on the seed, a flatness would
+ * ask for a picture-sized tile at every frame. So the sound is spent on the two things a frame can
+ * move without a bake.
+ *
+ * How hard it cuts is the rack's own standing ramped over `FRACTAL_REACH` and sharpened by how
+ * sharp the output is — the two halves have two authors, how much of the picture is cut being the
+ * automator's doing and how hard being the output of a session that knows nothing about which yard
+ * is open (0213). And how far it is bent is how resonant that output is: a ringing sound draws the
+ * structure through a lens and a broad one leaves it standing square, which is where 0241's third
+ * reading is spent now that there is no second copy of a mask to beat against (`heardBeat`).
+ *
+ * **And a row that cuts nothing bends nothing.** The rows are held through a run standing nothing
+ * now (0249), and the lens is the third reader of "is the structure there": `boldestRow` skips only
+ * a row with no period, so two held rows claiming a resonance would slide the whole finished field
+ * through a lens no automator is standing — the same thing `washedDepth` and `drawnGratings` are
+ * kept from doing, one reading further on. At rest with the depth, so the three agree — and the
+ * fourth reader agrees for free: what a run lays back is the same standing that cuts it, so a held
+ * row asks for no ghost and a picture with no automator in it is a picture of this frame alone.
+ *
+ * The row's *depth* and not a field of the set's, because there is a row now and there was not
+ * before: what the picture is cut through is one grating among its own (0131). Written in place, so
+ * it allocates nothing (0070).
+ *
+ * Here beside the row it fills rather than in the read that calls it, which is where it was until
+ * that file reached the hard cap (0045): the two are one subject — what the structure *is*, and
+ * what the output does to it — and this half touches one row rather than the arrays the read and
+ * the builder must keep index-for-index.
+ */
+export function fractalHeard(
+  row: MoireRow,
+  grown: DeckPeek["grown"],
+  master: Readonly<MasterPeek>,
+  age: number,
+): void {
+  // Walked once and read three times: `runStanding` is the one number "how busy is the rack" has,
+  // and a second walk of the same map in the same frame would be the same answer paid for twice
+  // (0070).
+  const standing = runStanding(grown);
+  row.depth = fractalCut(standing, heardBite(master.edge));
+  row.lens = row.depth > 0 ? heardBeat(master.flatness) : DRIFT_REST.lens;
+  row.feedback = runFeedback(standing, age);
 }

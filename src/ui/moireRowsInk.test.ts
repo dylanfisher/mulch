@@ -67,6 +67,7 @@ describe("the picture's own ink", () => {
       STOOD,
       STOOD,
       was.ink,
+      was.jolt,
     );
     const halfway = was.ink.hue;
     expect(halfway).toBeGreaterThan(DRIFT_REST.hue);
@@ -102,6 +103,7 @@ describe("the picture's own ink", () => {
         STOOD,
         STOOD,
         set.ink,
+        set.jolt,
       );
       return set.ink.hue;
     };

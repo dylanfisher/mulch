@@ -67,6 +67,7 @@ import { carryGround } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
+import { joltRest } from "@/ui/moireJolt";
 import { bandTurns, screenDisperse, screenInkRest } from "@/ui/moireScreen";
 import type { Loop } from "@/lib/timeline";
 import type { BeatAnalysis } from "@/lib/analysis";
@@ -155,6 +156,7 @@ const refillRows = (
     STOOD,
     STOOD,
     screenInkRest(),
+    joltRest(),
   );
 
 /** And a picture of a performance that has just begun, which is where every case here reads it. */

@@ -42,6 +42,7 @@ import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, refillRows } from "@/ui/moireRows";
+import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest } from "@/ui/moireScreen";
 import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
@@ -177,6 +178,7 @@ const runRows = (): MoireRow[] => {
     set.seed,
     set.toward,
     set.ink,
+    set.jolt,
   );
   return set.rows;
 };
@@ -215,6 +217,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
     STOOD,
     STOOD,
     screenInkRest(),
+    joltRest(),
   );
   return rows;
 };

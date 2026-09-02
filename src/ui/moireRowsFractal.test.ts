@@ -134,6 +134,7 @@ const readAt = (
     set.seed,
     set.toward,
     set.ink,
+    set.jolt,
   );
 };
 
@@ -240,6 +241,7 @@ describe("the picture's own structure", () => {
         set.seed,
         set.toward,
         set.ink,
+        set.jolt,
       );
       expect(set.seed).toEqual(fractalStopsRest());
     }
@@ -319,6 +321,7 @@ describe("the picture's own structure", () => {
         set.seed,
         set.toward,
         set.ink,
+        set.jolt,
       );
       return fractalRow(set.rows).depth;
     };

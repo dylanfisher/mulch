@@ -135,3 +135,14 @@ export function carryArrivals(from: MoireRowSet, to: MoireRowSet): void {
     to.reads.push({ ...read, leaving: true });
   }
 }
+
+/**
+ * And how hard the field was jolting, with what it was last jolted by. The same argument the wind's
+ * own carry makes and for the same rebuild: an effect added or retired is a fresh set, and a jolt
+ * that started again from still would swallow the hit it was in the middle of answering. What it is
+ * *going* to be is the next frame's strike and is never carried, which is what keeps the next hit a
+ * hit (0271).
+ */
+export function carryJolt(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.jolt, from.jolt);
+}
