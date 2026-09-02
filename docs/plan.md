@@ -750,8 +750,13 @@ whole-field move is the size a glance reads at.
   maths and the two draws it is in `LOOKS` and its Cutoff declared on the filter entry, its presence
   walks the working size rather than a share — so it is the one pass that weighs none — and
   src/lib/moireLook.ts split at the hard cap, the wobble's noise tile leaving it for
-  src/lib/moireGrain.ts while every draw stayed beside its own declaration — then eq, compressor,
-  shift, scatter.
+  src/lib/moireGrain.ts while every draw stayed beside its own declaration — then eq — **landed,
+  [0287](decisions/0287-an-eq-lights-one-band-of-the-picture.md)**: the band takes the seventh slot,
+  and it is the first look declared whole in a file of its own (`bandLook`, src/lib/moireBand.ts)
+  because the contract file stood at the hard cap again; its Freq, Gain and Q are declared on the eq
+  entry, a cut is now as present as a lift — `effectHeard` reads how far the knob stands from its
+  silence whichever side of it, which the EQ is the one entry to force (0202) — and the shot swapped
+  which composite is the lift, because the field is a hole mask — then compressor, shift, scatter.
 - **The paint may slow under a full rack** — **landed,
   [0284](decisions/0284-a-long-chain-paints-half-as-often.md)**: `DRIFT_PAINT_HZ` (24) stays the
   ceiling; a chain longer than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve
@@ -776,7 +781,7 @@ whole-field move is the size a glance reads at.
 | pop        | **sharpen** (landed, 0283) — edges bite, contrast lifts, colour saturates             | mix → amount, sheen → saturation                                           | the blurred copy taken out of the field and the mask that leaves added back `lighter` at the amount — `source-over` hazed it, the shot decided; saturation is a stepped ink term                                |
 | tape       | **wobble** (landed, 0285) — rows swim sideways, grain in the ink, warm tint           | wow → wobble, hiss → grain; tone → tint is the row's own `hue`, so no term | slices slid by a sine of the tape's own clock, the cut's own wrap; a noise tile baked once and swept, `destination-out` — `destination-in` would multiply the field by the term's share as well as by the noise |
 | filter     | **soften** (landed, 0286) — fine detail dissolves as the cutoff falls                 | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom — and the band closes at the field itself, where the entry's own presence already stands at nought |
-| eq         | **band** — one lit band across the field at the frequency                             | frequency → position, gain → lift or cut, q → width                        | the band's slice re-laid `source-over` (lift) or taken out `destination-out` (cut), edges softened by the width                                                                                                 |
+| eq         | **band** (landed, 0287) — one lit band across the field at the frequency              | frequency → position, gain → lift or cut, q → width                        | the band's slice taken out `destination-out` (lift) or re-laid `source-over` (cut) — the shot's way round, because the field is a hole mask — in nested slices, so the width softens the edges                  |
 | compressor | **squash** — range flattened toward mid, windows dim, ink thins                       | ratio → floor, threshold → ceiling                                         | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                                                                                           |
 | shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                 |
 | scatter    | **shatter** (landed, 0269; declared, 0279) — pieces drawn from elsewhere in the field | odds → share, span → piece size                                            | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                                                                                          |
@@ -873,7 +878,7 @@ its look out of the picture over the wind's seconds rather than between two fram
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
     readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
     bloom's is 0280, the blocks' is 0281, the echoes' is 0282, the sharpen's is 0283, the cadence's
-    is 0284, the wobble's is 0285 and the soften's is 0286. Next free today is 0287.
+    is 0284, the wobble's is 0285, the soften's is 0286 and the band's is 0287. Next free today is 0288.
 
 ## Refused
 
@@ -1003,6 +1008,20 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**The band's lift is the composite the plan called the cut, and the EQ's presence is a magnitude.**
+Two narrowings of the eq pass, both decided by what the picture did (0287). The plan's draw laid the
+band's slice back `source-over` for a lift and took it out `destination-out` for a cut; the field is
+a hole mask, so `source-over` fills the mask and takes ink out of the screen, and on the strip the
+lifted band was the one place the picture went quiet — in-band mean ink 0.2629 against `BASE`'s
+0.3032. The two composites stand, swapped: they move the coverage by the same share of what the
+field already had there, so a cut is still the exact opposite of a lift. And the plan's "gain → lift
+or cut" could not be drawn at all while `effectHeard` read the signed distance from a knob's
+silence, because that calls every cut absent and drops the look before the chain sees it; it reads
+the magnitude now, which changes what the lattice makes of a cutting EQ as well as what the band
+draws — the EQ is the one entry whose silence sits inside its own range, and the reading it should
+always have had. The wind is unmoved either way: an EQ settles at the floor, and a tail that short
+weighs nothing in it.
 
 **Crush's loaded factor, measured and kept.** Landing crush (`4f16805`) dropped `./scripts/profile`'s
 loaded factor from 26.4x to 16.0x — a flat ~395ms on the 16s loaded render, reproducible across three

@@ -68,6 +68,16 @@ export const eqEffect = defineEffect({
     { param: "eq.gain", into: "depth" },
     { param: "eq.q", into: "fringe" },
   ],
+  // One band of the picture stood out of the rest of it, where the band sits: the frequency walks
+  // it up the field, the Q says how deep it is, and the gain says which way it goes — read for a
+  // direction and not for a share, because how far the gain stands from flat is already the
+  // presence above (0287).
+  look: "band",
+  lookFrom: [
+    { param: "eq.frequency", into: "position" },
+    { param: "eq.gain", into: "lift" },
+    { param: "eq.q", into: "width" },
+  ],
   // A peaking biquad, exactly as the lowpass is: two samples of state and nothing that lasts.
   settle: () => SETTLE_FLOOR_SECS,
   params,

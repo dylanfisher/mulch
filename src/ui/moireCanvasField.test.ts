@@ -30,6 +30,7 @@ import {
   type LookName,
   type LookTerms,
 } from "@/lib/moireLook";
+import { BAND_CEILING, BAND_EDGES } from "@/lib/moireBand";
 import { GRAIN_TILE } from "@/lib/moireGrain";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
@@ -603,6 +604,79 @@ describe("cutField", () => {
     });
     expect(arriving.surfaces[at]?.drew).toHaveLength(1);
     expect(softenScale(0, 0)).toBe(1);
+  });
+
+  // P287: eq's band, and the one pass whose two composites are one pair — the shot's way round.
+  it("stands one slice of the field over itself, lit or quieted, and never fills over it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const terms = { position: 0.5, lift: 1, width: 0 };
+    const lit = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("band", terms)],
+    });
+    const pass = lit.surfaces[at];
+    const field = lit.elements[0];
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written. **A band that is a fill is the thing
+    // 0269 refuses**, so both ways round are draws of the field's own slice.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // The field itself, and then its own slice once per step of the taper — every draw off the
+    // field and none off the surface being written, and every one of the taper's steps drawn.
+    const drew = pass?.drew ?? [];
+    expect(drew).toHaveLength(1 + BAND_EDGES);
+    expect(drew.map((each) => each.tile)).toEqual(Array.from(drew, () => field));
+    expect(drew.map((each) => each.over)).toEqual([
+      "source-over",
+      ...Array.from({ length: BAND_EDGES }, () => "destination-out"),
+    ]);
+    expect(drew[0]?.alpha).toBe(1);
+    for (const step of drew.slice(1)) {
+      expect(step.alpha).toBeCloseTo(BAND_CEILING / BAND_EDGES, 10);
+    }
+    // Each slice is taken from exactly where it is laid, which is what makes the band the field's
+    // own rows rather than a bar over them, and each is shallower than the one before it and never
+    // thinner than a row — a band under its own taper is one row at the whole of the alpha.
+    let last = Number.POSITIVE_INFINITY;
+    for (const step of drew.slice(1)) {
+      expect(step.box.slice(0, 4)).toEqual([0, step.box[5], field?.width, step.box[7]]);
+      expect(step.box[3]).toBe(step.box[7]);
+      expect(step.box[3]).toBeGreaterThanOrEqual(1);
+      expect(step.box[3]).toBeLessThanOrEqual(last);
+      last = step.box[3] ?? 0;
+    }
+    // And a cut is the same pass the other way round: the same slices at the same alpha, drawn with
+    // the composite that closes the mask instead of the one that opens it (0287).
+    vi.stubGlobal("devicePixelRatio", 2);
+    const quiet = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("band", { ...terms, lift: 0 })],
+    });
+    const cut = quiet.surfaces[at]?.drew ?? [];
+    expect(cut.map((each) => each.over)).toEqual(Array.from(cut, () => "source-over"));
+    expect(cut.map((each) => each.box)).toEqual(drew.map((each) => each.box));
+    expect(cut.map((each) => each.alpha)).toEqual(drew.map((each) => each.alpha));
+    // On a field shorter than its own taper — the strip is thirty-two rows, and the narrow end of
+    // the Q is a twenty-fourth of that — every step still draws, one row deep, so how hard a band
+    // is drawn never depends on where its own frequency happened to round (0287).
+    vi.stubGlobal("devicePixelRatio", 2);
+    const flat = paintedOn(128, 16, [row({ period: 4 })]);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const thin = paintedOn(128, 16, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("band", { ...terms, width: 1 })],
+    });
+    const steps = thin.surfaces[flat.elements.length]?.drew ?? [];
+    expect(steps).toHaveLength(1 + BAND_EDGES);
+    for (const step of steps.slice(1)) expect(step.box[3]).toBe(1);
+    // A band standing at flat, and one the picture has not travelled to yet, are both the field it
+    // came from — and one draw is what says so.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const arriving = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("band", terms), at: 0 }],
+    });
+    expect(arriving.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(arriving)).toEqual(fills(plain));
   });
 
   // P281: and the chain's own half of that, which the blocks are the first pass to need.

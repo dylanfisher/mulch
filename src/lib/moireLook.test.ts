@@ -7,8 +7,23 @@
  *   src/audio/effects/registry.test.ts. The maths each look is drawn by → src/lib/moireWarp.test.ts,
  *   src/lib/moireFold.test.ts and src/lib/moireSound.test.ts.
  */
+// Over the soft cap for the reason the file it tests is over it (src/lib/moireLook.ts): one case per
+// look, each one the whole of what that look's maths promises, and a case split into a second file
+// would be a look's contract asserted in two places. The looks land one a step, so the file grows by
+// a case and never by a rewrite. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
+import {
+  BAND_CEILING,
+  BAND_DEPTH,
+  BAND_EDGES,
+  bandAlpha,
+  bandCentre,
+  bandDepth,
+  bandLifts,
+  bandTaper,
+} from "@/lib/moireBand";
 import {
   BLOCK_HARDENINGS,
   BLOCK_PIXELS,
@@ -58,7 +73,20 @@ import { clamp, normalize } from "@/lib/range";
  * is heard as the whole of the effect and only the radius goes on moving below it.
  */
 const heardAt = (cutoff: number): number => clamp((cutoff - 20_000) / (1_000 - 20_000), 0, 1);
-const turnAt = (cutoff: number): number => normalize(cutoff, 20, 20_000, "log");
+// And where a frequency stands on the twenty-to-twenty-thousand log range both the filter's Cutoff
+// and the EQ's Freq declare — one helper, because one changed declaration must not leave a second
+// name quietly answering for the wrong knob (principle 1).
+const turnAt = (frequency: number): number => normalize(frequency, 20, 20_000, "log");
+
+/**
+ * And the same three of an EQ, whose own declaration is the one that puts its silence in the middle
+ * of a range (src/audio/effects/eq.ts, 0202): how present a band at one gain is heard to be —
+ * whichever side of flat it stands — and where its gain, its frequency and its Q stand on their own
+ * knobs.
+ */
+const gainHeard = (gain: number): number => clamp(Math.abs(gain) / 12, 0, 1);
+const gainTurn = (gain: number): number => normalize(gain, -24, 24, "linear");
+const bandTurn = (q: number): number => normalize(q, 0.1, 18, "log");
 
 // One flat list of what the contract is, a case per question it answers (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -396,5 +424,56 @@ describe("what a look is", () => {
     expect(standing).toBeLessThan(0.75);
     expect(softenScale(heardAt(200), turnAt(200))).toBeLessThan(standing);
     expect(softenScale(heardAt(20_000), turnAt(20_000))).toBe(1);
+  });
+
+  // P287: eq's, and the one look declared whole in a file of its own (0287).
+  it("stands one band down the field on the frequency, as deep as the Q, lifting or cutting", () => {
+    expect(LOOKS.band.at).toBe("pass");
+    expect(LOOKS.band.terms).toEqual({ position: "turn", lift: "turn", width: "turn" });
+    // The depth band is stated widest first, because the term is the Q's own turn and a Q reads
+    // that way round — and neither end is the whole field or a scratch across it.
+    expect(BAND_DEPTH[0]).toBeLessThan(1);
+    expect(BAND_DEPTH[1]).toBeGreaterThan(0);
+    expect(BAND_DEPTH[0]).toBeGreaterThan(BAND_DEPTH[1]);
+    for (const width of [0, 0.25, bandTurn(1), 1]) {
+      expect(bandDepth(width)).toBeLessThanOrEqual(BAND_DEPTH[0]);
+      expect(bandDepth(width)).toBeGreaterThanOrEqual(BAND_DEPTH[1]);
+    }
+    // And the middle stands inside the picture wherever the frequency is, low at the bottom: a turn
+    // of nothing is the bottom edge and one of the whole of it the top, because the picture's own y
+    // runs the other way from every spectrum anyone has looked at. A kilohertz — eq's own default,
+    // spelt out here for the reason the bloom's is — is a little under halfway up its log range.
+    expect(bandCentre(0)).toBe(1);
+    expect(bandCentre(1)).toBe(0);
+    expect(bandCentre(2)).toBe(0);
+    expect(bandCentre(turnAt(1_000))).toBeCloseTo(1 - turnAt(1_000), 12);
+    expect(bandCentre(turnAt(1_000))).toBeLessThan(bandCentre(turnAt(200)));
+    // Which way it goes is the gain's own turn about the middle of its own range, and how hard it
+    // is drawn is the presence — read for a direction and never for a second share, so a cut is the
+    // exact opposite of a lift and not a quieter one.
+    expect([6, 0, -6].map((gain) => bandLifts(gainTurn(gain)))).toEqual([true, true, false]);
+    expect(BAND_CEILING).toBeGreaterThan(0);
+    expect(BAND_CEILING).toBeLessThan(1);
+    expect(bandAlpha(1)).toBe(BAND_CEILING);
+    expect(bandAlpha(2)).toBe(BAND_CEILING);
+    expect(bandAlpha(0.5)).toBeCloseTo(BAND_CEILING / 2, 12);
+    // The taper is stepped and shallower every step, the outermost slice the band's whole depth and
+    // the innermost a share of it — which is what softens an edge with draws of the field alone.
+    expect(BAND_EDGES).toBeGreaterThan(2);
+    expect(bandTaper(0)).toBe(1);
+    for (let edge = 1; edge < BAND_EDGES; edge++) {
+      expect(bandTaper(edge)).toBeLessThan(bandTaper(edge - 1));
+      expect(bandTaper(edge)).toBeGreaterThan(0);
+    }
+    // At eq's own declared silence and full (src/audio/effects/eq.ts, 0202) a band standing at its
+    // default draws nothing at all — a peaking EQ ships flat — and one lifted by six decibels is
+    // visibly a band and a long way off the most this pass can do. Both readings come off the one
+    // knob: how far the gain stands from flat is the presence, and which side of it, the term — so
+    // a cut of six is drawn exactly as hard as a lift of six, the other way round.
+    expect(bandAlpha(gainHeard(0))).toBe(0);
+    expect(bandAlpha(gainHeard(6))).toBeGreaterThan(0);
+    expect(bandAlpha(gainHeard(6))).toBeLessThan(BAND_CEILING);
+    expect(bandAlpha(gainHeard(-6))).toBe(bandAlpha(gainHeard(6)));
+    expect(bandLifts(gainTurn(-6))).not.toBe(bandLifts(gainTurn(6)));
   });
 });

@@ -299,6 +299,11 @@ describe("how much of a rack entry is heard", () => {
     // *is* its silence.
     expect(at("eq", { "eq.gain": 0 })).toBe(0);
     expect(at("eq", { "eq.gain": 6 })).toBe(0.5);
+    // And how far the knob stands from transparent, whichever side of it: the EQ is the one entry
+    // whose silence is in the middle of its own range, and a band cut by six decibels is as much of
+    // an effect as one lifted by six — which is the picture the band draws the opposite way (0287).
+    expect(at("eq", { "eq.gain": -6 })).toBe(0.5);
+    expect(at("eq", { "eq.gain": -24 })).toBe(1);
     // An entry with no honest presence answers nothing at all rather than a whole or a nought: it
     // is the plugin saying there is no value at which it is not there, and a caller weighing what is
     // heard cannot weigh that (principle 5, 0148's shape).

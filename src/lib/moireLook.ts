@@ -11,7 +11,9 @@
  *   maths each look is drawn by → src/lib/moireWarp.ts, src/lib/moireFold.ts and
  *   `rackScatter` in src/lib/moireSound.ts, except a look that takes a slot in the chain, whose one
  *   draw is here beside its declaration (0280). The one thing a draw here bakes rather than draws —
- *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286).
+ *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286) — and
+ *   the one look declared whole in a file of its own, its terms and its draw together, because this
+ *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -19,6 +21,7 @@
 // draw a look it has never heard of (0279, 0280). Splitting the draws off would put half of what a
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+import { bandLook } from "@/lib/moireBand";
 import { cosTurn, wrap } from "@/lib/moire";
 import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
 import { LENS_SLICES } from "@/lib/moireGeometry";
@@ -36,6 +39,7 @@ export const LOOK_NAMES = [
   "sharpen",
   "wobble",
   "soften",
+  "band",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -55,6 +59,9 @@ export const LOOK_TERMS = [
   "saturation",
   "wobble",
   "grain",
+  "position",
+  "lift",
+  "width",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -723,6 +730,13 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * standing open is the field itself, which is where this entry's presence already stands (0202).
    */
   soften: { at: "pass", terms: { radius: "turn" }, pass: softenPass },
+  /**
+   * EQ's, and the one look whose terms, maths and draw are declared away from here: this file stood
+   * at the 800-line hard cap when the band landed, so what left it is a whole look and never half
+   * of one (`bandLook`, src/lib/moireBand.ts, 0287). What it draws is one band of the picture stood
+   * out of the rest of it — lit where the gain lifts and taken out where it cuts.
+   */
+  band: bandLook,
 };
 
 /**

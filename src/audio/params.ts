@@ -328,5 +328,15 @@ export function effectHeard(effect: EffectId, values: EffectParamValues): number
   // Where it stands all the way in is the declaration's own answer and not a second reading of it
   // (`presenceFull`, ./effects/contract.ts).
   const full = presenceFull(presence, plugin.params);
-  return clamp((paramIn(values, param) - presence.silent) / (full - presence.silent), 0, 1);
+  // **How far the knob stands from transparent, whichever side of it.** Nine entries of ten have
+  // their silence at an end of the parameter's own range and read the same either way; the EQ is
+  // the one that does not, and it forces the magnitude exactly as it forced `full` (0202): its gain
+  // is silent in the middle of its range, so a signed reading calls a band cut by twelve decibels
+  // absent from the picture, when a notch is as audible as a lift and draws the opposite of one
+  // (0287).
+  return clamp(
+    Math.abs(paramIn(values, param) - presence.silent) / Math.abs(full - presence.silent),
+    0,
+    1,
+  );
 }
