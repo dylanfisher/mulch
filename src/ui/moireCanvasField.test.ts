@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, SHATTER_BANDS, SHATTER_CEILING } from "@/lib/moireGeometry";
-import { LOOKS, type Look, type LookName, type LookTerms } from "@/lib/moireLook";
+import { BLOOM_CEILING, LOOKS, type Look, type LookName, type LookTerms } from "@/lib/moireLook";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
@@ -249,6 +249,46 @@ describe("cutField", () => {
       record.shatter = held.shatter;
       record.warp = held.warp;
     }
+  });
+
+  // P280: reverb's bloom, and the first look whose pass the chain actually runs.
+  it("blooms the field by drawing it, small and back up and under, and never by filling over it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const bloomed = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("bloom", { amount: 1, radius: 1 })],
+    });
+    // A pass takes the chain's own pair of surfaces, which a rack with no pass in it never makes,
+    // and writes into the first of them.
+    expect(bloomed.elements.length).toBe(plain.elements.length + 2);
+    const at = plain.elements.length;
+    const pass = bloomed.surfaces[at];
+    const field = bloomed.elements[0];
+    expect(pass).toBeDefined();
+    // The bloom is three draws of what is already drawn: the field small, that copy back up over
+    // the whole surface at the amount, and the field itself underneath it. No fill anywhere — a
+    // fill over the field would haze every window in it evenly, which is the shatter's own rule
+    // (0269) — and no pixel written.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    expect(pass?.drew.map((each) => each.over)).toEqual([
+      "source-over",
+      "copy",
+      "destination-over",
+    ]);
+    expect(pass?.drew.map((each) => each.tile)).toEqual([field, bloomed.elements[at], field]);
+    // And the halo carries the amount while the field under it is laid whole.
+    expect(pass?.drew[0]?.alpha).toBe(1);
+    expect(pass?.drew[1]?.alpha).toBeCloseTo(BLOOM_CEILING, 10);
+    expect(pass?.drew[2]?.alpha).toBe(1);
+    // A room at no wet at all draws the field once and leaves the picture exactly where it was.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const dry = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("bloom", { amount: 0, radius: 1 })],
+    });
+    expect(dry.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(dry)).toEqual(fills(plain));
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

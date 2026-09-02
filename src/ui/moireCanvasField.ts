@@ -64,12 +64,12 @@ function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanv
  * other, at the presence the picture has travelled to and the terms its entry declared, and the last
  * one written is what the lens, the shatter and the warp cut into the screen below (0279).
  *
- * **Three of the four looks that exist take no slot, and say so at the declaration.** The lattice is
- * the whole rack standing, the fold is a bake on a curved row's coordinate before any field exists,
- * and the warp and the shatter are cut through the slices this file already reads the field back in
- * (0278, 0269) — so today the chain runs no pass at all and hands the cut the field it was given,
- * which is what makes this step's picture the one before it. A look with a pass arrives with the
- * effect whose look it is, and this loop is what it arrives into.
+ * **Most of the looks that exist take no slot, and say so at the declaration.** The lattice is the
+ * whole rack standing, the fold is a bake on a curved row's coordinate before any field exists, and
+ * the warp and the shatter are cut through the slices this file already reads the field back in
+ * (0278, 0269) — so a rack of those alone hands the cut the field it was given and draws the
+ * picture it drew before there was a chain. Reverb's bloom is the first that does take one (0280),
+ * and every later pass arrives into this same loop by declaring itself into `LOOKS`.
  */
 function passLooks(field: HTMLCanvasElement, looks: readonly MoireLook[]): HTMLCanvasElement {
   let source = field;
@@ -120,7 +120,7 @@ export function cutField(
 ): void {
   const { height, width } = field;
   // The chain first: the finished field through every pass the standing looks take, in rack order.
-  // What comes back is the field itself wherever no look takes a slot, which is every rack today.
+  // What comes back is the field itself wherever no standing look takes a slot.
   const passed = passLooks(field, looks);
   const shatter = looksShatter(looks);
   const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);

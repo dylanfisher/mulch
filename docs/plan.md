@@ -727,8 +727,10 @@ whole-field move is the size a glance reads at.
   `look`/`lookFrom` on the entry checked at load against `LOOKS` (src/lib/moireLook.ts), `rackLooks`,
   `looksTravelInto` and the four reductions (src/ui/moireLooks.ts) on `MoireRowSet`, `carryLooks`
   (src/ui/moireCarry.ts), and the chain in `cutField` that no look takes a slot in yet. Then one
-  effect a step, in this order: reverb, crush, delay, pop, tape, filter, eq, compressor, shift,
-  scatter.
+  effect a step, in this order: reverb — **landed, [0280](decisions/0280-a-room-blooms-the-picture.md)**:
+  the bloom is the first look to take a slot in the chain, its maths and its one draw in `LOOKS`
+  (src/lib/moireLook.ts) and its terms declared on the reverb entry — then crush, delay, pop, tape,
+  filter, eq, compressor, shift, scatter.
 - **The paint may slow under a full rack.** `DRIFT_PAINT_HZ` (24) stays the ceiling; a chain longer
   than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve. Landed as its own step
   once four new passes stand, because before that there is nothing to slow.
@@ -743,7 +745,7 @@ whole-field move is the size a glance reads at.
 
 | Effect     | Look                                                                                  | Terms                                               | The draw                                                                                                                                |
 | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| reverb     | **bloom** — a soft halo, contrast washes out                                          | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself `source-over` at the amount; the original stays under it                       |
+| reverb     | **bloom** (landed, 0280) — a soft halo, contrast washes out                           | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself at the amount; the original stays under it                                     |
 | crush      | **blocks** — pixelated, levels posterised                                             | rate → block size, bits → level count               | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it      |
 | delay      | **echoes** — ghosted repeats, spaced, fading                                          | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
 | pop        | **sharpen** — edges bite, contrast lifts, colour saturates                            | mix → amount, sheen → saturation                    | the blurred copy taken out `destination-out` at the amount then the field re-laid (an unsharp mask); saturation is a stepped ink term   |
@@ -779,7 +781,7 @@ its look out of the picture over the wind's seconds rather than between two fram
     painter, and no painter code names an effect id: the painter draws whatever `LOOKS` says a look
     is, and an effect added tomorrow gets its pass by declaring one (principle 1).
 2.  **A pass is a draw of the finished field, between the field and the screen, and never a bake.**
-    _(The chain landed with 0279; no look takes a slot in it yet, and the first is reverb's.)_
+    _(The chain landed with 0279; the bloom is the first look to take a slot in it, 0280.)_
     The chain runs where `cutField` runs today: after every row is cut and the frame fed back, and
     before the field is taken out of the screen `destination-out`. Each pass reads one surface and
     writes the other — `field` and the `between` surface that already exists — and the last one
@@ -836,8 +838,8 @@ its look out of the picture over the wind's seconds rather than between two fram
     `./scripts/drive --dev` with ten passes standing, the frame time read off the swing's own
     timing, and the cadence rule's threshold set from that number and not guessed.
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
-    readings became three declared looks; the lattice alone stays the rack's) and is 0279. Next free
-    today is 0280.
+    readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
+    bloom's is 0280. Next free today is 0281.
 
 ## Refused
 

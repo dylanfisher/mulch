@@ -21,6 +21,7 @@ import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { FOLD_CAP } from "@/lib/moireFold";
 import { PLAIN_CUT, RACK_SHATTER_BROKEN } from "@/lib/moireSound";
+import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
 import {
   looksFolds,
@@ -94,16 +95,24 @@ describe("the looks a standing rack gives the picture", () => {
     ]);
     // Rack order, because the order the sound goes through the rack is the order the picture is
     // chained in — and an entry whose look has not landed yet is in none of it.
-    expect(rack.map((look) => look.look)).toEqual(["warp", "shatter", "fold"]);
-    expect(rack.map((look) => look.key)).toEqual(["s", "g", "x"]);
+    expect(rack.map((look) => look.look)).toEqual(["warp", "bloom", "shatter", "fold"]);
+    expect(rack.map((look) => look.key)).toEqual(["s", "r", "g", "x"]);
     // The terms are the entry's own values: a turn on its range where the look says so, and the
     // parameter's own units where it says the wander.
     expect(rack[0]?.terms).toEqual({ bend: 1, wander: PARAMS["sway.rate"].default });
-    expect(rack[1]?.terms).toEqual({ share: 1 });
+    // A room at its own defaults, both terms turns of their own ranges — the decay's a log one, so
+    // the radius is where the knob stands and never the seconds it is stated in (0280).
+    const wet = PARAMS["reverb.wet"];
+    const decay = PARAMS["reverb.decay"];
+    expect(rack[1]?.terms).toEqual({
+      amount: normalize(wet.default, wet.min, wet.max, wet.curve),
+      radius: normalize(decay.default, decay.min, decay.max, decay.curve),
+    });
+    expect(rack[2]?.terms).toEqual({ share: 1 });
     // The fold reads no term at all: how many times the plane is folded is how many automators are
     // standing, and an entry with no honest presence stands at one.
-    expect(rack[2]?.terms).toEqual({});
-    expect(rack[2]?.presence).toBe(1);
+    expect(rack[3]?.terms).toEqual({});
+    expect(rack[3]?.presence).toBe(1);
     // A bypassed entry is in none of it, which is the test every reading of the population is built
     // through; and neither is one turned down to nothing.
     expect(rackLooks([instance("g", { params: BROKEN, bypassed: true })])).toEqual([]);

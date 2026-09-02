@@ -109,6 +109,15 @@ export const reverbEffect = defineEffect({
     { param: "reverb.predelay", into: "disperse" },
     { param: "reverb.tone", into: "hue" },
   ],
+  // And the whole-field move a room makes: the finished picture blurred and laid back over itself,
+  // which reads as a halo round every row and the contrast washing out (0280). How much of the copy
+  // is laid back is the wet, and how wide the halo is, is the decay — a longer tail is a bigger
+  // room. Both on their own ranges: a bloom is stated in shares of the picture and counts nothing.
+  look: "bloom",
+  lookFrom: [
+    { param: "reverb.wet", into: "amount" },
+    { param: "reverb.decay", into: "radius" },
+  ],
   // The tail, and the predelay in front of it: `reverb.decay` *is* the time the response falls
   // 60dB over, so the impulse's own length is the answer (../../lib/impulse.ts).
   settle: (values) => values["reverb.decay"] + values["reverb.predelay"],

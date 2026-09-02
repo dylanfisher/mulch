@@ -350,8 +350,8 @@ describe("effect registry", () => {
       const owned = new Set(params.map(({ id }) => id));
       for (const { param } of lookFrom ?? []) expect(owned.has(param)).toBe(true);
     }
-    // The three that stand today, on the three entries whose whole-field moves have landed (0278).
-    expect(claimed).toEqual(new Set(["warp", "fold", "shatter"]));
+    // The four that stand today, on the entries whose whole-field moves have landed (0278, 0280).
+    expect(claimed).toEqual(new Set(["warp", "fold", "shatter", "bloom"]));
   });
 
   it("rejects a look the picture has no maths for, and one two entries claim", () => {
@@ -360,8 +360,8 @@ describe("effect registry", () => {
       // The one shape of this the type system cannot refuse: a declaration reaching the registry
       // from outside its own literal, which is what a plugin written by hand is.
       // oxlint-disable-next-line no-unsafe-type-assertion
-      validateEffects([{ ...one, look: "bloom" as LookName }]);
-    }).toThrow(/unknown effect look: one\.bloom/u);
+      validateEffects([{ ...one, look: "glow" as LookName }]);
+    }).toThrow(/unknown effect look: one\.glow/u);
     expect(() => {
       validateEffects([
         { ...one, look: "shatter", lookFrom: [{ param: "one.a", into: "share" }] },

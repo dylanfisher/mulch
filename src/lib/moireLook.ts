@@ -9,16 +9,18 @@
  *   src/audio/effects/, checked in src/audio/effects/registry.ts. The reading of a standing rack
  *   into looks, and the travel and the reductions the painter spends → src/ui/moireLooks.ts. The
  *   maths each look is drawn by → src/lib/moireWarp.ts, src/lib/moireFold.ts and
- *   `rackScatter` in src/lib/moireSound.ts.
+ *   `rackScatter` in src/lib/moireSound.ts, except a look that takes a slot in the chain, whose one
+ *   draw is here beside its declaration (0280).
  */
+import { clamp, denormalize } from "@/lib/range";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
-export const LOOK_NAMES = ["lattice", "warp", "fold", "shatter"] as const;
+export const LOOK_NAMES = ["lattice", "warp", "fold", "shatter", "bloom"] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
 
 /** Every term any look reads. Named once, so `lookFrom` can be typed against the whole set. */
-export const LOOK_TERMS = ["bend", "wander", "share"] as const;
+export const LOOK_TERMS = ["bend", "wander", "share", "amount", "radius"] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
 
@@ -39,8 +41,8 @@ export type LookRead = "turn" | "value";
  * declaration (0278): the lattice is the rack's own pattern over the whole field, the fold is a
  * bake on a curved row's coordinate before any field exists, and the warp and the shatter are cut
  * into the screen through the slices the lens already reads the field back in. `pass` is the chain
- * proper — a draw of the finished field between the field and the screen — and nothing wears it
- * yet, which is what makes this step's picture the one before it.
+ * proper — a draw of the finished field between the field and the screen — and the bloom is the
+ * first look to wear it (0280).
  */
 export type LookAt = "field" | "bake" | "cut" | "pass";
 
@@ -58,13 +60,76 @@ export type LookPass = (
 /**
  * One look: what it reads, and where it lands. **Where it lands and whether it has a draw of its own
  * are one fact and not two**: a look that says `pass` carries one and every other kind carries none,
- * so the painter cannot step over a declared pass and cannot draw a baked look twice. No look says
- * `pass` today — the three that stand land at the bake and at the cut — and the first arrives with
- * reverb's own step.
+ * so the painter cannot step over a declared pass and cannot draw a baked look twice. Three of the
+ * four that were here before this step land at the bake and at the cut; the bloom is the first that
+ * says `pass`, and it carries the one draw it is (0280).
  */
 export type Look =
   | { at: Exclude<LookAt, "pass">; terms: Readonly<Partial<Record<LookTerm, LookRead>>> }
   | { at: "pass"; terms: Readonly<Partial<Record<LookTerm, LookRead>>>; pass: LookPass };
+
+/**
+ * How small the field is drawn before it is drawn back up again, as a share of its own size: the
+ * band the bloom's radius is stated across, widest halo last. A blur by downscale and upscale is
+ * the working size *being* the radius — a third of the field is a haze the eye reads as a soft
+ * edge, a twenty-fourth is a halo two dozen pixels wide — and the band is stated in shares rather
+ * than pixels so the strip, the overlay and an export at any scale bloom by the same amount of
+ * picture (0129: no filter, no read-back, one `drawImage`).
+ */
+export const BLOOM_SCALE: readonly [number, number] = [1 / 3, 1 / 24];
+
+/** The working size one bloom is drawn at, off the radius its entry declared, as a share. */
+export const bloomScale = (radius: number): number => denormalize(radius, ...BLOOM_SCALE);
+
+/**
+ * The most of itself a bloom lays back over the field. Short of the whole of it on purpose: at one
+ * the halo is the picture and the structure under it is gone, and what a bloom says is that the
+ * room is there and not that the rows are not.
+ */
+export const BLOOM_CEILING = 0.9;
+
+/**
+ * How much of the blurred copy is laid back over the field: the amount its entry declared, weighted
+ * by how present the picture has travelled the instance to (0279), under the ceiling. A reverb
+ * reads its own wet twice over — once as presence and once as the amount — which is what makes a
+ * wet room bloom and a dry one leave the picture alone.
+ */
+export const bloomAmount = (presence: number, amount: number): number =>
+  clamp(presence, 0, 1) * clamp(amount, 0, 1) * BLOOM_CEILING;
+
+/**
+ * The bloom, drawn: the field small, that small copy back up over the whole surface at the amount,
+ * and the field itself laid underneath it. Three draws of what is already drawn and no second pass
+ * over any row, no pixel touched and no surface made — the copy is taken from the pass's own
+ * surface, which is the only place a downscale can be kept without allocating a third (0280).
+ *
+ * `copy` is what makes the second draw the *whole* of the surface: it replaces the small corner the
+ * first draw left rather than blending the upscale over it, and it carries the amount, so what
+ * stands on the surface afterwards is the halo at its own share. `destination-over` then puts the
+ * original underneath, which is the same picture as the halo laid over it `source-over` and one
+ * draw cheaper.
+ */
+const bloomPass: LookPass = (into, source, presence, terms) => {
+  const alpha = bloomAmount(presence, terms.amount ?? 0);
+  // A room at no wet at all is the field itself, and the one draw that says so. A field of no size
+  // is not guarded here and cannot be: `drawImage` throws on a zero-dimensioned source whichever
+  // draw reaches it first, and a sized field is already what every cut of one is written against.
+  if (alpha <= 0) {
+    into.drawImage(source, 0, 0);
+    return;
+  }
+  const { width, height } = source;
+  const scale = bloomScale(terms.radius ?? 0);
+  const wide = Math.max(1, Math.round(width * scale));
+  const deep = Math.max(1, Math.round(height * scale));
+  into.drawImage(source, 0, 0, wide, deep);
+  into.globalCompositeOperation = "copy";
+  into.globalAlpha = alpha;
+  into.drawImage(into.canvas, 0, 0, wide, deep, 0, 0, width, height);
+  into.globalCompositeOperation = "destination-over";
+  into.globalAlpha = 1;
+  into.drawImage(source, 0, 0);
+};
 
 /**
  * The looks, and the whole of what a look is to anything outside this file. **A look two entries
@@ -88,6 +153,13 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
   fold: { at: "bake", terms: {} },
   /** Scatter's: how much of the field is drawn from somewhere else along it (0269). */
   shatter: { at: "cut", terms: { share: "turn" } },
+  /**
+   * Reverb's, and the first look that takes a slot in the chain: the field blurred and laid back
+   * over itself, so the picture keeps every row it had and gains a halo around each of them. How
+   * much is laid back is the wet, on its own range; how wide the halo is, is the decay, on its —
+   * a longer tail is a bigger room, and a bigger room is a softer edge (0280).
+   */
+  bloom: { at: "pass", terms: { amount: "turn", radius: "turn" }, pass: bloomPass },
 };
 
 /**

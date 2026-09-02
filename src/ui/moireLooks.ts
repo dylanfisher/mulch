@@ -9,7 +9,8 @@
  * @instead What a look *is* — its name, its terms, how each is read and where it lands →
  *   src/lib/moireLook.ts, which the entries declare themselves into. The lattice, which is the one
  *   whole-field reading that is no effect's → src/ui/moireShape.ts. Where each look is drawn →
- *   `cutField` in src/ui/moireCanvasField.ts and `curvedField` in src/lib/moireGeometry.ts.
+ *   `cutField` in src/ui/moireCanvasField.ts and `curvedField` in src/lib/moireGeometry.ts, or, for
+ *   a look that takes a slot in the chain, the draw it carries in src/lib/moireLook.ts (0280).
  */
 import { effectById } from "@/audio/effects/registry";
 import { effectHeard, PARAMS, paramIn } from "@/audio/params";

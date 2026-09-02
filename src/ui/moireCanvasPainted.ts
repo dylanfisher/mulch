@@ -134,17 +134,22 @@ export function painterOn(stubGlobal: StubGlobal) {
     const surfaces: {
       fills: { over: string; alpha: number }[];
       wrote: { width: number; height: number; data: Uint8ClampedArray }[];
-      drew: { tile: unknown; over: string; alpha: number; move: Aim }[];
+      drew: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[];
     }[] = [];
-    const surface = () => {
+    // One stand-in context is one object literal of methods, each writing into the same tally, and
+    // recording the box a draw was made in is one more field on one of them (0007).
+    // oxlint-disable-next-line max-lines-per-function
+    const surface = (canvas: { width: number; height: number }) => {
       const fills: { over: string; alpha: number }[] = [];
       const wrote: { width: number; height: number; data: Uint8ClampedArray }[] = [];
-      const drew: { tile: unknown; over: string; alpha: number; move: Aim }[] = [];
+      const drew: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[] = [];
       // What a curved row is drawn with: the tile it was baked into, placed by a matrix rather than
       // rebuilt. One object refilled by the painter, so the recorder keeps a copy of each.
       let move: Aim = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
       surfaces.push({ fills, wrote, drew });
       return {
+        // The surface this context belongs to, which a pass reading its own back reaches through.
+        canvas,
         fillStyle: "" as unknown,
         globalAlpha: 1,
         globalCompositeOperation: "source-over",
@@ -155,8 +160,12 @@ export function painterOn(stubGlobal: StubGlobal) {
         },
         // Which tile, and not only where: two rows of one kind hold their own fallbacks, so a case
         // about whose tile a row was handed has to be able to tell one from the other (0144, 0262).
-        drawImage(tile: unknown): void {
-          drew.push({ tile, over: this.globalCompositeOperation, alpha: this.globalAlpha, move });
+        // And at what size, which is what a pass drawing the field at a working size of its own is
+        // (0280): the rect arguments as they were passed, so a downscale that lost its own shape
+        // reads as a different box rather than as the same call.
+        drawImage(tile: unknown, ...box: number[]): void {
+          const { globalAlpha: alpha, globalCompositeOperation: over } = this;
+          drew.push({ tile, box, alpha, over, move });
         },
         createPattern: () => (allowed() ? { setTransform: (m: Aim) => aims.push({ ...m }) } : null),
         createImageData: (w: number, h: number) => ({
@@ -223,8 +232,8 @@ export function painterOn(stubGlobal: StubGlobal) {
     const elements: { width: number; height: number }[] = [];
     stubGlobal("document", {
       createElement: () => {
-        const made = surface();
         const element = { width: 0, height: 0, getContext: () => made };
+        const made = surface(element);
         elements.push(element);
         return element;
       },
