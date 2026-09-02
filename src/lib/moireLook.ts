@@ -10,7 +10,8 @@
  *   into looks, and the travel and the reductions the painter spends → src/ui/moireLooks.ts. The
  *   maths each look is drawn by → src/lib/moireWarp.ts, src/lib/moireFold.ts and
  *   `rackScatter` in src/lib/moireSound.ts, except a look that takes a slot in the chain, whose one
- *   draw is here beside its declaration (0280).
+ *   draw is here beside its declaration (0280). The one thing a draw here bakes rather than draws —
+ *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -19,7 +20,7 @@
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { cosTurn, wrap } from "@/lib/moire";
-import { mulberry32 } from "@/lib/random";
+import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
 import { LENS_SLICES } from "@/lib/moireGeometry";
 import { clamp, denormalize } from "@/lib/range";
 
@@ -34,6 +35,7 @@ export const LOOK_NAMES = [
   "echoes",
   "sharpen",
   "wobble",
+  "soften",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -130,6 +132,33 @@ export const weighed = (presence: number, share: number, ceiling: number): numbe
   clamp(presence, 0, 1) * clamp(share, 0, 1) * ceiling;
 
 /**
+ * The field taken down to a working size and put straight back up over the whole surface — the blur
+ * every pass here draws one with is made of, and the only way to draw one under 0129's rules: no
+ * `ctx.filter`, no read-back, and a `drawImage` in each direction. The small copy is left on the
+ * pass's own surface, which is the only place it can be kept without allocating a third (0280), and
+ * `copy` is what takes it back up over the *whole* of that surface rather than blending it over the
+ * corner it was drawn into — carrying `alpha`, because the upscale is where a halo's share rides.
+ *
+ * **Three passes blur this way, which is what makes it a helper and not a third copy** (principle 3,
+ * and `weighed` above said of a draw): the bloom's halo, the sharpen's mask and the soften's whole
+ * picture. What each does *after* it is what tells the three apart, and stays at each declaration.
+ */
+const blurred = (
+  into: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  scale: number,
+  alpha: number,
+): void => {
+  const { width, height } = source;
+  const wide = Math.max(1, Math.round(width * scale));
+  const deep = Math.max(1, Math.round(height * scale));
+  into.drawImage(source, 0, 0, wide, deep);
+  into.globalCompositeOperation = "copy";
+  into.globalAlpha = alpha;
+  into.drawImage(into.canvas, 0, 0, wide, deep, 0, 0, width, height);
+};
+
+/**
  * How small the field is drawn before it is drawn back up again, as a share of its own size: the
  * band the bloom's radius is stated across, widest halo last. A blur by downscale and upscale is
  * the working size *being* the radius — a third of the field is a haze the eye reads as a soft
@@ -179,14 +208,7 @@ const bloomPass: LookPass = (into, source, presence, terms) => {
     into.drawImage(source, 0, 0);
     return;
   }
-  const { width, height } = source;
-  const scale = bloomScale(terms.radius ?? 0);
-  const wide = Math.max(1, Math.round(width * scale));
-  const deep = Math.max(1, Math.round(height * scale));
-  into.drawImage(source, 0, 0, wide, deep);
-  into.globalCompositeOperation = "copy";
-  into.globalAlpha = alpha;
-  into.drawImage(into.canvas, 0, 0, wide, deep, 0, 0, width, height);
+  blurred(into, source, bloomScale(terms.radius ?? 0), alpha);
   into.globalCompositeOperation = "destination-over";
   into.globalAlpha = 1;
   into.drawImage(source, 0, 0);
@@ -434,15 +456,9 @@ const sharpenPass: LookPass = (into, source, presence, terms) => {
     into.drawImage(source, 0, 0);
     return;
   }
-  const { width, height } = source;
-  const wide = Math.max(1, Math.round(width * SHARPEN_SCALE));
-  const deep = Math.max(1, Math.round(height * SHARPEN_SCALE));
-  into.drawImage(source, 0, 0, wide, deep);
-  // `copy` takes that small corner back up over the whole surface rather than blending it over
-  // itself, which is the bloom's second draw exactly (0280). At the whole of itself, because what
-  // the amount weighs is how much of the mask is added and not how blurred the mask is.
-  into.globalCompositeOperation = "copy";
-  into.drawImage(into.canvas, 0, 0, wide, deep, 0, 0, width, height);
+  // At the whole of itself, because what the amount weighs is how much of the mask is added back
+  // and not how blurred the mask is.
+  blurred(into, source, SHARPEN_SCALE, 1);
   into.globalCompositeOperation = "source-out";
   into.globalAlpha = alpha;
   into.drawImage(source, 0, 0);
@@ -506,78 +522,6 @@ export const GRAIN_CEILING = 0.5;
  */
 export const grainBite = (presence: number, grain: number): number =>
   weighed(presence, grain, GRAIN_CEILING);
-
-/**
- * The noise tile: how wide it is baked, how wide one speck of it is, how much of it is left clear,
- * and how fast it is swept across the picture in its own pixels a second.
- *
- * **Big enough that the sweep is the motion and not the tiling.** A tile is drawn once per tile of
- * field it covers, so a small one is a dozen draws a frame and a repeat the eye can find; this is
- * three or four draws over an overlay and one over the strip. A speck of three device pixels stands
- * under the lattice's own cell, which is what makes it grain and not blocks (0281). And half the
- * tile is left clear on purpose: a noise laid over the whole picture is a wash that takes the same
- * ink out everywhere, where sparse specks read as grain and shift the picture's own mean by half as
- * much (0269's rule said of a mask).
- */
-export const GRAIN_TILE = 512;
-export const GRAIN_SPECK = 3;
-export const GRAIN_FLOOR = 0.5;
-export const GRAIN_SWEEP = 24;
-
-/** The seed the specks are drawn from — one constant, so the grain is the same grain every run. */
-const GRAIN_SEED = 0x5f_37_59_df;
-
-/**
- * The tile's own alpha, written once into the bytes a caller hands in: one value per speck, sparse
- * by the floor, and nothing in the colour channels — what a grain does is take ink out, and the
- * composite that does it reads the alpha alone. The lattice's tile is written this way and for this
- * reason (`latticeTile`, src/lib/moireLattice.ts): the per-pixel work is a bake, and a bake is
- * priced once and never on a frame (0129, 0144).
- */
-export function grainTile(alpha: Uint8ClampedArray, size: number, speck: number): void {
-  if (!(speck > 0)) throw new Error(`A speck ${speck} wide grains nothing.`);
-  const across = Math.ceil(size / speck);
-  const random = mulberry32(GRAIN_SEED);
-  const specks = new Float64Array(across * across);
-  for (let at = 0; at < specks.length; at++) {
-    specks[at] = Math.max(0, ((random() - GRAIN_FLOOR) / (1 - GRAIN_FLOOR)) * 255);
-  }
-  for (let y = 0; y < size; y++) {
-    const row = Math.floor(y / speck) * across;
-    for (let x = 0; x < size; x++) {
-      alpha[(y * size + x) * 4 + 3] = Math.round(specks[row + Math.floor(x / speck)] ?? 0);
-    }
-  }
-}
-
-/**
- * The tile itself, baked the first time a picture wobbles and never again — one tile for the whole
- * app, because what is on it is noise and no picture's noise is another's (0142's key said of a
- * surface). Kept here rather than handed down the chain: a seventh argument every pass carried for
- * one look's sake would be the veer's mistake made twice (0282).
- */
-let grain: HTMLCanvasElement | null | undefined;
-
-function grainOf(): HTMLCanvasElement | null {
-  if (grain !== undefined) return grain;
-  const made = document.createElement("canvas");
-  made.width = GRAIN_TILE;
-  made.height = GRAIN_TILE;
-  const ink = made.getContext("2d");
-  // An engine that will not hand back the tile's context draws the swim and no grain, which is
-  // louder than a picture silently left ungrained and quieter than no picture at all — **and the
-  // refusal is remembered**, exactly as a tile this engine would not bake is (`curvedTileFor`,
-  // src/ui/driftTiles.ts): a refusal retried is a surface allocated and dropped every painting.
-  if (ink === null) {
-    grain = null;
-    return null;
-  }
-  const field = ink.createImageData(GRAIN_TILE, GRAIN_TILE);
-  grainTile(field.data, GRAIN_TILE, GRAIN_SPECK);
-  ink.putImageData(field, 0, 0);
-  grain = made;
-  return grain;
-}
 
 /**
  * The wobble, drawn: the field back down in the slices the lens already cuts it in, each slid
@@ -650,6 +594,58 @@ const wobblePass: LookPass = (into, source, presence, terms, _veer, clock) => {
 };
 
 /**
+ * The working size a softened field is redrawn at, as a share of its own size: the band the radius
+ * is stated across, **open end last**, because the term is the cutoff's own turn and a filter's
+ * cutoff reads the same way round — wide open at the top of the knob and shut at the bottom. The
+ * bloom's units and the bloom's reason (0280): a blur *is* its working size, nothing about one
+ * lands on a grid, and the strip, the overlay and an export at any scale soften by the same amount
+ * of picture. Wider at its shut end than the halo the bloom draws, because what this pass says is
+ * that the fine detail is *gone* rather than that there is a room around it — and **the open end is
+ * the field itself**, which is the one band here that closes at one: a filter standing open is a
+ * wire, and the entry's own presence stands at nought in the same place (0202). The two agree
+ * because they are one knob, and the band says so rather than leaving the presence to say it.
+ */
+export const SOFTEN_SCALE: readonly [number, number] = [1 / 16, 1];
+
+/**
+ * The size the copy that replaces the field is drawn at: the radius its entry declared, walked out
+ * from the field's own size by how present the picture has travelled the instance to. **The blocks'
+ * walk and not the bloom's weighed share** (0281, 0283): this pass lays nothing over the picture and
+ * has no alpha to weigh, so what a travelling presence moves is the working size itself — a filter
+ * arriving dissolves the picture out of focus rather than crossfading two of them, and one at no
+ * presence at all is the field at the whole of itself.
+ */
+export const softenScale = (presence: number, radius: number): number =>
+  1 + clamp(presence, 0, 1) * (denormalize(radius, ...SOFTEN_SCALE) - 1);
+
+/**
+ * The soften, drawn: the field small, and that small copy back up over the whole surface — and
+ * **nothing else**, which is the whole of what tells this pass from the bloom. The halo lays the
+ * blurred copy back *over* the picture and keeps the original underneath it (0280); this one is the
+ * blurred copy at the whole of itself with no original under it at all, so the fine detail does not
+ * come back and the picture reads as out of focus rather than as lit. Two draws of what is already
+ * drawn, no fill over the picture and no pixel touched (0129, 0269).
+ *
+ * `copy` is what makes the second draw the whole of the surface rather than a blend over the small
+ * corner the first draw left, and it is the bloom's second draw exactly — at the whole of itself,
+ * because the plan's draw is `source-over` at one and an alpha here would be a halo by another name.
+ */
+const softenPass: LookPass = (into, source, presence, terms) => {
+  // An absent radius is the open end of the knob and not the shut one, which is the field itself —
+  // the registry refuses an entry that leaves the term unread, so nothing standing reaches this.
+  const scale = softenScale(presence, terms.radius ?? 1);
+  // A filter standing open, and one the picture has not travelled to yet, are both the field at the
+  // whole of itself — and this is the one draw that says so.
+  if (scale >= 1) {
+    into.drawImage(source, 0, 0);
+    return;
+  }
+  // At the whole of itself, and with nothing drawn after it: the plan's draw is `source-over` at one
+  // and an alpha here would be a halo by another name.
+  blurred(into, source, scale, 1);
+};
+
+/**
  * The looks, and the whole of what a look is to anything outside this file. **A look two entries
  * claim is refused at load, exactly as a drift profile is** (0122): an effect's look is its whole
  * identity in a glance at the picture, and two entries wearing one would draw the same move twice
@@ -719,6 +715,14 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * doing two jobs; two roads into one dimension is principle 1 (0285).
    */
   wobble: { at: "pass", terms: { wobble: "turn", grain: "turn" }, pass: wobblePass },
+  /**
+   * Filter's, and the one look whose single term is the knob its own presence is read off: the field
+   * redrawn from a copy of itself too small to hold what was in it, so the picture keeps where every
+   * row is and loses how finely it is drawn. How small that copy is, is the Cutoff, on its own range
+   * — a filter shut down over the band is a picture with its fine detail dissolved out of it, and one
+   * standing open is the field itself, which is where this entry's presence already stands (0202).
+   */
+  soften: { at: "pass", terms: { radius: "turn" }, pass: softenPass },
 };
 
 /**

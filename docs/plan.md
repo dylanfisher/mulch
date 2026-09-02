@@ -745,7 +745,13 @@ whole-field move is the size a glance reads at.
   its maths and its one draw in `LOOKS` and its Wow and Hiss declared on the tape entry, the chain
   now hands every pass the deck's own clock because this is the first pass that _moves_, its grain is
   the first tile a pass bakes and holds, and its tint is no term at all — tape's Tone is already the
-  row's own `hue` (0141) — then filter, eq, compressor, shift, scatter.
+  row's own `hue` (0141) — then filter — **landed,
+  [0286](decisions/0286-a-filter-softens-the-picture.md)**: the soften takes the sixth slot, its
+  maths and the two draws it is in `LOOKS` and its Cutoff declared on the filter entry, its presence
+  walks the working size rather than a share — so it is the one pass that weighs none — and
+  src/lib/moireLook.ts split at the hard cap, the wobble's noise tile leaving it for
+  src/lib/moireGrain.ts while every draw stayed beside its own declaration — then eq, compressor,
+  shift, scatter.
 - **The paint may slow under a full rack** — **landed,
   [0284](decisions/0284-a-long-chain-paints-half-as-often.md)**: `DRIFT_PAINT_HZ` (24) stays the
   ceiling; a chain longer than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve
@@ -769,7 +775,7 @@ whole-field move is the size a glance reads at.
 | delay      | **echoes** (landed, 0282) — ghosted repeats, spaced, fading                           | time → spacing, feedback → count and fade                                  | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                                                                                          |
 | pop        | **sharpen** (landed, 0283) — edges bite, contrast lifts, colour saturates             | mix → amount, sheen → saturation                                           | the blurred copy taken out of the field and the mask that leaves added back `lighter` at the amount — `source-over` hazed it, the shot decided; saturation is a stepped ink term                                |
 | tape       | **wobble** (landed, 0285) — rows swim sideways, grain in the ink, warm tint           | wow → wobble, hiss → grain; tone → tint is the row's own `hue`, so no term | slices slid by a sine of the tape's own clock, the cut's own wrap; a noise tile baked once and swept, `destination-out` — `destination-in` would multiply the field by the term's share as well as by the noise |
-| filter     | **soften** — fine detail dissolves as the cutoff falls                                | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom                                                                                                    |
+| filter     | **soften** (landed, 0286) — fine detail dissolves as the cutoff falls                 | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom — and the band closes at the field itself, where the entry's own presence already stands at nought |
 | eq         | **band** — one lit band across the field at the frequency                             | frequency → position, gain → lift or cut, q → width                        | the band's slice re-laid `source-over` (lift) or taken out `destination-out` (cut), edges softened by the width                                                                                                 |
 | compressor | **squash** — range flattened toward mid, windows dim, ink thins                       | ratio → floor, threshold → ceiling                                         | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                                                                                           |
 | shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                 |
@@ -803,8 +809,9 @@ its look out of the picture over the wind's seconds rather than between two fram
     _(The chain landed with 0279; the bloom is the first look to take a slot in it, 0280, the blocks
     the second, 0281 — which is why the chain resets smoothing before every pass — and the echoes the
     third, 0282, which is why it hands every pass the wind's veer, the sharpen the fourth, 0283,
-    whose saturation is the first term to land on the screen's ink instead of the field, and the
-    wobble the fifth, 0285, which is why it hands every pass the deck's own clock.)_
+    whose saturation is the first term to land on the screen's ink instead of the field, the
+    wobble the fifth, 0285, which is why it hands every pass the deck's own clock, and the soften
+    the sixth, 0286, which weighs no share at all.)_
     The chain runs where `cutField` runs today: after every row is cut and the frame fed back, and
     before the field is taken out of the screen `destination-out`. Each pass reads one surface and
     writes the other — `field` and the `between` surface that already exists — and the last one
@@ -866,7 +873,7 @@ its look out of the picture over the wind's seconds rather than between two fram
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
     readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
     bloom's is 0280, the blocks' is 0281, the echoes' is 0282, the sharpen's is 0283, the cadence's
-    is 0284 and the wobble's is 0285. Next free today is 0286.
+    is 0284, the wobble's is 0285 and the soften's is 0286. Next free today is 0287.
 
 ## Refused
 

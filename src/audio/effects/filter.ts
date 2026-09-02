@@ -44,6 +44,11 @@ export const filterEffect = defineEffect({
   // this row's own pitch across the picture: fringes crowded at one edge and open at the other,
   // which is one broad family sweeping the frame where a fixed spacing was an even comb (0142).
   driftFrom: [{ param: "filter.cutoff", into: "chirp" }],
+  // And the whole field softens with it: a cutoff falling takes the fine detail out of the picture
+  // the way it takes the top off the sound, and the blurred copy *replaces* the field rather than
+  // being laid back over it — no halo, which is what tells a soften from a bloom (0286).
+  look: "soften",
+  lookFrom: [{ param: "filter.cutoff", into: "radius" }],
   // A biquad's memory is its own two samples of state: it rings for microseconds, not seconds.
   settle: () => SETTLE_FLOOR_SECS,
   params,

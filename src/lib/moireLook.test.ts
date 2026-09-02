@@ -27,13 +27,11 @@ import {
   echoFade,
   echoSpacing,
   GRAIN_CEILING,
-  GRAIN_FLOOR,
-  GRAIN_SPECK,
-  GRAIN_TILE,
   grainBite,
-  grainTile,
   isLookName,
   SHARPEN_CEILING,
+  SOFTEN_SCALE,
+  softenScale,
   SHARPEN_SCALE,
   sharpenAmount,
   weighed,
@@ -47,7 +45,20 @@ import {
   LOOKS,
   RESERVED_LOOKS,
 } from "@/lib/moireLook";
-import { normalize } from "@/lib/range";
+import { clamp, normalize } from "@/lib/range";
+
+/**
+ * How present a filter at one cutoff is heard to be, and where that cutoff stands on its own knob —
+ * the entry's own declared silence and default spelt out here (src/audio/effects/filter.ts, 0202),
+ * for the reason the bloom's defaults are: what this file tests is the maths, and the reading a rack
+ * makes of an instance is src/ui/moireLooks.test.ts's own case.
+ *
+ * **All the way in is the knob's own default and not its minimum** (`presenceFull`,
+ * src/audio/effects/contract.ts): the filter declares no `full`, so anything at or under a kilohertz
+ * is heard as the whole of the effect and only the radius goes on moving below it.
+ */
+const heardAt = (cutoff: number): number => clamp((cutoff - 20_000) / (1_000 - 20_000), 0, 1);
+const turnAt = (cutoff: number): number => normalize(cutoff, 20, 20_000, "log");
 
 // One flat list of what the contract is, a case per question it answers (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -338,37 +349,6 @@ describe("what a look is", () => {
     expect(WOBBLE_HZ).toBeLessThan(1.5);
     expect(WOBBLE_WAVES).toBeGreaterThan(0.5);
     expect(WOBBLE_WAVES).toBeLessThan(2);
-    // And the tile is baked once, into alpha alone: one value per speck, sparse by the floor, and
-    // nothing in the colour channels — a grain takes ink out, and the composite reads the alpha.
-    const bytes = new Uint8ClampedArray(GRAIN_TILE * GRAIN_TILE * 4);
-    grainTile(bytes, GRAIN_TILE, GRAIN_SPECK);
-    let lit = 0;
-    let colour = 0;
-    for (let at = 0; at < bytes.length; at += 4) {
-      if ((bytes[at + 3] ?? 0) > 0) lit += 1;
-      colour += (bytes[at] ?? 0) + (bytes[at + 1] ?? 0) + (bytes[at + 2] ?? 0);
-    }
-    expect(colour).toBe(0);
-    const specks = bytes.length / 4;
-    expect(lit / specks).toBeGreaterThan(0.2);
-    expect(lit / specks).toBeLessThan(1 - GRAIN_FLOOR + 0.1);
-    // One value per speck and the same value every run, which is what makes it a bake: the whole
-    // block a speck covers holds one number, and a second bake writes the first one again.
-    for (const at of [0, 5 * GRAIN_SPECK, 40 * GRAIN_SPECK]) {
-      const speck = bytes[(at * GRAIN_TILE + at) * 4 + 3];
-      for (let y = at; y < at + GRAIN_SPECK; y++) {
-        for (let x = at; x < at + GRAIN_SPECK; x++) {
-          expect(bytes[(y * GRAIN_TILE + x) * 4 + 3]).toBe(speck);
-        }
-      }
-    }
-    const again = new Uint8ClampedArray(GRAIN_TILE * GRAIN_TILE * 4);
-    grainTile(again, GRAIN_TILE, GRAIN_SPECK);
-    expect(again).toEqual(bytes);
-    // A speck no wide grains nothing, and says so rather than writing a tile of nothing (principle 5).
-    expect(() => {
-      grainTile(again, GRAIN_TILE, 0);
-    }).toThrow(/grains nothing/u);
     // At tape's own declared defaults and ranges (src/audio/effects/tape.ts, spelt out here for the
     // reason the bloom's are) the picture swims and grains, and neither term is at an end of its
     // band: a tape standing at its defaults is visibly a tape and a long way off the most this pass
@@ -379,5 +359,42 @@ describe("what a look is", () => {
     expect(wobbleSwim(1, wow)).toBeLessThan(WOBBLE_CEILING);
     expect(grainBite(1, hiss)).toBeGreaterThan(0);
     expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING);
+  });
+  // P286: filter's, and the one pass that replaces the field rather than laying anything over it.
+  it("softens the field on the cutoff's own turn, and stands open at the top of the knob", () => {
+    expect(LOOKS.soften.at).toBe("pass");
+    expect(LOOKS.soften.terms).toEqual({ radius: "turn" });
+    // The band is stated open end last, because the term is the cutoff's own turn and a cutoff
+    // reads that way round: shut at the bottom of the knob and wide open at the top.
+    expect(SOFTEN_SCALE[0]).toBeGreaterThan(0);
+    expect(SOFTEN_SCALE[0]).toBeLessThan(SOFTEN_SCALE[1]);
+    // And it closes at the field itself: a filter standing open is a wire, and the band says so
+    // rather than leaving the entry's own presence to say it (0202).
+    expect(SOFTEN_SCALE[1]).toBe(1);
+    // Wider at its shut end than the halo the bloom draws, because what this pass says is that the
+    // fine detail is gone and not that there is a room around it (0280).
+    expect(SOFTEN_SCALE[0]).toBeGreaterThan(BLOOM_SCALE[1]);
+    // A filter standing open, and one the picture has not travelled to yet, are both the field at
+    // the whole of itself — the one draw this pass makes when it makes no difference.
+    expect(softenScale(1, 1)).toBe(1);
+    expect(softenScale(0, 0)).toBe(1);
+    expect(softenScale(-1, 0)).toBe(1);
+    // And shut, it is the band's own other end: the blocks' walk out from the field's own size and
+    // never the bloom's weighed share, because this pass lays nothing over the picture (0281).
+    expect(softenScale(2, -1)).toBeCloseTo(SOFTEN_SCALE[0], 12);
+    expect(softenScale(0.5, 0)).toBeCloseTo(1 + (SOFTEN_SCALE[0] - 1) / 2, 12);
+    // At filter's own declared range and default (src/audio/effects/filter.ts, spelt out here for
+    // the reason the bloom's are) the picture is visibly softened and a long way off the most this
+    // pass can do — and both numbers come off the one knob: over the top of its range a cutoff
+    // falling raises how present the filter is heard to be *and* shrinks the copy, and under the
+    // default the presence is already the whole of it and the radius goes on alone (0202).
+    expect(heardAt(20_000)).toBe(0);
+    expect(heardAt(200)).toBe(1);
+    // Visibly softened at the default and a long way off the most this pass can do.
+    const standing = softenScale(heardAt(1000), turnAt(1000));
+    expect(standing).toBeGreaterThan(SOFTEN_SCALE[0]);
+    expect(standing).toBeLessThan(0.75);
+    expect(softenScale(heardAt(200), turnAt(200))).toBeLessThan(standing);
+    expect(softenScale(heardAt(20_000), turnAt(20_000))).toBe(1);
   });
 });

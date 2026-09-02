@@ -35,8 +35,13 @@ const FOLD_ID = "drift-fold";
 const LIVE_CREST = 1;
 const washedRead = (wash) => wash >= LIVE_CREST && wash <= WASH_CREST_STRUCK;
 
-/** Two of the drift's own paintings, so the picture has certainly drawn since the run filled. */
-const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 2);
+/**
+ * Two of the drift's own paintings, so the picture has certainly drawn since the run filled — and
+ * two of the *slowest* it paints at, not two of the fastest: the racks this scenario stands up run
+ * more passes than `LOOK_FULL_RATE`, and a chain longer than that paints at half the rate (0284,
+ * and filter's own pass, 0286). Twice the cadence would be one painting of those racks.
+ */
+const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 4);
 
 /** How many shades a picture of crossing gratings carries before it counts as drawn at all. */
 const INK_SHADES = 8;

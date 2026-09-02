@@ -18,10 +18,11 @@ import {
   ECHO_SPACING,
   echoCount,
   GRAIN_CEILING,
-  GRAIN_TILE,
   echoSpacing,
   LOOKS,
   SHARPEN_CEILING,
+  SOFTEN_SCALE,
+  softenScale,
   SHARPEN_SCALE,
   WOBBLE_CEILING,
   wobbleSlide,
@@ -29,6 +30,7 @@ import {
   type LookName,
   type LookTerms,
 } from "@/lib/moireLook";
+import { GRAIN_TILE } from "@/lib/moireGrain";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
@@ -553,6 +555,54 @@ describe("cutField", () => {
       sounding: 1,
     });
     expect(later.surfaces[at]?.drew[0]?.box[4]).not.toBeCloseTo(slid, 6);
+  });
+
+  // P286: filter's soften, and the one pass that replaces the field instead of laying over it.
+  it("softens the field by redrawing it from a copy too small, and never over the field", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const soft = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("soften", { radius: 0 })],
+    });
+    const pass = soft.surfaces[at];
+    const field = soft.elements[0];
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // Two draws and two only — the field small, and that copy back up over the whole surface. **No
+    // third draw putting the original back underneath**, which is the bloom's own last draw and the
+    // whole of what tells a soften from a halo (0280): what stands here is the blurred copy alone.
+    expect(pass?.drew.map((each) => each.over)).toEqual(["source-over", "copy"]);
+    expect(pass?.drew.map((each) => each.tile)).toEqual([field, soft.elements[at]]);
+    expect(pass?.drew[0]?.alpha).toBe(1);
+    expect(pass?.drew[1]?.alpha).toBe(1);
+    // At the working size the radius states, walked out from the field's own size by the presence.
+    const wide = field?.width ?? 0;
+    expect(pass?.drew[0]?.box[2]).toBe(Math.round(wide * SOFTEN_SCALE[0]));
+    expect(pass?.drew[1]?.box.slice(0, 4)).toEqual([
+      0,
+      0,
+      Math.round(wide * SOFTEN_SCALE[0]),
+      Math.round((field?.height ?? 0) * SOFTEN_SCALE[0]),
+    ]);
+    // A filter standing open draws the field once and leaves the picture exactly where it was —
+    // the band's own open end is the field itself, whatever the presence beside it (0202).
+    vi.stubGlobal("devicePixelRatio", 2);
+    const open = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("soften", { radius: 1 })],
+    });
+    expect(open.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(open)).toEqual(fills(plain));
+    // And so does one the picture has not travelled to yet: the presence is in the working size.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const arriving = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("soften", { radius: 0 }), at: 0 }],
+    });
+    expect(arriving.surfaces[at]?.drew).toHaveLength(1);
+    expect(softenScale(0, 0)).toBe(1);
   });
 
   // P281: and the chain's own half of that, which the blocks are the first pass to need.
