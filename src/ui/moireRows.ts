@@ -56,6 +56,7 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { agedPitch, runFeedback } from "@/lib/moireAge";
+import { arrivedInto, DRIFT_ARRIVAL_SECS } from "@/lib/moireArrival";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
 import {
   fractalCut,
@@ -93,6 +94,7 @@ import {
   laneRead,
   macroInto,
   READS_NOTHING,
+  ROW_KEYS,
   referenceInto,
   fractalInto,
   sessionInto,
@@ -333,6 +335,7 @@ export function moireRows(
     period,
     phase: 0,
     pulse: 0,
+    arrival: 1,
     reference: false,
     shape,
     bend,
@@ -352,6 +355,7 @@ export function moireRows(
       ...driftReached(seed, reach, drawn.geometry),
       phase: 0,
       pulse: 0,
+      arrival: 1,
       reference: false,
       shape: seed,
       ...drawn,
@@ -362,6 +366,7 @@ export function moireRows(
     // knob's (`restingCentre`, 0229).
     reads.push({
       ...READS_NOTHING,
+      key: `${ROW_KEYS.rack}${instance.id}`,
       instance: instance.id,
       colour: colourReads(instance),
       anchor: restingCentre(seed, drawn.geometry, reach),
@@ -543,6 +548,10 @@ export function refillRows(
   // nothing does have the rows and does travel (0249), toward whatever the population it is between
   // folded to, which is what makes the trough the middle of a move rather than a stop in one.
   const flight = fractalTravel(rows, reads);
+  // And how long a row has to join the picture or to leave it, resolved once beside the two travels
+  // above and for their reason: nothing at all where nothing is sounding, a halted picture being
+  // painted on a commit rather than on a frame (0144, `inkTravelInto`).
+  const arrivalSecs = peek.sounding > 0 ? DRIFT_ARRIVAL_SECS : 0;
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay
@@ -551,6 +560,13 @@ export function refillRows(
   // oxlint-disable-next-line max-lines-per-function
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
+    // How much of this row is in the picture at all, one step on. **First, and on every row**: a
+    // row joining a picture and a row leaving one are the same event seen twice, and a share
+    // written outright is the whole picture restacking between two frames — every other row's
+    // depth moves with the count (`gratingDepth`, src/lib/moireGrating.ts), so an effect added
+    // flashed the whole field. Where a row starts from is the carry's (`carryArrivals`), and this
+    // walks it the rest of the way on the same `elapsed` the ground and the ink travel on.
+    row.arrival = arrivedInto(row.arrival, read.leaving, elapsed, arrivalSecs);
     // Where the rows that rest on the ground stand this frame. **A jump is a distance, and the
     // picture is the one surface that could show it**, so the ground is travelled toward rather
     // than written on: a jump to the next bar slides and a jump across the file sweeps (P174,
@@ -709,9 +725,9 @@ function fractalHeard(
 function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | null): void {
   if (playerPeriod === null) return;
   rows.push(playerRow(playerPeriod));
-  reads.push({ ...READS_NOTHING, tier: "part" });
+  reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.tier}part`, tier: "part" });
   rows.push(playerTierRow(playerPeriod));
-  reads.push({ ...READS_NOTHING, tier: "song" });
+  reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.tier}song`, tier: "song" });
 }
 
 /**
@@ -752,11 +768,16 @@ function grownInto(
       octaves: Math.max(reached.octaves, grownOctaves(grown.length, cut.geometry)),
       phase: 0,
       pulse: 0,
+      arrival: 1,
       reference: false,
       shape: seed,
       ...cut,
     });
-    reads.push({ ...READS_NOTHING, anchor: restingCentre(seed, cut.geometry, reach) });
+    reads.push({
+      ...READS_NOTHING,
+      key: `${ROW_KEYS.grown}${held.instance}`,
+      anchor: restingCentre(seed, cut.geometry, reach),
+    });
   }
 }
 

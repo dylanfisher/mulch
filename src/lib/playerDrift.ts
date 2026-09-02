@@ -358,6 +358,7 @@ export const playerRow = (period: number): MoireRow => ({
   period,
   phase: 0,
   pulse: 0,
+  arrival: 1,
   reference: false,
   shape: playerRowShape(null),
   bend: FLAT_BEND,

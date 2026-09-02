@@ -193,6 +193,8 @@ const runOf = (id: string, ...grown: readonly GrownEffect[]): GrownRun => new Ma
  * own one field — the shape the builder itself writes them in (`READS_NOTHING`, src/ui/moireRowsField.ts).
  */
 const readsNothing: RowRead = {
+  key: "",
+  leaving: false,
   lane: null,
   instance: null,
   colour: [],
@@ -272,7 +274,7 @@ describe("moireRows", () => {
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,
     // so its phase comes off the deck's own clock rather than out of a lane's key.
     expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ ...readsNothing, instance: "fx1" }]);
+    expect(reads).toEqual([{ ...readsNothing, key: "rack:fx1", instance: "fx1" }]);
     // Its angle and where in its cycle it starts are still folded out of its own id the way its
     // name is (0076) — two rows that agreed in every field would draw no fringe at all.
     expect(rows[0]?.shape).toBe(fold("fx1"));
@@ -298,19 +300,23 @@ describe("moireRows", () => {
     expect(withLane.reads).toEqual([
       // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
       // what the knob is set to, the way every dimension but the three colour ones is (0139, 0150).
-      { ...readsNothing, lane: paramKey("fx1", "delay.mix") },
-      { ...readsNothing, instance: "fx1" },
+      {
+        ...readsNothing,
+        key: `lane:${paramKey("fx1", "delay.mix")}`,
+        lane: paramKey("fx1", "delay.mix"),
+      },
+      { ...readsNothing, key: "rack:fx1", instance: "fx1" },
       // The reference row's own, which is the pitch the whole source rests it at: the one row a
       // per-frame read recuts out of what is sounding under the playhead (0196). No identity to
       // rest at: the axis is anchored on the ground the yard is reading and never turned by it.
-      { ...readsNothing, heard: PLAIN_CUT.pitch },
+      { ...readsNothing, key: "loop", heard: PLAIN_CUT.pitch },
       // The macro row's, the wash's and the session's: none is read for a phase or a meter, because
       // what moves the wash row is the one reading that belongs to no row at all (0213). The wash
       // is turned by the ground off its own resting identity, where the axis under it is only
       // moved; the session's row is read off the bus and off nothing this yard holds (P167).
-      readsNothing,
-      { ...readsNothing, ground: rowAt(withLane.rows, -2).shape },
-      { ...readsNothing, session: true },
+      { ...readsNothing, key: "macro" },
+      { ...readsNothing, key: "wash", ground: rowAt(withLane.rows, -2).shape },
+      { ...readsNothing, key: "session", session: true },
     ]);
   });
 
@@ -585,7 +591,7 @@ describe("moireRows", () => {
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
     expect(periods).not.toContain(macro?.period);
-    expect(reads[3]).toEqual(readsNothing);
+    expect(reads[3]).toEqual({ ...readsNothing, key: "macro" });
     expect(macro?.reference).toBe(false);
     expect(macro?.profile).toBe(PLAIN_PROFILE);
     expect(macro?.geometry).toBe(LINEAR_GEOMETRY);

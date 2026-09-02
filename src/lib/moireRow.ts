@@ -13,6 +13,7 @@ export const moireRow = (over: Partial<MoireRow> = {}): MoireRow => ({
   period: 1,
   phase: 0,
   pulse: 0,
+  arrival: 1,
   reference: false,
   shape: 0,
   bend: FLAT_BEND,

@@ -68,7 +68,7 @@ import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
-import { carryFractal, carryGround, carryInk, carryWind } from "@/ui/moireCarry";
+import { carryArrivals, carryFractal, carryGround, carryInk, carryWind } from "@/ui/moireCarry";
 import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -209,6 +209,10 @@ function useMoireRows(
       carryFractal(painted.current, session);
       carryInk(painted.current, session);
       carryWind(painted.current, session);
+      // And how much of the picture each row had become, which is the carry that is not a travel:
+      // a rebuild is what an effect arriving or retiring already is, so without it the whole
+      // field's weight restacks between two frames (`carryArrivals`).
+      carryArrivals(painted.current, session);
       painted.current = session;
       from.current = session;
       run.current.ids.length = 0;
@@ -223,6 +227,7 @@ function useMoireRows(
       carryFractal(painted.current, grown);
       carryInk(painted.current, grown);
       carryWind(painted.current, grown);
+      carryArrivals(painted.current, grown);
       painted.current = grown;
     }
     const set = painted.current;

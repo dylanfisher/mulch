@@ -76,6 +76,7 @@ import {
   type FractalStops,
 } from "@/lib/moireFractal";
 import { agedOpening } from "@/lib/moireAge";
+import { arrived } from "@/lib/moireArrival";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -398,10 +399,16 @@ export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =
   rows.reduce((count, row) => {
     if (row.period <= 0) return count;
     if (row.depth <= 0 && isFractalGeometry(row.geometry)) return count;
+    if (!arrived(row.arrival)) return count;
     const scales =
       row.geometry === LINEAR_GEOMETRY ? octaveShare(octavesOf(row)) : DRIFT_REST.octaves;
     const reading = Math.max(clamp(wash, 0, 1), clamp(row.pulse, 0, 1));
-    return count + (row.depth > 0 ? scales : scales * reading);
+    // And its own share of the picture over all of it, for the reason a row with no depth of its
+    // own counts as the fraction it is: a row joining the picture or leaving it takes its weight
+    // with it either way, and a whole one counted the frame it arrived is the flash this exists to
+    // remove (`carryArrivals`, src/ui/moireCarry.ts).
+    const share = clamp(row.arrival, 0, 1);
+    return count + share * (row.depth > 0 ? scales : scales * reading);
   }, 0);
 
 /**

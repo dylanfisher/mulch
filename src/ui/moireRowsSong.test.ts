@@ -183,6 +183,8 @@ describe("the jumps module's row", () => {
     expect(reads.map((read) => read.tier)).toEqual(["part", "song"]);
     expect(reads).toEqual(
       ["part", "song"].map((tier) => ({
+        key: `tier:${tier}`,
+        leaving: false,
         lane: null,
         instance: null,
         colour: [],

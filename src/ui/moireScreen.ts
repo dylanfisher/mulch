@@ -41,6 +41,7 @@ import {
 } from "@/lib/moire";
 import { gratingKeep } from "@/lib/moireGrating";
 import { agedHue } from "@/lib/moireAge";
+import { arrived } from "@/lib/moireArrival";
 import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
 import { viewOf } from "@/ui/canvasSurface";
@@ -386,6 +387,10 @@ export function boldestRow(
   let bold: MoireRow | null = null;
   for (const row of rows) {
     if (row.period <= 0) continue;
+    // Nor does a row that has wholly left, which is the third reader of the one test: what it
+    // claimed about the ink or the lens would otherwise hold the whole picture there for as long
+    // as the yard stood unrebuilt (`arrived`, src/lib/moireArrival.ts).
+    if (!arrived(row.arrival)) continue;
     if (Math.abs(pick(row) - rest) > Math.abs((bold === null ? rest : pick(bold)) - rest)) {
       bold = row;
     }

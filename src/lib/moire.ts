@@ -156,6 +156,15 @@ export type MoireRow = {
    */
   pulse: number;
   /**
+   * How much of this row is in the picture, nothing to wholly. **Wholly, until a rebuild says
+   * otherwise**: a row is built in the picture, and the carry that matches a fresh set against the
+   * one it replaces is what stands a row nobody held yet at nought and carries a row nobody holds
+   * any more back down to it (`carryArrivals`, src/ui/moireCarry.ts). The one accumulated number a
+   * row carries — the ground, the plane and the ink are the field's — and what keeps a population
+   * change a motion rather than a restack (`arrivedInto`, src/lib/moireArrival.ts).
+   */
+  arrival: number;
+  /**
    * Whether this row is an axis the others are read against rather than one of the rows fanned
    * either side of them: the loop's row, and the session's own layer over it (`gratingTurns`).
    */

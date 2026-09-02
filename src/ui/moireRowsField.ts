@@ -70,6 +70,21 @@ export const isColour = (into: DriftDimension): into is ColourDimension => into 
  * effect's own reading (0128 amended).
  */
 export type RowRead = {
+  /**
+   * What this row is called in the picture: the one thing a rebuilt set may match a row of the set
+   * it replaces by, so a row's share of the picture survives a rebuild and a row that has left can
+   * be told from one that was already there (`carryArrivals`, src/ui/moireCarry.ts). An index
+   * cannot do it — removing one rack instance shifts every row after it, and a row would inherit a
+   * stranger's arrival — so every row pushed anywhere names itself here, and no two name the same
+   * thing.
+   */
+  key: string;
+  /**
+   * And whether this row is on its way out: true on a row the set that replaces it no longer holds,
+   * carried over so it may finish leaving rather than vanishing between two frames. Nothing else in
+   * the picture reads it — a leaving row's phase, meter and anchor are read exactly as they were.
+   */
+  leaving: boolean;
   lane: string | null;
   instance: EffectInstanceId | null;
   colour: readonly ColourRead[];
@@ -126,6 +141,10 @@ export const NO_COLOUR: readonly ColourRead[] = [];
 
 /** A row nothing is read for: its phase runs on the deck's own clock and it never pulses. */
 export const READS_NOTHING: RowRead = {
+  // Named by whatever pushes it: a row with no name of its own would share a share with every
+  // other unnamed row, which is the one thing a key exists to prevent (`ROW_KEYS`).
+  key: "",
+  leaving: false,
   lane: null,
   instance: null,
   colour: NO_COLOUR,
@@ -143,7 +162,31 @@ export const READS_NOTHING: RowRead = {
  * so what a `RowRead` holds is named once and a fifth kind of row is a field rather than five
  * literals to keep in step (principle 1).
  */
-export const laneRead = (lane: string): RowRead => ({ ...READS_NOTHING, lane });
+export const laneRead = (lane: string): RowRead => ({
+  ...READS_NOTHING,
+  key: `${ROW_KEYS.lane}${lane}`,
+  lane,
+});
+
+/**
+ * What every row in the picture that is not a lane's, an instance's or one an automator grew calls
+ * itself, and the two prefixes the ones that are do. **Declared once, here**, because a name that
+ * two files spelled apart would hand a rebuilt set the wrong row's share and nothing would say so
+ * (`RowRead.key`, principle 1). One word each: there is one loop, one macro row, one wash and one
+ * session row in a picture, and the two the structure is cut at are told apart by which of the two
+ * they are.
+ */
+export const ROW_KEYS = {
+  lane: "lane:",
+  rack: "rack:",
+  grown: "grown:",
+  tier: "tier:",
+  loop: "loop",
+  macro: "macro",
+  wash: "wash",
+  session: "session",
+  fractal: "fractal:",
+} as const;
 
 /**
  * What one yard's picture is made of: its rows at their own zero, where each one's two per-frame
@@ -252,6 +295,7 @@ export const plainRow = (
   period,
   phase: 0,
   pulse: 0,
+  arrival: 1,
   reference,
   shape,
   bend: FLAT_BEND,
@@ -282,7 +326,7 @@ export function referenceInto(
 ): void {
   if (loopPeriod <= 0) return;
   rows.push(plainRow(loopPeriod, 0, true, cut));
-  reads.push({ ...READS_NOTHING, heard: cut.pitch });
+  reads.push({ ...READS_NOTHING, key: ROW_KEYS.loop, heard: cut.pitch });
 }
 
 /**
@@ -354,7 +398,7 @@ export function macroInto(
   const macro = macroPeriod(recurrence, periods, windowSecs);
   if (macro > 0) {
     rows.push(plainRow(macro, MACRO_SHAPE, false));
-    reads.push(READS_NOTHING);
+    reads.push({ ...READS_NOTHING, key: ROW_KEYS.macro });
   }
   return { periods, recurrence, windowSecs };
 }
@@ -380,7 +424,7 @@ const WASH_SHAPE = fold("the yard washed over");
 export function washInto(rows: MoireRow[], reads: RowRead[], loopPeriod: number): void {
   if (loopPeriod <= 0) return;
   rows.push({ ...plainRow(loopPeriod, WASH_SHAPE, false), depth: 0, pitch: DRIFT_BROADEST_PITCH });
-  reads.push({ ...READS_NOTHING, ground: WASH_SHAPE });
+  reads.push({ ...READS_NOTHING, key: ROW_KEYS.wash, ground: WASH_SHAPE });
 }
 
 /**
@@ -420,7 +464,7 @@ export function sessionInto(
   // is not that yard's picture arriving.
   if (rows.length === 0) return;
   rows.push({ ...plainRow(period, 0, true), depth: 0 });
-  reads.push({ ...READS_NOTHING, session: true });
+  reads.push({ ...READS_NOTHING, key: ROW_KEYS.session, session: true });
 }
 
 /**
@@ -489,8 +533,8 @@ export function fractalInto(
   if (grown.size === 0) return;
   const kind = fractalKind(grown);
   const geometry = FRACTAL_GEOMETRIES[kind % FRACTAL_GEOMETRIES.length] ?? FRACTAL_GEOMETRIES[0];
-  for (const period of [windowSecs, windowSecs * FRACTAL_BEAT]) {
+  for (const [at, period] of [windowSecs, windowSecs * FRACTAL_BEAT].entries()) {
     rows.push({ ...plainRow(period, kind, false), geometry, depth: 0 });
-    reads.push({ ...READS_NOTHING, fractal: true });
+    reads.push({ ...READS_NOTHING, key: `${ROW_KEYS.fractal}${at}`, fractal: true });
   }
 }

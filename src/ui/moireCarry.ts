@@ -1,15 +1,18 @@
 /**
  * @role What a rebuilt row set carries over from the one it replaces: the ground the picture's rows
- *   had travelled to, the plane its structure had travelled across, and the ink it had travelled
- *   toward. A set is rebuilt on anything durable moving and on a run turning over, neither of which
+ *   had travelled to, the plane its structure had travelled across, the ink it had travelled
+ *   toward, and how much of the picture each of its rows had become — with, behind that last one,
+ *   every row the new set no longer holds, kept until it has finished leaving. A set is rebuilt on anything durable moving and on a run turning over, neither of which
  *   is a jump — every row in a fresh one stands at its own rest — so a travel that did not survive
  *   the rebuild would restart from the middle of the picture on every knob touch (0235, 0248).
  * @instead The set these are carried between, and every row in it that belongs to no lane →
  *   src/ui/moireRowsField.ts. Building a set, and the per-frame read that travels all three →
  *   src/ui/moireRows.ts, which reads this and which this never reads. Where each travel is actually
  *   stepped → `easedCentre` and `easedToward` in src/lib/moire.ts, `fractalTravelInto` in
- *   src/lib/moireFractal.ts and `inkTravelInto` in src/ui/moireScreen.ts.
+ *   src/lib/moireFractal.ts and `inkTravelInto` in src/ui/moireScreen.ts. How much of a row is in
+ *   the picture at all, and how long one takes to join it or leave it → src/lib/moireArrival.ts.
  */
+import { arrived } from "@/lib/moireArrival";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 
 /**
@@ -89,4 +92,46 @@ export function carryInk(from: MoireRowSet, to: MoireRowSet): void {
  */
 export function carryWind(from: MoireRowSet, to: MoireRowSet): void {
   Object.assign(to.wind, from.wind);
+}
+
+/**
+ * And how much of the picture each of its rows had become, carried onto the set that replaces
+ * them — with, behind it, every row the new set no longer holds, kept in the picture until it has
+ * finished leaving.
+ *
+ * **This is the fourth carry and the one that is not a travel.** The other three keep a number the
+ * field had reached; this keeps a *row's* place in the picture, and it exists because the picture's
+ * weight is shared out over how many rows there are (`gratingDepth`, src/lib/moireGrating.ts): an
+ * effect added or retired moved every other row's depth between two frames, so the whole field
+ * flashed on a population change rather than answering it (0270). A row fades in over the same
+ * length the wind takes to turn, and a row the session has dropped fades out over it — so the count
+ * the weight is solved for is continuous and there is nothing left to flash.
+ *
+ * Matched by the row's own name and never by its index: removing one rack instance shifts every row
+ * after it, and a row would inherit a stranger's share (`RowRead.key`, src/ui/moireRowsField.ts).
+ * A row the picture has never held is not in the map and is stood at nought here, which is the
+ * whole of what makes an arrival an arrival — a row is *built* in the picture, so the first set a
+ * picture ever holds is drawn outright and only a rebuild can admit anything slowly.
+ *
+ * A row that has *wholly* left is dropped rather than carried: it weighs nothing, cuts nothing and
+ * votes for nothing (`arrived`, src/lib/moireArrival.ts), so keeping it would be a row in the
+ * picture for as long as the yard stood unrebuilt.
+ */
+export function carryArrivals(from: MoireRowSet, to: MoireRowSet): void {
+  const held = new Map<string, number>();
+  for (const [index, read] of from.reads.entries()) {
+    const row = from.rows[index];
+    if (row !== undefined) held.set(read.key, row.arrival);
+  }
+  for (const [index, read] of to.reads.entries()) {
+    const row = to.rows[index];
+    if (row !== undefined) row.arrival = held.get(read.key) ?? 0;
+    held.delete(read.key);
+  }
+  for (const [index, read] of from.reads.entries()) {
+    const row = from.rows[index];
+    if (row === undefined || !held.has(read.key) || !arrived(row.arrival)) continue;
+    to.rows.push(row);
+    to.reads.push({ ...read, leaving: true });
+  }
 }
