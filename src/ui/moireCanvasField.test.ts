@@ -12,6 +12,12 @@ import {
   BLOCK_HARDENINGS,
   BLOCK_PIXELS,
   BLOOM_CEILING,
+  ECHO_CAP,
+  ECHO_CEILING,
+  ECHO_FADE,
+  ECHO_SPACING,
+  echoCount,
+  echoSpacing,
   LOOKS,
   type Look,
   type LookName,
@@ -344,6 +350,90 @@ describe("cutField", () => {
     });
     expect(absent.surfaces[at]?.drew).toHaveLength(1);
     expect(fills(absent)).toEqual(fills(plain));
+  });
+
+  // P282: delay's echoes, and the first pass that displaces the field rather than resizing it.
+  it("repeats the field by drawing it along the wind, and never by filling over it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const echoed = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
+      wind: { drift: 0, veer: 1 },
+    });
+    const pass = echoed.surfaces[at];
+    const field = echoed.elements[0];
+    const wide = field?.width ?? 0;
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // The field itself, and then the field again once per repeat — every one of them the field's
+    // own surface and never the pass's, because a repeat of a repeat is a smear.
+    expect(pass?.drew).toHaveLength(1 + ECHO_CAP);
+    expect(pass?.drew.every((each) => each.tile === field)).toBe(true);
+    expect(pass?.drew.every((each) => each.over === "source-over")).toBe(true);
+    // Spaced along the wind, one step further every repeat, and the whole ladder inside the field.
+    const step = echoSpacing(1) * wide;
+    expect(pass?.drew.map((each) => each.box)).toEqual([
+      [0, 0],
+      ...Array.from({ length: ECHO_CAP }, (_each, echo) => [step * (echo + 1), 0]),
+    ]);
+    expect(step * ECHO_CAP).toBeLessThan(wide);
+    // And fading geometrically behind it: the picture at the whole of itself, and every repeat the
+    // last one's share of what stood in front of it.
+    expect(pass?.drew[0]?.alpha).toBe(1);
+    for (let echo = 1; echo <= ECHO_CAP; echo++) {
+      expect(pass?.drew[echo]?.alpha).toBeCloseTo(ECHO_CEILING * ECHO_FADE[1] ** (echo - 1), 10);
+    }
+    // The wind blowing the other way walks the same ladder the other way, which is one picture
+    // turning round rather than two pictures.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const back = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
+      wind: { drift: 0, veer: -1 },
+    });
+    expect(back.surfaces[at]?.drew[1]?.box).toEqual([-step, 0]);
+    // A delay the picture has not travelled to draws the field once and leaves it where it was.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const absent = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("echoes", { spacing: 1, count: 1, fade: 1 }), at: 0 }],
+      wind: { drift: 0, veer: 1 },
+    });
+    expect(absent.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(absent)).toEqual(fills(plain));
+    // And a delay at its own knobs' bottom is still a repeat, at the count and fade they state.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const one = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("echoes", { spacing: 0, count: 0, fade: 0 })],
+      wind: { drift: 0, veer: 1 },
+    });
+    expect(one.surfaces[at]?.drew).toHaveLength(1 + echoCount(0));
+    expect(one.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING, 10);
+    expect(one.surfaces[at]?.drew[1]?.box).toEqual([ECHO_SPACING[0] * wide, 0]);
+    // And a wind standing still draws the field once and nothing behind it. The ladder is gathered
+    // onto the field it came from at a veer of nought, and three copies of a hole mask laid exactly
+    // over each other are the picture composed with itself — every window in it hazed evenly, which
+    // is the one thing a pass may not do (0269). So the ladder fades by the same number that
+    // gathers it, and this is the frame where that number is nought.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const still = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
+      wind: { drift: 0, veer: 0 },
+    });
+    expect(still.surfaces[at]?.drew).toHaveLength(1);
+    expect(still.surfaces[at]?.drew[0]?.alpha).toBe(1);
+    expect(fills(still)).toEqual(fills(plain));
+    // And a wind halfway round is a ladder halfway out: the repeats stand closer to the field and
+    // are fainter for it, rather than gathering onto it at the whole of their own alpha.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const turning = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
+      wind: { drift: 0, veer: 0.5 },
+    });
+    expect(turning.surfaces[at]?.drew[1]?.box).toEqual([step / 2, 0]);
+    expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING / 2, 10);
   });
 
   // P281: and the chain's own half of that, which the blocks are the first pass to need.

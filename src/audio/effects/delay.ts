@@ -70,6 +70,18 @@ export const delayEffect = defineEffect({
     { param: "delay.feedback", into: "feedback" },
     { param: "delay.mix", into: "depth" },
   ],
+  // And the whole-field move a delay makes: the finished picture drawn again behind itself, spaced
+  // along the wind and fading a fixed share every repeat, which reads as ghosted repeats (0282).
+  // How far apart they stand is the Time — a longer delay is a wider gap — and how many there are
+  // and how slowly they fade are both the Feedback, which is the one knob that says both in the
+  // sound too. All three on their own ranges: a picture stated in turns reads the knob where it
+  // stands. The Mix is nowhere here because it is already the presence the whole look is weighed by.
+  look: "echoes",
+  lookFrom: [
+    { param: "delay.time", into: "spacing" },
+    { param: "delay.feedback", into: "count" },
+    { param: "delay.feedback", into: "fade" },
+  ],
   // A delay line's repeats, falling to the same silence every decay time here is stated against.
   settle: (values) => feedbackSettleSecs(values["delay.time"], values["delay.feedback"]),
   params,

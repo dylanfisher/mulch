@@ -733,7 +733,10 @@ whole-field move is the size a glance reads at.
   [0281](decisions/0281-a-crusher-blocks-the-picture.md)**: the blocks take the second slot, their
   maths and their one draw in `LOOKS` and their terms declared on the crush entry, and the chain now
   resets `imageSmoothingEnabled` before every pass because this is the first that turns it off —
-  then delay, pop, tape, filter, eq, compressor, shift, scatter.
+  then delay — **landed, [0282](decisions/0282-a-delay-repeats-the-picture.md)**: the echoes take the
+  third slot, their maths and their one draw in `LOOKS` and their terms declared on the delay entry,
+  and the chain now hands every pass the wind's veer because this is the first that displaces the
+  field — then pop, tape, filter, eq, compressor, shift, scatter.
 - **The paint may slow under a full rack.** `DRIFT_PAINT_HZ` (24) stays the ceiling; a chain longer
   than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve. Landed as its own step
   once four new passes stand, because before that there is nothing to slow.
@@ -750,7 +753,7 @@ whole-field move is the size a glance reads at.
 | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | reverb     | **bloom** (landed, 0280) — a soft halo, contrast washes out                           | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself at the amount; the original stays under it                                     |
 | crush      | **blocks** (landed, 0281) — pixelated, levels posterised                              | rate → block size, bits → level count               | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it      |
-| delay      | **echoes** — ghosted repeats, spaced, fading                                          | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
+| delay      | **echoes** (landed, 0282) — ghosted repeats, spaced, fading                           | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
 | pop        | **sharpen** — edges bite, contrast lifts, colour saturates                            | mix → amount, sheen → saturation                    | the blurred copy taken out `destination-out` at the amount then the field re-laid (an unsharp mask); saturation is a stepped ink term   |
 | tape       | **wobble** — rows swim sideways, grain in the ink, warm tint                          | wow → wobble, hiss → grain, tone → tint             | slices slid by a sine of the tape's own clock (`cutAcross`); a noise tile baked once and swept, `destination-in`; tint is already `hue` |
 | filter     | **soften** — fine detail dissolves as the cutoff falls                                | cutoff → radius                                     | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom                            |
@@ -784,8 +787,9 @@ its look out of the picture over the wind's seconds rather than between two fram
     painter, and no painter code names an effect id: the painter draws whatever `LOOKS` says a look
     is, and an effect added tomorrow gets its pass by declaring one (principle 1).
 2.  **A pass is a draw of the finished field, between the field and the screen, and never a bake.**
-    _(The chain landed with 0279; the bloom is the first look to take a slot in it, 0280, and the
-    blocks the second, 0281 — which is why the chain resets smoothing before every pass.)_
+    _(The chain landed with 0279; the bloom is the first look to take a slot in it, 0280, the blocks
+    the second, 0281 — which is why the chain resets smoothing before every pass — and the echoes the
+    third, 0282, which is why it hands every pass the wind's veer.)_
     The chain runs where `cutField` runs today: after every row is cut and the frame fed back, and
     before the field is taken out of the screen `destination-out`. Each pass reads one surface and
     writes the other — `field` and the `between` surface that already exists — and the last one
@@ -843,7 +847,7 @@ its look out of the picture over the wind's seconds rather than between two fram
     timing, and the cadence rule's threshold set from that number and not guessed.
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
     readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
-    bloom's is 0280 and the blocks' is 0281. Next free today is 0282.
+    bloom's is 0280, the blocks' is 0281 and the echoes' is 0282. Next free today is 0283.
 
 ## Refused
 

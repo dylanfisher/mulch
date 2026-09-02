@@ -211,7 +211,7 @@ function paintedOn(
     fractalStopsRest(),
     0,
     ink ?? arrivedInk(rows),
-    wind,
+    { drift: wind, veer: 1 },
     [],
     shapeRest(),
   );

@@ -18,6 +18,14 @@ import {
   BLOOM_SCALE,
   bloomAmount,
   bloomScale,
+  ECHO_CAP,
+  ECHO_CEILING,
+  ECHO_FADE,
+  ECHO_SPACING,
+  echoAlpha,
+  echoCount,
+  echoFade,
+  echoSpacing,
   isLookName,
   LOOK_NAMES,
   LOOK_TERMS,
@@ -162,5 +170,77 @@ describe("what a look is", () => {
     expect(blockSize(mix, rate)).toBeLessThan(BLOCK_PIXELS[0]);
     expect(blockHarden(mix, bits)).toBeGreaterThan(0);
     expect(blockHarden(mix, bits)).toBeLessThan(BLOCK_HARDENINGS);
+  });
+
+  // P282: delay's, and the third look to take a slot in the chain.
+  it("repeats the field on a whole count under the cap, spaced and fading by its own knobs", () => {
+    expect(LOOKS.echoes.at).toBe("pass");
+    expect(LOOKS.echoes.terms).toEqual({ spacing: "turn", count: "turn", fade: "turn" });
+    // The count is whole and never past the cap at any turn of the feedback, and never under one:
+    // a delay line with nothing fed back still repeats once, and a picture drawing no repeat at all
+    // would say the effect was not standing.
+    for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
+      const count = echoCount(turn);
+      expect(Number.isInteger(count)).toBe(true);
+      expect(count).toBeGreaterThanOrEqual(1);
+      expect(count).toBeLessThanOrEqual(ECHO_CAP);
+    }
+    expect(echoCount(0)).toBe(1);
+    expect(echoCount(1)).toBe(ECHO_CAP);
+    // The band is closed at both ends, because a term is read off a number the picture eases.
+    expect(echoCount(-1)).toBe(1);
+    expect(echoCount(2)).toBe(ECHO_CAP);
+    // The spacing runs one way down its whole length: a longer Time is a wider gap between repeats,
+    // and a full ladder of them at the widest is still inside the field it is drawn from.
+    expect(echoSpacing(0)).toBe(ECHO_SPACING[0]);
+    expect(echoSpacing(1)).toBeCloseTo(ECHO_SPACING[1], 12);
+    expect(echoSpacing(-1)).toBe(ECHO_SPACING[0]);
+    expect(echoSpacing(2)).toBeCloseTo(ECHO_SPACING[1], 12);
+    let last = 0;
+    for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
+      const step = echoSpacing(turn);
+      expect(step).toBeGreaterThan(last);
+      expect(step).toBeLessThanOrEqual(ECHO_SPACING[1]);
+      last = step;
+    }
+    expect(ECHO_SPACING[1] * ECHO_CAP).toBeLessThan(1);
+    // And the fade is how much of one repeat survives into the next: harder feedback is a longer
+    // tail, and neither end of the band is a ladder of solid copies or no ladder at all.
+    expect(echoFade(0)).toBe(ECHO_FADE[0]);
+    expect(echoFade(1)).toBeCloseTo(ECHO_FADE[1], 12);
+    expect(ECHO_FADE[0]).toBeGreaterThan(0);
+    expect(ECHO_FADE[1]).toBeLessThan(1);
+    expect(echoFade(0.5)).toBeGreaterThan(echoFade(0.25));
+    // And the ladder starts under half the picture however present the delay is, because every
+    // ghost behind the field takes more ink out of the screen and a ladder starting at the whole of
+    // it would pale the picture away before its second rung — the bloom's reason (0280), at a
+    // number of the echoes' own, because a halo may take most of the picture where three ghosts
+    // may not.
+    expect(ECHO_CEILING).toBeLessThan(0.5);
+    expect(echoAlpha(1, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(0, 1)).toBe(0);
+    expect(echoAlpha(0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(2, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(-1, 1)).toBe(0);
+    // And the wind is in the alpha because it is in the spacing: a ladder gathered onto the field
+    // it came from is three copies of a hole mask laid exactly over each other, which hazes every
+    // window in the picture evenly instead of repeating it (0269). So a wind standing still draws
+    // no ladder at all, a wind halfway round draws a faint one, and either direction draws the same.
+    expect(echoAlpha(1, 0)).toBe(0);
+    expect(echoAlpha(1, 0.5)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(1, -0.5)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(1, -1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, 2)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, -2)).toBe(ECHO_CEILING);
+    // At delay's own declared defaults and ranges (src/audio/effects/delay.ts, spelt out here for
+    // the reason the bloom's are) the repeats are countable and the picture survives them: more
+    // than the one every delay draws, fewer than the cap, and the last of the ladder well faded.
+    const time = normalize(0.25, 0, 2, "linear");
+    const feedback = normalize(0.35, 0, 0.9, "linear");
+    expect(echoCount(feedback)).toBeGreaterThan(1);
+    expect(echoCount(feedback)).toBeLessThan(ECHO_CAP);
+    expect(echoSpacing(time)).toBeGreaterThan(ECHO_SPACING[0]);
+    expect(echoSpacing(time)).toBeLessThan(ECHO_SPACING[1]);
+    expect(echoFade(feedback) ** echoCount(feedback)).toBeLessThan(0.5);
   });
 });

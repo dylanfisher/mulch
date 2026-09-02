@@ -71,7 +71,11 @@ function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanv
  * picture it drew before there was a chain. Reverb's bloom is the first that does take one (0280),
  * and every later pass arrives into this same loop by declaring itself into `LOOKS`.
  */
-function passLooks(field: HTMLCanvasElement, looks: readonly MoireLook[]): HTMLCanvasElement {
+function passLooks(
+  field: HTMLCanvasElement,
+  looks: readonly MoireLook[],
+  veer: number,
+): HTMLCanvasElement {
   let source = field;
   for (const { look, at, terms } of looks) {
     const declared = LOOKS[look];
@@ -88,10 +92,11 @@ function passLooks(field: HTMLCanvasElement, looks: readonly MoireLook[]): HTMLC
     // whichever one its own slot lands on, so a pass that turned smoothing off to draw a grid of
     // flat cells (0281) leaves it off for whatever writes that surface next — two slots later in
     // this chain, or in the next frame's. A bloom drawn nearest-neighbour is not a bloom, so every
-    // pass starts from the same context whichever ran on it before.
+    // pass starts from the same context whichever ran on it before — the alpha with them, which the
+    // echoes are the first pass to leave anywhere but one (0282).
     ink.imageSmoothingEnabled = true;
     ink.clearRect(0, 0, into.width, into.height);
-    declared.pass(ink, source, at, terms);
+    declared.pass(ink, source, at, terms, veer);
     source = into;
   }
   return source;
@@ -123,11 +128,13 @@ export function cutField(
   rows: readonly MoireRow[],
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
+  veer: number,
 ): void {
   const { height, width } = field;
-  // The chain first: the finished field through every pass the standing looks take, in rack order.
-  // What comes back is the field itself wherever no standing look takes a slot.
-  const passed = passLooks(field, looks);
+  // The chain first: the finished field through every pass the standing looks take, in rack order,
+  // each handed the one direction the whole picture is blowing in (0282). What comes back is the
+  // field itself wherever no standing look takes a slot.
+  const passed = passLooks(field, looks, veer);
   const shatter = looksShatter(looks);
   const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);
   const lens = bold === null ? 0 : bold.lens;

@@ -367,7 +367,7 @@ function useMoirePicture(
         set.seed,
         set.sounding,
         set.ink,
-        set.wind.drift,
+        set.wind,
         set.looks,
         set.shape,
       );

@@ -55,6 +55,7 @@ import {
   turnedScale,
   turnsOf,
   type MoireRow,
+  type MoireWind,
   type ScreenInk,
 } from "@/lib/moire";
 import { octaveAlpha, octaveShare, octavesOf } from "@/lib/moireOctaves";
@@ -505,9 +506,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * is going toward; this is where it actually stands, and it is what the screen tile is keyed by.
  *
  * And `wind`, how far the standing rack's own tail has blown the whole field, in turns of one cell
- * of the screen's grid — the field's again, and travelled there by the same read (`windTravelInto`,
- * src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is blown nowhere, which is the
- * picture drawn before there was a tail in it.
+ * of the screen's grid, and which way it is blowing — the field's again, and travelled there by the
+ * same read (`windTravelInto`, src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is
+ * blown nowhere, which is the picture drawn before there was a tail in it. Handed in whole rather
+ * than as the drift alone, because the direction is what a pass that displaces the field is offset
+ * along (0282) and the two are one reading of one population (principle 1).
  *
  * And `looks`, every whole-field move the standing rack is making, in the rack's own order and each
  * at the presence the picture has travelled to (`rackLooks`, src/ui/moireLooks.ts, 0279). The chain
@@ -535,7 +538,7 @@ export function paintMoire(
   seed: Readonly<FractalStops>,
   sounding: number,
   tint: Readonly<ScreenInk>,
-  wind: number,
+  wind: Readonly<MoireWind>,
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
 ): void {
@@ -592,10 +595,10 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color, tint, wind);
+  inkThrough(canvas, context, rows, color, tint, wind.drift);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
-  cutField(context, field, rows, looks, shape);
+  cutField(context, field, rows, looks, shape, wind.veer);
   context.globalCompositeOperation = "source-over";
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).

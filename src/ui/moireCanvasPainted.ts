@@ -12,7 +12,7 @@ import { paintMoire } from "@/ui/moireCanvas";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
-import type { Aim, MoireRow, ScreenInk } from "@/lib/moire";
+import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
 
 /**
  * The picture's ink where the travel has already finished — what these rows claim, arrived. A whole
@@ -100,9 +100,11 @@ export function painterOn(stubGlobal: StubGlobal) {
       // is painting through the ink the *first* frame's rows claimed, and has to hand its own in.
       tint = arrivedInk(rows, wash, age),
       // And how far the standing rack's own tail has blown the field, in turns of one cell of the
-      // screen's grid: nowhere unless a case says otherwise, which is the picture a dry rack draws
-      // (`windTravelInto`, src/ui/moireWind.ts, 0267).
-      wind = 0,
+      // screen's grid, and which way it is blowing: at rest unless a case says otherwise, which is
+      // exactly where a picture with no rack behind it starts (`windRest`, src/ui/moireWind.ts,
+      // 0267). A wind at rest is blowing nowhere yet, so a case about a pass that displaces the
+      // field along it has to hand in a wind that is blowing (0282).
+      wind = { drift: 0, veer: 0 },
       // And every whole-field look the standing rack is making: none unless a case says otherwise,
       // which is the picture drawn before there was anything in the rack (`rackLooks`,
       // src/ui/moireLooks.ts, 0279).
@@ -117,7 +119,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       seed?: FractalStops;
       sounding?: number;
       tint?: ScreenInk;
-      wind?: number;
+      wind?: MoireWind;
       looks?: readonly MoireLook[];
       shape?: MoireShape;
     } = {},
