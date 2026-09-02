@@ -753,6 +753,24 @@ export const rowOffset = (shape: number): number => (shape % FOLD_TURNS) / FOLD_
 const BEND_TURNS = 1 / (2 * BEND_SAMPLES);
 
 /**
+ * How many of its own fringes a row travels in one turn of its cycle — the picture's one rate of
+ * travel, and what makes the field read as distance crossed rather than as ink sliding over a
+ * lattice (0273). At one fringe a turn a row on an eight-second lane creeps a pixel a second and
+ * every row in the picture stands still against the screen; at several, a row on a short lane
+ * races and a row on a long one creeps, and that difference of rate is depth — parallax, with no
+ * size drawn for it anywhere.
+ *
+ * **A whole number, and that is the whole of the cost.** A grating repeats every fringe and a ring
+ * family every ring, so a travel of a whole number of them lands a turn's end on exactly the
+ * picture its start drew: the wrap is invisible for any integer and for no fraction. It is a term
+ * on the pattern's transform (`aim`, src/ui/moireCanvas.ts; `geometryZoom`, src/lib/moireGeometry.ts)
+ * and touches no tile key, so it costs no bake (0142, 0129). The one row it does not wrap cleanly
+ * on is a chirped one, whose tile holds the whole sweep and whose wrap was already a jump — this
+ * makes that jump this many times wider, and a chirp is a rare claim.
+ */
+export const DRIFT_TRAVEL_CYCLES = 6;
+
+/**
  * Where a row stands in its own cycle, in turns — what every motion in the picture is read off,
  * and the one place a row's own gesture is spent (0146). The read position is linear and this is
  * not: the lane's value where the row has reached carries it forward and back around its cycle, so

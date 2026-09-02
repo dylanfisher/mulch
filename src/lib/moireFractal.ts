@@ -374,6 +374,60 @@ export function fractalTravelInto(
 }
 
 /**
+ * How much of the wander band the picture *roams* through while the deck sounds, and the two
+ * clocks it roams on, in seconds.
+ *
+ * **The travel above moves the picture only when the population turns over**, and between two
+ * turnovers it stood on one point of the plane for as long as a place stood — twenty seconds of
+ * the same structure diving through itself. The roam is what makes the dive an exploration: a
+ * slow figure across the plane, on for as long as the deck sounds, so the picture is somewhere new
+ * in the notch at every level it flies through (0273).
+ *
+ * **It shares the band the travel is measured against and does not widen it** (0272): the band is
+ * what keeps every corner of a picture standing in structure, and a roam laid on top of the whole
+ * of it would carry the far corner off the boundary exactly as a wider band did. So the travel
+ * keeps one half and the roam has the other, both re-centred — a population's stop and the roam's
+ * rest both land on the notch, and the roam at its widest reaches the band's own edge and no
+ * further. The population's own move is half as visible for it, which is the trade: a move every
+ * turnover the eye reads as a picture that moved, against a picture that is always moving.
+ *
+ * **Two primes, so the figure never closes**: a roam on two clocks that come round together is a
+ * loop the eye learns, and one on two lengths with no common measure inside a performance is a
+ * path that is not the same twice. Both are longer than the flight's level and shorter than the
+ * age's reach, which is where a motion that is neither the breath nor the dive belongs.
+ *
+ * **On the sounding, and pure**, for the flight's own reason: a halt sends it back to rest with
+ * the flight and the age, and a function of the seconds needs no state, no carry across a rebuilt
+ * set and no field of the set's own (`carryFractal`, src/ui/moireCarry.ts). Continuous here and
+ * stepped where every other stop is (`placeCurved`, src/ui/moireCanvas.ts), so it costs a bake at
+ * a stop crossing and nothing between two.
+ */
+export const FRACTAL_ROAM = 0.5;
+export const FRACTAL_ROAM_SECS: readonly [number, number] = [89, 131];
+
+/**
+ * Where the picture stands on the plane once the roam is laid over the population's own travel,
+ * into `out`: the travel's stops, each pulled toward the band's centre by the roam's share and
+ * carried the rest of the way by a sine of the sounding — a sine, so nothing sounded stands at the
+ * centre of the roam's own half and a stop of one half still rests on the notch. The ratio and the
+ * turn are the population's alone and are copied through. Written in place and answering nothing,
+ * because it is filled once a painting (0070).
+ */
+export function fractalRoamInto(
+  out: FractalStops,
+  stops: Readonly<FractalStops>,
+  sounding: number,
+): void {
+  const roam = (stop: number, secs: number): number =>
+    stop * (1 - FRACTAL_ROAM) +
+    FRACTAL_ROAM * (0.5 + 0.5 * cosTurn(Math.max(0, sounding) / secs - 0.25));
+  out.cx = roam(stops.cx, FRACTAL_ROAM_SECS[0]);
+  out.cy = roam(stops.cy, FRACTAL_ROAM_SECS[1]);
+  out.ratio = stops.ratio;
+  out.turn = stops.turn;
+}
+
+/**
  * How much a rack is standing, whole: every place's presence, everywhere, added up. **The one
  * number "how busy is the rack" has**, because two of them would be two answers — a fractal row
  * reads it as how hard it cuts (`fractalCut`) and the row set reads it as how many scales every
@@ -504,9 +558,18 @@ export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
  * counted in windows would divide an unbounded sounding by a number that moves, which is many whole
  * turns of jump an hour into a performance and the whole band inside one frame. The length this
  * motion is a fraction of is the performance, and a performance is measured in seconds
- * (`DRIFT_AGE_REACH_SECS`, src/lib/moireAge.ts). Four minutes is a dozen of an automator's
- * turnovers, so the flight is the slow motion the travel is not, and several whole flights are over
- * before the picture is old.
+ * (`DRIFT_AGE_REACH_SECS`, src/lib/moireAge.ts). A level every half minute is a turnover or two of
+ * an automator's, so a whole level is crossed while a place stands and the dive is something the
+ * eye is shown rather than told about (0273) — and a good many whole flights are over before the
+ * picture is old.
+ *
+ * **And no faster than the shop can bake it.** Every stop of the flight is a picture-sized tile
+ * for each of the two rows, asked through a worker that bakes them one after another and drops
+ * none (`askWorker`, src/ui/driftTiles.ts): a stop asked for faster than one is baked is a queue
+ * that only grows, and the picture drawing the tile it last had (0144) falls further behind for
+ * as long as the deck sounds. Ninety seconds is a stop every two and a half seconds a row, which
+ * the pop-out's tiles keep up with; a faster dive is the shop learning to drop a stale order, and
+ * not a smaller number here.
  *
  * **The picture's and not a row's**, for the same reason its stops are (0248): the two fractal rows
  * are one structure, so one flight carries both and their beat stays the one `FRACTAL_BEAT` gives
@@ -521,11 +584,10 @@ export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
  * a fractal row's tile key (`fractalKeyed`), so unstepped it would ask for a picture-sized bake at
  * every frame of a whole performance (0129, 0142). `FRACTAL_ZOOM_STEPS` and not a count of its own,
  * because a value rounded before it reaches a tile is rounded onto the one ladder (principle 1) —
- * so a flight is three levels through eighteen stops each, one bake every four or five seconds a
- * row, against the two dozen a whole flight cost as a scale.
+ * so a flight is three levels through eighteen stops each.
  */
 export const FRACTAL_FLIGHT = 3;
-export const FRACTAL_FLIGHT_SECS = 4 * 60;
+export const FRACTAL_FLIGHT_SECS = 90;
 
 export const fractalFlight = (sounding: number): number =>
   sounding > 0

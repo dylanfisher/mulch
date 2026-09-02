@@ -49,6 +49,7 @@ import {
   DRIFT_CENTRE_REACH,
   DRIFT_CHIRP_REACH,
   DRIFT_REST,
+  DRIFT_TRAVEL_CYCLES,
   feedbackAlpha,
   LINEAR_GEOMETRY,
   TAU,
@@ -70,6 +71,7 @@ import {
   fractalRest,
   fractalSeedInto,
   fractalFlight,
+  fractalRoamInto,
   fractalStopsRest,
   fractalZoom,
   isFractalGeometry,
@@ -191,6 +193,13 @@ const order: DriftOrder = {
 const stepping: FractalStops = fractalStopsRest();
 
 /**
+ * And where the picture stands once its roam is laid over that travel, resolved once a pass beside
+ * the flight and for the flight's reason: the two fractal rows are one structure, and the roam is
+ * the field's (`fractalRoamInto`, src/lib/moireFractal.ts, 0273). Allocated once (0070).
+ */
+const roamed: FractalStops = fractalStopsRest();
+
+/**
  * One straight row's tile: `cycles` cycles of `profileBlock` across `span` pixels at full depth,
  * written as alpha, swept by `chirp` so the spacing opens at one edge and crowds at the other.
  * Through the same maths the screen's own gratings are drawn with, so there is one wave in this app
@@ -295,7 +304,7 @@ function aim(
   turnedScale(aimed, (pitch * cycles) / span, angle);
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  const slide = x * cos + y * sin - turns * pitch;
+  const slide = x * cos + y * sin - turns * pitch * DRIFT_TRAVEL_CYCLES;
   aimed.e = slide * cos;
   aimed.f = slide * sin;
   pattern.setTransform(aimed);
@@ -438,6 +447,10 @@ function cutGratings(
   // flight is the picture's and no row's, exactly as the plane its structure stands on is (0248,
   // 0261).
   const flight = fractalFlight(sounding);
+  // And where on its plane it has roamed to, off the same seconds, over the travel the read has
+  // carried it through: the structure a stop is baked at is where the roam has got to, and the
+  // stops the set carries are the population's own (0273).
+  fractalRoamInto(roamed, seed, sounding);
   const depth = gratingDepth(count, PICTURE_FLOOR);
   const ref = geometryRef(width, height);
   let at = -1;
@@ -485,7 +498,7 @@ function cutGratings(
       width,
       height,
       ref,
-      seed,
+      roamed,
       fractalZoom(turns, agedOpening(age)),
       flight,
     );

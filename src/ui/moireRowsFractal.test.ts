@@ -38,7 +38,7 @@ import {
 } from "@/lib/moireFractal";
 import { PLAIN_CUT, washedDepth } from "@/lib/moireSound";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
+import { loopStand, playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
 import { oneSong } from "@/lib/playerSongs";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
@@ -376,26 +376,30 @@ describe("the picture's own structure", () => {
    * still read as a layer over one (0235).
    */
   it("stands its rows on the ground the yard is reading, and both of them on the one ground", () => {
+    // A short loop at the top of a longer file, so a walk's ground has room to stand off the
+    // loop's own in-point — which is where the rows stand before the walk does (0274).
     const loop: Loop = { in: 0, out: 1 };
     const secs = 8;
     const period = playerRowPeriod(JUMPING);
     const { set, peek } = pictureOf(runOf("auto", "g0"), period);
     const structure = set.rows.filter((row) => isFractalGeometry(row.geometry));
     expect(structure).toHaveLength(2);
-    // A yard reading nowhere stands every row of the field at the rest it was built at.
+    // A yard whose walk stands nowhere stands every row of the field on its loop (0274).
     readAt(set, peek, ARRIVED, SILENT_MASTER, FRESH, loop, secs);
-    for (const row of structure) expect(row.centre).toBe(DRIFT_REST.centre);
+    const rest = loopStand(loop, secs) ?? Number.NaN;
+    for (const row of structure) expect(row.centre).toBe(rest);
     // And a ground standing carries both of them there — travelled and not written, like every
     // other row that rests on it: a frame of the move stands them between the two (0235).
     peek.player.step = { ...playerWalk(JUMPING)(), bed: 3 };
     const stood = playerRowStand(3, loop, secs)?.centre;
-    expect(stood).not.toBe(DRIFT_REST.centre);
+    expect(stood).not.toBe(rest);
     const ground = stood ?? 0;
-    readAt(set, peek, playerGroundSecs(period) / 4, SILENT_MASTER, FRESH, loop, secs);
+    // A sliver of the travel: the ground is a few sixteenths of a short loop from the in-point.
+    readAt(set, peek, playerGroundSecs(period) / 64, SILENT_MASTER, FRESH, loop, secs);
     for (const row of structure) {
-      expect(row.centre).not.toBe(DRIFT_REST.centre);
+      expect(row.centre).not.toBe(rest);
       expect(row.centre).not.toBe(ground);
-      expect(Math.abs(row.centre - ground)).toBeLessThan(Math.abs(DRIFT_REST.centre - ground));
+      expect(Math.abs(row.centre - ground)).toBeLessThan(Math.abs(rest - ground));
     }
     // And it arrives, through the one anchor the reference row and the wash are carried by rather
     // than a second reading of the same stretch (0185).

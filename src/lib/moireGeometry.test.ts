@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { fold } from "@/lib/copy";
 import type { DRIFT_GEOMETRIES } from "@/lib/moire";
-import { DRIFT_CHIRP_REACH, DRIFT_PICKED_GEOMETRIES, TAU } from "@/lib/moire";
+import { DRIFT_CHIRP_REACH, DRIFT_PICKED_GEOMETRIES, DRIFT_TRAVEL_CYCLES, TAU } from "@/lib/moire";
 import { FRACTAL_GEOMETRIES, fractalSeed, type FractalSeed } from "@/lib/moireFractal";
 import { PITCH_SPREAD } from "@/lib/moireGrating";
 import { DRIFT_PROFILES, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
@@ -121,13 +121,50 @@ describe("moireGeometry", () => {
       expect(zoom).toBeGreaterThanOrEqual(1);
       // What the picture shows at a point once the tile is drawn `zoom` larger about the anchor.
       const moved = at("radial", 0.7 / zoom, 0.3 / zoom);
-      expect(moved - at("radial", 0.7, 0.3)).toBeCloseTo(turns - 1, 9);
+      expect(moved - at("radial", 0.7, 0.3)).toBeCloseTo(-DRIFT_TRAVEL_CYCLES * turns, 9);
     }
-    // And it is never far from one, or the tile would be a blur rather than the picture's own size.
-    expect(geometryZoom("radial", 0, RINGS)).toBeLessThan(GEOMETRY_COVER);
+    // And it is never far from one, or the tile would be a blur rather than the picture's own size:
+    // the whole travel of a turn, and the rings are many.
+    expect(geometryZoom("radial", 0, RINGS)).toBe(1);
+    expect(geometryZoom("radial", 1 - 1e-9, RINGS)).toBeLessThan(
+      Math.exp(DRIFT_TRAVEL_CYCLES / RINGS) + 1e-9,
+    );
+    expect(geometryZoom("radial", 1 - 1e-9, RINGS)).toBeLessThan(1.2);
     // A straight row does not need it and a fan is the same fan at every scale, so neither takes it.
     expect(geometryZoom("linear", 0.5, RINGS)).toBe(1);
     expect(geometryZoom("fan", 0.5, RINGS)).toBe(1);
+  });
+
+  it("travels a whole number of rings a turn, so the wrap is the same tile", () => {
+    // 0273: the end of a turn is the start's own picture, which is what lets a row travel several
+    // rings a turn at no bake — the family repeats every ring, so the content the zoom has carried
+    // past a point at the top of the turn is a whole number of rings from what stood there.
+    for (const geometry of ["radial", "spiral"] as const) {
+      expect(geometryZoom(geometry, 1, RINGS)).toBe(geometryZoom(geometry, 0, RINGS));
+      const zoom = geometryZoom(geometry, 1 - 1e-12, RINGS);
+      const carried = at(geometry, 0.7 / zoom, 0.3 / zoom) - at(geometry, 0.7, 0.3);
+      expect(carried).toBeCloseTo(Math.round(carried), 6);
+      expect(Math.abs(carried)).toBeCloseTo(DRIFT_TRAVEL_CYCLES, 6);
+      // And outward through the turn: the rings open from the anchor, the way the flight dives.
+      expect(geometryZoom(geometry, 0.5, RINGS)).toBeGreaterThan(
+        geometryZoom(geometry, 0.1, RINGS),
+      );
+    }
+  });
+
+  it("walks a fan's apex round the circle a whole number of times a turn", () => {
+    // The same wrap for the one geometry that slides: the apex is back where it began at the end
+    // of every turn, and passes there once a circle on the way.
+    expect(geometrySlideX("fan", 1, PITCH)).toBeCloseTo(geometrySlideX("fan", 0, PITCH), 9);
+    expect(geometrySlideY("fan", 1, PITCH)).toBeCloseTo(geometrySlideY("fan", 0, PITCH), 9);
+    for (let circle = 0; circle < DRIFT_TRAVEL_CYCLES; circle += 1) {
+      const turns = circle / DRIFT_TRAVEL_CYCLES;
+      expect(geometrySlideX("fan", turns, PITCH)).toBeCloseTo(PITCH, 9);
+      expect(geometrySlideX("fan", turns + 0.5 / DRIFT_TRAVEL_CYCLES, PITCH)).toBeCloseTo(
+        -PITCH,
+        9,
+      );
+    }
   });
 
   it("walks a fan's apex round a circle a pitch across instead", () => {
@@ -138,7 +175,9 @@ describe("moireGeometry", () => {
       const y = geometrySlideY("fan", turns, PITCH);
       expect(Math.hypot(x, y)).toBeCloseTo(PITCH, 9);
     }
-    expect(geometrySlideX("fan", 0, PITCH)).not.toBeCloseTo(geometrySlideX("fan", 0.5, PITCH), 3);
+    // Half a circle on is the far side of it — and half a *turn* is a whole number of circles.
+    const half = 0.5 / DRIFT_TRAVEL_CYCLES;
+    expect(geometrySlideX("fan", 0, PITCH)).not.toBeCloseTo(geometrySlideX("fan", half, PITCH), 3);
     for (const geometry of ["linear", "radial", "spiral"] as const) {
       expect(geometrySlideX(geometry, 0.3, PITCH)).toBe(0);
       expect(geometrySlideY(geometry, 0.3, PITCH)).toBe(0);

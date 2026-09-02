@@ -11,7 +11,7 @@
  *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
  *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
-import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire.ts";
+import { cosTurn, DRIFT_TRAVEL_CYCLES, TAU, wrap, type DriftGeometry } from "./moire.ts";
 import { escapeTurns, nestedTurns, type FractalSeed } from "./moireFractal.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
 import { clamp } from "./range.ts";
@@ -191,30 +191,35 @@ export const chirpTurns = (t: number, cycles: number, chirp: number): number =>
   cycles * (t + (chirp / TAU) * Math.sin(TAU * t));
 
 /**
- * The zoom a ring family's phase is carried by: one turn of the row is one ring's spacing, which on
- * a logarithmic family is a scale rather than a slide. Never below one, because the tile is drawn
- * about the row's own anchor and a scale under one would leave the picture's far corner uncovered.
+ * The zoom a ring family's phase is carried by: one turn of the row is `DRIFT_TRAVEL_CYCLES` rings'
+ * spacing, which on a logarithmic family is a scale rather than a slide — and a whole number of
+ * rings, so the end of a turn is the start's own picture (0273). Never below one, because the tile
+ * is drawn about the row's own anchor and a scale under one would leave the picture's far corner
+ * uncovered. Growing through the turn rather than shrinking: the rings open outward from the
+ * anchor, which is the way through a structure the fractal flight already travels
+ * (`fractalFlight`, src/lib/moireFractal.ts), so a ring family and a fold move the same way.
  */
 export const geometryZoom = (geometry: DriftGeometry, turns: number, rings: number): number =>
   geometry === "radial" || geometry === "spiral"
-    ? Math.exp((1 - wrap(turns, 1)) / Math.max(1, rings))
+    ? Math.exp((DRIFT_TRAVEL_CYCLES * wrap(turns, 1)) / Math.max(1, rings))
     : 1;
 
 /**
  * How far a fan's apex wanders, in device pixels, to carry its phase. A fan is the one geometry a
  * scale does nothing to — it is the same fan at every size — so its phase is its apex travelling a
- * small circle instead, which sweeps every spoke past every point of the picture once a turn. The
- * circle is one pitch across, which is exactly one cycle at the reference radius. It is walked
- * about the row's own anchor, which is itself carried around its rest by the same phase (0229): a
- * fan therefore travels an ellipse rather than a circle, and the anchor is what says where that
- * ellipse is on the picture.
+ * small circle instead, which sweeps every spoke past every point of the picture once a circle.
+ * The circle is one pitch across, which is exactly one cycle at the reference radius, and it is
+ * walked `DRIFT_TRAVEL_CYCLES` times a turn — a whole number, so a turn ends where it began. It is
+ * walked about the row's own anchor, which is itself carried around its rest by the same phase
+ * (0229): a fan therefore travels an ellipse rather than a circle, and the anchor is what says
+ * where that ellipse is on the picture.
  */
 export const geometrySlideX = (geometry: DriftGeometry, turns: number, pitch: number): number =>
-  geometry === "fan" ? pitch * cosTurn(turns) : 0;
+  geometry === "fan" ? pitch * cosTurn(DRIFT_TRAVEL_CYCLES * turns) : 0;
 
 /** The other half of that circle. A quarter turn behind is the sine of the same angle. */
 export const geometrySlideY = (geometry: DriftGeometry, turns: number, pitch: number): number =>
-  geometry === "fan" ? pitch * cosTurn(turns - 0.25) : 0;
+  geometry === "fan" ? pitch * cosTurn(DRIFT_TRAVEL_CYCLES * turns - 0.25) : 0;
 
 /**
  * How far past the picture a curved row's tile is baked and drawn, as a ratio. The tile is the

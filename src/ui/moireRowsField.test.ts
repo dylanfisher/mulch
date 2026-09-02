@@ -58,7 +58,7 @@ import {
 import { crestFactor, peakMagnitude } from "@/lib/peaks";
 import { oneSong } from "@/lib/playerSongs";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
+import { loopStand, playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
@@ -317,13 +317,15 @@ describe("the picture's own field", () => {
     const field = rowAt(rows, -2);
     const peek = emptyDeckPeek();
     const wash = field.shape;
-    // A yard reading nowhere: no pattern is standing, so both rows rest exactly where they were
-    // built — the reference row on the zero no fold produces, and the field on its own name.
+    // No pattern standing: both rows keep the turn they were built with — the reference row on the
+    // zero no fold produces, and the field on its own name — and both anchor on the loop, which is
+    // the one place a yard whose walk stands nowhere is reading (`loopStand`, 0274).
     refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(reference.shape).toBe(0);
     expect(field.shape).toBe(wash);
-    expect(reference.centre).toBe(DRIFT_REST.centre);
-    expect(field.centre).toBe(DRIFT_REST.centre);
+    expect(reference.centre).toBe(loopStand(loop, secs));
+    expect(field.centre).toBe(loopStand(loop, secs));
+    expect(reference.centre).not.toBe(DRIFT_REST.centre);
 
     // A ground standing: the field is turned off the rest it was at, and the reference row is not.
     // The axis is the angle every other row is fanned either side of and is never fanned itself, so

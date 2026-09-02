@@ -27,6 +27,7 @@ import {
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   DRIFT_STEPS,
+  DRIFT_TRAVEL_CYCLES,
   driftedCentre,
   driftReached,
   EFFECT_ROW_PERIOD_SECS,
@@ -288,6 +289,15 @@ describe("moire", () => {
     expect(bendAt(FLAT_BEND, 0.7)).toBe(0.5);
     expect(bendAt([0, 1], 0.25)).toBeCloseTo(0.5, 9);
     expect(bendAt([0, 1], 1.25)).toBeCloseTo(bendAt([0, 1], 0.25), 9);
+  });
+
+  it("travels a whole number of fringes a turn", () => {
+    // 0273: the field reads as distance crossed because a row on a short lane races and one on a
+    // long lane creeps, and that costs no bake only while a turn ends on the picture it began —
+    // a grating repeats every fringe, so the travel has to be whole, and it has to be more than
+    // the one fringe a turn that stood every row still against the screen.
+    expect(Number.isInteger(DRIFT_TRAVEL_CYCLES)).toBe(true);
+    expect(DRIFT_TRAVEL_CYCLES).toBeGreaterThan(1);
   });
 
   it("gives a dimension no value reaches what a row has always had", () => {

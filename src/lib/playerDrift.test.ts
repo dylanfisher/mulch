@@ -10,7 +10,13 @@ import { describe, expect, it } from "vitest";
 
 import { EFFECT_ROW_PERIOD_SECS } from "./moire.ts";
 import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
-import { PLAYER_GROUND_TRAVEL, playerGroundSecs, playerRowPeriod } from "./playerDrift.ts";
+import {
+  loopStand,
+  PLAYER_GROUND_TRAVEL,
+  playerGroundSecs,
+  playerRowPeriod,
+  playerRowStand,
+} from "./playerDrift.ts";
 import { oneSong } from "./playerSongs.ts";
 import type { PlayerSpec } from "./player.ts";
 
@@ -22,6 +28,25 @@ const jumping = (burst: number): PlayerSpec => ({
   // One repeat, so the landing the dials say is the burst itself and the case is about the burst.
   repeats: 1,
   songs: oneSong([]),
+});
+
+describe("loopStand", () => {
+  it("anchors a yard that is jumping nowhere on its loop's own in-point", () => {
+    // 0274: a loop is a place the yard really is reading, so it is a ground whether or not a walk
+    // is standing in it — and it is measured from the same place the walk's ground is, so a ground
+    // of zero inside the loop and the loop itself are the one anchor (principle 1).
+    const loop = { in: 4, out: 6 };
+    expect(loopStand(loop, 16)).toBe(4 / 16);
+    expect(loopStand(loop, 16)).toBe(playerRowStand(0, loop, 16)?.centre);
+    expect(loopStand({ in: 0, out: 2 }, 16)).toBe(0);
+  });
+
+  it("rests a yard with no loop and one with no source, exactly as the walk's ground does", () => {
+    expect(loopStand(null, 16)).toBe(null);
+    expect(loopStand({ in: 4, out: 6 }, 0)).toBe(null);
+    expect(playerRowStand(0, null, 16)).toBe(null);
+    expect(playerRowStand(0, { in: 4, out: 6 }, 0)).toBe(null);
+  });
 });
 
 describe("playerGroundSecs", () => {

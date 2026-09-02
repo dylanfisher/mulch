@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { effectParamDefaults } from "@/audio/params";
 import { DRIFT_CENTRE_REACH, DRIFT_STEPS, type MoireRow } from "@/lib/moire";
 import {
+  FRACTAL_FLIGHT,
   FRACTAL_FLIGHT_SECS,
   fractalStopsRest,
   fractalTravelSecs,
@@ -523,6 +524,34 @@ describe("moireCanvas tiles", () => {
     // And a sounding that has moved inside one stop of the ladder is exactly the picture it was —
     // as is where the picture was first drawn, which the shop is still holding.
     expect(bakedAt(whole / 2 + 1e-6)).toBe(0);
+    expect(bakedAt(0)).toBe(0);
+  });
+
+  it("roams a fractal row's tile across the plane as the yard sounds, and asks for none between two stops", () => {
+    // 0273: the roam is laid over the population's travel on the performance's own clock, so it
+    // lands in the tile's key through the stops the travel already steps on. A whole flight's
+    // wrap on is the same level of the structure, and the picture has roamed somewhere else in it.
+    forgetDriftTiles();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    standingOn(set, ONE_PLACE);
+    const level = FRACTAL_FLIGHT_SECS / FRACTAL_FLIGHT;
+    const bakedAt = (sounding: number): number =>
+      baked(
+        paintedOn(100, 50, set.rows, 2, WINDOW, {
+          frames: 3,
+          advance: 0,
+          seed: set.seed,
+          sounding,
+        }),
+        100,
+      );
+    const fresh = bakedAt(0);
+    expect(fresh).toBeGreaterThan(0);
+    // The same level of the flight, exactly a level on — and a new tile, because the roam has
+    // carried the picture a stop across the plane in the meantime.
+    expect(bakedAt(level)).toBe(fresh);
+    // And back where it began is the tile the shop is still holding.
     expect(bakedAt(0)).toBe(0);
   });
 

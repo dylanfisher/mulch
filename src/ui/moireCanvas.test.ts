@@ -22,7 +22,12 @@ import {
 } from "@/audio/params";
 import { fold } from "@/lib/copy";
 import { fractalStopsRest } from "@/lib/moireFractal";
-import { DRIFT_FEEDBACK_CEILING, feedbackAlpha, type MoireRow } from "@/lib/moire";
+import {
+  DRIFT_FEEDBACK_CEILING,
+  DRIFT_TRAVEL_CYCLES,
+  feedbackAlpha,
+  type MoireRow,
+} from "@/lib/moire";
 import { runFeedback } from "@/lib/moireAge";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
@@ -381,6 +386,27 @@ describe("moireCanvas", () => {
     const round = paintedOn(400, 128, [row({ period: 4, phase: 4 })]).aims;
     expect(round[0]?.e).toBeCloseTo(still[0]?.e ?? 0, 9);
     expect(pitchOf(round[0])).toBeCloseTo(pitchOf(still[0]), 9);
+  });
+
+  it("carries a straight row several fringes a turn, and a whole turn on is still the same picture", () => {
+    // 0273: a row on a short lane races and one on a long lane creeps, which is what reads as
+    // distance crossed — a quarter of the way round is a quarter of the whole travel along the
+    // row's own axis, and the travel is a whole number of the row's fringes.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const still = paintedOn(400, 128, [row({ period: 4, phase: 0 })]).aims;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const quarter = paintedOn(400, 128, [row({ period: 4, phase: 1 })]).aims;
+    const first = still[0];
+    const moved = quarter[0];
+    if (first === undefined || moved === undefined) throw new Error("no grating was aimed");
+    const along = Math.hypot(moved.e - first.e, moved.f - first.f);
+    expect(along).toBeCloseTo((DRIFT_TRAVEL_CYCLES * pitchOf(first) * TILE_PX) / 4, 6);
+    expect(Number.isInteger(DRIFT_TRAVEL_CYCLES)).toBe(true);
+    // And exactly a turn on, the picture the turn began with: the wrap is invisible.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const round = paintedOn(400, 128, [row({ period: 4, phase: 4 })]).aims;
+    expect(round[0]?.e).toBeCloseTo(first.e, 9);
+    expect(round[0]?.f).toBeCloseTo(first.f, 9);
   });
 
   it("never draws a grating finer than the pixels can carry, at any window", () => {

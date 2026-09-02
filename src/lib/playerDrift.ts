@@ -245,11 +245,27 @@ export const playerRowStand = (
 ): { centre: number; ground: number } | null => {
   if (bed === null || loop === null || duration <= 0) return null;
   const stood = bedGround(loop.in, loop.out - loop.in, duration, bed);
-  return {
-    centre: denormalize(normalize(stood.in, 0, duration), 0, DRIFT_CENTRE_REACH),
-    ground: stood.on,
-  };
+  return { centre: standingCentre(stood.in, duration), ground: stood.on };
 };
+
+/**
+ * Where a stretch of the file beginning `at` seconds anchors the picture: how far into the source
+ * it is, on the anchor's own reach. The one arithmetic both stands below are, so a loop and the
+ * ground a walk reads inside it are measured from the same place (principle 1).
+ */
+const standingCentre = (at: number, duration: number): number =>
+  denormalize(normalize(at, 0, duration), 0, DRIFT_CENTRE_REACH);
+
+/**
+ * Where a yard that is jumping nowhere anchors the picture: on its loop's own in-point (0274). A
+ * loop is a place the yard really is reading whether or not a walk is standing in it, so a hand
+ * moving the loop across the file is a ground move like a jump is, and the field travels to it
+ * (`easedCentre`, src/lib/moire.ts, 0235) instead of standing in the middle of the picture while
+ * every phase in it restacks. Null on a yard with no loop and on a source of no length, which
+ * are reading nowhere and rest — exactly the two answers `playerRowStand` gives.
+ */
+export const loopStand = (loop: Loop | null, duration: number): number | null =>
+  loop === null || duration <= 0 ? null : standingCentre(loop.in, duration);
 
 /**
  * The identity the song's row draws while the walk stands in no place at all — a pattern holding no

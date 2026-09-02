@@ -34,10 +34,13 @@ import {
   FRACTAL_LEVEL_CYCLES,
   FRACTAL_OPENING,
   FRACTAL_RATIO_BAND,
+  FRACTAL_ROAM,
+  FRACTAL_ROAM_SECS,
   fractalCut,
   fractalKeyed,
   fractalKind,
   fractalRest,
+  fractalRoamInto,
   fractalRule,
   fractalSeed,
   fractalSeedInto,
@@ -438,6 +441,74 @@ describe("the flight", () => {
     // And it does fly: two whole flights climb every rung of six whole levels, and wrap once at
     // the top of each — the wrap being the one move that is not a move, since it is the same tile.
     expect(moved).toBe(2 * FRACTAL_FLIGHT * (FRACTAL_ZOOM_STEPS + 1));
+  });
+});
+
+/** Whether `n` has no measure but itself — what makes two roam clocks never come round together. */
+const prime = (n: number): boolean => {
+  for (let d = 2; d * d <= n; d += 1) if (n % d === 0) return false;
+  return n > 1;
+};
+
+describe("the roam", () => {
+  /**
+   * 0273: the roam shares the band with the population's travel and re-centres both, so a picture
+   * that has sounded nothing stands on the notch exactly as it did before there was a roam, and
+   * stays there however the sounding is read while the deck is halted.
+   */
+  it("rests on the notch with nothing sounded, and halts there", () => {
+    const out = fractalStopsRest();
+    fractalRoamInto(out, fractalStopsRest(), 0);
+    expect(out).toEqual(fractalStopsRest());
+    fractalRoamInto(out, fractalStopsRest(), -3);
+    expect(out).toEqual(fractalStopsRest());
+    // And a population that has travelled keeps its own half of the band, from the notch.
+    fractalRoamInto(out, { cx: 1, cy: 0, ratio: 0.3, turn: 0.7 }, 0);
+    expect(out.cx).toBeCloseTo(0.5 + 0.5 * (1 - FRACTAL_ROAM), 12);
+    expect(out.cy).toBeCloseTo(0.5 - 0.5 * (1 - FRACTAL_ROAM), 12);
+  });
+
+  /** The band is the bound 0272 measured, and the roam widens it by nothing at either extreme. */
+  it("stays inside the band with the travel at any stop, and reaches its edge", () => {
+    const out = fractalStopsRest();
+    let widest = 0;
+    for (const cx of [0, 0.5, 1]) {
+      for (const cy of [0, 0.5, 1]) {
+        for (
+          let sounding = 0;
+          sounding < FRACTAL_ROAM_SECS[0] * FRACTAL_ROAM_SECS[1];
+          sounding += 1
+        ) {
+          fractalRoamInto(out, { cx, cy, ratio: 0, turn: 0 }, sounding);
+          expect(out.cx).toBeGreaterThanOrEqual(0);
+          expect(out.cx).toBeLessThanOrEqual(1);
+          expect(out.cy).toBeGreaterThanOrEqual(0);
+          expect(out.cy).toBeLessThanOrEqual(1);
+          widest = Math.max(widest, out.cx, out.cy);
+        }
+      }
+    }
+    expect(widest).toBeCloseTo(1, 3);
+  });
+
+  /** Two lengths with no common measure, so the figure the picture roams is never the same twice. */
+  it("roams on two clocks that never come round together", () => {
+    const [across, down] = FRACTAL_ROAM_SECS;
+    expect(prime(across)).toBe(true);
+    expect(prime(down)).toBe(true);
+    expect(across).not.toBe(down);
+    // One clock round is the other clock somewhere else entirely.
+    const out = fractalStopsRest();
+    fractalRoamInto(out, fractalStopsRest(), across);
+    expect(out.cx).toBeCloseTo(0.5, 9);
+    expect(out.cy).not.toBeCloseTo(0.5, 2);
+  });
+
+  it("leaves the ratio and the turn to the population", () => {
+    const out = fractalStopsRest();
+    fractalRoamInto(out, { cx: 0.5, cy: 0.5, ratio: 0.2, turn: 0.9 }, 37);
+    expect(out.ratio).toBe(0.2);
+    expect(out.turn).toBe(0.9);
   });
 });
 

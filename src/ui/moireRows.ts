@@ -87,6 +87,7 @@ import {
   type SourceCut,
 } from "@/lib/moireSound";
 import {
+  loopStand,
   playerGroundSecs,
   playerRow,
   playerRowStand,
@@ -265,10 +266,26 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
  * without a second author of it (principle 1). A loop like `standingPart` above for the reason that
  * one is a loop: this walk allocates nothing.
  */
-function groundTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): number {
+function groundTravel(
+  rows: readonly MoireRow[],
+  reads: readonly RowRead[],
+  sounding: boolean,
+): number {
   for (let index = 0; index < reads.length; index += 1) {
     const read = reads[index];
     if (read === undefined || read.tier === null) continue;
+    return playerGroundSecs(rows[index]?.period ?? 0);
+  }
+  // A yard jumping nowhere still has a ground — its loop (`loopStand`, 0274) — and the one length
+  // that ground's own move can be a fraction of is the loop, which is the reference row's period:
+  // a loop nudged a beat along slides and one dragged across the file sweeps, and both are over
+  // inside the loop they are about. Only while the yard sounds, for the ink's reason below: a
+  // halted picture is painted on a commit and never on a frame (0144), so a loop moved on a
+  // stopped yard arrives outright rather than stranding the field mid-travel.
+  if (!sounding) return 0;
+  for (let index = 0; index < reads.length; index += 1) {
+    const read = reads[index];
+    if (read === undefined || read.heard === null) continue;
     return playerGroundSecs(rows[index]?.period ?? 0);
   }
   return 0;
@@ -538,12 +555,15 @@ export function refillRows(
   // the walk is standing beside it, for the same reason: a tier row resolving the standing part for
   // itself would walk the arrangement three times a painting.
   const stand = playerRowStand(peek.player.step?.bed ?? null, loop, duration);
-  const groundCentre = stand === null ? DRIFT_REST.centre : stand.centre;
+  // And a yard jumping nowhere stands on its loop, which is a place it really is reading: a hand
+  // moving the loop across the file is a ground move like a jump is, and the field travels to it
+  // (`loopStand`, 0274). Only a yard with no loop at all rests in the middle of the picture.
+  const groundCentre = stand?.centre ?? loopStand(loop, duration) ?? DRIFT_REST.centre;
   const groundOn = stand === null ? null : stand.ground;
   const place = peek.player.step?.place ?? null;
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
-  const travel = groundTravel(rows, reads);
+  const travel = groundTravel(rows, reads, peek.sounding > 0);
   // And one step of the picture's own travel, across the plane its structure stands on. Here in the
   // prologue and never inside the walk: the two fractal rows are one structure, so a step taken per
   // row would take it twice (0246, 0248).
