@@ -7,8 +7,8 @@
  *   src/lib/moireGeometry.ts. How many automators are standing, read off the rack and travelled →
  *   src/ui/moireShape.ts. The bench picture this came off → src/ui/sketch/sketchDrift.ts.
  */
-import { DRIFT_STEPS, TAU, wrap } from "./moire";
-import { snapToStep } from "./range";
+import { DRIFT_STEPS, TAU, wrap } from "./moire.ts";
+import { snapToStep } from "./range.ts";
 
 /**
  * How many folds the picture takes at most, whatever the rack holds. Four folds are sixteen images

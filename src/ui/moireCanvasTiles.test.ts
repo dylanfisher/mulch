@@ -45,6 +45,8 @@ import { screenInkRest, stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import { shapeRest } from "@/ui/moireShape";
+import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
+import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
 
 /**
  * A read with all the time in the world behind it, which is a ground move that has already finished
@@ -151,6 +153,7 @@ const readRows = (
     STOOD,
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
 };
 
@@ -175,6 +178,7 @@ const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
     set.toward,
     set.ink,
     set.jolt,
+    shapeRest(),
   );
 };
 
@@ -446,6 +450,7 @@ describe("moireCanvas tiles", () => {
           set.toward,
           set.ink,
           set.jolt,
+          shapeRest(),
         );
       },
     });
@@ -585,8 +590,9 @@ describe("moireCanvas tiles", () => {
     const first = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
     expect(first.surfaces[0]?.drew).toHaveLength(0);
     // Three tiles asked for and no two of them one tile: the structure's two rows are each on a
-    // breath of their own, so what one of them falls back to is never the other's picture.
-    expect(new Set(worker.asked.map((one) => one.key)).size).toBe(3);
+    // breath of their own, so what one of them falls back to is never the other's picture. And a
+    // fourth, the lattice's own cell, which is a pattern and is never drawn as a tile (0278).
+    expect(new Set(worker.asked.map((one) => one.key)).size).toBe(4);
     worker.answer();
     const held = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
     expect(held.surfaces[0]?.drew).toHaveLength(3);
@@ -680,5 +686,39 @@ describe("moireCanvas tiles", () => {
         expect(Math.abs(alpha(x, 24 - k) - alpha(x, 24 + k))).toBeLessThanOrEqual(1);
       }
     }
+  });
+  it("bakes the lattice's cell once a rim stop, square, and asks for nothing when it tightens", () => {
+    // The lattice is a pattern: one cell, its own size whatever the picture's, and everything a
+    // frame does to it is a matrix — so a lattice tightening, turning or breathing asks the shop for
+    // nothing, and only the rim's width, which is baked, asks for a cell (0278).
+    const worker = standInPort();
+    forgetDriftTiles(worker.make);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null);
+    standingOn(set, new Map());
+    const cells = () => worker.asked.filter((one) => one.geometry === LATTICE_GEOMETRY);
+    paintedOn(100, 50, set.rows, 3, WINDOW, { frames: 1, shape: { ...shapeRest(), cells: 2 } });
+    expect(cells()).toHaveLength(1);
+    expect(cells()[0]?.width).toBe(LATTICE_TILE_PX);
+    expect(cells()[0]?.height).toBe(LATTICE_TILE_PX);
+    worker.answer();
+    vi.stubGlobal("devicePixelRatio", 2);
+    paintedOn(100, 50, set.rows, 3, WINDOW, {
+      frames: 1,
+      shape: { ...shapeRest(), cells: 3.5, lean: 0.1 },
+    });
+    expect(cells()).toHaveLength(1);
+    // A picture of another size shares the cell: it is not a place.
+    vi.stubGlobal("devicePixelRatio", 2);
+    paintedOn(400, 128, set.rows, 3, WINDOW, { frames: 1, shape: { ...shapeRest(), cells: 3.5 } });
+    expect(cells()).toHaveLength(1);
+    // And the ink dispersed all the way is a rim a stop wider, which is one more cell, keyed apart.
+    vi.stubGlobal("devicePixelRatio", 2);
+    paintedOn(100, 50, set.rows, 3, WINDOW, {
+      frames: 1,
+      tint: { ...screenInkRest(), disperse: DRIFT_DISPERSE_REACH },
+    });
+    expect(cells()).toHaveLength(2);
+    expect(cells()[0]?.key).not.toBe(cells()[1]?.key);
   });
 });

@@ -7,7 +7,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { isDriftGeometry, LINEAR_GEOMETRY, STRAIGHT_DIMENSIONS } from "@/lib/moire";
-import { isFractalGeometry } from "@/lib/moireFractal";
+import { isFieldGeometry } from "@/lib/moireLattice";
 import { RESERVED_PROFILES } from "@/lib/moireProfiles";
 
 import { compressorEffect } from "./compressor";
@@ -127,10 +127,11 @@ export function validateEffects(effects: readonly Effect[]): void {
     // And the coordinate it cuts them along. Not claimed exclusively the way the wave is — two
     // rooms are both radial — so what is refused here is a geometry the picture has no maths for,
     // which would otherwise reach the painter as a row nothing draws (0122, 0142); and one it has
-    // maths for that no plugin may wear, which is either of the two a fractal has — those are a
-    // picture of the whole run an automator is standing, and an effect claiming one would have the
-    // picture say a plugin was doing what the arrangement is doing (0246).
-    if (!isDriftGeometry(effect.geometry) || isFractalGeometry(effect.geometry)) {
+    // maths for that no plugin may wear, which is any of the three the field owns — the two a
+    // fractal has are a picture of the whole run an automator is standing and the lattice of the
+    // whole rack, and an effect claiming one would have the picture say a plugin was doing what
+    // the arrangement is doing (0246, 0278).
+    if (!isDriftGeometry(effect.geometry) || isFieldGeometry(effect.geometry)) {
       throw new Error(`unknown effect drift geometry: ${effect.id}`);
     }
     // And how its own values reach that row, answered here for the same reason (0122, 0139): an

@@ -34,7 +34,7 @@ import { effectById } from "@/audio/effects/registry";
 import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreen";
-import { rackShape, shapeRest } from "@/ui/moireShape";
+import { rackShape, shapeRest, type MoireShape } from "@/ui/moireShape";
 import { rackShatter } from "@/ui/moireShatter";
 import { rackWind, windRest } from "@/ui/moireWind";
 import {
@@ -100,6 +100,8 @@ import {
   laneRead,
   macroInto,
   fractalHeard,
+  latticeHeard,
+  latticeInto,
   READS_NOTHING,
   ROW_KEYS,
   referenceInto,
@@ -405,6 +407,14 @@ export function moireRows(
   // the picture's own structure, cut as a grating so every other row beats against it (0131, 0246).
   // After the octaves, because it is not one of the straight rows they are spread over.
   fractalInto(rows, reads, macro.windowSecs, grown);
+  // And the one row that is a picture of the rack standing at all, over everything: a lattice
+  // whenever anything unbypassed is in the rack, and none over an empty one (`latticeInto`, 0278).
+  latticeInto(
+    rows,
+    reads,
+    macro.windowSecs,
+    effects.some((instance) => !instance.bypassed),
+  );
   // Last, because it is the whole set's bound and not any one row's: every copy past the first is
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
@@ -539,6 +549,7 @@ export function refillRows(
   toward: Readonly<FractalStops>,
   ink: ScreenInk,
   jolt: MoireJolt,
+  shape: Readonly<MoireShape>,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -670,6 +681,12 @@ export function refillRows(
       // own travel across the plane is the population's and is taken in the prologue above.
       row.centre = ground;
       fractalHeard(row, peek.grown, master, age);
+    }
+    // And the lattice over the whole of it: anchored on the ground for the fractal's reason, so a
+    // jump travels the point it turns about, and cut as loud as the output is (`latticeHeard`).
+    if (read.lattice) {
+      row.centre = ground;
+      latticeHeard(row, shape);
     }
     if (read.tier !== null) playerTierInto(row, read.tier, place, part, ground);
     if (read.lane !== null) {

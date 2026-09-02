@@ -50,6 +50,7 @@ import { carryFractal } from "@/ui/moireCarry";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { MoireRowSet } from "@/ui/moireRowsField";
+import { shapeRest } from "@/ui/moireShape";
 
 /** One place an automator is standing, at its whole presence, which is a place in the picture. */
 const place = (instance: EffectInstanceId): GrownEffect => ({
@@ -135,6 +136,7 @@ const readAt = (
     set.toward,
     set.ink,
     set.jolt,
+    shapeRest(),
   );
 };
 
@@ -242,6 +244,7 @@ describe("the picture's own structure", () => {
         set.toward,
         set.ink,
         set.jolt,
+        shapeRest(),
       );
       expect(set.seed).toEqual(fractalStopsRest());
     }
@@ -322,6 +325,7 @@ describe("the picture's own structure", () => {
         set.toward,
         set.ink,
         set.jolt,
+        shapeRest(),
       );
       return fractalRow(set.rows).depth;
     };

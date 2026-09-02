@@ -31,6 +31,7 @@ import {
 import { runFeedback } from "@/lib/moireAge";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
+import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import {
   DRIFT_PROFILES,
   PLAIN_PROFILE,
@@ -53,6 +54,7 @@ import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
 import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { shapeRest } from "@/ui/moireShape";
 import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -183,6 +185,7 @@ const runRows = (): MoireRow[] => {
     set.toward,
     set.ink,
     set.jolt,
+    shapeRest(),
   );
   return set.rows;
 };
@@ -222,6 +225,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
     STOOD,
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
   return rows;
 };
@@ -472,7 +476,9 @@ describe("moireCanvas", () => {
     vi.stubGlobal("devicePixelRatio", 1);
     const again = paintedOn(400, 128, rackRows({ id: "fx1", effect: "delay", params: dry }));
     // One grating each, and the same instance set the same way twice is the same picture twice:
-    // the ink it cuts with is its mix and the place it is measured from is its time.
+    // the ink it cuts with is its mix and the place it is measured from is its time. The lattice
+    // the rack stands in is in the set and cuts nothing until a read has said how loud the output
+    // is (`latticeHeard`), and no read has.
     expect(near.cuts).toHaveLength(1);
     expect(near.cuts[0]?.alpha).toBeCloseTo(again.cuts[0]?.alpha ?? 0, 9);
     expect(near.aims[0]?.e).toBeCloseTo(again.aims[0]?.e ?? 0, 9);
@@ -490,8 +496,9 @@ describe("moireCanvas", () => {
     const both = paintedOn(400, 128, rack);
     // One cut per row the yard builds — the two instances, and behind them the grating on the whole
     // yard coming round, which a yard of two periods gets and a yard of one does not (0143), so the
-    // count is read off the set rather than written down here. The instance rows are the first two.
-    expect(both.cuts).toHaveLength(rack.length);
+    // count is read off the set rather than written down here — less the lattice, which no read
+    // has cut yet. The instance rows are the first two.
+    expect(both.cuts).toHaveLength(rack.length - 1);
     expect(rack.length).toBeGreaterThan(1);
     let apartFromOne = 0;
     let apartFromTwo = 0;
@@ -676,5 +683,43 @@ describe("moireCanvas", () => {
       );
       expect(taken.reduce((sum, value) => sum + value, 0) / TILE_PX).toBeCloseTo(0.5, 2);
     }
+  });
+  it("lays the lattice as one cell repeated, turned off the axis and the same a whole period on", () => {
+    // The lattice is the straight rows' own pattern path with a cell for a tile: its scale is the
+    // picture's height over the cells the shape says, its turn is off the axis by the lean, and a
+    // whole period on it is the same matrix — a quarter turn and a cell along being symmetries of a
+    // square lattice, so the wrap is invisible (0278).
+    const rows = rackRows({ id: "fx1", effect: "delay" });
+    const lattice = rows.find((each) => each.geometry === LATTICE_GEOMETRY);
+    if (lattice === undefined) throw new Error("the rack stands in no lattice");
+    lattice.depth = 0.5;
+    const shape = { ...shapeRest(), cells: 2, lean: 0.1 };
+    vi.stubGlobal("devicePixelRatio", 1);
+    const laid = paintedOn(400, 128, rows, 3, WINDOW, { shape });
+    // Cut like every other row, through a fill and not a draw.
+    expect(laid.cuts).toHaveLength(2);
+    expect(laid.surfaces[0]?.drew).toEqual([]);
+    const aim = laid.aims.at(-1);
+    if (aim === undefined) throw new Error("the lattice was not aimed");
+    expect(aim.b).not.toBeCloseTo(0, 9);
+    expect(aim.c).not.toBeCloseTo(0, 9);
+    expect(Math.hypot(aim.a, aim.b)).toBeCloseTo(128 / 2 / LATTICE_TILE_PX, 9);
+    // Tighter is smaller, and nothing else about it moves.
+    vi.stubGlobal("devicePixelRatio", 1);
+    const tight = paintedOn(400, 128, rows, 3, WINDOW, { shape: { ...shape, cells: 4 } }).aims.at(
+      -1,
+    );
+    expect(Math.hypot(tight?.a ?? 0, tight?.b ?? 0)).toBeCloseTo(128 / 4 / LATTICE_TILE_PX, 9);
+    expect(Math.atan2(tight?.b ?? 0, tight?.a ?? 0)).toBeCloseTo(Math.atan2(aim.b, aim.a), 9);
+    // A whole period on is the same matrix.
+    const later = rows.slice();
+    later[rows.indexOf(lattice)] = { ...lattice, phase: lattice.period };
+    vi.stubGlobal("devicePixelRatio", 1);
+    const period = paintedOn(400, 128, later, 3, WINDOW, { shape }).aims.at(-1);
+    for (const term of ["a", "b", "c", "d", "e", "f"] as const) {
+      expect(period?.[term]).toBeCloseTo(aim[term], 9);
+    }
+    // And a rack holding nothing lays no lattice at all.
+    expect(rackRows().some((each) => each.geometry === LATTICE_GEOMETRY)).toBe(false);
   });
 });

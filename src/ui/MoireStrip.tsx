@@ -310,6 +310,7 @@ function useMoireRows(
       set.toward,
       set.ink,
       set.jolt,
+      set.shape,
     );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);

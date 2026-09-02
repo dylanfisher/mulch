@@ -44,6 +44,7 @@ import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { heardBeat, heardBite, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import type { MoireJolt } from "@/ui/moireJolt";
 import type { MoireShape, MoireShaping } from "@/ui/moireShape";
+import { LATTICE_GEOMETRY, latticeCut } from "@/lib/moireLattice";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
@@ -141,6 +142,12 @@ export type RowRead = {
    * at nothing, a yard growing nothing having no fractal row at all.
    */
   fractal: boolean;
+  /**
+   * And the row that is a picture of how much rack is standing at all: the lattice, whose cell
+   * count, lean and breath are the field's shape and whose depth is how loud the output is
+   * (`latticeInto`, 0278). A flag for the fractal's reason — a rack holding nothing has no lattice.
+   */
+  lattice: boolean;
 };
 
 /** The colour nothing is carrying, shared: a per-frame read allocates nothing (0070). */
@@ -161,6 +168,7 @@ export const READS_NOTHING: RowRead = {
   heard: null,
   session: false,
   fractal: false,
+  lattice: false,
 };
 
 /**
@@ -193,6 +201,7 @@ export const ROW_KEYS = {
   wash: "wash",
   session: "session",
   fractal: "fractal:",
+  lattice: "lattice",
 } as const;
 
 /**
@@ -600,6 +609,48 @@ export function fractalInto(
  * what the output does to it — and this half touches one row rather than the arrays the read and
  * the builder must keep index-for-index.
  */
+/**
+ * The lattice's own identity: one row, folded off its own name the way the macro row is, because
+ * it belongs to no parameter and no instance and stands whenever anything does.
+ */
+const LATTICE_SHAPE = fold("the lattice the rack stands in");
+
+/**
+ * The one row that is a picture of the rack standing at all, onto a picture whose rack holds
+ * anything unbypassed — and nothing onto one whose rack is empty, which is the picture drawn before
+ * there was a rack in it. Cut along the lattice, which is a cell repeated rather than a place, so
+ * how tight, how turned and how breathed it is are the field's shape and cost the painter a fill
+ * (`cutLattice`, src/ui/moireCanvas.ts, 0278); built at nought depth like the fractal rows and
+ * filled by the read (`latticeHeard`), so a lattice arriving with a rack's first entry fades in
+ * by its arrival and never in one step (`carryArrivals`).
+ *
+ * One period, the window's own, so its rotation and its breath come round with the picture. After
+ * the fractal rows, because it stands over everything and is the last thing the rack owns.
+ */
+export function latticeInto(
+  rows: MoireRow[],
+  reads: RowRead[],
+  windowSecs: number,
+  standing: boolean,
+): void {
+  if (windowSecs <= 0 || !standing) return;
+  rows.push({
+    ...plainRow(windowSecs, LATTICE_SHAPE, false),
+    geometry: LATTICE_GEOMETRY,
+    depth: 0,
+  });
+  reads.push({ ...READS_NOTHING, key: ROW_KEYS.lattice, lattice: true });
+}
+
+/**
+ * And how hard the lattice cuts this frame: off how loud the output is, already travelled onto the
+ * shape (`shapeTravelInto`, src/ui/moireShape.ts), so the gutter thickens on a hit over the shape's
+ * own short window and never between two frames. Written in place (0070).
+ */
+export function latticeHeard(row: MoireRow, shape: Readonly<MoireShape>): void {
+  row.depth = latticeCut(shape.loud);
+}
+
 export function fractalHeard(
   row: MoireRow,
   grown: DeckPeek["grown"],

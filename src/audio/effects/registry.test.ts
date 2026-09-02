@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+
+import { LATTICE_GEOMETRY } from "@/lib/moireLattice";
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copyNames";
 import {
@@ -327,6 +329,15 @@ describe("effect registry", () => {
       // registry from outside its own literal, which is what a plugin written by hand is.
       // oxlint-disable-next-line no-unsafe-type-assertion
       validateEffects([{ ...bent, geometry: "helix" as DriftGeometry }]);
+    }).toThrow(/unknown effect drift geometry: bent/u);
+  });
+
+  it("rejects an effect cut along the lattice, which is the field's own", () => {
+    // The lattice is a picture of how much rack is standing, as the two fractal coordinates are a
+    // picture of the run: no plugin may wear any of the three (0246, 0278).
+    const bent = unbuilt("bent", "bent.one");
+    expect(() => {
+      validateEffects([{ ...bent, geometry: LATTICE_GEOMETRY }]);
     }).toThrow(/unknown effect drift geometry: bent/u);
   });
 

@@ -21,6 +21,7 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreen";
+import { shapeRest } from "@/ui/moireShape";
 
 /** An output with nothing in it: the ground is read off the loop and never off the bus. */
 const SILENT_MASTER = emptyMasterPeek();
@@ -56,6 +57,7 @@ describe("the loop as the ground", () => {
         STOOD,
         screenInkRest(),
         joltRest(),
+        shapeRest(),
       );
       return reference.centre;
     };

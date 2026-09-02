@@ -68,6 +68,7 @@ import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moire
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest } from "@/ui/moireScreen";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+import { shapeRest } from "@/ui/moireShape";
 import { emptyMasterPeek } from "@/audio/context";
 
 /**
@@ -132,6 +133,7 @@ const refillRows = (
     STOOD,
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
 
 const emptyDeck = (): DeckState => {
@@ -206,6 +208,7 @@ const readsNothing: RowRead = {
   heard: null,
   session: false,
   fractal: false,
+  lattice: false,
 };
 
 /** One row of a picture, or a loud no: an index the picture does not hold is a broken fixture. */
@@ -274,9 +277,13 @@ describe("moireRows", () => {
   it("gives an instance in the rack a row of its own, lane or no lane", () => {
     const { rows, reads } = moireRows([], [instance("fx1")], 0, PLAIN_CUT);
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,
-    // so its phase comes off the deck's own clock rather than out of a lane's key.
-    expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ ...readsNothing, key: "rack:fx1", instance: "fx1" }]);
+    // so its phase comes off the deck's own clock rather than out of a lane's key. And behind it
+    // the lattice the rack stands in, which any unbypassed entry puts in the picture (0278).
+    expect(rows).toHaveLength(2);
+    expect(reads).toEqual([
+      { ...readsNothing, key: "rack:fx1", instance: "fx1" },
+      { ...readsNothing, key: "lattice", lattice: true },
+    ]);
     // Its angle and where in its cycle it starts are still folded out of its own id the way its
     // name is (0076) — two rows that agreed in every field would draw no fringe at all.
     expect(rows[0]?.shape).toBe(fold("fx1"));
@@ -298,6 +305,7 @@ describe("moireRows", () => {
       "secs" in withLane.recurrence ? withLane.recurrence.secs : 0,
       8,
       8,
+      withLane.windowSecs,
     ]);
     expect(withLane.reads).toEqual([
       // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
@@ -317,8 +325,11 @@ describe("moireRows", () => {
       // is turned by the ground off its own resting identity, where the axis under it is only
       // moved; the session's row is read off the bus and off nothing this yard holds (P167).
       { ...readsNothing, key: "macro" },
-      { ...readsNothing, key: "wash", ground: rowAt(withLane.rows, -2).shape },
+      { ...readsNothing, key: "wash", ground: rowAt(withLane.rows, -3).shape },
       { ...readsNothing, key: "session", session: true },
+      // And the lattice the rack stands in, last of all: read for how loud the output is and for
+      // nothing this yard holds (0278).
+      { ...readsNothing, key: "lattice", lattice: true },
     ]);
   });
 
@@ -404,9 +415,10 @@ describe("moireRows", () => {
     const skipped = instance("fx1", { bypassed: true, automation: { "delay.mix": mix } });
     expect(deckLanes({}, [playing])).toHaveLength(1);
     expect(deckLanes({}, [skipped])).toEqual([]);
-    // A lane, the instance's own row, the loop, the macro row on when the three come round, and
-    // the field's two over all of them — the wash and the session's (0213, P167).
-    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(6);
+    // A lane, the instance's own row, the loop, the macro row on when the three come round, the
+    // field's two over all of them — the wash and the session's (0213, P167) — and the lattice
+    // the rack stands in (0278).
+    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(7);
     // The loop is still there — it belongs to the yard and not to the rack.
     const rows = moireRows(deckLanes({}, [skipped]), [skipped], 8, PLAIN_CUT).rows;
     expect(rows).toHaveLength(3);
@@ -555,11 +567,13 @@ describe("moireRows", () => {
     expect(moireRows([], [auto], 8, PLAIN_CUT).recurrence).toEqual({ unbounded: true });
     // And the macro row goes with it: a grating on a period nothing comes round on is a lie. The
     // field's two stay, on the loop's period — a wash over the picture and a picture of the
-    // session, neither of them an estimate of anything (0213, P167).
+    // session, neither of them an estimate of anything (0213, P167) — and the lattice the rack
+    // stands in, on the window's own (0278).
     expect(moireRows([], [auto], 8, PLAIN_CUT).rows.map(({ period }) => period)).toEqual([
       ...moireRows([], [auto], 8, PLAIN_CUT).periods,
       8,
       8,
+      moireRows([], [auto], 8, PLAIN_CUT).windowSecs,
     ]);
     // Switched off it is not running, exactly as its own row leaves the picture (0139).
     const off = moireRows(
@@ -587,8 +601,9 @@ describe("moireRows", () => {
     expect(periods).toEqual(rows.slice(0, 3).map(({ period }) => period));
     // And the macro row is last, on the recurrence itself, belonging to nobody: no lane files its
     // phase, it is not the reference the others are read against, and it is the plainest row there
-    // is along the straight axis, because it is not any effect doing anything.
-    expect(rows).toHaveLength(6);
+    // is along the straight axis, because it is not any effect doing anything. The lattice the
+    // rack stands in is behind all of them (0278).
+    expect(rows).toHaveLength(7);
     const macro = rows[3];
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
@@ -606,8 +621,13 @@ describe("moireRows", () => {
     expect("secs" in tight.recurrence && tight.recurrence.secs * MIN_ROW_CYCLES).toBeGreaterThan(
       tight.windowSecs,
     );
-    expect(tight.rows).toHaveLength(5);
-    expect(tight.rows.map(({ period }) => period)).toEqual([...tight.periods, 1, 1]);
+    expect(tight.rows).toHaveLength(6);
+    expect(tight.rows.map(({ period }) => period)).toEqual([
+      ...tight.periods,
+      1,
+      1,
+      tight.windowSecs,
+    ]);
     // A yard running on one period comes round on that period, so a macro row would be a second
     // copy of a row already in the picture: it is left out rather than drawn twice.
     const alone = moireRows([], [], 8, PLAIN_CUT);
@@ -742,7 +762,7 @@ describe("moireRows", () => {
     // and a peek reading silence draws it at the shallowest the share allows (0196).
     // The field's own row pulses at nothing — what moves it is the wash, which no row carries
     // (0213) — and so does the session's, over an output with nothing in it (P167).
-    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE, 0, 0]);
+    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE, 0, 0, 0]);
     expect(rows.slice(0, 2).map((row) => pulsedDepth(row))).toEqual(
       rows.slice(0, 2).map(({ depth }) => depth),
     );

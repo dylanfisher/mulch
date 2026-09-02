@@ -73,6 +73,7 @@ import type { Loop } from "@/lib/timeline";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { RowRead } from "@/ui/moireRowsField";
+import { shapeRest } from "@/ui/moireShape";
 // oxlint-enable import/max-dependencies
 
 // The builder and the read are called with every argument named, where the two files either side of
@@ -157,6 +158,7 @@ const refillRows = (
     STOOD,
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
 
 /** And a picture of a performance that has just begun, which is where every case here reads it. */

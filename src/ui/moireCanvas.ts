@@ -79,10 +79,12 @@ import { clamp } from "@/lib/range";
 import { profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
 import { centreAcross, chirpTurns, geometryRef } from "@/lib/moireGeometry";
+import { isFieldGeometry, LATTICE_GEOMETRY } from "@/lib/moireLattice";
 import { viewOf } from "@/ui/canvasSurface";
 import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/driftTiles";
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
+import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
 import type { MoireShape } from "@/ui/moireShape";
 // oxlint-enable import/max-dependencies
@@ -109,25 +111,6 @@ export const TILE_PX = 64;
  * (docs/boundaries.md).
  */
 const tiles = new Map<string, HTMLCanvasElement | null>();
-
-/**
- * How many straight tiles are kept. A straight row's is sixty-four pixels and a swept one is a
- * picture wide; the curved ones are a whole picture each and are held by their own shop
- * (src/ui/driftTiles.ts), rather than in one cache the cheap ones would evict the dear ones out of.
- *
- * **This number may not put a tile back on the frame path.** A cap under the rows one painting
- * actually asks for would not degrade — it would miss on every lookup of every frame, because the
- * rows are walked in the same order each time and the oldest entry is always the one asked for
- * next. So this is what a resting instrument holds rather than a promise about the worst case: a
- * rack of reverbs across two surfaces goes over it for as long as it is up and shrinks back after.
- */
-const TILE_CACHE = 12;
-
-/**
- * The patterns each canvas cuts through, one per tile it has drawn — per canvas, because a pattern
- * belongs to a context.
- */
-const gratings = new WeakMap<HTMLCanvasElement, Map<string, CanvasPattern>>();
 
 /**
  * The surface the rows' product is built on, one per canvas drawn and kept at its size. The
@@ -186,26 +169,6 @@ function straightTile(
   }
   ink.putImageData(field, 0, 0);
   return heldStraight(tiles, key, made, TILE_CACHE);
-}
-
-/**
- * The pattern `surface` cuts one tile's gratings through, built once per surface per tile and held
- * against the surface.
- */
-function gratingOf(
-  surface: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  key: string,
-  tile: HTMLCanvasElement | null,
-): CanvasPattern | null {
-  const held = gratings.get(surface) ?? new Map<string, CanvasPattern>();
-  gratings.set(surface, held);
-  const already = held.get(key);
-  if (already !== undefined) return already;
-  if (tile === null) return null;
-  const pattern = context.createPattern(tile, "repeat");
-  if (pattern === null) return null;
-  return heldStraight(held, key, pattern, TILE_CACHE);
 }
 
 /**
@@ -293,7 +256,7 @@ function aim(
 export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
   rows.reduce((count, row) => {
     if (row.period <= 0) return count;
-    if (row.depth <= 0 && isFractalGeometry(row.geometry)) return count;
+    if (row.depth <= 0 && isFieldGeometry(row.geometry)) return count;
     if (!arrived(row.arrival)) return count;
     const scales =
       row.geometry === LINEAR_GEOMETRY ? octaveShare(octavesOf(row)) : DRIFT_REST.octaves;
@@ -328,6 +291,7 @@ function cutGratings(
   age: number,
   sounding: number,
   shape: Readonly<MoireShape>,
+  tint: Readonly<ScreenInk>,
 ): boolean {
   const { height, width } = field;
   // How far the picture has flown through its own structure, resolved once for the whole pass: the
@@ -369,6 +333,12 @@ function cutGratings(
     // whole picture for nothing: the field's own row is here every painting and is that row on every
     // dry yard (0213). Nothing else can reach nought — a row's own depth has a floor (0139).
     if (cut <= 0) continue;
+    // The lattice over the whole of it: a pattern and not a place, so it is filled through the
+    // straight rows' own cache rather than placed and drawn (`cutLattice`, 0278).
+    if (row.geometry === LATTICE_GEOMETRY) {
+      if (!cutLattice(field, ink, row, turns, cut, shape, tint, aimed)) return false;
+      continue;
+    }
     if (straight) {
       if (!cutOctaves(field, ink, row, turns, pitch, cut)) return false;
       continue;
@@ -590,7 +560,9 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding, shape)) {
+  if (
+    !cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding, shape, tint)
+  ) {
     forget(canvas);
     endPainting();
     return;

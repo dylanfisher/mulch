@@ -21,7 +21,8 @@
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
 import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
-import { FRACTAL_BITE, isFractalGeometry } from "./moireFractal.ts";
+import { FRACTAL_BITE } from "./moireFractal.ts";
+import { isFieldGeometry } from "./moireLattice.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize, normalize } from "./range.ts";
 import { SETTLE_FLOOR_SECS } from "./settle.ts";
@@ -427,8 +428,9 @@ export const washedToward = (value: number, ceiling: number, wash: number): numb
  * toward a full cut by however washed the yard has become. Every row rises by the same share at the
  * same time, so a smeared yard is a picture whose rows stop being separable (0213).
  *
- * **The wash raises every row that is in the picture, and the two fractal coordinates at nought
- * depth are the one thing it may not put there** (0249, amending 0213 and 0246). What an escape
+ * **The wash raises every row that is in the picture, and the field's own coordinates at nought
+ * depth are the one thing it may not put there** (0249, amending 0213 and 0246; the lattice
+ * with them, 0278). What an escape
  * field or a folded plane is a picture of is a population, and a field with nothing standing in it
  * has nothing to show: a run holding its rows through a crossfade sits them at `depth: 0`, and
  * washed toward a full cut they would each cut half a grating of a structure no automator is
@@ -436,7 +438,7 @@ export const washedToward = (value: number, ceiling: number, wash: number): numb
  * picture's weight and its ink agree.
  */
 export const washedDepth = (row: MoireRow, wash: number): number =>
-  row.depth <= 0 && isFractalGeometry(row.geometry)
+  row.depth <= 0 && isFieldGeometry(row.geometry)
     ? 0
     : // How much of the row is in the picture at all, over the whole of the rest: a row still
       // arriving cuts its own share of what it will cut, and a wash raising every row at once may

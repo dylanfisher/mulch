@@ -19,6 +19,7 @@ import { emptyMasterPeek } from "@/audio/context";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { carryInk } from "@/ui/moireCarry";
 import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
+import { shapeRest } from "@/ui/moireShape";
 
 /** An output with nothing in it: the picture drawn before there was anything to hear. */
 const SILENT_MASTER = emptyMasterPeek();
@@ -68,6 +69,7 @@ describe("the picture's own ink", () => {
       STOOD,
       was.ink,
       was.jolt,
+      shapeRest(),
     );
     const halfway = was.ink.hue;
     expect(halfway).toBeGreaterThan(DRIFT_REST.hue);
@@ -104,6 +106,7 @@ describe("the picture's own ink", () => {
         STOOD,
         set.ink,
         set.jolt,
+        shapeRest(),
       );
       return set.ink.hue;
     };

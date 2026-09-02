@@ -64,6 +64,7 @@ import type { Loop } from "@/lib/timeline";
 import { moireRows as builtRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
 import { NO_GROWN } from "@/ui/moireGrown";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+import { shapeRest } from "@/ui/moireShape";
 import { emptyMasterPeek } from "@/audio/context";
 import { oneSong } from "@/lib/playerSongs";
 
@@ -125,6 +126,7 @@ const refillRows = (
     STOOD,
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
 };
 
@@ -196,6 +198,7 @@ describe("the jumps module's row", () => {
         heard: null,
         session: false,
         fractal: false,
+        lattice: false,
       })),
     );
     // The landing its dials say, which is one burst repeated the count it is set to.

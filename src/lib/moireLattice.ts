@@ -9,10 +9,10 @@
  *   the rack standing asks for, and the lean and breath the output gives it → src/ui/moireShape.ts.
  *   The bench picture this came off → src/ui/sketch/sketchDrift.ts.
  */
-import { type DriftGeometry, DRIFT_DISPERSE_REACH } from "./moire";
-import { FRACTAL_GEOMETRIES, isFractalGeometry } from "./moireFractal";
-import { profileBlock, type DriftProfile } from "./moireProfiles";
-import { clamp } from "./range";
+import { type DriftGeometry, DRIFT_DISPERSE_REACH } from "./moire.ts";
+import { FRACTAL_GEOMETRIES, isFractalGeometry } from "./moireFractal.ts";
+import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
+import { clamp } from "./range.ts";
 
 /** The coordinate a lattice row is cut along: a cell, repeated. */
 export const LATTICE_GEOMETRY: DriftGeometry = "lattice";

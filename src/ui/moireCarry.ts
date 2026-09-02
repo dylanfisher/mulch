@@ -30,7 +30,7 @@ import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
  * the *picture* is the yard's ground, and the two are different journeys.
  */
 export const onGround = (read: RowRead): boolean =>
-  read.heard !== null || read.ground !== null || read.tier !== null || read.fractal;
+  read.heard !== null || read.ground !== null || read.tier !== null || read.fractal || read.lattice;
 
 /**
  * Where a picture's ground rows had got to, carried onto the set that replaces them. **A row set is

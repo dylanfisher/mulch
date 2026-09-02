@@ -24,6 +24,7 @@ import {
   windTravelInto,
   windVeer,
 } from "@/ui/moireWind";
+import { shapeRest } from "@/ui/moireShape";
 import type { SessionEffect } from "@/state/session";
 
 /**
@@ -190,6 +191,7 @@ describe("how that wind travels", () => {
         built.toward,
         built.ink,
         built.jolt,
+        shapeRest(),
       );
     }
     expect(built.tail).toBe(tail);

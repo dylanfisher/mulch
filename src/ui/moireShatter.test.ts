@@ -16,6 +16,7 @@ import { PLAIN_CUT, RACK_SHATTER_BROKEN } from "@/lib/moireSound";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
 import { rackShatter } from "@/ui/moireShatter";
+import { shapeRest } from "@/ui/moireShape";
 import type { SessionEffect } from "@/state/session";
 
 /**
@@ -125,6 +126,7 @@ describe("how much of a standing rack is scatter", () => {
         built.toward,
         built.ink,
         built.jolt,
+        shapeRest(),
       );
     }
     expect(built.shatter).toBe(shatter);

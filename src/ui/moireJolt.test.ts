@@ -29,6 +29,7 @@ import {
 } from "@/ui/moireJolt";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreen";
+import { shapeRest } from "@/ui/moireShape";
 import type { PlayerPeek } from "@/audio/deckPeek";
 import type { PlayerSpec } from "@/lib/player";
 
@@ -148,6 +149,7 @@ describe("the jolt the picture answers a hit with", () => {
       fractalStopsRest(),
       screenInkRest(),
       set.jolt,
+      shapeRest(),
     );
     expect(set.jolt.at).toBe(1);
     for (const row of set.rows) expect(row.pulse).toBe(1);

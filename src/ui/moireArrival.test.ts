@@ -23,6 +23,7 @@ import { moireRows, refillRows } from "@/ui/moireRows";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest } from "@/ui/moireScreen";
 import type { MoireRowSet } from "@/ui/moireRowsField";
+import { shapeRest } from "@/ui/moireShape";
 import type { DeckState } from "@/state/store";
 
 /** A rack instance the way the session builds one: every parameter its entry declares, at rest. */
@@ -60,6 +61,7 @@ function read(set: MoireRowSet, elapsed: number): void {
     fractalStopsRest(),
     screenInkRest(),
     joltRest(),
+    shapeRest(),
   );
 }
 
@@ -90,7 +92,10 @@ describe("a row arriving in the picture", () => {
     expect(shareOf(now, "rack:fx1")).toBe(1);
     expect(shareOf(now, "rack:fx3")).toBe(0);
     // The frame the rack changed on weighs what the frame before it weighed: the added row is
-    // nought of a grating, so the count the depth is solved for has not moved.
+    // nought of a grating, so the count the depth is solved for has not moved. Read for no time at
+    // all first, because a frame is a read — the lattice over the rack is cut as loud as the
+    // output is and weighs nothing until one has said how loud that is (`latticeHeard`).
+    read(now, 0);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before, 9);
 
     // A quarter of the way in it is a quarter of a row, and the count has moved a quarter of the
@@ -118,6 +123,7 @@ describe("a row arriving in the picture", () => {
     carryArrivals(was, now);
     expect(shareOf(now, "rack:fx3")).toBe(1);
     expect(now.reads.some((row) => row.key === "rack:fx3" && row.leaving)).toBe(true);
+    read(now, 0);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before, 9);
 
     read(now, DRIFT_ARRIVAL_SECS / 2);
@@ -158,6 +164,7 @@ describe("a row arriving in the picture", () => {
       fractalStopsRest(),
       screenInkRest(),
       joltRest(),
+      shapeRest(),
     );
     expect(shareOf(now, "rack:fx2")).toBe(1);
   });

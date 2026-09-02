@@ -8,8 +8,8 @@
  *   its own rate has walked → src/ui/moireShape.ts. The bench picture this came off →
  *   src/ui/sketch/sketchDrift.ts.
  */
-import { TAU } from "./moire";
-import { clamp } from "./range";
+import { TAU } from "./moire.ts";
+import { clamp } from "./range.ts";
 
 /**
  * How far a whole warp bends the picture, as a fraction of its height. Bounded here and not where
