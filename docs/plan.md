@@ -582,13 +582,12 @@ anywhere. Both are drawn now, in two sections of eight (src/ui/sketch/SketchPage
   the standing ground off. Whether that fourth clock is worth being one is now a question a hand can
   answer by looking, and taking it is still a step of its own against src/lib/playerBed.ts (Refused,
   below).
-- **How a song is played. Landed.** The tier over a part is a run and a cursor over it
-  (src/lib/playerSongs.ts), drawn today as a list (src/ui/PlayerSong.tsx). Playing one is the thing
-  the instrument is for and it was the least visual surface on the card. Eight readings of it are
-  now the bench's second section, under a rule and a heading of its own: the track, the hand, the
-  wheel, the grid, the route, the spend, the spindle and the strip. Each draws the cursor standing
-  somewhere, because a song is a run and a cursor over it, and src/ui/sketch/sketchSong.ts holds the
-  one unfolding of the two tiers all eight are drawn off.
+- **How a song is played. Landed, decided and cleared.** The tier over a part is a run and a
+  cursor over it (src/lib/playerSongs.ts), and it was drawn as a list. Eight readings of it stood
+  on the bench's second section — the track, the hand, the wheel, the grid, the route, the spend,
+  the spindle and the strip — and the grid won: the card's section is a launch grid now, a press on
+  a cell arms a part for the next boundary, and the row under the grid edits what is picked
+  (src/ui/PlayerGrid.tsx, 0275). The eight and their fixture are deleted, per 0254's rule.
 
 **The outcome wanted, and had:** sixteen drawings, in two sections, that make either question
 answerable by looking. Fun, simple and intuitive was the brief, and on this bench that is a

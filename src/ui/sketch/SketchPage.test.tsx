@@ -3,9 +3,8 @@ import { dirname, join, relative, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
-import { SKETCH_GROUNDS, SKETCH_PLAYS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
 
 /**
  * The bench is a list of arguments drawn out of the same primitives the instrument is, so rendering
@@ -14,10 +13,8 @@ import { SKETCH_GROUNDS, SKETCH_PLAYS, SketchPage } from "@/ui/sketch/SketchPage
  */
 const markup = renderToStaticMarkup(<SketchPage />);
 
-/** Both benches as one list, since every rule about an entry is a rule about all of them: a second
- *  section mounted from its own list is still one bench, and a case written over one of the two
- *  would go quiet on whichever half it was not written over. */
-const BENCH = [...SKETCH_GROUNDS, ...SKETCH_PLAYS];
+/** The bench as one list, since every rule about an entry is a rule about all of them. */
+const BENCH = SKETCH_GROUNDS;
 
 describe("the sketch route", () => {
   it("resolves its own hash and leaves everything else on the instrument", () => {
@@ -46,7 +43,6 @@ describe("SketchPage", () => {
    */
   it("mounts every entry of both benches", () => {
     expect(SKETCH_GROUNDS).not.toHaveLength(0);
-    expect(SKETCH_PLAYS).not.toHaveLength(0);
     for (const entry of BENCH) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
       expect(markup, `${entry.id} has an entry and no nav link`).toContain(
@@ -77,42 +73,14 @@ describe("SketchPage", () => {
   });
 });
 
-describe("SketchPage asks two questions and not one", () => {
-  /**
-   * The second bench is a section of its own under a rule of its own, and not eight more drawings
-   * on the end of the first: the two ask different questions, and a reader who cannot see where one
-   * ends is reading one bench of sixteen.
-   */
-  it("draws the second bench under its own heading and its own rule", () => {
-    expect(markup, "the two benches are not ruled apart").toContain("<hr");
-    const grounds = markup.indexOf(`id="${firstOf(SKETCH_GROUNDS)}"`);
-    const rule = markup.indexOf("<hr");
-    const plays = markup.indexOf(`id="${firstOf(SKETCH_PLAYS)}"`);
-    expect(rule, "the rule falls before the first bench").toBeGreaterThan(grounds);
-    expect(plays, "the second bench is not under the rule").toBeGreaterThan(rule);
-    // Its own heading, in the word the tier is called by rather than in a second copy of it
-    // (`PLAYER_SONGS_LABEL`, src/lib/copySongs.ts): a heading asserted as a literal is a copy
-    // string declared twice, and it would go on passing after the word itself changed.
-    expect(markup, "the second bench is unheaded").toMatch(
-      new RegExp(`<h2[^>]*>${PLAYER_SONGS_LABEL}[^<]*<`, "u"),
-    );
-  });
-});
-
-/** The first entry's id of a list, which is where a section of the page begins. */
-function firstOf(entries: readonly { id: string }[]): string {
-  const first = entries[0];
-  if (first === undefined) throw new Error("A bench with no entries mounts no section.");
-  return first.id;
-}
-
 describe("SketchPage is cleared of what it argued before", () => {
   /**
-   * The thirteen that were here argued the whole card or one fold of it,
-   * they have been read and decided against, and their arguments are in 0257–0259 — a bench nobody
-   * clears stops being a bench (principle 6). Named here so a re-mount of one has to say so.
+   * The thirteen that were here argued the whole card or one fold of it, and the eight after them
+   * argued how a song is played; all have been read and decided — the arguments are in 0257–0259,
+   * and the grid won and is the card's own section (0275) — and a bench nobody clears stops being
+   * a bench (principle 6). Named here so a re-mount of one has to say so.
    */
-  it("mounts none of the thirteen the bench was cleared of", () => {
+  it("mounts none of the twenty-one the bench was cleared of", () => {
     const cleared = [
       "cast",
       "score",
@@ -127,6 +95,14 @@ describe("SketchPage is cleared of what it argued before", () => {
       "part-arrange",
       "part-songs",
       "part-sound",
+      "track",
+      "hand",
+      "wheel",
+      "grid",
+      "route",
+      "spend",
+      "spindle",
+      "strip",
     ];
     for (const gone of cleared) {
       expect(markup, `${gone} is still on the bench`).not.toContain(`id="${gone}"`);

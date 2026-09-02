@@ -1,7 +1,8 @@
 /**
- * @role The sketch bench at #/sketch — the nav, and the two lists it mounts: eight readings of when
- *   the ground shifts under a hand's gesture, and eight of how a song is played. Every entry carries
- *   the one sentence it makes and the thing it gives up to make it.
+ * @role The sketch bench at #/sketch — the nav, and the one list it mounts: eight readings of when
+ *   the ground shifts under a hand's gesture. Every entry carries the one sentence it makes and the
+ *   thing it gives up to make it. The bench of how a song is played is spent: the grid won and is
+ *   the card's own section now (0275, src/ui/PlayerGrid.tsx).
  * @instead The surface they are all arguing with → src/ui/PlayerCard.tsx. The primitives they are
  *   drawn out of, on their own page → src/ui/dev/DevPage.tsx.
  */
@@ -14,7 +15,6 @@ import type { MouseEvent, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { PLAYER_GROUP_LABELS, PLAYER_LABEL } from "@/lib/copy";
-import { PLAYER_PLAYS_LABEL, PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
@@ -29,15 +29,6 @@ import { SketchGroundQueue } from "@/ui/sketch/ground/SketchGroundQueue";
 import { SketchGroundRing } from "@/ui/sketch/ground/SketchGroundRing";
 import { SketchGroundThrow } from "@/ui/sketch/ground/SketchGroundThrow";
 import { SKETCH_EVERY_SAID, SKETCH_PER } from "@/ui/sketch/sketchGround";
-import { SKETCH_RUN, SKETCH_TURN } from "@/ui/sketch/sketchSong";
-import { SketchSongGrid } from "@/ui/sketch/song/SketchSongGrid";
-import { SketchSongHand } from "@/ui/sketch/song/SketchSongHand";
-import { SketchSongRoute } from "@/ui/sketch/song/SketchSongRoute";
-import { SketchSongSpend } from "@/ui/sketch/song/SketchSongSpend";
-import { SketchSongSpindle } from "@/ui/sketch/song/SketchSongSpindle";
-import { SketchSongStrip } from "@/ui/sketch/song/SketchSongStrip";
-import { SketchSongTrack } from "@/ui/sketch/song/SketchSongTrack";
-import { SketchSongWheel } from "@/ui/sketch/song/SketchSongWheel";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
@@ -135,83 +126,6 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
 ];
 
 /**
- * Eight readings of the other seam: the tier over a part, and the cursor walking it
- * (src/lib/playerSongs.ts). A song is a run of parts and a count of times round, and the card draws
- * it as a list of rows — the least visual surface on the instrument, and the one thing the
- * instrument is for. Every one of these draws the cursor standing somewhere, because a song is a
- * run *and* a cursor over it, and a picture with only the run in it is the list again.
- */
-export const SKETCH_PLAYS: readonly SketchEntry[] = [
-  {
-    id: "track",
-    label: "The Track",
-    thesis: `The whole run as one length of track, the songs laid end to end over it and a sleeper per ${SKETCH_TURN}, with the cursor a car standing on one of them. How far in, and how much left, without a number being read.`,
-    trades:
-      "the arrangement. A track is the run already flattened, so which part belongs to which song — and that one part is in three of them — is a thing this picture cannot say.",
-    Content: SketchSongTrack,
-  },
-  {
-    id: "hand",
-    label: "The Hand",
-    thesis: `The ${PLAYER_GROUP_LABELS.arrange.toLowerCase()} as a hand of cards with one played at a time: every part is a card carrying its own length and character, and the one on the table is lifted out of the hand.`,
-    trades:
-      "the order. A hand is a set and not a run, so how many times a card comes back — and when — is nowhere on it, and the count is a line of type underneath.",
-    Content: SketchSongHand,
-  },
-  {
-    id: "wheel",
-    label: "The Wheel",
-    thesis: `The song as a wheel and its ${PLAYER_PLAYS_LABEL.toLowerCase()} as the teeth: one tooth per round, the parts inside as what one round is made of, and the wheel handing on to the next song when the last tooth passes.`,
-    trades:
-      "the rest of the run. One wheel is one song, so the two songs either side of it are a name in the corner and never a shape a hand can point at.",
-    Content: SketchSongWheel,
-  },
-  {
-    id: "grid",
-    label: "The Grid",
-    thesis:
-      "A launch grid: a column per song, a row per part, the cell playing lit and the one coming armed. The next thing becomes the thing a hand presses, and the boundary does the rest.",
-    trades:
-      "how long. A grid says what comes next and never when, so a part of four bars and a part of eight are the same cell — which is the fact the strip beside it is entirely made of.",
-    Content: SketchSongGrid,
-  },
-  {
-    id: "route",
-    label: "The Route",
-    thesis:
-      "The parts as places on a map and the song as the road between them, with the cursor a pin on one. A part played twice is a place visited twice, which is the one thing about an arrangement a list of rows cannot draw at all.",
-    trades:
-      "the count. A map is a shape and not a clock: how many times the road goes round, and how far along this lap is, are both off the picture.",
-    Content: SketchSongRoute,
-  },
-  {
-    id: "spend",
-    label: "The Spend",
-    thesis: `The ${PLAYER_PLAYS_LABEL.toLowerCase()} as the thing being spent: a row per song, a coin per round, the spent ones gone and the one under way lit. The number a hand is actually waiting on, drawn running out.`,
-    trades:
-      "the parts. A purse counts rounds, so what a round is a run of is not on this picture — which makes it the one reading here that could be wrong about where the cursor is and still look right.",
-    Content: SketchSongSpend,
-  },
-  {
-    id: "spindle",
-    label: "The Spindle",
-    thesis:
-      "The song as a spindle of parts: the one playing is pulled off, sounded, and pushed back on, so the gesture has both its ends on the picture and the pile keeps a hole where the part was.",
-    trades:
-      "the run again. A spindle is one song's round, and the two arrows are a gesture nobody makes — the run pulls the part, not a hand — so this is the one drawing here arguing about a metaphor rather than about a surface.",
-    Content: SketchSongSpindle,
-  },
-  {
-    id: "strip",
-    label: "The Strip",
-    thesis: `The whole run as one strip drawn at its own length, ${SKETCH_RUN.length} ${SKETCH_TURN}s end to end, with the cursor the only thing on it that moves. The structure becomes the background and the place becomes the picture.`,
-    trades:
-      "arranging. A strip is for watching: nothing on it is a thing to press, and at this length one part is a few pixels wide and carries no name at all.",
-    Content: SketchSongStrip,
-  },
-];
-
-/**
  * The nav scrolls rather than linking, for the gallery's reason: the route is the whole hash, so a
  * bare `#clock` would leave `#/sketch` and unmount the bench.
  */
@@ -232,7 +146,6 @@ export function SketchPage() {
           <span className="type-body text-muted-foreground">{PLAYER_LABEL} sketches</span>
           <nav className="ml-auto flex flex-wrap items-center gap-3">
             <SketchLinks entries={SKETCH_GROUNDS} />
-            <SketchLinks entries={SKETCH_PLAYS} />
           </nav>
           <ThemeToggle />
         </div>
@@ -254,24 +167,12 @@ export function SketchPage() {
           heading={`${PLAYER_GROUP_LABELS.ground}: when it moves`}
           entries={SKETCH_GROUNDS}
         />
-
-        <hr className="border-border" />
-
-        <p className="max-w-3xl type-body text-muted-foreground">
-          One bench, one question: how is a song played. {SKETCH_PLAYS.length} readings of the tier
-          over a part — a run of parts, a count of times round, and a cursor walking both — which
-          the card draws as a list of rows and which is the thing the instrument is for. Every one
-          of them draws the cursor standing somewhere, because a song is a run and a cursor over it,
-          and a drawing of the run alone is the list again.
-        </p>
-
-        <SketchGroup heading={`${PLAYER_SONGS_LABEL}: how one is played`} entries={SKETCH_PLAYS} />
       </main>
     </div>
   );
 }
 
-/** One group's links, so a second bench's run of them is one shape said twice rather than two. */
+/** One group's links, in the order the bench mounts them. */
 function SketchLinks({ entries }: { entries: readonly SketchEntry[] }) {
   return entries.map((sketch) => (
     <a
