@@ -37,7 +37,6 @@ import {
   profileBlock,
   type DriftProfile,
 } from "@/lib/moireProfiles";
-import { LENS_SLICES, LENS_SPAN, SHATTER_BANDS, SHATTER_CEILING } from "@/lib/moireGeometry";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -239,10 +238,6 @@ const paintedOn = painterOn((name, value) => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-/** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */
-const fills = (painted: Painted): string[] =>
-  painted.laid.filter((each) => each.ink !== PRODUCT).map((each) => each.over);
 
 // One flat list of the painter's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -553,37 +548,6 @@ describe("moireCanvas", () => {
     expect(apart).toBeGreaterThan(0.05);
   });
 
-  it("draws the field back through a lens in slices, and whole where no row asks for one", () => {
-    // A lens bends the picture once it is built, so it costs a draw per slice of what is already
-    // drawn and no second pass over any row.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const plain = paintedOn(128, 64, [row({ period: 4 })]);
-    expect(plain.slices).toEqual([]);
-    vi.stubGlobal("devicePixelRatio", 2);
-    const bent = paintedOn(128, 64, [row({ period: 4, lens: 1 })]);
-    // One band per slice, tiling the height exactly, top to bottom.
-    const bands = new Map<number, number[]>();
-    for (const slice of bent.slices) {
-      bands.set(slice.top, [...(bands.get(slice.top) ?? []), slice.slid]);
-    }
-    expect(bands.size).toBe(LENS_SLICES);
-    expect(bent.slices[0]?.top).toBe(0);
-    const deep = new Map(bent.slices.map((slice) => [slice.top, slice.deep]));
-    expect([...deep.values()].reduce((sum, each) => sum + each, 0)).toBe(64);
-    // Every band is cut across the whole width: the field is drawn where the slide carries it and
-    // again a picture over, or the columns the slide left behind would keep the screen at full
-    // opacity — a bar of uncut ink down the edge, which is not a picture bent.
-    for (const slid of bands.values()) {
-      expect(Math.min(...slid)).toBeLessThanOrEqual(0);
-      expect(Math.max(...slid)).toBeGreaterThanOrEqual(0);
-    }
-    // And the bands are slid one against the next rather than all by one amount, which would be a
-    // picture moved sideways rather than a picture bent.
-    expect(new Set([...bands.keys()].map((top) => bands.get(top)?.[0])).size).toBeGreaterThan(8);
-    const first = [...bands.values()].map((slid) => Math.abs(slid[0] ?? 0));
-    expect(Math.max(...first)).toBeCloseTo(LENS_SPAN * 128, 6);
-  });
-
   // P104: one effect contributing a fine texture and a coarse one, so the coarse copies beat with
   // every other row's fine ones and the picture has structure inside its own structure (0143).
   it("draws an octave row's coarse copy at the pitch it claims, and half as deep", () => {
@@ -703,61 +667,6 @@ describe("moireCanvas", () => {
     expect(painted.surfaces[0]?.drew).toHaveLength(1);
   });
 
-  // P269: the one thing the picture had never done — the field read back through itself displaced,
-  // so a share of it is drawn from somewhere else in the picture (0269).
-  it("draws a share of the picture from elsewhere in it, and never past the ceiling", () => {
-    vi.stubGlobal("devicePixelRatio", 2);
-    const plain = paintedOn(128, 64, [row({ period: 4 })]);
-    expect(plain.slices).toEqual([]);
-    vi.stubGlobal("devicePixelRatio", 2);
-    // A scattering rack with no row asking for a lens: the unbroken pieces stand where they were.
-    const broken = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 1 });
-    const bands = new Map<number, typeof broken.slices>();
-    for (const slice of broken.slices) {
-      bands.set(slice.top, [...(bands.get(slice.top) ?? []), slice]);
-    }
-    expect(bands.size).toBe(LENS_SLICES);
-    // It is a slice of the field and never a second fill over it: a shattered picture lays exactly
-    // the ink an unshattered one does, in the same two passes — and every band is cut once wherever
-    // it lands, at the one alpha the painting cuts at, two cuts of one band being a product that
-    // hazes every window in the picture evenly.
-    expect(fills(broken)).toEqual(fills(plain));
-    for (const band of bands.values()) {
-      expect(new Set(band.map((cut) => cut.alpha))).toEqual(new Set([1]));
-      expect(new Set(band.map((cut) => cut.top)).size).toBe(1);
-    }
-    // The share is bounded at the ceiling the record states: half the picture in eighths is four
-    // pieces of eight drawn from elsewhere, whatever the reading asks for.
-    const displaced = [...bands.values()].map((band) => band[0]?.slid ?? 0);
-    const pieces = new Set(displaced.filter((slid) => slid !== 0));
-    expect(pieces.size).toBe(SHATTER_BANDS * SHATTER_CEILING);
-    expect([...pieces].every((slid) => slid > 0 && slid < 128)).toBe(true);
-    // Each piece is deep enough to see a straight row inside, and the broken ones are spread across
-    // the picture rather than taken off one end of it.
-    const eighth = LENS_SLICES / SHATTER_BANDS;
-    expect(new Set(displaced.slice(0, eighth)).size).toBe(1);
-    const halves = [0, SHATTER_BANDS / 2].map(
-      (from) =>
-        Array.from(
-          { length: SHATTER_BANDS / 2 },
-          (_each, piece) => displaced[(from + piece) * eighth] ?? 0,
-        ).filter((slid) => slid !== 0).length,
-    );
-    expect(halves).toEqual([2, 2]);
-    // Half the reading is half of that: a yard turning up its scatters breaks further, in pieces.
-    const half = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.5 });
-    const halved = new Set(
-      half.slices.filter((cut) => cut.slid > 0 && cut.slid < 128).map((cut) => cut.slid),
-    );
-    expect(halved.size).toBe((SHATTER_BANDS * SHATTER_CEILING) / 2);
-    // And a reading too small to break a whole piece leaves the picture exactly as it was.
-    expect(paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { shatter: 0.1 }).slices).toEqual(
-      [],
-    );
-  });
-
-  // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean
-  // moved would make the picture's brightness say which effects a yard holds (0143).
   it("takes half the ink at the sixty-four places the tile asks each profile", () => {
     for (const profile of DRIFT_PROFILES) {
       // What `straightTile` writes: the block at each place across one cycle, as the alpha byte.

@@ -601,7 +601,7 @@ export function paintMoire(
   inkThrough(canvas, context, rows, color, tint, wind);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
-  cutField(context, field, rows, shatter);
+  cutField(context, field, rows, shatter, shape);
   context.globalCompositeOperation = "source-over";
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).

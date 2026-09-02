@@ -188,7 +188,9 @@ export function painterOn(stubGlobal: StubGlobal) {
     // What each band of the finished field was cut with: where it was taken from, how deep, how far
     // it was slid and at what share — the last being what says a shattered slice replaced its own
     // share of the band rather than being laid over it (0269).
-    const slices: { top: number; deep: number; slid: number; alpha: number }[] = [];
+    // And `down`, how far a column of the second, warped pass was slid: the columns carry `top`
+    // nought and the whole height, so the two passes read apart by which slide they carry.
+    const slices: { top: number; deep: number; slid: number; down: number; alpha: number }[] = [];
     const context = {
       fillStyle: "" as unknown,
       globalAlpha: 1,
@@ -204,10 +206,11 @@ export function painterOn(stubGlobal: StubGlobal) {
         _wide?: number,
         deep?: number,
         slid?: number,
+        down?: number,
       ): void {
         laid.push({ ink: PRODUCT, over: this.globalCompositeOperation });
         if (top !== undefined && deep !== undefined && slid !== undefined) {
-          slices.push({ top, deep, slid, alpha: this.globalAlpha });
+          slices.push({ top, deep, slid, down: down ?? top, alpha: this.globalAlpha });
         }
       },
       fillRect(): void {
