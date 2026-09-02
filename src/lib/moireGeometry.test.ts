@@ -242,14 +242,14 @@ const referenceEscape = (
   zoom: number,
   fly: number,
 ): number => {
-  const span = 0.35 / Math.max(REFERENCE_NEAR, zoom);
+  const span = 0.04 / Math.max(REFERENCE_NEAR, zoom);
   const px = cx + u * span;
   const py = cy + v * span;
   let zx = 0;
   let zy = 0;
   let trap = Number.POSITIVE_INFINITY;
-  let count = 48;
-  for (let step = 0; step < 48; step += 1) {
+  let count = 120;
+  for (let step = 0; step < 120; step += 1) {
     const xx = zx * zx;
     const yy = zy * zy;
     const squared = xx + yy;

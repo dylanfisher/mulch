@@ -45,11 +45,17 @@ export const isFractalGeometry = (geometry: DriftGeometry): boolean =>
 /**
  * How many times the escape field is iterated before a point counts as never leaving. **The one
  * number this coordinate's cost is**: it is read once per pixel of a picture-sized tile, and that
- * tile is baked at most once a painting (`BAKES_PER_PAINTING`, src/ui/driftTiles.ts). Two dozen is
- * where the filigree along the boundary is finer than the lattice drawn over it — past that the
- * detail is smaller than a fringe and nothing in the picture can show it.
+ * tile is baked at most once a painting (`BAKES_PER_PAINTING`, src/ui/driftTiles.ts), off the main
+ * thread (src/workers/drift.ts).
+ *
+ * **Two and a half times what it was, because the picture now stands two orders of magnitude
+ * deeper** (0272, `FRACTAL_SPAN`). Four dozen was where the filigree was finer than the lattice
+ * drawn over it — but that was measured with the whole set in frame, and inside the valley the same
+ * filigree is a hundred times wider on the picture. What limited it there was resolution and what
+ * limits it here is the iteration count: at four dozen the boundary inside the valley is a smooth
+ * edge, because every point near it is still counted as never leaving.
  */
-export const FRACTAL_ITERATIONS = 48;
+export const FRACTAL_ITERATIONS = 120;
 
 /**
  * How far a point must get before it counts as escaped, squared. **Large on purpose**: the smooth
@@ -85,12 +91,21 @@ const FRACTAL_NEAR = 2 ** -12;
 const FRACTAL_BAND_CYCLES = 30;
 
 /**
- * How far a fractal row's picture reaches across the plane, in units per reference radius. A curved
- * row's own coordinates run to about two at the corners (`geometryRef`), so this stands the picture
- * a little over half a unit wide — which at the centres below is the boundary of the set filling
- * the picture rather than the whole set sitting small in the middle of it.
+ * How far a fractal row's picture reaches across the plane, in units per reference radius.
+ *
+ * **Inside the valley and no longer around it** (0272). A curved row's coordinates run to about two
+ * at the corners (`geometryRef`), so the picture is about four times this across: at 0.35 that was
+ * most of a unit — the whole left bulb and the open plane around it — and what a grating cut along
+ * an escape count reads as out there is a few broad smooth contours, which is exactly what a shot
+ * of it showed. There is no self-similarity in the open plane; it is all on the boundary, and the
+ * boundary is where the picture has to *stand* rather than where it has to point.
+ *
+ * A fourteenth of a unit across, at the centres below, is inside the notch itself — spirals within
+ * spirals, at every scale the iteration count can resolve. It is also what makes the wander mean
+ * something: `FRACTAL_WANDER` moved the old picture a sixtieth of its own width, which is nothing
+ * anybody could see, and moves this one more than half of one.
  */
-const FRACTAL_SPAN = 0.35;
+const FRACTAL_SPAN = 0.04;
 
 /**
  * Where the picture is stood on the plane, and how far the seed may carry it. **On the boundary of
@@ -104,10 +119,17 @@ const FRACTAL_SPAN = 0.35;
  * The rest is the seahorse valley: the notch between the cardioid and the first bulb, which is
  * boundary at every scale it is looked at. What the population carries is where along that notch
  * the picture stands, which is a different structure at every place and structure at all of them.
+ *
+ * **How far it may carry it is measured against the notch and not against the frame** (0272). The
+ * band is square and the valley is not: rendered at each of its four corners, a whole band of three
+ * hundredths walks the far corner off the boundary altogether and draws the smooth open plane, and
+ * two hundredths leaves half the frame standing in structure at the worst of them. That is the
+ * bound — the depth is what makes even this much visible, where against the old frame the same
+ * number moved the picture a sixtieth of its own width.
  */
 const FRACTAL_REST_X = -0.745;
 const FRACTAL_REST_Y = 0.113;
-export const FRACTAL_WANDER = 0.03;
+export const FRACTAL_WANDER = 0.02;
 const FRACTAL_WANDER_STOPS = 9;
 
 /**
