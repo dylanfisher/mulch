@@ -84,6 +84,12 @@ function passLooks(field: HTMLCanvasElement, looks: readonly MoireLook[]): HTMLC
     ink.setTransform(1, 0, 0, 1, 0, 0);
     ink.globalCompositeOperation = "source-over";
     ink.globalAlpha = 1;
+    // Smoothing with them, and for the same reason: the chain has two surfaces and a pass is handed
+    // whichever one its own slot lands on, so a pass that turned smoothing off to draw a grid of
+    // flat cells (0281) leaves it off for whatever writes that surface next — two slots later in
+    // this chain, or in the next frame's. A bloom drawn nearest-neighbour is not a bloom, so every
+    // pass starts from the same context whichever ran on it before.
+    ink.imageSmoothingEnabled = true;
     ink.clearRect(0, 0, into.width, into.height);
     declared.pass(ink, source, at, terms);
     source = into;

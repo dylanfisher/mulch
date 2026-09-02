@@ -10,6 +10,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BLOCK_HARDENINGS,
+  BLOCK_PIXELS,
+  blockHarden,
+  blockSize,
   BLOOM_CEILING,
   BLOOM_SCALE,
   bloomAmount,
@@ -106,5 +110,57 @@ describe("what a look is", () => {
     expect(bloomAmount(wet, wet)).toBeLessThan(0.2);
     expect(bloomScale(decay)).toBeLessThan(BLOOM_SCALE[0]);
     expect(bloomScale(decay)).toBeGreaterThan(BLOOM_SCALE[1]);
+  });
+
+  // P281: crush's, and the second look to take a slot in the chain.
+  it("blocks the field on whole pixels and hardens it once per lost bit", () => {
+    expect(LOOKS.blocks.at).toBe("pass");
+    expect(LOOKS.blocks.terms).toEqual({ block: "turn", levels: "turn" });
+    // A block is a whole number of pixels at every turn of the range and at every presence between
+    // absent and standing — a grid on a fraction of a pixel is a soft edge down every cell of it.
+    for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
+      for (const presence of [0, 0.17, 0.5, 0.83, 1]) {
+        const size = blockSize(presence, turn);
+        expect(Number.isInteger(size)).toBe(true);
+        expect(size).toBeGreaterThanOrEqual(1);
+        expect(size).toBeLessThanOrEqual(BLOCK_PIXELS[0]);
+      }
+    }
+    // Coarsest at the bottom of the Rate and finest at the top, and the band closed at both ends
+    // because a travelled presence and a term are both read off numbers the picture eases.
+    expect(blockSize(1, 0)).toBe(BLOCK_PIXELS[0]);
+    expect(blockSize(1, 1)).toBe(BLOCK_PIXELS[1]);
+    expect(blockSize(1, -1)).toBe(BLOCK_PIXELS[0]);
+    expect(blockSize(1, 2)).toBe(BLOCK_PIXELS[1]);
+    expect(blockSize(1, 0)).toBeGreaterThan(blockSize(1, 0.5));
+    expect(blockSize(1, 0.5)).toBeGreaterThan(blockSize(1, 1));
+    // An absent crush is a block of one pixel, which is the field itself: a look on its way in or
+    // out leaves the picture where it was at nought however coarse its knobs stand.
+    expect(blockSize(0, 0)).toBe(1);
+    expect(blockSize(-1, 0)).toBe(1);
+    expect(blockSize(0.5, 0)).toBeGreaterThan(1);
+    expect(blockSize(0.5, 0)).toBeLessThan(BLOCK_PIXELS[0]);
+    // And the hardening is a whole count of composites, none at a whole depth and the cap at one
+    // bit, weighted by the same presence.
+    expect(blockHarden(1, 1)).toBe(0);
+    expect(blockHarden(1, 0)).toBe(BLOCK_HARDENINGS);
+    expect(blockHarden(0, 0)).toBe(0);
+    expect(blockHarden(2, -1)).toBe(BLOCK_HARDENINGS);
+    for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
+      const hard = blockHarden(0.6, turn);
+      expect(Number.isInteger(hard)).toBe(true);
+      expect(hard).toBeGreaterThanOrEqual(0);
+      expect(hard).toBeLessThanOrEqual(BLOCK_HARDENINGS);
+    }
+    // At crush's own declared defaults and ranges (src/audio/effects/crush.ts, spelt out here for
+    // the reason the bloom's are) the picture is blocked and readable: cells the eye can see, and
+    // some of the depth taken out rather than all of it.
+    const rate = normalize(6000, 100, 24_000, "log");
+    const bits = normalize(8, 1, 16, "linear");
+    const mix = normalize(0.5, 0, 1, "linear");
+    expect(blockSize(mix, rate)).toBeGreaterThan(1);
+    expect(blockSize(mix, rate)).toBeLessThan(BLOCK_PIXELS[0]);
+    expect(blockHarden(mix, bits)).toBeGreaterThan(0);
+    expect(blockHarden(mix, bits)).toBeLessThan(BLOCK_HARDENINGS);
   });
 });

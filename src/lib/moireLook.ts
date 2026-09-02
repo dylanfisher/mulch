@@ -15,12 +15,20 @@
 import { clamp, denormalize } from "@/lib/range";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
-export const LOOK_NAMES = ["lattice", "warp", "fold", "shatter", "bloom"] as const;
+export const LOOK_NAMES = ["lattice", "warp", "fold", "shatter", "bloom", "blocks"] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
 
 /** Every term any look reads. Named once, so `lookFrom` can be typed against the whole set. */
-export const LOOK_TERMS = ["bend", "wander", "share", "amount", "radius"] as const;
+export const LOOK_TERMS = [
+  "bend",
+  "wander",
+  "share",
+  "amount",
+  "radius",
+  "block",
+  "levels",
+] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
 
@@ -132,6 +140,83 @@ const bloomPass: LookPass = (into, source, presence, terms) => {
 };
 
 /**
+ * How wide one block of a crushed picture is, in the field's own pixels, across the band the block
+ * term is stated on: coarsest first, because a crush's Rate reads the same way round — a hold of a
+ * few hundred a second is the aliasing the effect exists for, and a hold at the top of the range is
+ * a sample or two long and barely heard. Stated in pixels and not in shares of the field, unlike the
+ * bloom's radius (0280), because a block grid is only a block grid on whole pixels: a picture whose
+ * cells landed on fractions would draw a soft edge down every one of them at any scale.
+ */
+export const BLOCK_PIXELS: readonly [number, number] = [24, 2];
+
+/**
+ * How wide one block is, off the block term its entry declared and how present the picture has
+ * travelled the instance to — **stepped to whole pixels**, which is what makes the grid a grid. A
+ * block of one is the field itself, which is what an absent crush and a crush the picture has not
+ * travelled to yet both draw; the walk up from one is the pass arriving over the wind's seconds
+ * rather than between two frames. A crush at the top of its Rate is not that one but the band's own
+ * other end, two pixels: the finest grid the picture states, and as near to the field as it goes.
+ */
+export const blockSize = (presence: number, block: number): number => {
+  const wide = denormalize(block, ...BLOCK_PIXELS);
+  return Math.max(1, Math.round(1 + clamp(presence, 0, 1) * (wide - 1)));
+};
+
+/**
+ * The most times a crushed field is composed with itself. A bit lost off the depth is a level lost
+ * off the picture, and the composite that takes one out is the field masked by its own alpha
+ * (`destination-in`), which pushes every half-covered pixel toward nothing and leaves a covered one
+ * where it is — so the blocks harden as the depth falls. Capped well short of the fifteen bits the
+ * range can lose: past three the thin rows are simply gone, and a picture of a crush that has eaten
+ * the picture says nothing about the crush.
+ */
+export const BLOCK_HARDENINGS = 3;
+
+/**
+ * How many times the blocked field is composed with itself, off the levels term and the travelled
+ * presence: a whole depth hardens nothing, and one bit hardens as far as the cap. Whole, because a
+ * fraction of a composite is not a draw.
+ */
+export const blockHarden = (presence: number, levels: number): number =>
+  Math.round(clamp(presence, 0, 1) * (1 - clamp(levels, 0, 1)) * BLOCK_HARDENINGS);
+
+/**
+ * The blocks, drawn: the field down onto its own block grid with smoothing off, that grid back up
+ * over the whole surface — nearest neighbour both ways, which is what makes a cell a flat cell and
+ * not a blur — and then the result masked by itself once per lost bit. Draws of what is already
+ * drawn, no fill over the picture and no pixel touched (0129, 0269).
+ *
+ * `copy` takes the small corner back up over the whole surface rather than blending it over itself,
+ * exactly as the bloom's second draw does; the hardening then runs `destination-in` against the same
+ * surface, which is the one place the blocked field can be read without allocating another.
+ */
+const blocksPass: LookPass = (into, source, presence, terms) => {
+  const size = blockSize(presence, terms.block ?? 0);
+  const hard = blockHarden(presence, terms.levels ?? 1);
+  const { width, height } = source;
+  if (size <= 1) {
+    into.drawImage(source, 0, 0);
+  } else {
+    // Off for both draws and never turned back on here: the chain resets it before every pass, so a
+    // look that wants smoothing gets it and this one does not have to know who runs next.
+    into.imageSmoothingEnabled = false;
+    // Enough cells to cover the field, taken back up at exactly `size` a cell rather than stretched
+    // to the field's own width: a grid scaled to fit would divide the width by a whole number of
+    // cells and land every one of them on a fraction of a pixel, which is the thing the whole-pixel
+    // step exists to prevent. The last cell of each row and column runs off the edge instead, and
+    // `copy` clips it there.
+    const across = Math.max(1, Math.ceil(width / size));
+    const down = Math.max(1, Math.ceil(height / size));
+    into.drawImage(source, 0, 0, across, down);
+    into.globalCompositeOperation = "copy";
+    into.drawImage(into.canvas, 0, 0, across, down, 0, 0, across * size, down * size);
+  }
+  if (hard <= 0) return;
+  into.globalCompositeOperation = "destination-in";
+  for (let taken = 0; taken < hard; taken++) into.drawImage(into.canvas, 0, 0);
+};
+
+/**
  * The looks, and the whole of what a look is to anything outside this file. **A look two entries
  * claim is refused at load, exactly as a drift profile is** (0122): an effect's look is its whole
  * identity in a glance at the picture, and two entries wearing one would draw the same move twice
@@ -160,6 +245,12 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * a longer tail is a bigger room, and a bigger room is a softer edge (0280).
    */
   bloom: { at: "pass", terms: { amount: "turn", radius: "turn" }, pass: bloomPass },
+  /**
+   * Crush's: the field on a grid of flat cells, hardened as the depth falls, so the picture keeps
+   * where its rows are and loses how finely they are drawn. How wide a cell is, is the Rate, on its
+   * own range — a coarse hold is a coarse picture; how many levels are left is the Bits, on its.
+   */
+  blocks: { at: "pass", terms: { block: "turn", levels: "turn" }, pass: blocksPass },
 };
 
 /**

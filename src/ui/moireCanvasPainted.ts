@@ -134,7 +134,14 @@ export function painterOn(stubGlobal: StubGlobal) {
     const surfaces: {
       fills: { over: string; alpha: number }[];
       wrote: { width: number; height: number; data: Uint8ClampedArray }[];
-      drew: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[];
+      drew: {
+        tile: unknown;
+        box: number[];
+        over: string;
+        alpha: number;
+        move: Aim;
+        smooth: boolean;
+      }[];
     }[] = [];
     // One stand-in context is one object literal of methods, each writing into the same tally, and
     // recording the box a draw was made in is one more field on one of them (0007).
@@ -142,7 +149,14 @@ export function painterOn(stubGlobal: StubGlobal) {
     const surface = (canvas: { width: number; height: number }) => {
       const fills: { over: string; alpha: number }[] = [];
       const wrote: { width: number; height: number; data: Uint8ClampedArray }[] = [];
-      const drew: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[] = [];
+      const drew: {
+        tile: unknown;
+        box: number[];
+        over: string;
+        alpha: number;
+        move: Aim;
+        smooth: boolean;
+      }[] = [];
       // What a curved row is drawn with: the tile it was baked into, placed by a matrix rather than
       // rebuilt. One object refilled by the painter, so the recorder keeps a copy of each.
       let move: Aim = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
@@ -153,6 +167,9 @@ export function painterOn(stubGlobal: StubGlobal) {
         fillStyle: "" as unknown,
         globalAlpha: 1,
         globalCompositeOperation: "source-over",
+        // A real context's own default, and recorded per draw: a pass that draws a grid of flat
+        // cells turns it off, and the chain turns it back on for whoever runs next (0281).
+        imageSmoothingEnabled: true,
         clearRect: () => {},
         setTransform: (matrix: Aim | number) => {
           move =
@@ -164,8 +181,12 @@ export function painterOn(stubGlobal: StubGlobal) {
         // (0280): the rect arguments as they were passed, so a downscale that lost its own shape
         // reads as a different box rather than as the same call.
         drawImage(tile: unknown, ...box: number[]): void {
-          const { globalAlpha: alpha, globalCompositeOperation: over } = this;
-          drew.push({ tile, box, alpha, over, move });
+          const {
+            globalAlpha: alpha,
+            globalCompositeOperation: over,
+            imageSmoothingEnabled: smooth,
+          } = this;
+          drew.push({ tile, box, alpha, over, move, smooth });
         },
         createPattern: () => (allowed() ? { setTransform: (m: Aim) => aims.push({ ...m }) } : null),
         createImageData: (w: number, h: number) => ({

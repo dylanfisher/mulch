@@ -8,7 +8,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, SHATTER_BANDS, SHATTER_CEILING } from "@/lib/moireGeometry";
-import { BLOOM_CEILING, LOOKS, type Look, type LookName, type LookTerms } from "@/lib/moireLook";
+import {
+  BLOCK_HARDENINGS,
+  BLOCK_PIXELS,
+  BLOOM_CEILING,
+  LOOKS,
+  type Look,
+  type LookName,
+  type LookTerms,
+} from "@/lib/moireLook";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
@@ -289,6 +297,74 @@ describe("cutField", () => {
     });
     expect(dry.surfaces[at]?.drew).toHaveLength(1);
     expect(fills(dry)).toEqual(fills(plain));
+  });
+
+  // P281: crush's blocks, and the first pass that draws with smoothing off.
+  it("blocks the field by drawing it small and back up unsmoothed, and hands the next pass smoothing", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const blocked = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("blocks", { block: 0, levels: 0 })],
+    });
+    const pass = blocked.surfaces[at];
+    const field = blocked.elements[0];
+    // The field's own device size, read off the surface a painting made it on: a `?? 0` and not an
+    // assertion, because the identity checks below are what say the surface is there at all.
+    const wide = field?.width ?? 0;
+    const deep = field?.height ?? 0;
+    // Draws of what is already drawn and nothing else: no fill over the picture, which would haze
+    // every window in it evenly (0269), and no pixel written.
+    expect(pass?.fills).toEqual([]);
+    expect(pass?.wrote).toEqual([]);
+    // The field down onto its own grid, that grid back up over the whole surface, and the result
+    // masked by itself once per lost bit — at one bit, the cap.
+    const hardenings = Array.from({ length: BLOCK_HARDENINGS }, () => "destination-in");
+    expect(pass?.drew.map((each) => each.over)).toEqual(["source-over", "copy", ...hardenings]);
+    expect(pass?.drew[0]?.tile).toBe(field);
+    expect(pass?.drew[1]?.tile).toBe(blocked.elements[at]);
+    // The grid is the coarsest the band allows: enough cells to cover the field, taken back up at
+    // exactly the block's own whole pixels a cell rather than stretched to the field's width, which
+    // would land every cell on a fraction of one — and covering it, since a grid that stopped short
+    // of the edge would leave the last cell of every row unwritten under `copy`.
+    const cell = BLOCK_PIXELS[0];
+    const across = Math.ceil(wide / cell);
+    const down = Math.ceil(deep / cell);
+    expect(pass?.drew[0]?.box).toEqual([0, 0, across, down]);
+    expect(pass?.drew[1]?.box).toEqual([0, 0, across, down, 0, 0, across * cell, down * cell]);
+    expect(across * cell).toBeGreaterThanOrEqual(wide);
+    expect(down * cell).toBeGreaterThanOrEqual(deep);
+    // And every draw of the pass is unsmoothed: a cell smoothed at either end is a blur, not a block.
+    expect(pass?.drew.every((each) => !each.smooth)).toBe(true);
+    // A crush the picture has not arrived at draws the field once and leaves it exactly as it was.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const absent = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("blocks", { block: 0, levels: 1 }), at: 0 }],
+    });
+    expect(absent.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(absent)).toEqual(fills(plain));
+  });
+
+  // P281: and the chain's own half of that, which the blocks are the first pass to need.
+  it("hands every pass a smoothing context, whichever pass wrote that surface before it", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const at = paintedOn(128, 64, [row({ period: 4 })]).elements.length;
+    // The chain has two surfaces and hands each slot the one its own place lands on, so a rack of
+    // `[crush, crush, reverb]` puts the bloom back on the surface the first crush unsmoothed. The
+    // halo is blurred there and not drawn nearest-neighbour, which is the chain's reset and not the
+    // bloom's business.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const stacked = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [
+        look("blocks", { block: 0, levels: 0 }),
+        look("blocks", { block: 0, levels: 0 }, "second"),
+        look("bloom", { amount: 1, radius: 1 }, "after"),
+      ],
+    });
+    const shared = stacked.surfaces[at]?.drew ?? [];
+    expect(shared).toHaveLength(BLOCK_HARDENINGS + 5);
+    expect(shared.slice(-3).map((each) => each.smooth)).toEqual([true, true, true]);
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

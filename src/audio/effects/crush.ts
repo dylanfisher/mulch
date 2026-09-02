@@ -98,6 +98,16 @@ export const crushEffect = defineEffect({
     { param: "crush.bits", into: "pitch" },
     { param: "crush.mix", into: "depth" },
   ],
+  // And the whole-field move a crusher makes: the finished picture on a grid of flat cells, drawn
+  // with smoothing off and hardened once per lost bit, which reads as blocks and posterised levels
+  // (0281). How wide a cell is, is the Rate — a hold a few hundred a second is a coarse picture —
+  // and how many levels survive is the bit depth. Both on their own ranges, the Rate's logarithmic
+  // one included: a picture stated in turns is a picture that reads the knob where it stands.
+  look: "blocks",
+  lookFrom: [
+    { param: "crush.rate", into: "block" },
+    { param: "crush.bits", into: "levels" },
+  ],
   // One held sample is this stage's whole memory: there is no filter, no capture and no feedback
   // path in the processor, so what it is doing stops depending on what it was given as soon as the
   // hold takes its next sample — which is under a hundredth of a second at the bottom of Rate.
