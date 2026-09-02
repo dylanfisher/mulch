@@ -46,6 +46,9 @@
 //   --fresh   rebuild unconditionally — for when the build is what you distrust
 //   --dev     drive a running dev server instead (start one with ./scripts/dev)
 //   --url U   drive an explicit URL, no server management at all
+//   --route R go to R on whichever server is being managed — `--route '#/sketch'` — so a hash
+//             route does not force --url, which is what made an agent start a preview server
+//             by hand and leave it listening (drive reaps only its own).
 //   --shot D  after the last command, write what the page drew into directory D: the whole page, and
 //             every canvas twice — whole, and cropped 1:1 so nothing downscales the fine
 //             structure away. Per canvas a {"shot":…} line carries its mean alpha and the swing
@@ -97,6 +100,7 @@ const stop = flag("--stop");
 const expectNoAttach = flag("--expect-no-attach");
 const deadlineOption = option("--deadline");
 const urlOption = option("--url");
+const routeOption = option("--route");
 const renderOption = option("--render");
 const wavOut = option("--out");
 const pngOut = option("--png");
@@ -111,6 +115,7 @@ const files = args.filter((a) => !a.startsWith("-"));
 const unknown = args.find((a) => a.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
 if (dev && expectNoAttach) die("--expect-no-attach tests the preview build; dev attaches by design");
+if (routeOption !== undefined && urlOption !== undefined) die("--url is already the whole address — put the route in it");
 
 // Seconds, with the unit optional because both spellings are natural to type: `--render 4`
 // and `--render 4s` are the same request, and the plan writes it the second way.
@@ -261,6 +266,11 @@ if (url === undefined) {
     url = server.resolvedUrls?.local[0] ?? die("vite preview reported no local URL");
   }
 }
+
+// Resolved against the server's own root, so `#/sketch` and `/sketch` both work and neither
+// needs --url. Without this a hash route was only reachable through --url, which manages no
+// server — so the caller started one, and could not stop it again.
+if (routeOption !== undefined) url = new URL(routeOption, url).href;
 
 // ---- the browser: the same flags the M1 spike proved the clock under ----
 

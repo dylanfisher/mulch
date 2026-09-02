@@ -62,6 +62,26 @@ run that wrote this clause. Reading it whole spills to a file and still needs a 
 so it costs three calls to answer what one grep answers, and it buries the entry you were given
 under eight you were not. The same applies to any report or decision you did not write.
 
+## Let the harness own the server
+
+> `./scripts/drive --shot DIR`, adding `--route '#/sketch'` for a hash route and `--dev` only to
+> drive the human's dev server. Never run `vite build`, `vite preview` or a server of your own.
+
+Drive rebuilds `dist/` when `src/` is newer, serves it, and reaps what it started
+(scripts/drive:229-270). `--url` is the exception that manages nothing, and reaching for it to get
+at a hash route is what left five preview servers listening across three runs — the harness refuses
+`kill`, `--stop` matches only drive's own command lines, and a server you started is
+indistinguishable from the human's, so nobody could clean them up but a human at a shell.
+
+## Cite a decision you have read
+
+> `ls docs/decisions/ | grep 0134` before you write a link to 0134. A number that arrived in prose
+> — yours, another agent's, or a report's — is a claim, not a citation.
+
+The gate's `links` step catches a dead path, which is one round trip; it cannot catch a live path
+to the wrong record, which is worse. `0134` was cited for a seeded draw during the run that wrote
+this clause and is about pattern repeats; the decision it wanted does not exist.
+
 ## Watch the test fail
 
 > Revert the source hunks — `git stash push` the source files, or invert the fix — run the test,
