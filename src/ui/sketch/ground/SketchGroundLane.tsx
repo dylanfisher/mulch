@@ -10,7 +10,7 @@
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   bedSaid,
   SKETCH_COUNTED_SAID,
@@ -62,10 +62,10 @@ const STANDS_AT =
 
 export function SketchGroundLane() {
   return (
-    <GroundStage reading="lane" label="The Lane">
-      <GroundSays x={4} y={16}>
+    <SketchStage bench="ground" reading="lane" label="The Lane">
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
+      </SketchSays>
       {[OPENED, ...STRETCHES].map((stretch) => (
         <g key={stretch.from}>
           <rect
@@ -81,13 +81,13 @@ export function SketchGroundLane() {
                 : "fill-primary/15 stroke-border"
             }
           />
-          <GroundSays
+          <SketchSays
             x={(alongLane(stretch.from) + alongLane(stretch.to)) / 2}
             y={LANE.top + 15}
             middle
           >
             {bedSaid(stretch.ground)}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
       {/* A mark is the move: at the lap the period came up on, and nowhere else. */}
@@ -101,9 +101,9 @@ export function SketchGroundLane() {
             className="stroke-foreground"
             strokeWidth={2}
           />
-          <GroundSays x={alongLane(move.after)} y={LANE.top - 14} middle>
+          <SketchSays x={alongLane(move.after)} y={LANE.top - 14} middle>
             {`${SKETCH_PER} ${move.after}`}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
       {/* The strip below is one lap of the lane blown up to the whole width — two scales on one
@@ -134,12 +134,12 @@ export function SketchGroundLane() {
         className="stroke-foreground"
         strokeWidth={2}
       />
-      <GroundSays x={LANE.left} y={STRIP.top - 12}>
+      <SketchSays x={LANE.left} y={STRIP.top - 12}>
         {`that ${SKETCH_PER} as the walk, landing ${SKETCH_GROUND_CLOCK.into + 1} of ${SKETCH_SEQUENCE}`}
-      </GroundSays>
-      <GroundSays x={LANE.left} y={VIEW.high - 4}>
+      </SketchSays>
+      <SketchSays x={LANE.left} y={VIEW.high - 4}>
         {`${SKETCH_COUNTED_SAID} ${SKETCH_PER}s since the last mark`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

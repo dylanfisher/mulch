@@ -10,7 +10,7 @@
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   acrossFile,
   bedNamed,
@@ -40,10 +40,10 @@ const CUT = EDGE + acrossFile(SKETCH_GROUND.standing) * (VIEW.wide - EDGE * 2);
 
 export function SketchGroundCut() {
   return (
-    <GroundStage reading="cut" label="The Cut">
-      <GroundSays x={4} y={16}>
+    <SketchStage bench="ground" reading="cut" label="The Cut">
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
+      </SketchSays>
       {DECK.map((card) => (
         <g key={card.bed}>
           <rect
@@ -59,9 +59,9 @@ export function SketchGroundCut() {
                 : "fill-card stroke-border"
             }
           />
-          <GroundSays x={card.x + CARD.wide / 2} y={CARD.top + CARD.high / 2 + 4} middle>
+          <SketchSays x={card.x + CARD.wide / 2} y={CARD.top + CARD.high / 2 + 4} middle>
             {card.name}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
       {/* The cut itself, and the count running up to it: what a hand is waiting through. */}
@@ -74,9 +74,9 @@ export function SketchGroundCut() {
         strokeDasharray="5 3"
         strokeWidth={2}
       />
-      <GroundSays x={CUT + 4} y={CARD.top - 18}>
+      <SketchSays x={CUT + 4} y={CARD.top - 18}>
         {`cut in ${SKETCH_GROUND_CLOCK.until}`}
-      </GroundSays>
+      </SketchSays>
       {/* The count as a bar under the deck: how much of a period has been dealt out already. */}
       <rect
         x={EDGE}
@@ -94,9 +94,9 @@ export function SketchGroundCut() {
         rx={4}
         className="fill-primary"
       />
-      <GroundSays x={EDGE} y={VIEW.high - 4}>
+      <SketchSays x={EDGE} y={VIEW.high - 4}>
         {`${SKETCH_COUNTED_SAID} ${SKETCH_PER}s dealt`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

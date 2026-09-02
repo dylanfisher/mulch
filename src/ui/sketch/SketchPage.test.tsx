@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
-import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_GROUNDS, SKETCH_MOVES, SketchPage } from "@/ui/sketch/SketchPage";
 
 /**
  * The bench is a list of arguments drawn out of the same primitives the instrument is, so rendering
@@ -13,8 +13,8 @@ import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
  */
 const markup = renderToStaticMarkup(<SketchPage />);
 
-/** The bench as one list, since every rule about an entry is a rule about all of them. */
-const BENCH = SKETCH_GROUNDS;
+/** Both benches as one list, since every rule about an entry is a rule about all of them. */
+const BENCH = [...SKETCH_MOVES, ...SKETCH_GROUNDS];
 
 describe("the sketch route", () => {
   it("resolves its own hash and leaves everything else on the instrument", () => {
@@ -42,6 +42,7 @@ describe("SketchPage", () => {
    * pass because the count in a test still matches (0254).
    */
   it("mounts every entry of both benches", () => {
+    expect(SKETCH_MOVES).not.toHaveLength(0);
     expect(SKETCH_GROUNDS).not.toHaveLength(0);
     for (const entry of BENCH) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
@@ -78,13 +79,14 @@ describe("SketchPage is cleared of what it argued before", () => {
    * The thirteen that were here argued the whole card or one fold of it, and the eight after them
    * argued how a song is played; all have been read and decided — the arguments are in 0257–0259,
    * and the grid won and is the card's own section (0275) — and a bench nobody clears stops being
-   * a bench (principle 6). Named here so a re-mount of one has to say so.
+   * a bench (principle 6). Named here so a re-mount of one has to say so — and one has: `sentence`
+   * was a whole surface said as prose, and the move bench's own sentence is one fold's four
+   * facts, so the id is that entry's now and is off this list.
    */
-  it("mounts none of the twenty-one the bench was cleared of", () => {
+  it("mounts none of the twenty the bench was cleared of", () => {
     const cleared = [
       "cast",
       "score",
-      "sentence",
       "stack",
       "terrain",
       "rolls",

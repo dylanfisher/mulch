@@ -6,7 +6,7 @@
  *   → src/ui/sketch/sketchGround.ts. The dial this replaces → src/lib/playerBed.ts.
  */
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   acrossFile,
   bedSaid,
@@ -54,10 +54,10 @@ const NOW = fixtureAt(CLIMB, RUNGS - 1, "rung");
 
 export function SketchGroundLadder() {
   return (
-    <GroundStage reading="ladder" label="The Ladder">
-      <GroundSays x={4} y={16}>
+    <SketchStage bench="ground" reading="ladder" label="The Ladder">
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
+      </SketchSays>
       {CLIMB.map((rung) => (
         <g key={rung.lap}>
           <line
@@ -81,18 +81,18 @@ export function SketchGroundLadder() {
             }
           />
           {rung.moved ? (
-            <GroundSays x={LADDER.left + LADDER.wide + 8} y={rung.y + 4}>
+            <SketchSays x={LADDER.left + LADDER.wide + 8} y={rung.y + 4}>
               {`${bedSaid(rung.ground)} on ${SKETCH_PER} ${rung.lap}`}
-            </GroundSays>
+            </SketchSays>
           ) : null}
         </g>
       ))}
-      <GroundSays x={LADDER.left + LADDER.wide + 8} y={NOW.y + 4}>
+      <SketchSays x={LADDER.left + LADDER.wide + 8} y={NOW.y + 4}>
         {`${bedSaid(SKETCH_GROUND.standing)} now`}
-      </GroundSays>
-      <GroundSays x={4} y={VIEW.high - 4}>
+      </SketchSays>
+      <SketchSays x={4} y={VIEW.high - 4}>
         {`${SKETCH_COUNTED_SAID} counted, next step in ${SKETCH_GROUND_CLOCK.until}`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

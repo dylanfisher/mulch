@@ -12,7 +12,7 @@
 // oxlint-disable max-lines-per-function
 import { atTurn } from "@/ui/sketch/SketchFrame";
 import { characterInk, fixtureAt, SKETCH_GROUND, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   bedSaid,
   SKETCH_COUNTED_SAID,
@@ -51,7 +51,7 @@ const COUNTED = ((): string => {
 
 export function SketchGroundClock() {
   return (
-    <GroundStage reading="clock" label="The Lap">
+    <SketchStage bench="ground" reading="clock" label="The Lap">
       <circle cx={DIAL.x} cy={DIAL.y} r={RIM} className="fill-none stroke-border" strokeWidth={5} />
       <path d={COUNTED} className="fill-none stroke-primary" strokeWidth={5} />
       <circle cx={DIAL.x} cy={DIAL.y} r={DIAL.r} className="fill-none stroke-border" />
@@ -82,9 +82,9 @@ export function SketchGroundClock() {
         r={26}
         className="fill-primary/20 stroke-foreground"
       />
-      <GroundSays x={DIAL.x} y={DIAL.y + 4} middle>
+      <SketchSays x={DIAL.x} y={DIAL.y + 4} middle>
         {bedSaid(SKETCH_GROUND.standing)}
-      </GroundSays>
+      </SketchSays>
       {/* The mark the lap counts up to: at the top, where the sweep starts and ends. */}
       <line
         x1={DIAL.x}
@@ -94,24 +94,24 @@ export function SketchGroundClock() {
         className="stroke-foreground"
         strokeWidth={2}
       />
-      <GroundSays x={DIAL.x} y={DIAL.y - RIM - 12} middle>
+      <SketchSays x={DIAL.x} y={DIAL.y - RIM - 12} middle>
         shift
-      </GroundSays>
-      <GroundSays x={180} y={40}>
+      </SketchSays>
+      <SketchSays x={180} y={40}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
-      <GroundSays x={180} y={62}>
+      </SketchSays>
+      <SketchSays x={180} y={62}>
         {`${SKETCH_PER} ${SKETCH_GROUND_CLOCK.gone + 1}, landing ${SKETCH_GROUND_CLOCK.into + 1} of ${SKETCH_SEQUENCE}`}
-      </GroundSays>
-      <GroundSays x={180} y={84}>
+      </SketchSays>
+      <SketchSays x={180} y={84}>
         {`${SKETCH_COUNTED_SAID} counted`}
-      </GroundSays>
-      <GroundSays x={180} y={106}>
+      </SketchSays>
+      <SketchSays x={180} y={106}>
         {`shift in ${SKETCH_GROUND_CLOCK.until}`}
-      </GroundSays>
-      <GroundSays x={180} y={128}>
+      </SketchSays>
+      <SketchSays x={180} y={128}>
         {`then ${bedSaid(SKETCH_GROUND.standing + SKETCH_GROUND.distance)} at furthest`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

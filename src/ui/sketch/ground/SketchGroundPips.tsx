@@ -11,7 +11,7 @@
 // oxlint-disable max-lines-per-function
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   bedSaid,
   SKETCH_COUNTED_SAID,
@@ -41,10 +41,10 @@ const INTO = SKETCH_GROUND_CLOCK.into / SKETCH_SEQUENCE;
 
 export function SketchGroundPips() {
   return (
-    <GroundStage reading="pips" label="The Count">
-      <GroundSays x={4} y={16}>
+    <SketchStage bench="ground" reading="pips" label="The Count">
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
+      </SketchSays>
       {COUNT.map((pip) => (
         <g key={pip.lap}>
           <circle
@@ -65,14 +65,14 @@ export function SketchGroundPips() {
               className="fill-primary/40"
             />
           ) : null}
-          <GroundSays x={pip.x} y={PIPS.y + PIP + 16} middle>
+          <SketchSays x={pip.x} y={PIPS.y + PIP + 16} middle>
             {`${SKETCH_PER} ${SKETCH_GROUND_CLOCK.gone - SKETCH_GROUND_CLOCK.since + pip.lap + 1}`}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
-      <GroundSays x={PIPS.from} y={44}>
+      <SketchSays x={PIPS.from} y={44}>
         {`${SKETCH_COUNTED_SAID}, then the ground moves`}
-      </GroundSays>
+      </SketchSays>
       {/* The ground the count is running down on, named under the pips: without it the picture is
           a progress bar and not a fold of the card (0252). */}
       <rect
@@ -84,9 +84,9 @@ export function SketchGroundPips() {
         rx={3}
         className="fill-primary/15 stroke-foreground"
       />
-      <GroundSays x={VIEW.wide / 2} y={VIEW.high - 15} middle>
+      <SketchSays x={VIEW.wide / 2} y={VIEW.high - 15} middle>
         {`standing on ${bedSaid(SKETCH_GROUND.standing)}, ${PLAYER_KNOB_LABELS.bedDistance} ${SKETCH_GROUND.distance} to travel`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

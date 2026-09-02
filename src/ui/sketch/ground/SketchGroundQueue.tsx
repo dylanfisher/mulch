@@ -12,7 +12,7 @@
 // oxlint-disable max-lines-per-function
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   acrossFile,
   aheadIn,
@@ -52,7 +52,7 @@ const QUEUED = SKETCH_BEDS.map((bed, index) => ({
 
 export function SketchGroundQueue() {
   return (
-    <GroundStage reading="queue" label="The Queue">
+    <SketchStage bench="ground" reading="queue" label="The Queue">
       <path d={WAVE} className="fill-none stroke-foreground/40" />
       {/* Where the loop is reading now — one bed of the file wide, part-way into a bed. */}
       <rect
@@ -65,9 +65,9 @@ export function SketchGroundQueue() {
         className="fill-primary/15 stroke-foreground"
         strokeWidth={2}
       />
-      <GroundSays x={STANDS_AT + WINDOW / 2} y={FILE.top - 6} middle>
+      <SketchSays x={STANDS_AT + WINDOW / 2} y={FILE.top - 6} middle>
         {bedSaid(SKETCH_GROUND.standing)}
-      </GroundSays>
+      </SketchSays>
       {QUEUED.map((ground) => (
         <g key={ground.name}>
           {/* The line from where it sits in the file down to its place in the queue: a queued
@@ -88,20 +88,20 @@ export function SketchGroundQueue() {
             rx={3}
             className="fill-card stroke-border"
           />
-          <GroundSays x={ground.x + ground.wide / 2} y={QUEUE_TOP + 14} middle>
+          <SketchSays x={ground.x + ground.wide / 2} y={QUEUE_TOP + 14} middle>
             {ground.name}
-          </GroundSays>
-          <GroundSays x={ground.x + ground.wide / 2} y={QUEUE_TOP + 34} middle>
+          </SketchSays>
+          <SketchSays x={ground.x + ground.wide / 2} y={QUEUE_TOP + 34} middle>
             {`in ${ground.in}`}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
-      <GroundSays x={4} y={16}>
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
-      <GroundSays x={4} y={VIEW.high - 4}>
+      </SketchSays>
+      <SketchSays x={4} y={VIEW.high - 4}>
         {`${SKETCH_COUNTED_SAID} counted, then the queue moves on`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

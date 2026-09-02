@@ -13,7 +13,7 @@
 // oxlint-disable max-lines-per-function
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { atTurn, SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   bedNamed,
   bedOf,
@@ -45,7 +45,7 @@ const NEXT = atTurn(RING.x, RING.y, RING.r + 10, (STANDING + 1) / SKETCH_SOURCE_
 
 export function SketchGroundRing() {
   return (
-    <GroundStage reading="ring" label="The Ratchet">
+    <SketchStage bench="ground" reading="ring" label="The Ratchet">
       <circle
         cx={RING.x}
         cy={RING.y}
@@ -66,9 +66,9 @@ export function SketchGroundRing() {
                 : "fill-card stroke-border"
             }
           />
-          <GroundSays x={notch.said.x} y={notch.said.y + 4} middle>
+          <SketchSays x={notch.said.x} y={notch.said.y + 4} middle>
             {notch.name}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
       {/* One notch on, when the count is up: the whole of the move, drawn as the only thing it
@@ -78,26 +78,26 @@ export function SketchGroundRing() {
         className="fill-none stroke-primary"
         strokeWidth={3}
       />
-      <GroundSays x={230} y={44}>
+      <SketchSays x={230} y={44}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
-      <GroundSays x={230} y={66}>
+      </SketchSays>
+      <SketchSays x={230} y={66}>
         {`one notch on`}
-      </GroundSays>
-      <GroundSays x={230} y={94}>
+      </SketchSays>
+      <SketchSays x={230} y={94}>
         {`${SKETCH_COUNTED_SAID} counted`}
-      </GroundSays>
-      <GroundSays x={230} y={116}>
+      </SketchSays>
+      <SketchSays x={230} y={116}>
         {`next in ${SKETCH_GROUND_CLOCK.until}`}
-      </GroundSays>
+      </SketchSays>
       {/* What the ratchet gives up, said on the picture: a notch is a whole bed, so the crawl that
           lands part-way into one has nowhere to be drawn here (src/lib/playerBed.ts). */}
-      <GroundSays x={4} y={VIEW.high - 4}>
+      <SketchSays x={4} y={VIEW.high - 4}>
         {`a notch is a whole ${PLAYER_KNOB_LABELS.bed} — no ${PLAYER_KNOB_LABELS.bedDistance}, no ${PLAYER_KNOB_LABELS.bedBias}`}
-      </GroundSays>
-      <GroundSays x={230} y={138}>
+      </SketchSays>
+      <SketchSays x={230} y={138}>
         {`standing ${intoBed(SKETCH_GROUND.standing)} sixteenths into it`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }

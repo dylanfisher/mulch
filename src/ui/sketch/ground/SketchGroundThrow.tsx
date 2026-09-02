@@ -17,7 +17,7 @@ import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { Slider } from "@/ui/components/slider";
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
   acrossFile,
   bedNamed,
@@ -60,7 +60,8 @@ export function SketchGroundThrow() {
   const said = Math.min(Math.max(lands, 90), VIEW.wide - 90);
 
   return (
-    <GroundStage
+    <SketchStage
+      bench="ground"
       reading="throw"
       label="The Throw"
       under={
@@ -74,9 +75,9 @@ export function SketchGroundThrow() {
         />
       }
     >
-      <GroundSays x={4} y={16}>
+      <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
-      </GroundSays>
+      </SketchSays>
       {PLACES.map((place) => (
         <g key={place.bed}>
           <rect
@@ -91,9 +92,9 @@ export function SketchGroundThrow() {
                 : "fill-card stroke-border"
             }
           />
-          <GroundSays x={place.x + place.wide / 2} y={FIELD.top + 16} middle>
+          <SketchSays x={place.x + place.wide / 2} y={FIELD.top + 16} middle>
             {place.name}
-          </GroundSays>
+          </SketchSays>
         </g>
       ))}
       {/* Where the loop is now: part-way into a bed, which is where a crawl leaves it and where a
@@ -108,9 +109,9 @@ export function SketchGroundThrow() {
         className="fill-none stroke-foreground"
         strokeWidth={2}
       />
-      <GroundSays x={STANDS_AT} y={FIELD.top - 10}>
+      <SketchSays x={STANDS_AT} y={FIELD.top - 10}>
         {`${bedSaid(SKETCH_GROUND.standing)}, ${intoBed(SKETCH_GROUND.standing)} in`}
-      </GroundSays>
+      </SketchSays>
       {/* The throw in the air, arcing over the file to the bed a hand chose. */}
       <path
         d={`M ${STANDS_AT + alongFile(PLAYER_SLOTS) / 2} ${FIELD.top + FIELD.high} Q ${(STANDS_AT + lands) / 2} ${VIEW.high - 4} ${lands} ${FIELD.top + FIELD.high}`}
@@ -118,12 +119,12 @@ export function SketchGroundThrow() {
         strokeDasharray="4 3"
         strokeWidth={2}
       />
-      <GroundSays x={said} y={FIELD.top + FIELD.high + 20} middle>
+      <SketchSays x={said} y={FIELD.top + FIELD.high + 20} middle>
         {`lands ${bedSaid(thrown.at)} in ${thrown.after}`}
-      </GroundSays>
-      <GroundSays x={4} y={VIEW.high - 4}>
+      </SketchSays>
+      <SketchSays x={4} y={VIEW.high - 4}>
         {`a throw lands on a whole ${PLAYER_KNOB_LABELS.bed}, ${SKETCH_COUNTED_SAID} counted`}
-      </GroundSays>
-    </GroundStage>
+      </SketchSays>
+    </SketchStage>
   );
 }
