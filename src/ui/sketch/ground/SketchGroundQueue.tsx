@@ -52,7 +52,7 @@ const QUEUED = SKETCH_BEDS.map((bed, index) => ({
 
 export function SketchGroundQueue() {
   return (
-    <SketchStage bench="ground" reading="queue" label="The Queue">
+    <SketchStage reading="queue" label="The Queue">
       <path d={WAVE} className="fill-none stroke-foreground/40" />
       {/* Where the loop is reading now — one bed of the file wide, part-way into a bed. */}
       <rect

@@ -39,6 +39,9 @@ const {
   songs: _songs,
   cast: _cast,
   bedPer: _bedPer,
+  bedWanders: _bedWanders,
+  bedReach: _bedReach,
+  bedWay: _bedWay,
   beds: _beds,
   bypassed: _bypassed,
   ...PLAIN

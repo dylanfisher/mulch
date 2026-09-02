@@ -32,14 +32,8 @@ import {
 } from "./player.ts";
 import { PLAYER_DROP_MAX, PLAYER_DROP_MIN } from "./playerDrop.ts";
 import {
-  PLAYER_BED_BIAS_MAX,
-  PLAYER_BED_BIAS_MIN,
-  PLAYER_BED_DISTANCE_MAX,
-  PLAYER_BED_DISTANCE_MIN,
   PLAYER_BED_EVERY_MAX,
   PLAYER_BED_EVERY_MIN,
-  PLAYER_BED_HOME_MAX,
-  PLAYER_BED_HOME_MIN,
   PLAYER_BED_MAX,
   PLAYER_BED_MIN,
 } from "./playerBed.ts";
@@ -156,20 +150,6 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // zero is the loop the hand set and the two ends are the file either side of it (0183).
   bed: { min: PLAYER_BED_MIN, max: PLAYER_BED_MAX, step: 1 },
   bedEvery: { min: PLAYER_BED_EVERY_MIN, max: PLAYER_BED_EVERY_MAX, step: 1 },
-  // The second dial drawn on a log curve, and for the burst's own reason: one sixteenth to a
-  // whole file is three orders of magnitude, and drawn linear the crawl — everything under one
-  // bed, which is what the sixteenth is *for* — would be the bottom sixtieth of the sweep (0193).
-  // Counted all the same: a hand lands on whole sixteenths at either end of it.
-  bedDistance: {
-    min: PLAYER_BED_DISTANCE_MIN,
-    max: PLAYER_BED_DISTANCE_MAX,
-    step: 1,
-    curve: "log",
-  },
-  // The bed's lean, which is the jump's own field one grid up and so carries the same range and
-  // the same reading: zero wanders, ±1 only ever goes one way (0162, 0183).
-  bedBias: { min: PLAYER_BED_BIAS_MIN, max: PLAYER_BED_BIAS_MAX },
-  bedHome: { min: PLAYER_BED_HOME_MIN, max: PLAYER_BED_HOME_MAX },
   distance: { min: PLAYER_DISTANCE_MIN, max: PLAYER_DISTANCE_MAX, step: 1 },
   // One of the two dials in the module whose range holds a negative, because the thing it says is
   // a direction and not a size: zero is the middle of it and the two ends are the two walks the
@@ -348,23 +328,10 @@ export const PLAYER_ARRANGE_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What stands in the Every dial's own run: how far one bed move travels, which way it leans and
- * how often it comes home to the song's own bed instead — the three amounts that shape the move the
- * Every dial schedules, which is where a drawn number's amounts belong (0124, 0183). The Bed dial
- * beside it is not one of them: it is the place the three are measured from, so it stands on the
- * box's own row.
- */
-export const PLAYER_BED_KNOBS = [
-  "bedDistance",
-  "bedBias",
-  "bedHome",
-] as const satisfies readonly PlayerKnob[];
-
-/**
  * Which fields of this spec say what the *song* is rather than what a part of it is like — the
  * Arrange dial and the three beside it, which is `song`'s own exclusion said for the four that are
- * knobs (0153, 0158), and the Bed dial, its period and the three behind that, which are the ground
- * every part of the song is read on (0184). Read by the three halves of one rule: no region may
+ * knobs (0153, 0158), and the Bed dial and its period, which are the ground every part of the
+ * song is read on (0184; what the move is shaped by stands beside them as words, not knobs, 0277). Read by the three halves of one rule: no region may
  * name one (a throw at load), no character press may write one — a press that zeroed `arrange`
  * would swap the song's author, and one that zeroed `bed` would move the loop under it
  * (src/lib/playerCharacter.ts) — and no part may carry one (0176, `PLAYER_PART_KNOBS`).
@@ -374,7 +341,6 @@ export const PLAYER_SONG_KNOBS = [
   ...PLAYER_ARRANGE_KNOBS,
   "bed",
   "bedEvery",
-  ...PLAYER_BED_KNOBS,
 ] as const satisfies readonly PlayerKnob[];
 export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
 
@@ -429,12 +395,11 @@ export const PLAYER_REST_KNOBS = [
 
 /**
  * Every knob that stands in another dial's run rather than on the card's own row, which is the
- * eight runs and nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its
+ * seven runs holding one and nothing else — the Every dial's run holds words (0277). A partition of `PLAYER_KNOBS` with the row's own dials as its
  * complement, so a knob is drawn in exactly one place and the split is declared here rather than at
  * each surface — and it is what says which names have to carry the dial they shape (0195).
  */
 export const PLAYER_RUN_KNOBS = [
-  ...PLAYER_BED_KNOBS,
   ...PLAYER_TRAVEL_KNOBS,
   ...PLAYER_PHRASE_KNOBS,
   ...PLAYER_REPEATS_KNOBS,

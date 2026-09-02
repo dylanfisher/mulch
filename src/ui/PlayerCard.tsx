@@ -626,9 +626,9 @@ export function PlayerCard({
                   patch={patch}
                   disabled={off}
                 />
-                {/* The bed first, because the three behind the dial beside it are all measured
-                    from it: a distance is from here, a lean is away from here and a home is back
-                    to here. It is the one dial here that is a *place* rather than an amount,
+                {/* The bed first, because the three rows of words beside the dial after it are
+                    all measured from it: a reach is from here, a way is away from here and
+                    staying put is here (0277). It is the one dial here that is a *place* rather than an amount,
                     which is why it is on the row and not behind the marker (0124). Handed
                     `selected={false}` for the reason the arrangement below it is — a song knob
                     wears no mark, because no selection could point it anywhere else. */}

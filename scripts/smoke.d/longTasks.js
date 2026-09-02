@@ -67,7 +67,7 @@ export const groundDrag = async ({ page }) => {
     window.mulch.send({
       t: "deck.player",
       deck: "b",
-      player: { ...player, arrange: 1, bedEvery: 8, bedDistance: 8 },
+      player: { ...player, arrange: 1, bedEvery: 8, bedReach: "bed" },
     });
     window.mulch.send({ t: "deck.play", deck: "b" });
   });

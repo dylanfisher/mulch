@@ -6,6 +6,7 @@ import {
   finite,
   isRecord,
   objectAt,
+  oneOf,
   positive,
 } from "@/lib/guards";
 
@@ -67,6 +68,17 @@ describe("positive", () => {
       positive(-1, "rate");
     }).toThrow(/rate is not a positive number/u);
     expect(positive(44_100, "rate")).toBe(44_100);
+  });
+});
+
+describe("oneOf", () => {
+  it("answers the word it was handed and refuses a stranger, naming where", () => {
+    const words = ["jump", "part"] as const;
+    expect(oneOf("part", words, "clock")).toBe("part");
+    expect(() => oneOf("album", words, "clock")).toThrow(
+      /clock is album, expected one of jump, part/u,
+    );
+    expect(() => oneOf(1, words, "clock")).toThrow(/clock is 1/u);
   });
 });
 

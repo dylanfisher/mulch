@@ -101,9 +101,9 @@ export const renderPlayer = async ({ page }) => {
         // song's own boundaries (0192).
         bedPer: "jump",
         bedEvery: 0,
-        bedDistance: 2,
-        bedBias: 0,
-        bedHome: 0,
+        bedWanders: true,
+        bedReach: "nudge",
+        bedWay: "either",
         // And nothing planted, so no ground arrives on a count of its own and the crawl above is
         // the only author of where the loop is (0194).
         beds: [],
@@ -285,19 +285,23 @@ export const renderPlayer = async ({ page }) => {
         // the loop's own bed and the same pattern standing a whole loop-length further into the
         // file — the same seed, the same walk, the same slots, and a different part of the sample
         // under all of it, which is the one thing about a moved loop no unit test can hear (0183).
-        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 0 })),
-        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 1 })),
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedWanders: false, bed: 0 })),
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedWanders: false, bed: 1 })),
         // And the crawl, which is the same claim one grid finer (P139). The ground is counted in
         // the loop's own sixteenths now, so this sweep holds twenty-five of them where it holds
         // two whole beds — and bed 2, which is thirty-two sixteenths, folds onto the seventh of
         // them rather than back onto the loop. A ground no whole bed begins at, sounding.
-        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 2 })),
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedWanders: false, bed: 2 })),
         // And second, the claim the whole module rests on, said for the newest field: a pattern
         // whose ground wanders is still a function of its seed, so the same spec renders the same
         // file twice (0089). Rendered beside its own repeat rather than against the pair above,
         // because what is being asserted is reproducibility and not difference.
-        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
-        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
+        window.mulch.render(
+          ground({ ...pattern(11, 0), bedEvery: 2, bedReach: "nudge", bedWay: "on" }),
+        ),
+        window.mulch.render(
+          ground({ ...pattern(11, 0), bedEvery: 2, bedReach: "nudge", bedWay: "on" }),
+        ),
         // And third, the ground's other author: the same wandering pattern with one ground kept
         // for every second jump. A kept arrival takes no draw, so the walk under this file is the
         // walk under the two above it — the only thing between them is where the loop is standing
@@ -307,8 +311,8 @@ export const renderPlayer = async ({ page }) => {
           ground({
             ...pattern(11, 0),
             bedEvery: 2,
-            bedDistance: 1,
-            bedBias: 1,
+            bedReach: "nudge",
+            bedWay: "on",
             beds: [{ bed: 1, every: 2 }],
           }),
         ),

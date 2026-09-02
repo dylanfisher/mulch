@@ -40,7 +40,7 @@ const CUT = EDGE + acrossFile(SKETCH_GROUND.standing) * (VIEW.wide - EDGE * 2);
 
 export function SketchGroundCut() {
   return (
-    <SketchStage bench="ground" reading="cut" label="The Cut">
+    <SketchStage reading="cut" label="The Cut">
       <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
       </SketchSays>

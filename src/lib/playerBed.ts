@@ -1,12 +1,13 @@
 /**
  * @role The ground a loop is read on: how far through the source the loop has been moved, in the
  *   loop's own **sixteenths**, which bed the song opens on, how often the ground moves, how far
- *   it crawls when it does (0185), and the grounds a hand kept for the song to come back to on
- *   counts of their own (0194). The song's, not a part's (0184). Pure maths — no
- *   clock, no PRNG and no buffer: an index here is unbounded, and what it finally lands on is
- *   resolved where the buffer is (0183, the way a travel is clamped where it is applied).
+ *   it reaches and which way when it does, said in three words rather than three numbers (0185,
+ *   0277), and the grounds a hand kept for the song to come back to on counts of their own (0194).
+ *   The song's, not a part's (0184). Pure maths — no clock, no PRNG and no buffer: an index here
+ *   is unbounded, and what it finally lands on is resolved where the buffer is (0183, the way a
+ *   travel is clamped where it is applied).
  * @instead The grid *inside* one bed — the sixteen slots a landing lands on → src/lib/playerSlots.ts.
- *   The lean these share with a jump, spent once for both → `leanStep`, src/lib/playerWalk.ts,
+ *   The draw the three words are spent on, shared with a jump → `leanStep`, src/lib/playerWalk.ts,
  *   which is where the draw is because the draw needs the walk's own generator. Turning a bed into
  *   buffer seconds for a *sounding* deck → `gridOf` and `slotStart`, src/audio/player.ts, which
  *   fold once per pass; every other surface asks `bedGround` below. The dial each is turned on →
@@ -65,66 +66,49 @@ export type PlayerBedPer = (typeof PLAYER_BED_PERS)[number];
 /** The unit the ground was counted in before it could be counted in anything else. */
 export const PLAYER_BED_PER_JUMP: PlayerBedPer = "jump";
 
-/** Whether a durable value names one of the three clocks a period may be counted on. */
-export const isBedPer = (value: unknown): value is PlayerBedPer =>
-  PLAYER_BED_PERS.some((per) => per === value);
-
 /**
- * The same, said as the loud check a stored spec comes through — the shape `whole` and `within`
- * have one file over, and here because this is the module that says what a ground is (principle 1,
- * src/lib/guards.ts).
+ * The furthest one move may travel, **counted in the loop's own sixteenths and not in whole beds**:
+ * the Bed dial's own reach said in this unit, `PLAYER_BED_MAX` beds of sixteenths. It is that for
+ * the reason the reach itself is sixty-four: how much ground a source holds is not durable here, so
+ * the bound is the widest a move can usefully be and the buffer decides which of it exists
+ * (`bedWrap` below). A move this far may land on any ground the file holds, which is the whole of
+ * "anywhere" (0193).
  */
-export function bedPerOf(value: unknown, at: string): PlayerBedPer {
-  if (!isBedPer(value))
-    throw new TypeError(`${at} is ${String(value)}, expected one of ${PLAYER_BED_PERS.join(", ")}`);
-  return value;
-}
-
-/**
- * How far one move may travel, **counted in the loop's own sixteenths and not in whole beds**.
- * One is a single slot of source and `PLAYER_SLOTS` is exactly one bed, which is the hop this walk
- * used to take at a distance of one.
- *
- * That is the whole of the crawl: a move of less than sixteen leaves the loop reading a window
- * the source's own bed grid does not begin at, so a leaning pattern creeps across the file and
- * drifts out of phase with it rather than hopping bed to bed. A bed is still one loop-length of
- * source and still what a burst is clamped inside (0183); it is simply no longer true that the
- * ground sits on a boundary of them.
- *
- * The ceiling is the Bed dial's own reach said in this unit — `PLAYER_BED_MAX` beds of sixteenths
- * — and it is that for the reason the reach itself is sixty-four: how much ground a source holds
- * is not durable here, so the range is the widest a dial can usefully offer and the buffer decides
- * which of it exists (`bedWrap` below). At the top one move may land on any ground the file holds,
- * which is the whole of "it can jump anywhere" (0193).
- */
-export const PLAYER_BED_DISTANCE_MIN = 1;
 export const PLAYER_BED_DISTANCE_MAX = PLAYER_BED_MAX * PLAYER_SLOTS;
 
 /**
- * Which way that walk leans, −1…1. Zero is as likely to go back as on, which is wandering; one
- * only ever moves on through the source and minus one only ever moves back.
+ * How far one move may carry the loop, as three words rather than a thousand numbers (0277). The
+ * bet: a hand asking for a crawl asks for "a little" or "a lot" and never for twenty-three
+ * sixteenths, so three named reaches *are* the amount. Each is what it says in the loop's own
+ * sixteenths — a quarter of a bed, one bed, and the whole file.
  *
- * An amount and not a choice between two named walks, for the reason 0162 gave when it took the
- * named walks off the jump: a bias of +1 *is* "forward", so a spec holding both would be one
- * instruction arriving from two fields. It is the same field the jump has, one grid up, and it is
- * drawn by the same arithmetic (`leanStep`, src/lib/playerWalk.ts).
+ * Sixteenths and not whole beds, which is the whole of the crawl: a move of less than sixteen
+ * leaves the loop reading a window the source's own bed grid does not begin at, so a leaning
+ * pattern creeps across the file and drifts out of phase with it rather than hopping bed to bed
+ * (0185). A bed is still one loop-length of source and still what a burst is clamped inside
+ * (0183); it is simply no longer true that the ground sits on a boundary of them.
  */
-export const PLAYER_BED_BIAS_MIN = -1;
-export const PLAYER_BED_BIAS_MAX = 1;
+export const PLAYER_BED_REACHES = ["nudge", "bed", "anywhere"] as const;
+export type PlayerBedReach = (typeof PLAYER_BED_REACHES)[number];
+export const PLAYER_BED_REACH_SLOTS: Record<PlayerBedReach, number> = {
+  nudge: PLAYER_SLOTS / 4,
+  bed: PLAYER_SLOTS,
+  anywhere: PLAYER_BED_DISTANCE_MAX,
+};
 
 /**
- * The odds one move comes home to the song's own bed instead of travelling, 0…1. One never leaves
- * it, which is a performance that always plays on the same ground however long it runs; zero never
- * returns, which is a loop that walks away and keeps walking.
- *
- * Home is `bed` above — the song's, not a part's (0184). The ground is one walk over the source
- * that the whole arrangement is read on, so there is one place for it to come home to; a part
- * carrying a home of its own would be the parts disagreeing about where the loop is.
- *
- * Read before the distance is drawn and short-circuiting it, exactly as a jump's home is (P87).
+ * Which way that walk leans, as the three words for the three leans a hand ever sets: always
+ * back, as likely either, always on. The jump's own lean is a continuous −1…1 (0162), and every
+ * hand leaves the ground's on one of these — so here it is the choice and not the amount, and the
+ * number the shared draw wants is said once beside the word (`leanStep`, src/lib/playerWalk.ts).
  */
-export const PLAYER_BED_HOME_MIN = 0;
-export const PLAYER_BED_HOME_MAX = 1;
+export const PLAYER_BED_WAYS = ["back", "either", "on"] as const;
+export type PlayerBedWay = (typeof PLAYER_BED_WAYS)[number];
+export const PLAYER_BED_WAY_LEAN: Record<PlayerBedWay, -1 | 0 | 1> = {
+  back: -1,
+  either: 0,
+  on: 1,
+};
 
 /**
  * How many grounds a hand may plant beside the one the song opens on. Eight, which is
@@ -241,16 +225,33 @@ export type BedSpec = {
   bedEvery: number;
   /** What that period is counted in: jumps, parts, or whole rounds of the song (0192). */
   bedPer: PlayerBedPer;
-  /** Sixteenths of the loop one move may travel, `PLAYER_BED_DISTANCE_MIN`…`MAX`. Whole. */
-  bedDistance: number;
-  /** Which way it leans, −1…1. Zero wanders, ±1 only ever goes one way. */
-  bedBias: number;
-  /** The odds it comes home to the song's own bed instead of crawling on, 0…1. */
-  bedHome: number;
+  /**
+   * Whether a due move carries the loop on, or brings it home to `bed`. Not a second "never
+   * moves" beside `bedEvery` at zero: with the period open a loop that stays put comes back to
+   * the song's own bed on every due move, which is a return whenever a kept ground has walked it
+   * away — the home roll at its two ends, and no odds between them (0277).
+   */
+  bedWanders: boolean;
+  /** How far one move may carry it: a quarter of a bed, one bed, or anywhere in the file (0277). */
+  bedReach: PlayerBedReach;
+  /** Which way it leans: always back, as likely either, always on (0277). */
+  bedWay: PlayerBedWay;
   /** The grounds a hand planted, each with the period it comes round on. Empty is none planted,
    *  which is the ground as it was before one could be kept. */
   beds: readonly PlantedBed[];
 };
+
+/**
+ * The three words as the three amounts the walk's draw is handed, said once: a reach is its
+ * sixteenths, a way is its lean, and staying put is the home roll certain — which is the odds at
+ * one, short-circuiting the travel, exactly as a jump's home does (P87). Wandering is the roll
+ * never taken, so a loop that wanders draws precisely what one with no home ever drew (0134).
+ */
+export const bedMove = (spec: BedSpec): { distance: number; bias: number; home: number } => ({
+  distance: PLAYER_BED_REACH_SLOTS[spec.bedReach],
+  bias: PLAYER_BED_WAY_LEAN[spec.bedWay],
+  home: spec.bedWanders ? 0 : 1,
+});
 
 /**
  * How far the ground may be moved on a real buffer, as the lowest and highest **offset in the

@@ -17,15 +17,6 @@ import type { PlayerKnob } from "./player.ts";
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   bed: "Bed",
   bedEvery: "Every",
-  // "Distance", "Lean" and "Home" in the Every dial's run, where the jump's own three read
-  // "Distance", "Bias" and "Home" on the row above — allowed for the reason `phraseKeep` reads
-  // "Keep": an amount is named for the dial it shapes, so these read "Every Distance" and "Every
-  // Home" to anything that asks (0195, `runName`, src/ui/PlayerRun.tsx). The lean is the one word
-  // that differs anyway, because a hand reading the two runs across should not have to hear the
-  // prefix to tell a bed's lean from a jump's (0135).
-  bedDistance: "Distance",
-  bedBias: "Lean",
-  bedHome: "Home",
   distance: "Distance",
   bias: "Bias",
   stride: "Stride",
@@ -89,19 +80,14 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
 
 /**
  * What turning each of them does, and in what unit. A slot is a sixteenth of the loop
- * (`PLAYER_SLOTS`), which is the unit a distance, a figure, a wait and — since the crawl — the
- * ground's own move are all measured in, and the one thing about this module no caption can hold. Total over `PLAYER_KNOBS`, checked in `src/ui/tooltips.test.ts`.
+ * (`PLAYER_SLOTS`), which is the unit a distance, a figure and a wait are all measured in, and
+ * the one thing about this module no caption can hold. Total over `PLAYER_KNOBS`, checked in
+ * `src/ui/tooltips.test.ts`.
  */
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. Past what the sample holds it folds back into it, which can leave the song opening part of a bed along. The ground is the whole song's: every part plays back on wherever the loop has moved to.",
   bedEvery:
     "How many of whatever it is counted in pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it.",
-  bedDistance:
-    "How far one move may travel, as a share of the sample. Down at a tenth of a percent the loop crawls a sixteenth at a time and drifts out of step with the sample; at a hundred it may land anywhere in it.",
-  bedBias:
-    "Which way the loop leans as it moves. In the middle it is as likely to go back as on; at either end every move goes the one way, wrapping at the ends of the sample.",
-  bedHome:
-    "The odds one move comes back to the song's own bed instead of travelling. Zero walks away and keeps walking; one never leaves.",
   distance: "How far one jump may travel, in sixteenths of the loop.",
   bias: "Which way the pattern leans. In the middle it is as likely to go back as on; at either end every jump goes the one way, wrapping at the edge of the loop.",
   stride:

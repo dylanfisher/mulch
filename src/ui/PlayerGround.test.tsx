@@ -141,7 +141,7 @@ describe("the ground as a strip", () => {
    * draws, and none at all for a ground that never moves (`groundsAhead`, 0191).
    */
   it("draws the grounds the pattern moves to next, and none for one that never moves", () => {
-    const moving = drawn({ bedEvery: 2, bedDistance: 4, bedBias: 1 });
+    const moving = drawn({ bedEvery: 2, bedReach: "nudge", bedWay: "on" });
     expect(lefts(moving.markup).length).toBeGreaterThan(2);
     expect(lefts(moving.markup).length).toBeLessThanOrEqual(2 + PLAYER_GROUND_AHEAD);
     expect(lefts(drawn({ bedEvery: 0 }).markup)).toHaveLength(2);

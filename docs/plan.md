@@ -573,7 +573,8 @@ The bench at `#/sketch` held thirteen entries — eight whole surfaces and five 
 of them argued about the mulcher card as a whole or about one of its folds. They had been drawn,
 read and decided against or absorbed; what was left on the page was a record of finished arguments,
 and a bench nobody clears stops being a bench. Two questions were open and neither had a drawing
-anywhere. Both are drawn now, in two sections of eight (src/ui/sketch/SketchPage.tsx):
+anywhere. Both were drawn, in two sections of eight, and a third question was drawn after them
+(src/ui/sketch/SketchPage.tsx):
 
 - **When the ground moves. Landed.** The bench is cleared and eight readings of that one seam are on
   it: the lap, the queue, the ratchet, the ladder, the cut, the lane, the throw and the count. Each
@@ -588,8 +589,15 @@ anywhere. Both are drawn now, in two sections of eight (src/ui/sketch/SketchPage
   the spindle and the strip — and the grid won: the card's section is a launch grid now, a press on
   a cell arms a part for the next boundary, and the row under the grid edits what is picked
   (src/ui/PlayerGrid.tsx, 0275). The eight and their fixture are deleted, per 0254's rule.
+- **How the ground moves. Landed, decided and cleared.** The fold said it in three dials — a
+  Distance in sixteenths, a Lean and a Home. Six readings of it stood on the bench's first section
+  — the leash, the pad, the fence, the sentence, the switchboard and the tide (0276) — and the
+  switchboard won: the fold's three dials are three rows of words now, `bedWanders`, `bedReach`
+  and `bedWay`, beside the Counted-in row that was already drawn that way (src/ui/PlayerBed.tsx,
+  0277). The six and their arithmetic are deleted, per 0254's rule; the fourth row, whether the
+  loop itself grows or shrinks, is not built and is a step of its own.
 
-**The outcome wanted, and had:** sixteen drawings, in two sections, that make either question
+**The outcome wanted, and had:** twenty-two drawings, in three sections, that make each question
 answerable by looking. Fun, simple and intuitive was the brief, and on this bench that is a
 measurable thing: a drawing that needs its caption read twice has failed.
 

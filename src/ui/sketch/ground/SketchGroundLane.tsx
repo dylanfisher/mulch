@@ -62,7 +62,7 @@ const STANDS_AT =
 
 export function SketchGroundLane() {
   return (
-    <SketchStage bench="ground" reading="lane" label="The Lane">
+    <SketchStage reading="lane" label="The Lane">
       <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
       </SketchSays>

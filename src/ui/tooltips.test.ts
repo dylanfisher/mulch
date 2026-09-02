@@ -29,7 +29,6 @@ import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { PLAYER_KNOBS } from "@/lib/player";
 import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import {
-  PLAYER_BED_KNOBS,
   PLAYER_RUN_KNOBS,
   PLAYER_RATE_KNOBS,
   PLAYER_REPEATS_KNOBS,
@@ -113,8 +112,9 @@ describe("the words every control says", () => {
    */
   it("gives no two dials on screen at once the same name", () => {
     const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_RUN_KNOBS.some((m) => m === knob));
+    // The Every dial's run is not among them: what stands in it is rows of words, not dials
+    // (0277, src/ui/PlayerBed.tsx).
     const runs = [
-      [PLAYER_KNOB_LABELS.bedEvery, PLAYER_BED_KNOBS],
       [PLAYER_KNOB_LABELS.distance, PLAYER_TRAVEL_KNOBS],
       [PLAYER_KNOB_LABELS.phrase, PLAYER_PHRASE_KNOBS],
       [PLAYER_KNOB_LABELS.repeats, PLAYER_REPEATS_KNOBS],

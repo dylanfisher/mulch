@@ -17,7 +17,7 @@
 // size of that vocabulary rather than a judgement of its own. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { assertDurableText, exactKeys, flag, objectAt, whole, within } from "./guards.ts";
+import { assertDurableText, exactKeys, flag, objectAt, oneOf, whole, within } from "./guards.ts";
 import { songsOf } from "./playerSongs.ts";
 import { stripOf } from "./playerStrip.ts";
 import {
@@ -37,18 +37,14 @@ import {
   PLAYER_STRIDE_MIN,
 } from "./playerTravel.ts";
 import {
-  PLAYER_BED_BIAS_MAX,
-  PLAYER_BED_BIAS_MIN,
-  PLAYER_BED_DISTANCE_MAX,
-  PLAYER_BED_DISTANCE_MIN,
   PLAYER_BED_EVERY_MAX,
   PLAYER_BED_EVERY_MIN,
-  PLAYER_BED_HOME_MAX,
-  PLAYER_BED_HOME_MIN,
   PLAYER_BED_MAX,
   PLAYER_BED_MIN,
   PLAYER_BED_PER_JUMP,
-  bedPerOf,
+  PLAYER_BED_PERS,
+  PLAYER_BED_REACHES,
+  PLAYER_BED_WAYS,
   bedsOf,
 } from "./playerBed.ts";
 import {
@@ -144,7 +140,7 @@ import {
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the five no dial reaches, then every one a hand turns, which are named once in
+ * — the eight no dial reaches, then every one a hand turns, which are named once in
  * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
 const PLAYER_FIELDS = [
@@ -153,6 +149,9 @@ const PLAYER_FIELDS = [
   "songs",
   "cast",
   "bedPer",
+  "bedWanders",
+  "bedReach",
+  "bedWay",
   "beds",
   ...PLAYER_KNOBS,
 ] as const;
@@ -162,9 +161,9 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
 
 /**
  * What a part's captured spec is checked as: a whole player, with the fields a part does not carry
- * filled in at a legal value of their own — the four the song is drawn by and the six the ground
- * is walked by at their floors, the cast at its whole, which is the one of them whose floor is not
- * the identity — and thrown away again. There is exactly one validator for what a number of this
+ * filled in at a legal value of their own — the four the song is drawn by and the two dials the
+ * ground is walked by at their floors, its words at the quiet one of each, the cast at its whole,
+ * which is the one of them whose floor is not the identity — and thrown away again. There is exactly one validator for what a number of this
  * module may be, and a part's numbers are that module's numbers — a second copy of thirty-two
  * bounds here is the one thing principle 1 refuses, and it is the copy that would drift the first
  * time a range moved.
@@ -190,10 +189,11 @@ const PART_VOICE_FILLER = {
   // loop itself (0184).
   bed: 0,
   bedPer: PLAYER_BED_PER_JUMP,
+  // And the move's three words at the quiet one of each: staying put, the nearest reach, no lean.
+  bedWanders: false,
+  bedReach: "nudge",
+  bedWay: "either",
   bedEvery: PLAYER_BED_EVERY_MIN,
-  bedDistance: PLAYER_BED_DISTANCE_MIN,
-  bedBias: 0,
-  bedHome: PLAYER_BED_HOME_MIN,
 } as const;
 
 /**
@@ -289,22 +289,18 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
-    // The one durable field of this spec that is not a number: a clock is one of the clocks, and
-    // the module that says what a ground is is what checks it (0192, src/lib/playerBed.ts).
-    bedPer: bedPerOf(raw["bedPer"], `${at} bedPer`),
+    // The durable fields of this spec that are not numbers: a clock is one of the clocks, and a
+    // move is one of the reaches and one of the ways, or stays put (0192, 0277). The words are the
+    // module's that says what a ground is; the check is the one every such word goes through.
+    bedPer: oneOf(raw["bedPer"], PLAYER_BED_PERS, `${at} bedPer`),
+    bedWanders: flag(raw["bedWanders"], `${at} bedWanders`),
+    bedReach: oneOf(raw["bedReach"], PLAYER_BED_REACHES, `${at} bedReach`),
+    bedWay: oneOf(raw["bedWay"], PLAYER_BED_WAYS, `${at} bedWay`),
     // The grounds a hand planted, checked by the same module — a list and not a number, so it is
     // keyed and bounded there rather than clamped here (0184, src/lib/playerBed.ts).
     beds: bedsOf(raw["beds"], `${at} beds`),
     bed: whole(raw["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${at} bed`),
     bedEvery: whole(raw["bedEvery"], PLAYER_BED_EVERY_MIN, PLAYER_BED_EVERY_MAX, `${at} bedEvery`),
-    bedDistance: whole(
-      raw["bedDistance"],
-      PLAYER_BED_DISTANCE_MIN,
-      PLAYER_BED_DISTANCE_MAX,
-      `${at} bedDistance`,
-    ),
-    bedBias: within(raw["bedBias"], PLAYER_BED_BIAS_MIN, PLAYER_BED_BIAS_MAX, `${at} bedBias`),
-    bedHome: within(raw["bedHome"], PLAYER_BED_HOME_MIN, PLAYER_BED_HOME_MAX, `${at} bedHome`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     bias: within(raw["bias"], PLAYER_BIAS_MIN, PLAYER_BIAS_MAX, `${at} bias`),
     stride: within(raw["stride"], PLAYER_STRIDE_MIN, PLAYER_STRIDE_MAX, `${at} stride`),
@@ -490,14 +486,14 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         })),
         cast: player.cast,
         bedPer: player.bedPer,
+        bedWanders: player.bedWanders,
+        bedReach: player.bedReach,
+        bedWay: player.bedWay,
         // And each planted ground in its own declared order, for the reason a cell is: a list a
         // hand wrote is durable, so it has one spelling (0021).
         beds: player.beds.map((planted) => ({ bed: planted.bed, every: planted.every })),
         bed: player.bed,
         bedEvery: player.bedEvery,
-        bedDistance: player.bedDistance,
-        bedBias: player.bedBias,
-        bedHome: player.bedHome,
         distance: player.distance,
         bias: player.bias,
         stride: player.stride,

@@ -11,6 +11,7 @@
 // itself, so cutting it into helpers to satisfy a line count would scatter one drawing across five
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
+import { PLAYER_BED_REACH_LABEL, PLAYER_BED_WAY_LABEL } from "@/lib/copyGround";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { atTurn, SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
 import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
@@ -45,7 +46,7 @@ const NEXT = atTurn(RING.x, RING.y, RING.r + 10, (STANDING + 1) / SKETCH_SOURCE_
 
 export function SketchGroundRing() {
   return (
-    <SketchStage bench="ground" reading="ring" label="The Ratchet">
+    <SketchStage reading="ring" label="The Ratchet">
       <circle
         cx={RING.x}
         cy={RING.y}
@@ -93,7 +94,7 @@ export function SketchGroundRing() {
       {/* What the ratchet gives up, said on the picture: a notch is a whole bed, so the crawl that
           lands part-way into one has nowhere to be drawn here (src/lib/playerBed.ts). */}
       <SketchSays x={4} y={VIEW.high - 4}>
-        {`a notch is a whole ${PLAYER_KNOB_LABELS.bed} — no ${PLAYER_KNOB_LABELS.bedDistance}, no ${PLAYER_KNOB_LABELS.bedBias}`}
+        {`a notch is a whole ${PLAYER_KNOB_LABELS.bed} — no ${PLAYER_BED_REACH_LABEL}, no ${PLAYER_BED_WAY_LABEL}`}
       </SketchSays>
       <SketchSays x={230} y={138}>
         {`standing ${intoBed(SKETCH_GROUND.standing)} sixteenths into it`}

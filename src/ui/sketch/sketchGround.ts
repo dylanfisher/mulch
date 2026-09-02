@@ -102,7 +102,7 @@ export const SKETCH_GROUND_MOVES: readonly SketchGroundMove[] =
       // travelled one is measured against the dial that capped it (src/lib/playerBed.ts).
       if (to !== SKETCH_GROUND_HOME && Math.abs(to - from) > SKETCH_GROUND.distance) {
         throw new Error(
-          `The crawl travels ${Math.abs(to - from)} sixteenths, past a ${PLAYER_KNOB_LABELS.bedDistance} of ${SKETCH_GROUND.distance}.`,
+          `The crawl travels ${Math.abs(to - from)} sixteenths, past a reach of ${SKETCH_GROUND.distance}.`,
         );
       }
       const move = {

@@ -210,13 +210,12 @@ export const PLAYER_DEFAULTS = {
   arrangeApart: PLAYER_ARRANGE_APART_MIN,
   // And the loop where the hand put it. `bedEvery: 0` is the whole of "the ground never moves",
   // which is the module as it was before it could move at all, so a switch pressed today sounds
-  // like a switch pressed before 0183 (0134's rule, said for the ground). The four beside it are
-  // the walk one move would take if the period were opened — the middle of a bed's own ranges, the
-  // way every other family's defaults are — so opening it alone is already a walk and not a
-  // no-op needing three more dials first.
+  // like a switch pressed before 0183 (0134's rule, said for the ground). The words beside it are
+  // the walk one move would take if the period were opened — wandering, a nudge, either way — so
+  // opening it alone is already a walk and not a no-op needing three more presses first (0277).
   //
   // Here for the reason the arrangement's four are: these are what a *double-click* snaps a dial
-  // back to. A character press does not write them — all five are song knobs since 0184, and
+  // back to. A character press does not write them — both dials are song knobs since 0184, and
   // `PLAYER_SONG_KNOBS` is what the press holds untouched (src/ui/PlayerCharacter.tsx), so
   // pressing a name leaves the ground where the hand put it rather than moving the loop under it.
   bed: 0,
@@ -225,10 +224,10 @@ export const PLAYER_DEFAULTS = {
   // the three that answers on a pattern with no song at all, so it is what the period means where
   // a hand has not said otherwise.
   bedPer: "jump",
+  bedWanders: true,
+  bedReach: "nudge",
+  bedWay: "either",
   bedEvery: 0,
-  bedDistance: 2,
-  bedBias: 0,
-  bedHome: 0,
   // And nothing planted, which is the ground before a hand could keep one: the crawl is the only
   // author of where the loop goes, exactly as it was before a bed could be marked. No region names
   // this either, and for the reason none names `song` — a list of places a hand chose is not a
@@ -239,8 +238,9 @@ export const PLAYER_DEFAULTS = {
 // The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the
 // positions of (0174). What each name *means* is this file's, and that is the regions below.
 
-// **No region names any of the five bed knobs, and since 0184 no region *may*:** they are song
-// knobs, and the loop below throws at load on a region naming one, the way it does for `arrange`.
+// **No region names either bed knob, and since 0184 no region *may*:** they are song knobs, and
+// the loop below throws at load on a region naming one, the way it does for `arrange`. The three
+// words beside them are not knobs at all, and a press leaves them for the reason it leaves `bedPer`.
 // The argument that put them there is the argument 0152 already asks for. A character says what a
 // pattern is *like*; which bed of the source it is reading is a *where*, and two yards on two
 // samples pressed under one name would be pointed at two unrelated places — so `bed` is out for the
@@ -466,8 +466,8 @@ export function blendCast(draws: readonly PlayerVoice[], weights: readonly numbe
       const weight = weights[index] ?? 0;
       const held = draw[knob];
       // A log curve cannot pass through nought, and every knob drawn on one has a floor above it
-      // (`PLAYER_BURST_MIN`, `PLAYER_BED_DISTANCE_MIN`). One at nought is a broken build rather
-      // than a case to fall back from (principle 5).
+      // (`PLAYER_BURST_MIN`). One at nought is a broken build rather than a case to fall back
+      // from (principle 5).
       if (log && held <= 0)
         throw new Error(`${knob} is drawn on a log curve and cannot be ${held}.`);
       value += weight * (log ? Math.log(held) : held);

@@ -104,6 +104,19 @@ export function flag(value: unknown, at: string): boolean {
   return value;
 }
 
+/**
+ * The one guard every durable field that is one of a few words goes through: the clock the
+ * ground's period is counted on, and the reach and the way of its move (0192, 0277). The third
+ * site spelling the same `some` and the same message is where principle 3 asks for it.
+ */
+export function oneOf<T extends string>(value: unknown, words: readonly T[], at: string): T {
+  const found = words.find((word) => word === value);
+  if (found === undefined) {
+    throw new TypeError(`${at} is ${String(value)}, expected one of ${words.join(", ")}`);
+  }
+  return found;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

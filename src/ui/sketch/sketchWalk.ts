@@ -118,7 +118,7 @@ export const SKETCH_SOURCE: readonly number[] = [
 ];
 
 /**
- * The five amounts of `Which Ground`, which are the song's and never a part's (0184) — so there is
+ * The amounts of `Which Ground` the bench draws, which are the song's and never a part's (0184) — so there is
  * one of these and not one per part, which is itself the thing the sketch has to draw. Written out
  * rather than read off a deck: the bench is wired to nothing (0247).
  */
@@ -127,8 +127,6 @@ export const SKETCH_GROUND: {
   standing: number;
   every: number;
   distance: number;
-  bias: number;
-  home: number;
 } = {
   /**
    * Which bed of the sample the song opens on, in the loop's own beds — nought is the loop itself
@@ -152,14 +150,11 @@ export const SKETCH_GROUND: {
   every: 4,
   /**
    * How far one move may travel, **in the loop's own sixteenths and never in whole beds** — the
-   * card's own unit, which `src/lib/playerBed.ts` is emphatic about because it is what lets the
-   * loop crawl out of step with the sample rather than hopping bed to bed.
+   * unit the card's three reaches are said in, which `src/lib/playerBed.ts` is emphatic about
+   * because it is what lets the loop crawl out of step with the sample rather than hopping bed to
+   * bed (0277).
    */
   distance: 24,
-  /** Which side it leans to, −1…1, nought as likely back as on. */
-  bias: 0.4,
-  /** The odds a move comes home to the song's own bed instead of travelling. */
-  home: 0.25,
 };
 
 /**

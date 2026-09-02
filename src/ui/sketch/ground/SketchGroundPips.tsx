@@ -9,7 +9,6 @@
 // itself, so cutting it into helpers to satisfy a line count would scatter one drawing across five
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
-import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
 import { SketchSays, SketchStage } from "@/ui/sketch/SketchStage";
 import {
@@ -41,7 +40,7 @@ const INTO = SKETCH_GROUND_CLOCK.into / SKETCH_SEQUENCE;
 
 export function SketchGroundPips() {
   return (
-    <SketchStage bench="ground" reading="pips" label="The Count">
+    <SketchStage reading="pips" label="The Count">
       <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
       </SketchSays>
@@ -85,7 +84,7 @@ export function SketchGroundPips() {
         className="fill-primary/15 stroke-foreground"
       />
       <SketchSays x={VIEW.wide / 2} y={VIEW.high - 15} middle>
-        {`standing on ${bedSaid(SKETCH_GROUND.standing)}, ${PLAYER_KNOB_LABELS.bedDistance} ${SKETCH_GROUND.distance} to travel`}
+        {`standing on ${bedSaid(SKETCH_GROUND.standing)}, ${SKETCH_GROUND.distance} sixteenths to travel`}
       </SketchSays>
     </SketchStage>
   );

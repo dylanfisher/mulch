@@ -4,7 +4,9 @@
 - **Status:** accepted, raising the ceiling
   [0185](0185-the-ground-crawls-in-sixteenths.md) set at `PLAYER_SLOTS` and keeping every other
   word of it: the unit is still the loop's own sixteenth, the walk still carries a raw offset, and
-  `bedWrap` is still the only thing that folds one.
+  `bedWrap` is still the only thing that folds one. The dial is gone: the ceiling is the reach
+  `anywhere` names, and the log curve and the percentage readout went with it
+  ([0277](0277-the-ground-moves-in-words.md)).
 
 **`PLAYER_BED_DISTANCE_MAX` is `PLAYER_BED_MAX * PLAYER_SLOTS` — the Bed dial's own reach, said in
 sixteenths.** One move at the top may cross sixty-four beds of source, and since `bedWrap` folds

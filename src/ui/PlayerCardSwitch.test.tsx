@@ -35,13 +35,18 @@ import { PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX } from "@/lib/player";
 import { oneSong } from "@/lib/playerSongs";
-import { PLAYER_BED_PERS } from "@/lib/playerBed";
+import { PLAYER_BED_PERS, PLAYER_BED_REACHES, PLAYER_BED_WAYS } from "@/lib/playerBed";
 import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
 import { handlers, keyOf, PLAYER, playerCard, SWITCH } from "@/ui/playerCardDouble";
 import { PlayerFront } from "@/ui/PlayerFront";
+
+/** Every press the Which Ground fold draws: the clock's words, and the move's — stays put or
+ *  wanders, the three reaches and the three ways (0192, 0277). */
+const GROUND_WORDS =
+  PLAYER_BED_PERS.length + 2 + PLAYER_BED_REACHES.length + PLAYER_BED_WAYS.length;
 
 /**
  * The card as this suite reads it: every fold open, because what a claim about the switch reads is
@@ -94,9 +99,10 @@ describe("the jumps card's switch", () => {
     // Every dial the module declares is refused — all of them, because none of them is behind
     // anything any more (0195) — and each is painted from the switch's own values rather than from
     // a spec the card invented: the gate a press of that switch would send is 0. The presses
-    // beyond them are the clock the ground's period is counted on, one per word (0192, P158), and
-    // the six names on the cast's own pad, which are presses drawn inside a picture (0259).
-    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length + PLAYER_CHARACTERS.length;
+    // beyond them are the ground's four rows of words — the clock its period is counted on, and
+    // the three the move is said in, one press per word (0192, 0277, P158) — and the six names
+    // on the cast's own pad, which are presses drawn inside a picture (0259).
+    const refused = PLAYER_KNOBS.length + GROUND_WORDS + PLAYER_CHARACTERS.length;
     expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);
     expect(off).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
@@ -153,7 +159,7 @@ describe("the jumps card's switch", () => {
   // values under them are the held ones, which is what the press above sends back (P164, 0173).
   it("draws a bypassed pattern exactly as it draws no pattern at all", () => {
     const bypassed = renderToStaticMarkup(strip({ player: { ...PLAYER, bypassed: true } }).element);
-    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length + PLAYER_CHARACTERS.length;
+    const refused = PLAYER_KNOBS.length + GROUND_WORDS + PLAYER_CHARACTERS.length;
     expect(bypassed.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(bypassed).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
     // And the pattern's own one-line facts go with it: a seed nothing is unfolding is a readout of

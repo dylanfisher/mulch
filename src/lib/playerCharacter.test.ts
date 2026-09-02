@@ -43,6 +43,9 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
   songs: [],
   cast: PLAYER_CAST_MAX,
   bedPer: "jump",
+  bedWanders: true,
+  bedReach: "nudge",
+  bedWay: "either",
   beds: [],
   ...voice,
 });
@@ -57,6 +60,9 @@ const {
   songs: _songs,
   cast: _cast,
   bedPer: _bedPer,
+  bedWanders: _bedWanders,
+  bedReach: _bedReach,
+  bedWay: _bedWay,
   beds: _beds,
   bypassed: _bypassed,
   ...PLAIN

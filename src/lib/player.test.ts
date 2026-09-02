@@ -54,9 +54,9 @@ const SPEC: PlayerSpec = {
   bedPer: "jump",
   beds: [],
   bedEvery: 0,
-  bedDistance: 2,
-  bedBias: 0,
-  bedHome: 0,
+  bedWanders: true,
+  bedReach: "nudge",
+  bedWay: "either",
   seed: 1,
   bias: 0,
   stride: 0,
@@ -614,7 +614,7 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, phraseKeep: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, phraseChance: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, phraseReturn: -0.1 }, "a player")).toThrow(/outside/u);
-    // The ground's own five. The bed is the one field of the module whose floor is negative,
+    // The ground's own two dials. The bed is the one field of the module whose floor is negative,
     // because a bed behind the loop is a place and not a smaller amount (0183).
     expect(() => assertPlayer({ ...SPEC, bed: PLAYER_BED_MIN - 1 }, "a player")).toThrow(
       /outside/u,
@@ -626,9 +626,16 @@ describe("the player's pattern", () => {
     expect(assertPlayer({ ...SPEC, bed: PLAYER_BED_MIN }, "a player")?.bed).toBe(PLAYER_BED_MIN);
     expect(() => assertPlayer({ ...SPEC, bedEvery: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, bedEvery: 2.5 }, "a player")).toThrow(/not whole/u);
-    expect(() => assertPlayer({ ...SPEC, bedDistance: 0 }, "a player")).toThrow(/outside/u);
-    expect(() => assertPlayer({ ...SPEC, bedBias: 1.5 }, "a player")).toThrow(/outside/u);
-    expect(() => assertPlayer({ ...SPEC, bedHome: -0.1 }, "a player")).toThrow(/outside/u);
+    // And the ground's three words, refused by name — and a spec still spelling them as the
+    // numbers they were is refused by its keys, which is the whole of "no migration" (0026, 0277).
+    expect(() => assertPlayer({ ...SPEC, bedReach: "far" }, "a player")).toThrow(
+      /expected one of/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, bedWay: "sideways" }, "a player")).toThrow(
+      /expected one of/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, bedWanders: 1 }, "a player")).toThrow(/not a boolean/u);
+    expect(() => assertPlayer({ ...SPEC, bedDistance: 2 }, "a player")).toThrow(/has keys/u);
     expect(() => assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );

@@ -52,9 +52,9 @@ const PLAYER: PlayerSpec = {
   bedPer: "jump",
   beds: [],
   bedEvery: 0,
-  bedDistance: 2,
-  bedBias: 0,
-  bedHome: 0,
+  bedWanders: true,
+  bedReach: "nudge",
+  bedWay: "either",
   seed: 7,
   bias: 0,
   stride: 0,
@@ -658,7 +658,7 @@ describe("a landing on a moved bed", () => {
 
   /** A pattern that opens on one bed and never leaves it, so every source reads the same ground. */
   const still = (bed: number, patch: Partial<PlayerSpec> = {}, clip = BEDS_CLIP) =>
-    jumping({ bed, bedEvery: 1, bedHome: 1, ...patch }, clip);
+    jumping({ bed, bedEvery: 1, bedWanders: false, ...patch }, clip);
 
   it("reads a whole loop-length further in for every bed it stands on", () => {
     expect(windows(still(1)).length).toBeGreaterThan(0);
@@ -678,7 +678,7 @@ describe("a landing on a moved bed", () => {
   it("lands on the same slots it lands on unmoved, one bed along", () => {
     // The grid is untouched by the move: a bed is where the sixteen slots *are*, never what they
     // are. So one pattern's windows are the other's, offset by exactly one loop-length (0183).
-    const moved = windows(still(1, { bedHome: 1, bed: 1 })).map(([from]) => from - SPAN);
+    const moved = windows(still(1, { bedWanders: false, bed: 1 })).map(([from]) => from - SPAN);
     const home = windows(still(0)).map(([from]) => from);
     expect(moved.map((at) => at.toFixed(9))).toEqual(home.map((at) => at.toFixed(9)));
   });

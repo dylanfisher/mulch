@@ -271,7 +271,9 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  *
  * And the ground's own clock is out on those terms too, one field further along: it is the song's,
  * it is not a number any dial turns, and a voice is the numbers a step is drawn from — the walk
- * reads it off the spec, exactly where it reads the period it counts (0192).
+ * reads it off the spec, exactly where it reads the period it counts (0192). So are the three
+ * words its move is shaped by, on the same terms: the walk turns them into the draw's amounts
+ * once, where the move is due (`bedMove`, 0277).
  *
  * And the switch's own field is out because it is not a number and draws nothing: it says whether
  * the graph is handed this pattern at all, so a voice carrying one would be a step deciding
@@ -280,14 +282,17 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "songs" | "cast" | "bedPer" | "beds" | "bypassed">;
+export type PlayerVoice = Omit<
+  PlayerDefaults,
+  "songs" | "cast" | "bedPer" | "bedWanders" | "bedReach" | "bedWay" | "beds" | "bypassed"
+>;
 
 /**
  * Every number of that spec a hand turns which a part of a song may carry its own value of, in the
  * order the card draws them. The three fields no dial reaches are out: the seed, which is minted
  * at a gesture, the song, which is a list and not a number, and the cast, which is a number but a
  * set of presses rather than a range — the same three `PLAYER_FIELDS` below names before splicing
- * `PLAYER_KNOBS` in. So are the five the ground is walked by, which are the song's (0184).
+ * `PLAYER_KNOBS` in. So are the two dials the ground is walked by, which are the song's (0184).
  *
  * The whole list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no
  * caption and no sentence is a hole one test finds (P65, P74).
@@ -330,10 +335,10 @@ export const PLAYER_PART_KNOBS = [
 export type PlayerPartKnob = (typeof PLAYER_PART_KNOBS)[number];
 
 /**
- * And the thirteen the song itself carries, which are the card's own and never a part's. Eight of
+ * And the ten the song itself carries, which are the card's own and never a part's. Eight of
  * them are what the song is *drawn* by: a part that could turn one would be an arrangement rewriting
  * the arrangement it is inside — the claim 0153 refused for a character and 0176 refuses for a
- * captured spec (0158, 0174). The five beside them are the ground the whole song is read on, out
+ * captured spec (0158, 0174). The two beside them are the ground the whole song is read on, out
  * of a part's hands for the reason 0184 gives — the loop walks the source once, under every part
  * in turn, so a part carrying a bed of its own would be nine parts disagreeing about where the
  * one loop is.
@@ -354,9 +359,6 @@ export const PLAYER_KNOBS = [
   "arrangeApart",
   "bed",
   "bedEvery",
-  "bedDistance",
-  "bedBias",
-  "bedHome",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 

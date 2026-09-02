@@ -23,8 +23,8 @@ const spec = (over: Partial<PlayerSpec> = {}): PlayerSpec => ({
   seed: 5,
   ...PLAYER_DEFAULTS,
   bedEvery: 2,
-  bedDistance: 4,
-  bedBias: 1,
+  bedReach: "nudge",
+  bedWay: "on",
   ...over,
 });
 

@@ -61,7 +61,6 @@ export function SketchGroundThrow() {
 
   return (
     <SketchStage
-      bench="ground"
       reading="throw"
       label="The Throw"
       under={

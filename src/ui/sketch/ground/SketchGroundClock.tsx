@@ -51,7 +51,7 @@ const COUNTED = ((): string => {
 
 export function SketchGroundClock() {
   return (
-    <SketchStage bench="ground" reading="clock" label="The Lap">
+    <SketchStage reading="clock" label="The Lap">
       <circle cx={DIAL.x} cy={DIAL.y} r={RIM} className="fill-none stroke-border" strokeWidth={5} />
       <path d={COUNTED} className="fill-none stroke-primary" strokeWidth={5} />
       <circle cx={DIAL.x} cy={DIAL.y} r={DIAL.r} className="fill-none stroke-border" />

@@ -1,7 +1,7 @@
 /**
  * @role What the ground's own run offers and which field each gesture patches: the clock its
- *   period is counted on — jumps, parts or whole rounds of the song —
- *   and the three amounts a move is shaped by (0192, 0183, P158).
+ *   period is counted on — jumps, parts or whole rounds of the song — and the three rows of words
+ *   a move is said in, whether it wanders, how far and which way (0192, 0277, P158).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -24,13 +24,19 @@ vi.mock("react", async (importOriginal) => {
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { PLAYER_BED_DISTANCE_MAX, PLAYER_BED_DISTANCE_MIN, PLAYER_BED_PERS } from "@/lib/playerBed";
-import { PLAYER_BED_KNOBS } from "@/lib/playerKnobs";
-import { PLAYER_SLOTS } from "@/lib/playerSlots";
-import { PLAYER_BED_PER_LABEL, PLAYER_BED_PER_LABELS } from "@/lib/copyGround";
+import { PLAYER_BED_PERS, PLAYER_BED_REACHES, PLAYER_BED_WAYS } from "@/lib/playerBed";
+import {
+  PLAYER_BED_PER_LABEL,
+  PLAYER_BED_PER_LABELS,
+  PLAYER_BED_REACH_LABEL,
+  PLAYER_BED_REACH_LABELS,
+  PLAYER_BED_WANDERS_LABEL,
+  PLAYER_BED_WANDERS_LABELS,
+  PLAYER_BED_WAY_LABEL,
+  PLAYER_BED_WAY_LABELS,
+} from "@/lib/copyGround";
 import { PlayerBed } from "@/ui/PlayerBed";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
-import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 
 const PLAYER: PlayerSpec = {
   bypassed: false,
@@ -38,9 +44,9 @@ const PLAYER: PlayerSpec = {
   bedPer: "jump",
   beds: [],
   bedEvery: 0,
-  bedDistance: 2,
-  bedBias: 0,
-  bedHome: 0,
+  bedWanders: true,
+  bedReach: "nudge",
+  bedWay: "either",
   seed: 9,
   bias: 0.5,
   stride: 0.25,
@@ -91,13 +97,18 @@ const DEFAULTS: PlayerDefaults = { ...PLAYER };
 type Group = {
   onValueChange?: (value: string[]) => void;
   value?: unknown;
+  "aria-label"?: string;
   dial?: unknown;
   children?: readonly unknown[];
+  words?: readonly string[];
 };
 
-/** The one control in this run that is a set of presses rather than a dial, found by the
- *  handler it carries: the three clocks a period may be counted on (0192, P158, P170). */
-const clocks = (element: unknown): Group | null => {
+/**
+ * One row of the board, found by the eyebrow its group is named under: the rows are a component
+ * of the run's own, so it is called rather than descended into — the identity `useCallback` above
+ * is what makes that possible (the shape `handlers` takes for a dial, src/ui/playerCardDouble.ts).
+ */
+const row = (element: unknown, eyebrow: string): Group | null => {
   let found: Group | null = null;
   const walk = (node: unknown): void => {
     if (found !== null) return;
@@ -106,8 +117,15 @@ const clocks = (element: unknown): Group | null => {
       return;
     }
     if (!isValidElement<Group>(node)) return;
-    const { props } = node;
-    if (props.onValueChange !== undefined) {
+    const { type, props } = node;
+    if (typeof type === "function" && props.words !== undefined) {
+      // A function component and a class one are both functions to `typeof`, and only one is
+      // callable; this tree holds no class components.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: Group) => unknown)(props));
+      return;
+    }
+    if (props.onValueChange !== undefined && props["aria-label"]?.endsWith(eyebrow) === true) {
       found = props;
       return;
     }
@@ -130,7 +148,15 @@ const run = (player: PlayerSpec = PLAYER) => {
   return { element, patch };
 };
 
-// One case per control the run offers and per clock it declares; the length tracks how many of
+/** The four rows, each with the words its presses are mapped from and how each spells. */
+const ROWS: readonly (readonly [string, readonly string[], Record<string, string>])[] = [
+  [PLAYER_BED_PER_LABEL, PLAYER_BED_PERS, PLAYER_BED_PER_LABELS],
+  [PLAYER_BED_WANDERS_LABEL, ["stays", "wanders"], PLAYER_BED_WANDERS_LABELS],
+  [PLAYER_BED_REACH_LABEL, PLAYER_BED_REACHES, PLAYER_BED_REACH_LABELS],
+  [PLAYER_BED_WAY_LABEL, PLAYER_BED_WAYS, PLAYER_BED_WAY_LABELS],
+] as const;
+
+// One case per control the run offers and per row it declares; the length tracks how many of
 // those there are rather than any logic inside the block.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -138,12 +164,12 @@ describe("the ground's run", () => {
   /**
    * One clock per press, sent as the whole spec the card patches (0089) — and the press on the one
    * already live sends nothing: Base UI clears the group when a pressed item is pressed again, and
-   * a period is always counted on one of the four, so an empty selection is no change rather than
+   * a period is always counted on one of the three, so an empty selection is no change rather than
    * a spec with no clock (principle 5).
    */
   it("patches the clock a press names, and sends nothing for an empty selection", () => {
     const { element, patch } = run();
-    const group = clocks(element);
+    const group = row(element, PLAYER_BED_PER_LABEL);
     group?.onValueChange?.(["part"]);
     expect(patch).toHaveBeenCalledExactlyOnceWith({ bedPer: "part" });
     // The third press, named rather than left to the loop below: the round the song comes back on
@@ -156,49 +182,58 @@ describe("the ground's run", () => {
   });
 
   /**
-   * And it offers exactly the clocks the module declares, with the live one pressed: a fifth word
-   * here would be a clock the walk has no counter for, and a missing one would be a spec a hand
-   * could reach but not leave (principle 1).
+   * And the three rows the move is said in, each patching the one word it is a row of — the
+   * switchboard's whole claim is that a press is the setting, with no number behind it (0277).
+   * Whether it wanders is the one row whose word is a flag in the spec rather than the word itself.
    */
-  it("draws the four words beside the dial they count for", () => {
-    // In the Every dial's own run and on the card from the start: nothing on this card is behind
-    // anything, so what a hand can turn is what it can see (0195).
-    const drawn = renderToStaticMarkup(run().element);
-    for (const per of PLAYER_BED_PERS) expect(drawn).toContain(PLAYER_BED_PER_LABELS[per]);
-    expect(drawn).toContain(PLAYER_BED_PER_LABEL);
-    // And each of the three amounts named for the dial it shapes, because the jump's own Distance
-    // and Home are on the same card (0135, 0195).
-    for (const knob of PLAYER_BED_KNOBS) {
-      expect(drawn).toContain(`${PLAYER_KNOB_LABELS.bedEvery} ${PLAYER_KNOB_LABELS[knob]}`);
-    }
-  });
-
-  it("draws every clock the module declares, and holds the one the spec is on", () => {
-    const group = clocks(run({ ...PLAYER, bedPer: "song" }).element);
-    expect(group?.value).toEqual(["song"]);
-    const items = group?.children ?? [];
-    expect(
-      items.map((item) => (isValidElement<{ value: string }>(item) ? item.props.value : null)),
-    ).toEqual([...PLAYER_BED_PERS]);
-    // And the words total: one for every clock and none left over from a renamed one, asked both
-    // ways at once so a missing word and a stale word are the same failure (P158, principle 1).
-    // As a set, because what order the words are declared in is the toggle's to say and not this
-    // record's — the presses are mapped from `PLAYER_BED_PERS` (src/ui/PlayerBed.tsx).
-    expect(new Set(Object.keys(PLAYER_BED_PER_LABELS))).toEqual(new Set(PLAYER_BED_PERS));
-    for (const per of PLAYER_BED_PERS) expect(PLAYER_BED_PER_LABELS[per].trim()).not.toBe("");
+  it("patches the word a press on each of the three rows names", () => {
+    const { element, patch } = run();
+    row(element, PLAYER_BED_REACH_LABEL)?.onValueChange?.(["bed"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedReach: "bed" });
+    row(element, PLAYER_BED_WAY_LABEL)?.onValueChange?.(["back"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedWay: "back" });
+    row(element, PLAYER_BED_WANDERS_LABEL)?.onValueChange?.(["stays"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedWanders: false });
+    row(element, PLAYER_BED_WANDERS_LABEL)?.onValueChange?.(["wanders"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedWanders: true });
+    // A stranger and an empty selection send nothing, on every row (principle 5).
+    row(element, PLAYER_BED_REACH_LABEL)?.onValueChange?.(["far"]);
+    row(element, PLAYER_BED_WAY_LABEL)?.onValueChange?.([]);
+    expect(patch).toHaveBeenCalledTimes(4);
   });
 
   /**
-   * The distance is whole sixteenths in the spec and a share of the sample under the dial, which
-   * is the whole of 0193: the top of it reads a hundred percent because a move there may land
-   * anywhere in the file, and the crawl at the bottom keeps a decimal so its readings differ.
+   * Every word of every row is on the board at once, under its own eyebrow — nothing on this card
+   * is behind anything, so what a hand can press is what it can see (0195, 0277). And the words
+   * total: one for every member and none left over from a renamed one, asked both ways at once so
+   * a missing word and a stale word are the same failure (P158, principle 1).
    */
-  it("spells how far one move may travel as the share of the sample it crosses", () => {
-    const open = (bedDistance: number) =>
-      renderToStaticMarkup(run({ ...PLAYER, bedDistance }).element);
-    expect(open(PLAYER_BED_DISTANCE_MAX)).toContain("100%");
-    expect(open(PLAYER_BED_DISTANCE_MIN)).toContain("0.1%");
-    // One bed a move — the ceiling this dial had before it could cross the file.
-    expect(open(PLAYER_SLOTS)).toContain("1.6%");
+  it("lays every word of every row on the board, under its eyebrow", () => {
+    const drawn = renderToStaticMarkup(run().element);
+    for (const [eyebrow, words, labels] of ROWS) {
+      expect(drawn).toContain(eyebrow);
+      for (const word of words) expect(drawn).toContain(`>${labels[word]}</button>`);
+      expect(new Set(Object.keys(labels))).toEqual(new Set(words));
+      for (const word of words) expect(labels[word]?.trim()).not.toBe("");
+    }
+  });
+
+  it("holds the word the spec is on, on every row", () => {
+    const element = run({
+      ...PLAYER,
+      bedPer: "song",
+      bedWanders: false,
+      bedReach: "anywhere",
+      bedWay: "on",
+    }).element;
+    expect(row(element, PLAYER_BED_PER_LABEL)?.value).toEqual(["song"]);
+    expect(row(element, PLAYER_BED_WANDERS_LABEL)?.value).toEqual(["stays"]);
+    expect(row(element, PLAYER_BED_REACH_LABEL)?.value).toEqual(["anywhere"]);
+    expect(row(element, PLAYER_BED_WAY_LABEL)?.value).toEqual(["on"]);
+    // And the presses are mapped from the module's own list, in its order.
+    const items = row(element, PLAYER_BED_PER_LABEL)?.children ?? [];
+    expect(
+      items.map((item) => (isValidElement<{ value: string }>(item) ? item.props.value : null)),
+    ).toEqual([...PLAYER_BED_PERS]);
   });
 });

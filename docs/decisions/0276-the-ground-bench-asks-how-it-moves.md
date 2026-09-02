@@ -1,7 +1,7 @@
 # 0276 — The ground bench asks how it moves, in words and not numbers
 
 - **Date:** 2026-09-01
-- **Status:** accepted, extending [0255](0255-the-ground-and-the-arrangement-have-their-own-benches.md) under [0254](0254-the-bench-argues-the-card-fold-by-fold.md)'s rule
+- **Status:** accepted, extending [0255](0255-the-ground-and-the-arrangement-have-their-own-benches.md) under [0254](0254-the-bench-argues-the-card-fold-by-fold.md)'s rule; its switchboard won and the move bench is cleared ([0277](0277-the-ground-moves-in-words.md))
 
 **Which Ground is two questions, and the bench now asks both.** The eight readings of 0255's
 successor ask _when_ the ground moves. Six new ones above them ask _what it does_ — whether the

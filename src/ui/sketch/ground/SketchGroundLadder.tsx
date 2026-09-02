@@ -54,7 +54,7 @@ const NOW = fixtureAt(CLIMB, RUNGS - 1, "rung");
 
 export function SketchGroundLadder() {
   return (
-    <SketchStage bench="ground" reading="ladder" label="The Ladder">
+    <SketchStage reading="ladder" label="The Ladder">
       <SketchSays x={4} y={16}>
         {SKETCH_EVERY_SAID}
       </SketchSays>

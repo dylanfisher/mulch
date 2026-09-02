@@ -1,6 +1,7 @@
 /**
  * @role The words the ground says: how to read the strip under the Which Ground fold, what dragging
- *   it does, and what the period behind the Every dial is counted in (0192). Beside
+ *   it does, what the period behind the Every dial is counted in (0192), and the three rows of
+ *   words a move is said in — whether the loop wanders, how far, which way (0277). Beside
  *   src/lib/copy.ts rather than in it because that file is at the hard cap (0045, the reason
  *   src/lib/copyKnobs.ts and src/lib/copyStrip.ts are where they are).
  * @instead The fold's heading, which is the card's and not the ground's (`PLAYER_GROUP_LABELS`),
@@ -8,6 +9,7 @@
  *   src/lib/playerBed.ts. The picture itself → src/ui/PlayerGround.tsx, and the door the period
  *   sits behind → src/ui/PlayerBed.tsx.
  */
+import type { PlayerBedReach, PlayerBedWay } from "./playerBed.ts";
 
 /**
  * How to read the picture, in one sentence: what the three kinds of block on it are, and the one
@@ -36,6 +38,38 @@ export const PLAYER_BED_PER_LABELS = {
  */
 export const PLAYER_BED_PER_TOOLTIP =
   "What the period beside this counts: the pattern's own jumps, the parts of the song, or whole rounds of it. A pattern with no song never moves at all on parts or songs.";
+
+/**
+ * The three rows of words a move is said in, each an eyebrow over its presses and the word each
+ * press wears — the switchboard, which won the bench because every word the fold could say is on
+ * it at once (0277). The words are `src/lib/playerBed.ts`'s; these are how they are spelled.
+ *
+ * Whether it moves on its own has to say the quiet case out loud, the way the clocks' sentence
+ * does: staying put is not the period at nought, it is coming home on every move the period is
+ * due, which is a return a hand hears whenever a kept ground has walked the loop away.
+ */
+export const PLAYER_BED_WANDERS_LABEL = "On its own";
+export const PLAYER_BED_WANDERS_LABELS = { stays: "Stays put", wanders: "Wanders" } as const;
+export const PLAYER_BED_WANDERS_TOOLTIP =
+  "Whether a move carries the loop on, or brings it back to the song's own bed. Wanders walks away and keeps walking; stays put comes home on every move that is due, which is a return whenever a kept ground has taken the loop elsewhere.";
+
+export const PLAYER_BED_REACH_LABEL = "How far";
+export const PLAYER_BED_REACH_LABELS: Record<PlayerBedReach, string> = {
+  nudge: "A nudge",
+  bed: "A bed",
+  anywhere: "Anywhere",
+};
+export const PLAYER_BED_REACH_TOOLTIP =
+  "How far one move may carry the loop: up to a quarter of a bed, up to one bed, or anywhere in the sample. Counted in the loop's own sixteenths, so a nudge crawls out of step with the sample rather than hopping bed to bed.";
+
+export const PLAYER_BED_WAY_LABEL = "Which way";
+export const PLAYER_BED_WAY_LABELS: Record<PlayerBedWay, string> = {
+  back: "Back",
+  either: "Either way",
+  on: "On",
+};
+export const PLAYER_BED_WAY_TOOLTIP =
+  "Which way the loop goes when it moves: always back through the sample, as likely either way, or always on — wrapping at the ends of the sample.";
 
 /**
  * The grounds a hand kept, as the eyebrow over the row of them and the words each gesture on it

@@ -23,13 +23,15 @@ import { playerProjection } from "./playerWire.ts";
 import {
   bedBounds,
   bedGround,
+  bedMove,
   bedsOf,
   bedWrap,
   PLAYER_BED_MAX,
   PLAYER_BED_MIN,
   PLAYER_BED_DISTANCE_MAX,
+  PLAYER_BED_REACH_SLOTS,
+  type PlayerBedReach,
 } from "./playerBed.ts";
-import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import { drawCharacter, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { PlayerCharacter } from "./playerCast.ts";
 import type { SongPart } from "./playerSong.ts";
@@ -159,7 +161,7 @@ describe("the bed each step is read in", () => {
     // The two halves of 0134's rule, on the field that is newest to obey it: a switched-on pattern
     // stands on one bed forever, and — the load-bearing half — every other field of every step is
     // exactly what it was before a bed could move, because no draw was taken.
-    const still = jumping({ bedEvery: 0, bedDistance: 8, bedBias: 1, bedHome: 0.5 });
+    const still = jumping({ bedEvery: 0, bedReach: "bed", bedWay: "on", bedWanders: false });
     expect(new Set(beds(still))).toEqual(new Set([0]));
     expect(sounded(playerSequence(still, 24))).toEqual(
       sounded(playerSequence(jumping({ bedEvery: 0 }), 24)),
@@ -167,7 +169,7 @@ describe("the bed each step is read in", () => {
   });
 
   it("moves on the jump the period is up on and holds between two of them", () => {
-    const walked = beds(jumping({ bedEvery: 4, bedDistance: 3, bedBias: 1 }), 13);
+    const walked = beds(jumping({ bedEvery: 4, bedReach: "nudge", bedWay: "on" }), 13);
     // Four jumps on the bed it opened on, then a move, then four more — the period the dial says.
     expect(walked.slice(0, 4)).toEqual([0, 0, 0, 0]);
     expect(new Set(walked.slice(4, 8)).size).toBe(1);
@@ -176,9 +178,9 @@ describe("the bed each step is read in", () => {
     expect(walked[8]).not.toBe(walked[4]);
   });
 
-  it("only ever goes on at a full lean, and only ever back at its negation", () => {
-    const on = beds(jumping({ bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX }));
-    const back = beds(jumping({ bedEvery: 1, bedDistance: 4, bedBias: -PLAYER_BIAS_MAX }));
+  it("only ever goes on when the way is on, and only ever back when it is back", () => {
+    const on = beds(jumping({ bedEvery: 1, bedReach: "nudge", bedWay: "on" }));
+    const back = beds(jumping({ bedEvery: 1, bedReach: "nudge", bedWay: "back" }));
     for (let step = 1; step < on.length; step++) {
       expect(on[step]).toBeGreaterThan(on[step - 1] ?? 0);
       expect(back[step]).toBeLessThan(back[step - 1] ?? 0);
@@ -188,38 +190,69 @@ describe("the bed each step is read in", () => {
     expect(back).toEqual(on.map((bed) => (bed === 0 ? 0 : -bed)));
   });
 
-  it("never leaves the song's own bed at a full home", () => {
+  it("never leaves the song's own bed while it stays put", () => {
     // Home is the song's *bed*, and the cursor counts sixteenths: coming home is three whole beds
-    // of them and never the number the dial reads (src/lib/playerBed.ts).
-    const walked = beds(jumping({ bed: 3, bedEvery: 1, bedDistance: 9, bedHome: 1 }));
+    // of them and never a reach (src/lib/playerBed.ts).
+    const walked = beds(jumping({ bed: 3, bedEvery: 1, bedReach: "bed", bedWanders: false }));
     expect(new Set(walked)).toEqual(new Set([3 * PLAYER_SLOTS]));
   });
 
   it("counts one move in sixteenths of the loop, so the ground crawls rather than hops", () => {
-    // A full lean and the shortest distance there is: every move is one sixteenth on, so after
-    // sixteen of them the ground has travelled exactly one bed and stood on the fifteen places
-    // between — none of which a walk over whole loop-lengths could reach (P139).
-    const walked = beds(jumping({ bedEvery: 1, bedDistance: 1, bedBias: PLAYER_BIAS_MAX }), 18);
-    expect(walked.slice(0, PLAYER_SLOTS + 1)).toEqual(
-      Array.from({ length: PLAYER_SLOTS + 1 }, (_, step) => step),
-    );
+    // Always on and the shortest reach there is: every move is at most a quarter of a bed, so the
+    // ground stands on places between the source's own bed boundaries — none of which a walk over
+    // whole loop-lengths could reach (P139, 0185).
+    const walked = beds(jumping({ bedEvery: 1, bedReach: "nudge", bedWay: "on" }), 40);
+    const legs = walked.slice(1).map((bed, step) => bed - walked[step]!);
+    for (const leg of legs) {
+      expect(leg).toBeGreaterThanOrEqual(1);
+      expect(leg).toBeLessThanOrEqual(PLAYER_SLOTS / 4);
+    }
+    expect(walked.some((bed) => bed % PLAYER_SLOTS !== 0)).toBe(true);
   });
 
-  it("reaches the whole ground the bed dial does at the top of the distance dial, and no further", () => {
-    // The ceiling is the Bed dial's own reach said in sixteenths, which is what "it can jump
-    // anywhere" is (0193): a move at the top may cross the file, where the same walk at sixteen
-    // may cross exactly one bed and no more.
-    const legs = (bedDistance: number) => {
-      const walked = beds(jumping({ bedEvery: 1, bedDistance, bedBias: PLAYER_BIAS_MAX }), 200);
+  it("reaches the whole ground the bed dial does at anywhere, one bed at a bed, and no further", () => {
+    // The far reach is the Bed dial's own reach said in sixteenths, which is what "anywhere" is
+    // (0193, 0277): a move there may cross the file, where the same walk at a bed may cross
+    // exactly one bed and no more, and at a nudge a quarter of one.
+    const legs = (bedReach: PlayerBedReach) => {
+      const walked = beds(jumping({ bedEvery: 1, bedReach, bedWay: "on" }), 200);
       return walked.slice(1).map((bed, step) => bed - walked[step]!);
     };
-    const far = legs(PLAYER_BED_DISTANCE_MAX);
+    const far = legs("anywhere");
     expect(Math.min(...far)).toBeGreaterThanOrEqual(1);
     expect(Math.max(...far)).toBeLessThanOrEqual(PLAYER_BED_DISTANCE_MAX);
     // Two hundred moves drawn flat over the reach: one of them lands in its top tenth, and none of
     // them could before the ceiling was more than a bed.
     expect(Math.max(...far)).toBeGreaterThan(PLAYER_BED_DISTANCE_MAX * 0.9);
-    expect(Math.max(...legs(PLAYER_SLOTS))).toBe(PLAYER_SLOTS);
+    expect(Math.max(...legs("bed"))).toBe(PLAYER_SLOTS);
+    expect(Math.max(...legs("nudge"))).toBe(PLAYER_SLOTS / 4);
+  });
+
+  /**
+   * The three words as the three amounts the draw is handed, said once (0277): a reach is its
+   * sixteenths, a way is its lean, and staying put is the home roll certain. And the middle way
+   * really is either: a walk on it goes both sides of the bed it opened on.
+   */
+  it("says each word as the one number the draw is handed", () => {
+    expect(
+      bedMove({ ...PLAYER_DEFAULTS, bedReach: "anywhere", bedWay: "on", bedWanders: true }),
+    ).toEqual({
+      distance: PLAYER_BED_DISTANCE_MAX,
+      bias: 1,
+      home: 0,
+    });
+    expect(
+      bedMove({ ...PLAYER_DEFAULTS, bedReach: "bed", bedWay: "back", bedWanders: false }),
+    ).toEqual({
+      distance: PLAYER_SLOTS,
+      bias: -1,
+      home: 1,
+    });
+    expect(bedMove({ ...PLAYER_DEFAULTS, bedReach: "nudge", bedWay: "either" }).bias).toBe(0);
+    expect(PLAYER_BED_REACH_SLOTS.nudge).toBe(PLAYER_SLOTS / 4);
+    const either = beds(jumping({ bedEvery: 1, bedReach: "bed", bedWay: "either" }), 64);
+    expect(either.some((bed) => bed > 0)).toBe(true);
+    expect(either.some((bed) => bed < 0)).toBe(true);
   });
 
   it("walks the ground straight through a part boundary rather than starting it again", () => {
@@ -227,7 +260,7 @@ describe("the bed each step is read in", () => {
     // again at each of the three boundaries would repeat a bed — and this one never does.
     const song = [part("plain", 3), part("plain", 3), part("plain", 3), part("plain", 3)];
     const walked = playerSequence(
-      { ...spec(song), bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX },
+      { ...spec(song), bedEvery: 1, bedReach: "nudge", bedWay: "on" },
       12,
     ).map((step) => step.bed);
     expect(new Set(walked).size).toBe(walked.length);
@@ -249,7 +282,7 @@ describe("the bed each step is read in", () => {
   it("moves the ground at a part boundary and nowhere else, while the period counts parts", () => {
     const song = [part("plain", 2), part("plain", 2)];
     const walked = beds(
-      { ...spec(song), bedPer: "part", bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX },
+      { ...spec(song), bedPer: "part", bedEvery: 1, bedReach: "nudge", bedWay: "on" },
       8,
     );
     // The song's own bed for the whole of its first part — the pattern beginning is not a boundary
@@ -267,7 +300,7 @@ describe("the bed each step is read in", () => {
   it("moves the ground once a round, while the period counts songs", () => {
     const song = [part("plain", 2), part("plain", 2)];
     const walked = beds(
-      { ...spec(song), bedPer: "song", bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX },
+      { ...spec(song), bedPer: "song", bedEvery: 1, bedReach: "nudge", bedWay: "on" },
       12,
     );
     const rounds = [0, 4, 8].map((at) => walked.slice(at, at + 4));
@@ -283,7 +316,7 @@ describe("the bed each step is read in", () => {
    */
   it("never moves the ground on an arrangement's clock while the pattern has no song", () => {
     for (const bedPer of ["part", "song"] as const) {
-      const walked = beds(jumping({ bedPer, bedEvery: 1, bedDistance: 4, bedBias: 1 }));
+      const walked = beds(jumping({ bedPer, bedEvery: 1, bedReach: "nudge", bedWay: "on" }));
       expect(new Set(walked)).toEqual(new Set([0]));
     }
   });
@@ -308,8 +341,8 @@ describe("a kept ground", () => {
     const walked = beds(
       jumping({
         bedEvery: 1,
-        bedDistance: 4,
-        bedBias: PLAYER_BIAS_MAX,
+        bedReach: "nudge",
+        bedWay: "on",
         beds: [{ bed: 3, every: 4 }],
       }),
       13,
@@ -360,7 +393,7 @@ describe("a kept ground", () => {
    * laid it with nothing kept at all.
    */
   it("takes no draw, so every other field of every step is what it was", () => {
-    const kept = { bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX };
+    const kept: Partial<PlayerSpec> = { bedEvery: 1, bedReach: "nudge", bedWay: "on" };
     const wandering = playerSequence(jumping(kept), 16);
     const returning = playerSequence(jumping({ ...kept, beds: [{ bed: 3, every: 4 }] }), 16);
     // Every field but the ground itself, which is the only one a kept arrival is allowed to move.

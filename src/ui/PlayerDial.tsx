@@ -13,40 +13,19 @@ import { cn } from "@/lib/cn";
 
 import type { PlayerDefaults, PlayerKnob, PlayerSpec } from "@/lib/player";
 import { isWholeKnob, PLAYER_KNOB_DIALS } from "@/lib/playerKnobs";
-import { PLAYER_BED_DISTANCE_MAX } from "@/lib/playerBed";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { burstLabel, burstValue, Knob } from "@/ui/Knob";
-import { readNumber, type ReadingParser, withoutUnit } from "@/ui/KnobReadout";
-
-/**
- * How far one move of the ground may travel, spelled as the share of the file it may cross: whole
- * sixteenths in the spec, and a percentage of the dial's own reach here, so the top of it reads
- * `100%` — a move that may land anywhere in the song, which is what the dial is asked for (0193).
- * A decimal under ten percent because the crawl lives there and `0%` would be three different
- * crawls spelled alike; none above it, where a whole percent is finer than a hand can aim.
- */
-const groundLabel = (slots: number): string => {
-  const share = (100 * slots) / PLAYER_BED_DISTANCE_MAX;
-  return `${share < 10 ? share.toFixed(1) : String(Math.round(share))}%`;
-};
-
-/** And read back: the same share, typed with or without the sign that was drawn after it, turned
- *  into the sixteenths the spec is written in (0201). */
-export const groundValue: ReadingParser = (text, min, max) => {
-  const share = readNumber(withoutUnit(text, "%"), min, max);
-  return share === undefined ? undefined : (share / 100) * PLAYER_BED_DISTANCE_MAX;
-};
+import type { ReadingParser } from "@/ui/KnobReadout";
 
 /**
  * The two knobs whose value is a length of time, read in the two units a duration spanning three
- * orders of magnitude needs, and the ground's distance as a share of the file. A readout is how a
- * number is *spelled* rather than what it is allowed to be, which is why it is here and not beside
- * the range in src/lib/playerKnobs.ts — lib holds no words (docs/map.md).
+ * orders of magnitude needs. A readout is how a number is *spelled* rather than what it is allowed
+ * to be, which is why it is here and not beside the range in src/lib/playerKnobs.ts — lib holds
+ * no words (docs/map.md).
  */
 const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
   burst: burstLabel,
   vary: burstLabel,
-  bedDistance: groundLabel,
 };
 
 /**
@@ -57,7 +36,6 @@ const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
 const PARSERS: Partial<Record<PlayerKnob, ReadingParser>> = {
   burst: burstValue,
   vary: burstValue,
-  bedDistance: groundValue,
 };
 
 /**
