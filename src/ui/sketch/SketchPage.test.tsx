@@ -77,13 +77,15 @@ describe("SketchPage", () => {
 describe("SketchPage is cleared of what it argued before", () => {
   /**
    * The thirteen that were here argued the whole card or one fold of it, the eight after them
-   * argued how a song is played, and the six after those argued how the ground moves; all have
-   * been read and decided — the arguments are in 0257–0259, the grid won and is the card's own
-   * section (0275), and the switchboard won and is the fold's own rows of words (0277) — and a
+   * argued how a song is played, the six after those argued how the ground moves, and three of
+   * the drift's eight argued where the picture goes; all have been read and decided — the
+   * arguments are in 0257–0259, the grid won and is the card's own section (0275), the
+   * switchboard won and is the fold's own rows of words (0277), and the lattice, the warp and the
+   * fold are the picture's own (0278) — and a
    * bench nobody clears stops being a bench (principle 6). Named here so a re-mount of one has to
    * say so.
    */
-  it("mounts none of the twenty-six the bench was cleared of", () => {
+  it("mounts none of the twenty-nine the bench was cleared of", () => {
     const cleared = [
       "cast",
       "score",
@@ -111,6 +113,9 @@ describe("SketchPage is cleared of what it argued before", () => {
       "sentence",
       "switchboard",
       "tide",
+      "lattice",
+      "warp",
+      "fold",
     ];
     for (const gone of cleared) {
       expect(markup, `${gone} is still on the bench`).not.toContain(`id="${gone}"`);

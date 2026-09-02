@@ -334,9 +334,13 @@ function cutGratings(
     // dry yard (0213). Nothing else can reach nought — a row's own depth has a floor (0139).
     if (cut <= 0) continue;
     // The lattice over the whole of it: a pattern and not a place, so it is filled through the
-    // straight rows' own cache rather than placed and drawn (`cutLattice`, 0278).
+    // straight rows' own cache rather than placed and drawn (`cutLattice`, 0278). **At its own
+    // depth and never at the share the count solves for**: it is the field's gutter and not a
+    // grating that beats, and a share of the picture's weight would draw it faintest exactly when
+    // the rack is fullest — the moment it is tightest and has the most to show.
     if (row.geometry === LATTICE_GEOMETRY) {
-      if (!cutLattice(field, ink, row, turns, cut, shape, tint, aimed)) return false;
+      const gutter = washedDepth(row, wash);
+      if (!cutLattice(field, ink, row, turns, gutter, shape, tint, aimed)) return false;
       continue;
     }
     if (straight) {

@@ -122,8 +122,11 @@ export const latticeCells = (standing: number): number =>
 /**
  * How hard the lattice cuts, off how loud the output is: a floor, so a lattice is there whenever a
  * rack is, and the rest of the way up with the level, which is the gutter thickening on a hit.
+ * Its own depth and not a share of the picture's (`cutGratings`, src/ui/moireCanvas.ts), so the
+ * floor is what the gutter is lit at over a quiet rack — a little over half, which reads as a
+ * gutter and not as a stain.
  */
-export const LATTICE_CUT: readonly [number, number] = [0.35, 0.9];
+export const LATTICE_CUT: readonly [number, number] = [0.55, 1];
 
 export const latticeCut = (loud: number): number =>
   LATTICE_CUT[0] + (LATTICE_CUT[1] - LATTICE_CUT[0]) * clamp(loud, 0, 1);

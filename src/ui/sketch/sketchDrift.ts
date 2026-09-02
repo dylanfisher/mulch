@@ -1,6 +1,7 @@
 /**
- * @role The eight fields the drift bench draws — one per direction the picture could be pushed in
- *   — and the one dial each is drawn under. Every field answers how much ink is at a point of the
+ * @role The five fields the drift bench still draws — one per direction the picture could yet be
+ *   pushed in, the lattice, the warp and the fold having been taken (0278) — and the one dial each
+ *   is drawn under. Every field answers how much ink is at a point of the
  *   picture, nought to one, for one amount of its dial, and nothing else: no canvas, no clock, no
  *   context, so each is provable here and painted there. Beside the pictures rather than in them,
  *   the way src/ui/sketch/sketchGround.ts holds the ground eight's count (principle 1).
@@ -9,16 +10,13 @@
  *   real picture these argue about → src/lib/moireFractal.ts, src/ui/moireCanvas.ts and
  *   src/ui/moireScreen.ts, none of which this reads.
  */
+import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
 import { clamp } from "@/lib/range";
 import {
-  cellFold,
   FIELD_ASPECT,
   FIELD_DEPTH,
-  kaleido,
   lit,
   lobes,
-  rim,
-  roundedBox,
   smin,
   terrace,
   through,
@@ -33,7 +31,7 @@ export type SketchDriftField = (x: number, y: number, amount: number) => number;
 /** The one dial a picture is drawn under: its band, its step and where it rests when the bench opens. */
 export type SketchDial = { min: number; max: number; step: number; rest: number };
 
-/** The middle of the picture, where a fold, a tunnel or a rosette is centred. */
+/** The middle of the picture, where the tunnel is centred. */
 export const FIELD_CENTRE: readonly [number, number] = [FIELD_ASPECT / 2, 0.5];
 
 /** A reference cell: how much of its square it fills, and how round its corners are. */
@@ -58,21 +56,6 @@ function cellLobes(cx: number, cy: number, qx: number, qy: number, phase = 0): n
 }
 
 /**
- * 01 — the reference straight: the picture folded into square cells, every cell a rounded box
- * holding its own lens of the field, and the gutter and rim lit. The dial is how many cells stand
- * in the height.
- */
-export const LATTICE_DIAL: SketchDial = { min: 1, max: 4, step: 0.5, rest: 2 };
-export const latticeField: SketchDriftField = (x, y, amount) => {
-  const { cx, cy, qx, qy } = cellFold(x, y, amount);
-  const edge = roundedBox(qx, qy, CELL.half, CELL.round);
-  if (edge > 0) return CELL_GUTTER;
-  const inside = cellInk(cellLobes(cx, cy, qx, qy), lit(weave(x, y)));
-  const lip = rim(edge, CELL.rim);
-  return clamp(inside * (1 - lip) + lip, 0, 1);
-};
-
-/**
  * 02 — the same picture read through a ramp of five inks rather than laid down in one. The field
  * is the lobes over the weave; the dial is how far across the ramp the picture is allowed to reach,
  * from one flat hue at nought to the whole ramp at one.
@@ -81,27 +64,6 @@ export const RAMP_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.7 };
 export const rampField: SketchDriftField = (x, y, amount) => {
   const value = lobes(x, y) * (0.55 + 0.45 * lit(weave(x, y)));
   return clamp(0.5 + (value - 0.5) * (0.15 + 1.7 * amount), 0, 1);
-};
-
-/**
- * 03 — the coordinate warped by itself before the gratings are cut along it. The dial is how far
- * the warp bends, in units of the picture's height.
- */
-export const WARP_DIAL: SketchDial = { min: 0, max: 0.4, step: 0.02, rest: 0.16 };
-export const warpField: SketchDriftField = (x, y, amount) => {
-  const [wx, wy] = warp(x, y, amount);
-  return lit(weave(wx, wy)) * (0.45 + 0.55 * lobes(wx, wy));
-};
-
-/**
- * 04 — the plane folded into mirrored sectors about the middle, so one row's structure is a
- * rosette. The dial is how many sectors, and a whole number of them.
- */
-export const FOLD_DIAL: SketchDial = { min: 2, max: 12, step: 1, rest: 6 };
-export const foldField: SketchDriftField = (x, y, amount) => {
-  const [fx, fy] = kaleido(x - FIELD_CENTRE[0], y - FIELD_CENTRE[1], Math.round(amount));
-  const [wx, wy] = warp(fx + FIELD_CENTRE[0], fy + FIELD_CENTRE[1], 0.1);
-  return lit(weave(wx, wy)) * (0.4 + 0.6 * lobes(wx, wy));
 };
 
 /** How wide a lit riser is, as a share of one terrace. */

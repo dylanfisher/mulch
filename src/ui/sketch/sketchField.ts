@@ -1,17 +1,16 @@
 /**
  * @role The arithmetic the drift bench's eight pictures are drawn off: the stand-in weave every one
  *   of them starts from, and the handful of shader-side moves — a cell fold, a rounded box, a
- *   domain warp, a mirror fold, a smooth minimum, a terrace, a ramp — each written once so eight
- *   pictures cannot disagree about what a fold or a rim is, and the ones the real picture took
- *   re-exported from where they live now. Pure maths on picture units: the
+ *   domain warp, a smooth minimum, a terrace, a ramp — each written once so the pictures cannot
+ *   disagree about what a warp or a terrace is. The cell, the rim and the mirror fold live in
+ *   src/lib now, with the picture that took them (0278). Pure maths on picture units: the
  *   picture is `FIELD_ASPECT` wide and one high, no canvas, no clock, no context.
  * @instead The eight fields built out of these → src/ui/sketch/sketchDrift.ts. The canvas that
  *   writes one → src/ui/sketch/SketchDriftStage.tsx. The real picture's own arithmetic, which
  *   these stand in for and never read → src/lib/moire.ts and the files beside it.
  */
 import { cosTurn, halfCosine, TAU } from "@/lib/moire";
-import { kaleido } from "@/lib/moireFold";
-import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
+import { rim } from "@/lib/moireLattice";
 import { WARP_ACROSS, WARP_DOWN } from "@/lib/moireWarp";
 import { clamp } from "@/lib/range";
 import type { Ink } from "@/ui/moireScreen";
@@ -76,8 +75,6 @@ export function warp(x: number, y: number, amount: number, phase = 0): [number, 
   const y2 = y1 + amount * 0.5 * Math.sin(TAU * (1.7 * x2 - 0.2 - phase));
   return [x2, y2];
 }
-
-export { cellFold, kaleido, rim, roundedBox };
 
 /**
  * The smooth minimum of two distances: the union of two shapes with the join between them rounded

@@ -1,5 +1,5 @@
 /**
- * The eight fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
+ * The five fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
  * answers inside nought and one across the whole box at every end of its dial, and every one has
  * a swing across the box — a field that draws flat is a direction that argues nothing, and a static
  * render would frame it anyway.
@@ -15,10 +15,6 @@ import {
   BLOBS_DIAL,
   blobsField,
   CELL_GUTTER,
-  FOLD_DIAL,
-  foldField,
-  LATTICE_DIAL,
-  latticeField,
   RAMP_DIAL,
   rampField,
   SKETCH_BANDS,
@@ -28,17 +24,12 @@ import {
   terraceField,
   TUNNEL_DIAL,
   tunnelField,
-  WARP_DIAL,
-  warpField,
 } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 
-/** Every field on the bench with the dial it is drawn under, so a ninth cannot be left out. */
+/** Every field on the bench with the dial it is drawn under, so a sixth cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "lattice", field: latticeField, dial: LATTICE_DIAL },
   { name: "ramp", field: rampField, dial: RAMP_DIAL },
-  { name: "warp", field: warpField, dial: WARP_DIAL },
-  { name: "fold", field: foldField, dial: FOLD_DIAL },
   { name: "tunnel", field: tunnelField, dial: TUNNEL_DIAL },
   { name: "terrace", field: terraceField, dial: TERRACE_DIAL },
   { name: "blobs", field: blobsField, dial: BLOBS_DIAL },
@@ -81,7 +72,7 @@ describe("every field on the drift bench", () => {
     }
   });
 
-  it("swings across the box at rest, so none of the eight draws flat", () => {
+  it("swings across the box at rest, so none of the five draws flat", () => {
     for (const { name, field, dial } of FIELDS) {
       const { least, most } = swingOf(field, dial.rest);
       expect(most - least, name).toBeGreaterThan(0.4);
@@ -90,14 +81,6 @@ describe("every field on the drift bench", () => {
 });
 
 describe("the cells", () => {
-  it("draw the gutter at every corner of the lattice and a lens inside every cell", () => {
-    const per = LATTICE_DIAL.rest;
-    for (let cx = 0; cx < FIELD_ASPECT * per; cx += 1) {
-      expect(latticeField((cx + 0.005) / per, 0.005 / per, per)).toBe(CELL_GUTTER);
-      expect(latticeField((cx + 0.5) / per, 0.5 / per, per)).toBeLessThan(CELL_GUTTER);
-    }
-  });
-
   it("hear one band apiece off a fixture the size of the lattice, and refuse a cell it never wrote", () => {
     expect(SKETCH_BANDS).toHaveLength(BANDS_ACROSS * BANDS_PER);
     expect(bandOf(0, 0)).toBe(SKETCH_BANDS[0]);
@@ -115,29 +98,11 @@ describe("the cells", () => {
   });
 });
 
-describe("the tunnel and the fold", () => {
+describe("the tunnel", () => {
   it("is the blobs themselves at a zoom of nearly nothing", () => {
     // At the smallest zoom every copy is nearly the same picture, so the sum is nearly the base.
     const base = blobsField(1.25, 0.25, BLOBS_DIAL.rest);
     expect(Math.abs(tunnelField(1.25, 0.25, 0.001) - base)).toBeLessThan(0.15);
-  });
-
-  it("draws the same ink at a point and at its mirror across the fold", () => {
-    const [cx, cy] = [FIELD_ASPECT / 2, 0.5];
-    for (const sectors of [FOLD_DIAL.min, FOLD_DIAL.rest, FOLD_DIAL.max]) {
-      const angle = Math.PI / sectors;
-      const at = foldField(
-        cx + 0.3 * Math.cos(angle * 0.4),
-        cy + 0.3 * Math.sin(angle * 0.4),
-        sectors,
-      );
-      const mirrored = foldField(
-        cx + 0.3 * Math.cos(-angle * 0.4),
-        cy + 0.3 * Math.sin(-angle * 0.4),
-        sectors,
-      );
-      expect(mirrored).toBeCloseTo(at);
-    }
   });
 });
 

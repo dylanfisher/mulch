@@ -31,7 +31,7 @@ function stageOf(id: string, next: string | undefined): string {
 
 describe("SketchPage draws where the picture goes, eight ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(8);
+    expect(SKETCH_DRIFTS).toHaveLength(5);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");

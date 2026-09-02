@@ -31,12 +31,9 @@ import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchDriftBands } from "@/ui/sketch/drift/SketchDriftBands";
 import { SketchDriftBlobs } from "@/ui/sketch/drift/SketchDriftBlobs";
-import { SketchDriftFold } from "@/ui/sketch/drift/SketchDriftFold";
-import { SketchDriftLattice } from "@/ui/sketch/drift/SketchDriftLattice";
 import { SketchDriftRamp } from "@/ui/sketch/drift/SketchDriftRamp";
 import { SketchDriftTerrace } from "@/ui/sketch/drift/SketchDriftTerrace";
 import { SketchDriftTunnel } from "@/ui/sketch/drift/SketchDriftTunnel";
-import { SketchDriftWarp } from "@/ui/sketch/drift/SketchDriftWarp";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchGroundClock } from "@/ui/sketch/ground/SketchGroundClock";
 import { SketchGroundCut } from "@/ui/sketch/ground/SketchGroundCut";
@@ -158,17 +155,6 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
  */
 export const SKETCH_DRIFTS: readonly SketchEntry[] = [
   {
-    id: "lattice",
-    label: "The Lattice",
-    thesis:
-      "The reference straight: the picture folded into square cells, every cell a rounded box holding its own lens of the field, and the gutter and the rim lit. The visible unit is the cell, which is what 0268 set out to buy and did not.",
-    trades:
-      "the strip. A cell is a hundred pixels and the strip is thirty-two high, so on the strip this is one row of boxes and only the opened picture sees a lattice; and a cell whose rim is a lit gutter is ink laid over the picture unless the rim is cut as a grating, which is 0246's line.",
-    built:
-      "a cell fold before the escape and nested coordinates in src/lib/moireFractal.ts — floor the point into a cell, take the rounded box's distance inside it, and cut the row along that distance plus the field sampled at the cell's own scale. The cell count is a stepped key off runStanding, so it is bake-side: one new field on the fractal key, no per-frame term. The gutter is the profile's own crest crowded onto the box's rim, the way fractalRule crowds a level boundary.",
-    Content: SketchDriftLattice,
-  },
-  {
     id: "ramp",
     label: "The Ramp",
     thesis:
@@ -178,28 +164,6 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "in build at src/ui/moireScreen.ts, where every pixel is multiplied by one row ink today: read the tile's own value through a ramp of the ground, --drift-cool, --screen-green, the primary and --drift-hot, each resolved through inkOf as the channel tokens already are. hue slides the rest along the ramp and disperse widens the reach, both already stepped onto DRIFT_STEPS, so it is bake-side: the ramp is baked into the screen tile and the frame still costs one fillStyle.",
     Content: SketchDriftRamp,
-  },
-  {
-    id: "warp",
-    label: "The Warp",
-    thesis:
-      "The coordinate warped by itself before the gratings are cut along it: the swirl inside a reference cell is two sines of the point fed back into the point. The picture bends where the sound bends it, and the fringes go with the bend instead of standing straight through it.",
-    trades:
-      "the honesty of the beat. A warped grating's fringes are no longer the beat of two spacings, so what made the picture a moiré — structure the eye finds rather than structure that was drawn — is what a large warp spends; at a small one the beat survives and bends.",
-    built:
-      "a term before geometryTurns in src/lib/moireGeometry.ts, applied to every geometry's point: two sine passes whose amount is the wash reading stepped onto DRIFT_STEPS and whose phase is the row's own turns. Bake-side for curved rows, since it is inside the tile's pixel loop; a straight row keeps its pattern fill and cannot be warped, which is the one asymmetry — a warped straight row is a curved row and bakes like one.",
-    Content: SketchDriftWarp,
-  },
-  {
-    id: "fold",
-    label: "The Fold",
-    thesis:
-      "The plane folded into mirrored sectors about the middle, so one row's structure becomes a rosette. Symmetry is the cheapest structure a shader draws — a modulo and an absolute value — and how many sectors is a number the rack already has in its population.",
-    trades:
-      "the strip again. A rosette wants a square and the strip is thirty-five to one, so on the strip a fold is a row of chevrons meeting in the middle; and a mirror fold has a seam on every sector line, which the profile has to be continuous across or every seam is a hard edge.",
-    built:
-      "a geometry beside radial, spiral and fan in src/lib/moireGeometry.ts: fold the point into the sector, then cut whatever geometry the row already has on the folded point, so a folded row is a curved row and bakes through the same tile — bake-side, and no new tile. The sector count is folded off the standing population the way fractalShape folds its four stops, and stepped; the fold's own turn rides the row's phase, which is a transform and free.",
-    Content: SketchDriftFold,
   },
   {
     id: "tunnel",

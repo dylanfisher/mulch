@@ -1,19 +1,15 @@
 /**
  * The moves the drift bench's pictures are built out of, pinned where no canvas can hide them: a
- * fold that does not tile, a rim that is not on the box's edge or a warp that is not the identity
- * at nought would put a wrong picture on eight stages and a static render would draw it happily.
+ * warp that is not the identity at nought or a terrace that does not step would put a wrong
+ * picture on five stages and a static render would draw it happily.
  */
 import { describe, expect, it } from "vitest";
 
 import type { Ink } from "@/ui/moireScreen";
 import {
-  cellFold,
   FIELD_ASPECT,
-  kaleido,
   lit,
   ramp,
-  rim,
-  roundedBox,
   smin,
   terrace,
   through,
@@ -50,43 +46,11 @@ describe("the stand-in weave", () => {
   });
 });
 
-describe("the fold, the box and the rim", () => {
-  it("folds a point into its cell and a place inside it, and refuses no cells at all", () => {
-    const { cx, cy, qx, qy } = cellFold(1.3, 0.7, 2);
-    expect([cx, cy]).toEqual([2, 1]);
-    expect(qx).toBeCloseTo(0.1);
-    expect(qy).toBeCloseTo(-0.1);
-    expect(() => cellFold(1, 1, 0)).toThrow("not folded");
-  });
-
-  it("is negative inside the box, nought on its rim and positive outside", () => {
-    expect(roundedBox(0, 0, 0.45, 0.09)).toBeLessThan(0);
-    expect(roundedBox(0.45, 0, 0.45, 0.09)).toBeCloseTo(0);
-    expect(roundedBox(0.49, 0.49, 0.45, 0.09)).toBeGreaterThan(0);
-    expect(rim(0, 0.05)).toBe(1);
-    expect(rim(0.2, 0.05)).toBeLessThan(0.01);
-  });
-});
-
-describe("the warp and the mirror", () => {
+describe("the warp", () => {
   it("is the identity at no amount and moves the point at any other", () => {
     expect(warp(1.2, 0.4, 0)).toEqual([1.2, 0.4]);
     const [x, y] = warp(1.2, 0.4, 0.2);
     expect(Math.hypot(x - 1.2, y - 0.4)).toBeGreaterThan(0.01);
-  });
-
-  it("keeps the radius, lands inside one sector, and refuses a fold that does not close", () => {
-    for (const sectors of [2, 3, 6, 12]) {
-      for (let turn = 0; turn < 1; turn += 0.05) {
-        const angle = turn * Math.PI * 2;
-        const [x, y] = kaleido(Math.cos(angle) * 0.7, Math.sin(angle) * 0.7, sectors);
-        expect(Math.hypot(x, y)).toBeCloseTo(0.7);
-        expect(Math.atan2(y, x)).toBeGreaterThanOrEqual(-1e-9);
-        expect(Math.atan2(y, x)).toBeLessThanOrEqual(Math.PI / sectors + 1e-9);
-      }
-    }
-    expect(() => kaleido(1, 0, 1)).toThrow("does not close");
-    expect(() => kaleido(1, 0, 2.5)).toThrow("does not close");
   });
 });
 

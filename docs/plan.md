@@ -606,6 +606,15 @@ anywhere. Both were drawn, in two sections of eight, and a third question was dr
   of another; the lattice is the one the bands need first. Taking any of them is a step of its own
   against the bake line (0129, 0144) and, for the ramp, the colour boundary (0236): a plan is
   written off the `built` lines and not off this paragraph.
+- **Three of the eight are the picture's own.** The lattice, the warp and the fold were taken
+  together and mixed (0278): the lattice is one baked cell laid as a pattern over the whole field,
+  tightened by how much rack is standing and turned, leaned, breathed and thickened by the output;
+  the warp is the sway's two sines spent in the slices the lens already cuts the field in, its
+  phase walking at the sways' own rate; the fold is one mirror per automator standing, folded onto
+  the folds before it, baked into every curved row's tile about its own anchor. All three are one
+  reading of the rack (src/ui/moireShape.ts) travelled on the one rate and carried across a
+  rebuilt set, so nothing snaps. Their bench entries and arithmetic are deleted (0254); the five
+  that remain are still drawn, not decided.
 
 **The outcome wanted, and had:** twenty-two drawings, in three sections, that make each question
 answerable by looking. Fun, simple and intuitive was the brief, and on this bench that is a

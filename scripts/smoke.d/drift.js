@@ -17,6 +17,14 @@ const GROWN_ID = "drift-auto";
 const WASH_ID = "drift-wash";
 
 /**
+ * And the rack the picture is shaped by (0278): two more entries to tighten the lattice, a sway to
+ * bend the field, and a second automator to fold the plane onto the first one's fold.
+ */
+const LATTICE_IDS = ["drift-eq", "drift-filter"];
+const SWAY_ID = "drift-sway";
+const FOLD_ID = "drift-fold";
+
+/**
  * What the picture asks of the reading once the yard is soaked: a crest of at least one, which is
  * the arithmetic floor of a window with any sound in it at all and so is what says the number came
  * off a live analyser rather than off zeros; and under the crest a struck dry window reads, which
@@ -32,6 +40,17 @@ const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 2);
 
 /** How many shades a picture of crossing gratings carries before it counts as drawn at all. */
 const INK_SHADES = 8;
+
+/** How many shades the strip's picture carries right now, or null where the engine gave no context. */
+const shadesOf = (strip) =>
+  strip.locator("canvas").evaluate((canvas) => {
+    const surface = canvas.getContext("2d");
+    if (surface === null) return null;
+    const { data } = surface.getImageData(0, 0, canvas.width, canvas.height);
+    const seen = new Set();
+    for (let at = 0; at < data.length; at += 4) seen.add(data[at]);
+    return seen.size;
+  });
 
 /**
  * After the rack scenarios, because a yard with nothing running has no strip to click
@@ -133,14 +152,7 @@ export const driftOpens = async ({ page }) => {
   // Long enough for the drift's own cadence to paint, which is slower than a frame on purpose
   // (0144) — a picture read before it has drawn once says nothing about what it draws.
   await page.waitForTimeout(DRIFT_PAINTS_MS);
-  const drawn = await strip.locator("canvas").evaluate((canvas) => {
-    const surface = canvas.getContext("2d");
-    if (surface === null) return null;
-    const { data } = surface.getImageData(0, 0, canvas.width, canvas.height);
-    const seen = new Set();
-    for (let at = 0; at < data.length; at += 4) seen.add(data[at]);
-    return seen.size;
-  });
+  const drawn = await shadesOf(strip);
   const holding = await page.evaluate(
     (id) => window.mulch.peek("a").grown.get(id)?.length ?? 0,
     GROWN_ID,
@@ -174,28 +186,61 @@ export const driftOpens = async ({ page }) => {
     fail("drift smoke: a full-wet yard did not read as a live washed crest", { wash, dry });
   }
   await page.waitForTimeout(DRIFT_PAINTS_MS);
-  const washed = await strip.locator("canvas").evaluate((canvas) => {
-    const surface = canvas.getContext("2d");
-    if (surface === null) return null;
-    const { data } = surface.getImageData(0, 0, canvas.width, canvas.height);
-    const seen = new Set();
-    for (let at = 0; at < data.length; at += 4) seen.add(data[at]);
-    return seen.size;
-  });
+  const washed = await shadesOf(strip);
   if (washed === null || washed < INK_SHADES) {
     fail("drift smoke: the strip drew no picture while the yard was washed", { washed, dry });
   }
 
+  // 0278: and the rack shapes the picture. How tight the lattice stands, how far a sway bends the
+  // field and how many times an automator folds the plane are each measured where the maths is
+  // (src/ui/moireShape.test.ts, src/lib/moireLattice.test.ts, src/lib/moireWarp.test.ts,
+  // src/lib/moireFold.test.ts); what only a browser can say is that each reading reaches a real
+  // rack through the one per-frame read, that the lattice's cell bakes on a real surface, and that
+  // the picture goes on drawing through all three — a fold is a picture-sized bake per curved row
+  // and a lattice is a pattern fill, either of which could leave a blank canvas behind.
   await page.evaluate(
-    ([grown, wash]) => {
-      window.mulch.send({ t: "deck.stop", deck: "a" });
-      window.mulch.send({ t: "effect.remove", deck: "a", instance: grown });
-      window.mulch.send({ t: "effect.remove", deck: "a", instance: wash });
+    ([lattice, sway, fold]) => {
+      for (const [id, effect] of [
+        [lattice[0], "eq"],
+        [lattice[1], "filter"],
+        [sway, "sway"],
+        [fold, "automator"],
+      ]) {
+        window.mulch.send({ t: "effect.add", deck: "a", id, effect });
+      }
+      window.mulch.send({ t: "param.set", deck: "a", instance: sway, param: "sway.mix", value: 1 });
+      window.mulch.send({
+        t: "param.set",
+        deck: "a",
+        instance: fold,
+        param: "auto.stays",
+        value: 5,
+      });
     },
-    [GROWN_ID, WASH_ID],
+    [LATTICE_IDS, SWAY_ID, FOLD_ID],
+  );
+  await page.waitForFunction(() => window.mulch.peek("a").grown.size === 2);
+  await page.waitForTimeout(DRIFT_PAINTS_MS);
+  const shaped = await shadesOf(strip);
+  const standing = await page.evaluate(() => window.mulch.peek("a").grown.size);
+  if (shaped === null || shaped < INK_SHADES) {
+    fail("drift smoke: the strip drew no picture while the rack was shaping it", {
+      shaped,
+      standing,
+    });
+  }
+
+  await page.evaluate(
+    ([grown, wash, lattice, sway, fold]) => {
+      window.mulch.send({ t: "deck.stop", deck: "a" });
+      for (const instance of [grown, wash, ...lattice, sway, fold]) {
+        window.mulch.send({ t: "effect.remove", deck: "a", instance });
+      }
+    },
+    [GROWN_ID, WASH_ID, LATTICE_IDS, SWAY_ID, FOLD_ID],
   );
 
   report(
-    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}; and it drew ${washed} shades of a yard a full-wet reverb had smeared to a crest of ${wash.toFixed(3)}, from ${dry.toFixed(3)} dry`,
+    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}; and it drew ${washed} shades of a yard a full-wet reverb had smeared to a crest of ${wash.toFixed(3)}, from ${dry.toFixed(3)} dry; and it drew ${shaped} shades of that yard latticed by two more entries, bent by a sway and folded twice by ${standing} automators`,
   );
 };
