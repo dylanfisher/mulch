@@ -65,18 +65,3 @@ export function GroundSays({
     </text>
   );
 }
-
-/**
- * A point on a circle, with nought a turn at the top and a turn running clockwise — the way a clock
- * face is read and the way a ring of grounds advances. Shared by the two round pictures so they
- * cannot disagree about which way round the walk goes.
- */
-export function atTurn(
-  cx: number,
-  cy: number,
-  radius: number,
-  turn: number,
-): { x: number; y: number } {
-  const angle = (turn - 0.25) * Math.PI * 2;
-  return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
-}

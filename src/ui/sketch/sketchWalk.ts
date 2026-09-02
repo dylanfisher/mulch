@@ -15,18 +15,10 @@ export type SketchLanding = {
   at: number;
   /** How long it holds, as a fraction of the loop. */
   span: number;
-  /** How many times the landing is struck before the next jump. */
-  repeats: number;
   /** How loud, nought to one — what the block's fill is spent on. */
   level: number;
   /** Which of the six the landing was drawn as. */
   character: PlayerCharacter;
-  /**
-   * Which slot of the loop it reads — where on the *source* it came from, which is the one thing
-   * `at` does not say. The jump's three amounts are only visible against this: a step's size is
-   * the distance, its side is the bias, and a return to slot nought is the walk coming home.
-   */
-  slot: number;
 };
 
 /**
@@ -35,22 +27,22 @@ export type SketchLanding = {
  * tuned until it produced exactly that anyway.
  */
 export const SKETCH_WALK: readonly SketchLanding[] = [
-  { at: 0.02, span: 0.05, repeats: 1, level: 0.9, character: "plain", slot: 0 },
-  { at: 0.08, span: 0.02, repeats: 4, level: 0.75, character: "stutter", slot: 3 },
-  { at: 0.11, span: 0.02, repeats: 4, level: 0.7, character: "stutter", slot: 7 },
-  { at: 0.14, span: 0.02, repeats: 3, level: 0.62, character: "stutter", slot: 5 },
-  { at: 0.19, span: 0.09, repeats: 1, level: 1, character: "riff", slot: 0 },
-  { at: 0.3, span: 0.04, repeats: 2, level: 0.55, character: "scatter", slot: 4 },
-  { at: 0.36, span: 0.01, repeats: 6, level: 0.42, character: "scatter", slot: 6 },
-  { at: 0.39, span: 0.03, repeats: 1, level: 0.6, character: "scatter", slot: 10 },
-  { at: 0.46, span: 0.12, repeats: 1, level: 0.35, character: "breathe", slot: 0 },
-  { at: 0.62, span: 0.06, repeats: 1, level: 0.85, character: "riff", slot: 2 },
-  { at: 0.7, span: 0.03, repeats: 3, level: 0.68, character: "slide", slot: 6 },
-  { at: 0.75, span: 0.03, repeats: 3, level: 0.72, character: "slide", slot: 10 },
-  { at: 0.8, span: 0.02, repeats: 5, level: 0.5, character: "stutter", slot: 8 },
-  { at: 0.84, span: 0.07, repeats: 1, level: 0.95, character: "plain", slot: 0 },
-  { at: 0.93, span: 0.02, repeats: 2, level: 0.44, character: "scatter", slot: 3 },
-  { at: 0.96, span: 0.03, repeats: 1, level: 0.3, character: "breathe", slot: 7 },
+  { at: 0.02, span: 0.05, level: 0.9, character: "plain" },
+  { at: 0.08, span: 0.02, level: 0.75, character: "stutter" },
+  { at: 0.11, span: 0.02, level: 0.7, character: "stutter" },
+  { at: 0.14, span: 0.02, level: 0.62, character: "stutter" },
+  { at: 0.19, span: 0.09, level: 1, character: "riff" },
+  { at: 0.3, span: 0.04, level: 0.55, character: "scatter" },
+  { at: 0.36, span: 0.01, level: 0.42, character: "scatter" },
+  { at: 0.39, span: 0.03, level: 0.6, character: "scatter" },
+  { at: 0.46, span: 0.12, level: 0.35, character: "breathe" },
+  { at: 0.62, span: 0.06, level: 0.85, character: "riff" },
+  { at: 0.7, span: 0.03, level: 0.68, character: "slide" },
+  { at: 0.75, span: 0.03, level: 0.72, character: "slide" },
+  { at: 0.8, span: 0.02, level: 0.5, character: "stutter" },
+  { at: 0.84, span: 0.07, level: 0.95, character: "plain" },
+  { at: 0.93, span: 0.02, level: 0.44, character: "scatter" },
+  { at: 0.96, span: 0.03, level: 0.3, character: "breathe" },
 ];
 
 /** Where the walk is standing while the bench is looked at, so one landing can be drawn lit. */

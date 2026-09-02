@@ -569,11 +569,11 @@ otherwise orderly picture, which is the picture the step exists to stop drawing.
 
 ## Context
 
-The bench at `#/sketch` holds thirteen entries — eight whole surfaces and five parts — and every one
-of them argues about the mulcher card as a whole or about one of its folds (src/ui/sketch/SketchPage.tsx).
-They have been drawn, read and decided against or absorbed; what is left on the page is a record of
-finished arguments, and a bench nobody clears stops being a bench. Two questions are open and neither
-has a drawing anywhere:
+The bench at `#/sketch` held thirteen entries — eight whole surfaces and five parts — and every one
+of them argued about the mulcher card as a whole or about one of its folds. They had been drawn,
+read and decided against or absorbed; what was left on the page was a record of finished arguments,
+and a bench nobody clears stops being a bench. Two questions were open and neither had a drawing
+anywhere. Both are drawn now, in two sections of eight (src/ui/sketch/SketchPage.tsx):
 
 - **When the ground moves. Landed.** The bench is cleared and eight readings of that one seam are on
   it: the lap, the queue, the ratchet, the ladder, the cut, the lane, the throw and the count. Each
@@ -582,13 +582,17 @@ has a drawing anywhere:
   the standing ground off. Whether that fourth clock is worth being one is now a question a hand can
   answer by looking, and taking it is still a step of its own against src/lib/playerBed.ts (Refused,
   below).
-- **How a song is played.** The tier over a part is a run and a cursor over it
+- **How a song is played. Landed.** The tier over a part is a run and a cursor over it
   (src/lib/playerSongs.ts), drawn today as a list (src/ui/PlayerSong.tsx). Playing one is the thing
-  the instrument is for and it is the least visual surface on the card.
+  the instrument is for and it was the least visual surface on the card. Eight readings of it are
+  now the bench's second section, under a rule and a heading of its own: the track, the hand, the
+  wheel, the grid, the route, the spend, the spindle and the strip. Each draws the cursor standing
+  somewhere, because a song is a run and a cursor over it, and src/ui/sketch/sketchSong.ts holds the
+  one unfolding of the two tiers all eight are drawn off.
 
-**The outcome wanted:** sixteen drawings, in two sections, that make either question answerable by
-looking — the first eight are on the bench, and the second section is what is left. Fun, simple and intuitive is the brief, and on this bench that is a measurable thing: a
-drawing that needs its caption read twice has failed.
+**The outcome wanted, and had:** sixteen drawings, in two sections, that make either question
+answerable by looking. Fun, simple and intuitive was the brief, and on this bench that is a
+measurable thing: a drawing that needs its caption read twice has failed.
 
 **Decided before planning:** the thirteen are deleted rather than kept below the new ones — done,
 and their files with them; git remembers (principle 6) and the arguments they made are in 0257–0259.
@@ -596,7 +600,7 @@ Nothing here is wired to the store, a command, or a real deck (0247), which is w
 them cost what they cost. Eight per section, each varying a direction and not a detail: two that are
 the same picture with a different palette are one sketch and a wasted slot.
 
-## The two things every step turns on
+## The two things every step turned on
 
 1.  **A bench entry is an argument or it is wallpaper.** `SketchEntry` carries a `thesis` and a
     `trades` beside the drawing, written in the same file that mounts it, so the argument cannot
@@ -611,32 +615,17 @@ the same picture with a different palette are one sketch and a wasted slot.
     eight extend it rather than starting a second fixture module; their arithmetic goes beside
     src/ui/sketch/sketchGround.ts in a file of its own, the way the ground eight's does.
 
-## Steps
-
-1.  **Draw how a song is played.** A second section under an `<hr>` and a heading of its own, mounted
-    from its own list beside the ground eight, which are mounted from `SKETCH_GROUNDS`
-    (src/ui/sketch/SketchPage.tsx) and drawn in `SKETCH_VIEW`'s 480-by-160 box out of
-    src/ui/sketch/ground/, one file per picture. Eight readings of the tier over a part and the cursor
-    walking it (src/lib/playerSongs.ts): the run as a track the cursor rides; the parts as a hand of
-    cards played one at a time; the song as a wheel with the repeats as teeth; a launch grid where a
-    press queues the next part for the boundary; the run as a route across a map of parts; the
-    repeats drawn as the thing being spent, counting down; a stack a part is pulled off and pushed
-    back onto; and the whole song as one long strip with the cursor as the only moving thing. Each
-    draws the cursor standing somewhere, because a song is a run and a cursor over it and that is
-    the fact both the list and every alternative have to carry.
-
-## Tests that must fail first
+## Tests that had to fail first
 
 - **src/ui/sketch/SketchPage.test.tsx** — the nav names every entry in both lists and no entry the
-  page does not mount; the second section is under its own heading and its own rule. The first
-  half is written: it mounts off the list, reads a non-empty `thesis` and `trades` off every entry,
-  and names the deleted thirteen so a re-mount of one has to say so.
+  page does not mount; the second section is under its own heading and its own rule. Both lists are
+  read as one bench, so a case written over one half cannot go quiet on the other.
 - **A case file per section**, in src/ui/sketch/SketchGrounds.test.tsx's shape: each drawing renders
   from the shared fixture, sliced by its own `data-` attribute to its own `</svg>` through that
   file's `pictureOf`, and the playback eight all draw the cursor at the same place in one run — as
-  the ground eight all light one standing ground and all state one count. Name it plural: a
-  `SketchSong.test.tsx` beside a `sketchSong.ts` differs only in case, and the type-aware linter
-  then resolves neither and goes quiet.
+  the ground eight all light one standing ground and all state one count. Named plural
+  (src/ui/sketch/SketchSongs.test.tsx): a `SketchSong.test.tsx` beside a `sketchSong.ts` differs
+  only in case, and the type-aware linter then resolves neither and goes quiet.
 - **The arithmetic the eight share** lives beside the pictures and never in them, the way
   src/ui/sketch/sketchGround.ts holds the ground eight's count of completed sequences, which ground
   the Nth move landed on, and where a throw comes down (principle 1).
@@ -648,9 +637,9 @@ the same picture with a different palette are one sketch and a wasted slot.
     files mean new Tailwind classes, and `#/sketch` is a hash route, so shoot `dist/` with a wait and
     reap the server after. Read each drawing at 1:1: the question is whether the caption is needed,
     and a drawing that needs it is the one to redraw.
-3.  A decision record per step only where a drawing changes what a fold _is_. The ground step wrote
-    none: it asks whether the fourth clock should exist rather than deciding it, and the clearing
-    itself is not a decision — it is a bench doing what a bench is for.
+3.  A decision record per step only where a drawing changes what a fold _is_. Neither step wrote
+    one: both ask whether a surface should exist rather than deciding it, and the clearing itself is
+    not a decision — it is a bench doing what a bench is for.
 
 ## Refused
 
@@ -665,6 +654,10 @@ against src/lib/playerBed.ts with its own decision, its own validator case and i
 **Sixteen sketches in one step.** Two sections are two arguments and two gates. Sixteen drawings
 landed together is one review nobody can hold in their head, which is the same reason the rack's
 three effects are three steps.
+
+**Re-using the id of a cleared sketch.** The playback bench wanted `stack` and took `spindle`
+instead: `SketchPage.test.tsx` names the thirteen the bench was cleared of so a re-mount has to say
+so, and an id come round again on a different argument is a record that stops being one.
 
 ---
 

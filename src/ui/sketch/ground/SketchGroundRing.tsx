@@ -12,8 +12,8 @@
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import { SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
-import { atTurn, GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { atTurn, SKETCH_VIEW as VIEW } from "@/ui/sketch/SketchFrame";
+import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
 import {
   bedNamed,
   bedOf,

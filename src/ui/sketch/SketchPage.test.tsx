@@ -3,8 +3,9 @@ import { dirname, join, relative, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
-import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_GROUNDS, SKETCH_PLAYS, SketchPage } from "@/ui/sketch/SketchPage";
 
 /**
  * The bench is a list of arguments drawn out of the same primitives the instrument is, so rendering
@@ -12,6 +13,11 @@ import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
  * shadcn regeneration. Static markup, so it needs no DOM.
  */
 const markup = renderToStaticMarkup(<SketchPage />);
+
+/** Both benches as one list, since every rule about an entry is a rule about all of them: a second
+ *  section mounted from its own list is still one bench, and a case written over one of the two
+ *  would go quiet on whichever half it was not written over. */
+const BENCH = [...SKETCH_GROUNDS, ...SKETCH_PLAYS];
 
 describe("the sketch route", () => {
   it("resolves its own hash and leaves everything else on the instrument", () => {
@@ -38,9 +44,10 @@ describe("SketchPage", () => {
    * sketch added without an entry — or an entry that renders no section — has to fail rather than
    * pass because the count in a test still matches (0254).
    */
-  it("mounts every entry of the bench", () => {
+  it("mounts every entry of both benches", () => {
     expect(SKETCH_GROUNDS).not.toHaveLength(0);
-    for (const entry of SKETCH_GROUNDS) {
+    expect(SKETCH_PLAYS).not.toHaveLength(0);
+    for (const entry of BENCH) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
       expect(markup, `${entry.id} has an entry and no nav link`).toContain(
         `data-section="${entry.id}"`,
@@ -48,7 +55,7 @@ describe("SketchPage", () => {
     }
     // One id apiece: the nav scrolls to `getElementById`, so a repeat would silently take a hand
     // to the first of the two.
-    const ids = SKETCH_GROUNDS.map((entry) => entry.id);
+    const ids = BENCH.map((entry) => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -58,7 +65,7 @@ describe("SketchPage", () => {
    * drawn — and an empty one would render a frame with a blank line under the heading.
    */
   it("carries a thesis and a trade for every entry, and draws both", () => {
-    for (const entry of SKETCH_GROUNDS) {
+    for (const entry of BENCH) {
       expect(entry.thesis.length, `${entry.id} argues nothing`).toBeGreaterThan(40);
       expect(entry.trades.length, `${entry.id} gives nothing up`).toBeGreaterThan(20);
       // Through the escaping the renderer does, so a thesis with an apostrophe in it is compared
@@ -69,6 +76,35 @@ describe("SketchPage", () => {
     }
   });
 });
+
+describe("SketchPage asks two questions and not one", () => {
+  /**
+   * The second bench is a section of its own under a rule of its own, and not eight more drawings
+   * on the end of the first: the two ask different questions, and a reader who cannot see where one
+   * ends is reading one bench of sixteen.
+   */
+  it("draws the second bench under its own heading and its own rule", () => {
+    expect(markup, "the two benches are not ruled apart").toContain("<hr");
+    const grounds = markup.indexOf(`id="${firstOf(SKETCH_GROUNDS)}"`);
+    const rule = markup.indexOf("<hr");
+    const plays = markup.indexOf(`id="${firstOf(SKETCH_PLAYS)}"`);
+    expect(rule, "the rule falls before the first bench").toBeGreaterThan(grounds);
+    expect(plays, "the second bench is not under the rule").toBeGreaterThan(rule);
+    // Its own heading, in the word the tier is called by rather than in a second copy of it
+    // (`PLAYER_SONGS_LABEL`, src/lib/copySongs.ts): a heading asserted as a literal is a copy
+    // string declared twice, and it would go on passing after the word itself changed.
+    expect(markup, "the second bench is unheaded").toMatch(
+      new RegExp(`<h2[^>]*>${PLAYER_SONGS_LABEL}[^<]*<`, "u"),
+    );
+  });
+});
+
+/** The first entry's id of a list, which is where a section of the page begins. */
+function firstOf(entries: readonly { id: string }[]): string {
+  const first = entries[0];
+  if (first === undefined) throw new Error("A bench with no entries mounts no section.");
+  return first.id;
+}
 
 describe("SketchPage is cleared of what it argued before", () => {
   /**

@@ -10,8 +10,9 @@
 // itself, so cutting it into helpers to satisfy a line count would scatter one drawing across five
 // scopes. The same waiver every sketch on this bench carries, for the reason 0247 gives (0007).
 // oxlint-disable max-lines-per-function
+import { atTurn } from "@/ui/sketch/SketchFrame";
 import { characterInk, fixtureAt, SKETCH_GROUND, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
-import { atTurn, GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
+import { GroundSays, GroundStage } from "@/ui/sketch/ground/SketchGroundStage";
 import {
   bedSaid,
   SKETCH_COUNTED_SAID,

@@ -66,6 +66,22 @@ export const SKETCH_PICTURE = "h-40 w-120 rounded bg-muted text-muted-foreground
  *  is a picture that lags the pointer and nothing that says so (principle 1). */
 export const SKETCH_VIEW = { wide: 480, high: 160 };
 
+/**
+ * A point on a circle, with nought a turn at the top and a turn running clockwise — the way a
+ * clock face is read, the way a ring of grounds advances, and the way a wheel of rounds goes. Up
+ * here beside the box rather than on one bench, because it is now read by both of them and a
+ * second copy is two pictures free to disagree about which way round is forwards (principle 1).
+ */
+export function atTurn(
+  cx: number,
+  cy: number,
+  radius: number,
+  turn: number,
+): { x: number; y: number } {
+  const angle = (turn - 0.25) * Math.PI * 2;
+  return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+}
+
 /** The eyebrow a sketch labels one of its own regions with, so eight sketches label alike. */
 export function SketchLabel({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("type-eyebrow text-muted-foreground", className)}>{children}</div>;
