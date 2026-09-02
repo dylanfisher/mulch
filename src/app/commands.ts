@@ -155,6 +155,10 @@ export type Command =
   // Transport for the reason a seek is: the walk is built from the song that one part is, nothing
   // durable moves, and the song being held is the song that comes back (0041, 0190).
   | { t: "deck.playerSolo"; deck: DeckId; part: SongPartId | null }
+  // One part of the jumping song queued to play next: at the next part boundary the walk is wound
+  // to it and carries on from there, and `part` null lets go of what was queued. Transport for the
+  // reason a solo is — nothing durable moves and the run is the run that was held (0041).
+  | { t: "deck.playerArm"; deck: DeckId; part: SongPartId | null }
   /**
    * One place of a run let go of by hand: `instance` is the entry growing it and `place` is the
    * id that place is held under, which carries the tick it was laid at — so a press names the

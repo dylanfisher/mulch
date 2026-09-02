@@ -582,6 +582,7 @@ export function createDeckVoice(
       else retick();
     },
     soloPlayer: player.solo,
+    armPlayer: player.armPart,
     setSync: (sync) => {
       player.setSync(sync);
       // The rack counts in it too: an automator paces its own ticks by the clock the yards walk on

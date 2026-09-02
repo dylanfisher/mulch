@@ -517,7 +517,7 @@ describe("the jumps card", () => {
     // place no index of loop lengths can name (`bedGround`, src/lib/playerBed.ts).
     vi.spyOn(instrument, "peek").mockReturnValue({
       ...emptyDeckPeek(),
-      player: { step: { ...step, bed: 8 }, at: 0, sparkPosition: null },
+      player: { step: { ...step, bed: 8 }, at: 0, sparkPosition: null, armed: null },
     });
     pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
     expect(sent).toHaveBeenCalledTimes(1);
@@ -541,7 +541,7 @@ describe("the jumps card", () => {
     const step = playerSequence(PLAYER, 1)[0]!;
     vi.spyOn(instrument, "peek").mockReturnValue({
       ...emptyDeckPeek(),
-      player: { step: { ...step, bed: 0 }, at: 0, sparkPosition: null },
+      player: { step: { ...step, bed: 0 }, at: 0, sparkPosition: null, armed: null },
     });
     pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
     expect(sent).not.toHaveBeenCalled();

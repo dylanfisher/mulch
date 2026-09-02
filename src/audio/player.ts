@@ -12,86 +12,18 @@
 // one pass closure below, and every line of it is beside the arming it moves. The alternative is
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } from "@/lib/player";
+import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
 import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid, type Span } from "./playerGrid";
 import { seam } from "./playerSeam";
+import { readInto, windowOf } from "./playerWindow";
 import { syncedFrom } from "@/lib/playerClock";
 import { songsOnset, soloSongs } from "@/lib/playerSongs";
-import type { SongPartId } from "@/lib/playerSong";
+import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import type { PlayerPeek } from "./deckPeek";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
-
-/**
- * The seconds one step occupies: the rate it reads at, how long one burst of it sounds, when the
- * whole step ends and when the step after it begins. The player's own clock, and no longer the
- * grid's at all: only `rest` is measured in slots now, so a pattern's rhythm follows the loop
- * while the grain inside it does not (0119, P67).
- */
-function windowOf(
-  step: PlayerStep,
-  grid: Grid,
-  deckRate: number,
-  at: number,
-): { rates: number[]; burstSecs: number; spans: number[]; ends: number; next: number } {
-  // The deck's own rate times the ratio each repeat of this step is climbed to: a step that let go
-  // of the hold reads at a rate of its own, and a step that climbs reads at one per repeat (0167).
-  const rates = step.rates.map((ratio) => deckRate * ratio);
-  // The landing's own first rung is what the rest is measured in the seconds of, and what the
-  // source's loop window is cut at: the climb moves how fast the region is read and never which
-  // region it is, so everything about *where* this landing lives is the rung it landed on.
-  const rate = rates[0] ?? deckRate;
-  const slotSecs = grid.slot / rate;
-  // The burst is already wall seconds and is neither scaled by the grid nor divided by the rate:
-  // a grain sounds for as long as it says, on any loop and at any speed, and the rate then decides
-  // only how much buffer it gets through (0119). The floor is the shortest window that can carry
-  // its fades — the same floor a loop too short to jump around is refused by. Below it two seams
-  // overlap, which is a NotSupportedError (0089). `PLAYER_BURST_MIN` is now this same number, so
-  // the clamp is unreachable from a valid spec and kept anyway: it is what keeps one arming ahead
-  // of the next — `PLAYER_MIN_SLOT_SECS` per repeat is what makes `MAX_PLAYER_STEPS` cover the
-  // re-arm cadence, and that has to hold whatever the knob's own floor becomes.
-  const burstSecs = Math.max(step.burst, PLAYER_MIN_SLOT_SECS);
-  // Where the repeats end is the sum of their own lengths rather than the count times one of them:
-  // they stand equal only until the ratchet shrinks them, and how long each of them is belongs to
-  // the module rather than to the transport, because the picture runs its row on the same sum
-  // (`repeatSpans`, src/lib/player.ts — P118).
-  const spans = repeatSpans(burstSecs, step.repeats, step.ratchet);
-  const ends = spans.reduce((end, secs) => end + secs, at);
-  return { rates, burstSecs, spans, ends, next: ends + step.rest * slotSecs };
-}
-
-/**
- * How much buffer one landing has read `secs` into itself: every repeat it has finished, each at
- * the rung it was climbed to, plus the part of the one it is inside.
- *
- * A sum over the windows the landing is already cut into rather than one multiplication, and that
- * is what P124 costs the cursor: a rate that moves between repeats means the read head is no
- * longer a linear function of the wall clock across a whole landing (0167). It stays exact
- * arithmetic and never an integral, because the ladder is stepped — inside one repeat the rate
- * does stand still.
- *
- * `spans` sums to the landing's own length, so a call at exactly its end walks every repeat and
- * lands on the total; the caller clamps there rather than past it.
- */
-function readInto(step: Scheduled, secs: number): number {
-  let read = 0;
-  let left = Math.max(0, secs);
-  // An indexed loop and no iterator: this runs once per deck per frame, and `entries()` allocates
-  // one iterator per call and one pair per repeat — up to 65 objects a frame on a landing at
-  // `PLAYER_REPEATS_MAX` (0070). The two fallbacks below are unreachable: `armStep` refuses a
-  // landing whose ladder and windows are not the same length, which is where that can be said
-  // loudly (principle 5).
-  for (let repeat = 0; repeat < step.spans.length; repeat++) {
-    const span = step.spans[repeat] ?? 0;
-    const rate = step.rates[repeat] ?? 0;
-    if (left <= span) return read + left * rate;
-    read += span * rate;
-    left -= span;
-  }
-  return read;
-}
 
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
 type Scheduled = {
@@ -204,6 +136,17 @@ export type DeckPlayer = {
   // A property rather than a method, for the reason `setSync` above is one: the deck hands this
   // very function on as its own pass-through (src/audio/deck.ts).
   solo: (part: SongPartId | null) => boolean;
+  /**
+   * Queue one part of the song to be played next: at the next part boundary the walk is wound to
+   * that part's own first jump and carries on from there, which is what a launch grid's press is.
+   * Null lets go of what was queued, a jump already drawn and not yet heard included. Answers
+   * whether it did — false with no pass to queue over, under a solo (whose run of one part has no
+   * boundary this could land on), or for a part the written list does not hold or passes over.
+   *
+   * Transport on the terms a solo is: nothing durable moves, and it dies with the pass rather
+   * than outliving a stop — an arm is a pending jump of *this* pass and nothing else.
+   */
+  armPart: (part: SongPartId | null) => boolean;
   /** Whether a pass is running. */
   running(): boolean;
   /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
@@ -243,6 +186,15 @@ export function createDeckPlayer(
    *  makes a solo transport rather than an arrangement (0041, 0190). It outlives a stop, so a yard
    *  played again opens on the part its toggle still says it is soloing. */
   let solo: SongPartId | null = null;
+  /**
+   * The part a hand queued to play next, and not yet drawn — the arming loop lands it on the next
+   * step that opens a part and clears it. Two fields rather than one, because once the jump is
+   * drawn it is still seconds from being heard: `landing` is that drawn jump and when it sounds,
+   * so the read below can go on saying it is armed until the clock reaches it, and a re-arm that
+   * drops it can queue it again rather than losing it.
+   */
+  let pending: SongPartId | null = null;
+  let landing: { part: SongPartId; at: number; replaced: number } | null = null;
   /**
    * The clock this pass's next step begins on, or null for a deck keeping its own time. Held per
    * voice because a voice reaches nothing above itself: what makes it one clock is that the host
@@ -540,8 +492,21 @@ export function createDeckPlayer(
     // free-running from wherever the stall left it (0097).
     queueEnd = syncedFrom(Math.max(queueEnd, now + LOOKAHEAD_SECS), sync);
     const horizon = now + AUTOMATION_HORIZON_SECS;
-    for (let armed = 0; queueEnd <= horizon && armed < MAX_PLAYER_STEPS; armed++) {
-      const drawn = draw();
+    for (let n = 0; queueEnd <= horizon && n < MAX_PLAYER_STEPS; n++) {
+      let drawn = draw();
+      // A queued part lands here, on the first step that opens a part: the walk is wound to that
+      // part's own first jump — the wind a solo's release takes — and the step drawn again from
+      // there, so the boundary the run was about to cross is crossed into the part a hand asked
+      // for. The onset is over the written list, which `armPart` refused to queue under a solo.
+      if (pending !== null && drawn.step.opens && spec !== null) {
+        const onset = songsOnset(spec.songs, pending);
+        if (onset === null) throw new Error(`a queued part ${pending} the song does not stand in`);
+        laid = onset;
+        walk = playerWalk(soloSongs(spec, solo), laid);
+        landing = { part: pending, at: queueEnd, replaced: drawn.ordinal };
+        pending = null;
+        drawn = draw();
+      }
       queueEnd = armStep(drawn.step, drawn.ordinal, queueEnd);
     }
   }
@@ -559,9 +524,14 @@ export function createDeckPlayer(
     return step;
   }
 
-  /** Every step still ahead of `from`, stopped and let go. Answers how many, so the walk's own
-   *  cursor can be wound back over exactly the steps a re-arm is about to replace. */
-  function dropAfter(from: number): number {
+  /**
+   * Every step still ahead of `from`, stopped and let go. Answers the first of them — its ordinal
+   * and when it began — or null where nothing was ahead, so the walk's own cursor can be wound
+   * back to exactly where the steps a re-arm is about to replace began. The ordinal and not a
+   * count: past a queued jump the ordinals in the queue are not contiguous, and a count
+   * subtracted would wind the walk to a step nobody laid.
+   */
+  function dropAfter(from: number): { ordinal: number; at: number } | null {
     const dropping = queue.filter((entry) => entry.at > from);
     for (const step of dropping) {
       step.source.stop();
@@ -570,7 +540,8 @@ export function createDeckPlayer(
       step.spark?.source.stop();
       release(step);
     }
-    return dropping.length;
+    const first = dropping[0];
+    return first === undefined ? null : { ordinal: first.ordinal, at: first.at };
   }
 
   /**
@@ -581,7 +552,30 @@ export function createDeckPlayer(
    */
   function rearm(from: number): void {
     if (running === null || spec === null) return;
-    laid -= dropAfter(from);
+    // A jump drawn and not yet heard goes with the steps it was drawn among, so it is queued again
+    // and lands on the same boundary when the tail is derived again.
+    const jump = landing;
+    if (jump !== null && jump.at > from) {
+      pending = jump.part;
+      landing = null;
+    }
+    relay(from, jump);
+  }
+
+  /**
+   * The re-arm's own tail: drop past `from` and lay again from the ordinal the walk stood at
+   * there. `jump` is the queued landing that was standing in the queue, if any, and it is what
+   * decides that ordinal: the steps after a jump are counted from the part it jumped to, so where
+   * the drop begins at or past the jump the walk goes back to the ordinal the jump replaced —
+   * the boundary itself — and where it begins before the jump, to the first step dropped.
+   */
+  function relay(from: number, jump: { at: number; replaced: number } | null): void {
+    if (running === null || spec === null) return;
+    const first = dropAfter(from);
+    laid =
+      jump !== null && jump.at > from && (first === null || first.at >= jump.at)
+        ? jump.replaced
+        : (first?.ordinal ?? laid);
     walk = playerWalk(soloSongs(spec, solo), laid);
     // The cursor goes back to the end of what is left standing, so the replacement steps butt
     // up against the last one still sounding and the seam between them is faded as any other —
@@ -637,6 +631,16 @@ export function createDeckPlayer(
       // the audio this deck is playing any more. A stop keeps it — a pause and a play must not
       // cost a copy of the whole buffer each (P121).
       if (next === null) mirrored = null;
+      // A queued jump goes with the part it named: a pattern gone, one drawing its own run, or a
+      // list that no longer holds the part leaves nothing for the arming loop to land on.
+      const queued = pending ?? landing?.part ?? null;
+      if (
+        queued !== null &&
+        (next === null || songIsDrawn(next) || songsOnset(next.songs, queued) === null)
+      ) {
+        pending = null;
+        landing = null;
+      }
       // A knob is heard where it is turned: the steps past the lookahead are cancelled and the
       // tail derived again. The step already sounding keeps its window and its seams, so a move
       // lands at the end of the burst being played rather than at the end of the arming horizon
@@ -654,6 +658,29 @@ export function createDeckPlayer(
     held: () => spec,
     running: () => running !== null,
 
+    armPart: (part) => {
+      if (running === null || spec === null) return false;
+      if (part === null) {
+        // Letting go takes a jump already drawn and not yet heard back out of the queue, and the
+        // run is laid again in its own order from the boundary it was going to cross.
+        pending = null;
+        const jump = landing;
+        const from = ctx.currentTime + LOOKAHEAD_SECS;
+        if (jump !== null && jump.at > from) {
+          landing = null;
+          relay(from, jump);
+        }
+        return true;
+      }
+      if (solo !== null || songsOnset(spec.songs, part) === null) return false;
+      pending = part;
+      // Heard at the next boundary and not the first one past the horizon: the steps already laid
+      // past the lookahead are dropped and derived again, which is the road a moved number takes,
+      // and the arming loop lands the queued part on the first step that opens a part (0096).
+      rearm(ctx.currentTime + LOOKAHEAD_SECS);
+      return true;
+    },
+
     solo: (part) => {
       if (running === null || spec === null) return false;
       if (part === solo) return true;
@@ -664,6 +691,10 @@ export function createDeckPlayer(
       // own top.
       const resume = part === null && solo !== null ? songsOnset(spec.songs, solo) : null;
       solo = part;
+      // A solo's run is one part with no boundary a queued jump could land on, and its release
+      // winds the song for itself: whichever way this goes, what was queued is let go of.
+      pending = null;
+      landing = null;
       const from = ctx.currentTime + LOOKAHEAD_SECS;
       // The steps past the horizon go first, so the wind is to the top of the pattern now being
       // played rather than back over what was dropped, which is the whole difference between this
@@ -729,6 +760,8 @@ export function createDeckPlayer(
       out.step = entry?.step ?? null;
       out.at = entry?.ordinal ?? null;
       out.sparkPosition = sparkPositionOf(entry, at);
+      // Armed until it is heard, not until it is drawn: a jump is drawn seconds ahead of the clock.
+      out.armed = pending ?? (landing !== null && landing.at > at ? landing.part : null);
     },
 
     stop: () => {
@@ -736,6 +769,10 @@ export function createDeckPlayer(
       queue = [];
       running = null;
       walk = null;
+      // An arm is a pending jump of this pass, and the pass is over — unlike a solo, which is a
+      // state the next pass opens on (0190).
+      pending = null;
+      landing = null;
       for (const step of stopping) {
         // Every one of these has been started, which is the only thing `stop` refuses; one that
         // has already run out takes it as the no-op it is. What matters is the steps still ahead

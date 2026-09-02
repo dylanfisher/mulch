@@ -43,7 +43,7 @@ import type { Command } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
-import { setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
+import { armPlayer, setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
 import {
   addEffect,
   boundEffect,
@@ -538,6 +538,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.playerSolo":
       soloPlayer(cmd, rt);
+      return;
+    case "deck.playerArm":
+      armPlayer(cmd, rt);
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);

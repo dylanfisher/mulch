@@ -52,6 +52,9 @@ export type DeckVoice = {
    *  never an edit (0041, 0190). A property for the reason `setSync` is one — it is handed on as
    *  the pass's own function. */
   soloPlayer: DeckPlayer["solo"];
+  /** Queue one part to play next, landing at the next part boundary, or let it go with null: a
+   *  transport state on the solo's own terms (0041). A property for the reason that one is. */
+  armPlayer: DeckPlayer["armPart"];
   setSync(sync: number | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */

@@ -125,6 +125,12 @@ export type Engine = {
    */
   soloPlayer(deck: DeckId, part: SongPartId | null): boolean;
   /**
+   * Queue one part of this deck's song to play next, landing at the next part boundary, or let
+   * it go with null — answering whether it did. Transport on the solo's terms: false is a deck
+   * with no pass to queue over, or one soloing a part, which the caller says on the log.
+   */
+  armPlayer(deck: DeckId, part: SongPartId | null): boolean;
+  /**
    * Hold the session's shared jump clock, or drop it when `sync` is null. It reaches every voice
    * this host holds and every one it builds afterwards, because the clock is the session's and
    * not any deck's (0097).
@@ -512,6 +518,7 @@ export function createAudioEngine(
       voice(deck).setPlayer(player);
     },
     soloPlayer: (deck, part) => voice(deck).soloPlayer(part),
+    armPlayer: (deck, part) => voice(deck).armPlayer(part),
     setSync: (next) => {
       sync = next;
       for (const held of voices.values()) held.setSync(next);

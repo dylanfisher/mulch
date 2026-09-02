@@ -10,6 +10,9 @@
 // One case per contract the player and the clock carry; the length tracks how many of them there
 // are. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
+// And over the line cap by the arm's own two cases, which are the solo's said again for the
+// command beside it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // And one import over the dependency cap, which is `partVoice`: a cue names a part, and a part
 // carries a spec this file has to build the one way the module builds one (principle 1).
 // See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -28,8 +31,9 @@ import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { partVoice } from "@/lib/player";
 import { songsParts, oneSong } from "@/lib/playerSongs";
 
-/** The five calls a pattern, a cue and a clock make of the graph, and nothing else this file
- *  presses. `cues` is what the pass answers a solo with: false is the deck not jumping (0190). */
+/** The six calls a pattern, a cue and a clock make of the graph, and nothing else this file
+ *  presses. `cues` is what the pass answers a solo or an arm with: false is the deck not jumping
+ *  (0190). */
 const engineDouble = (calls: string[], cues = true): Engine =>
   silentEngine({
     load: (deck, source) => {
@@ -48,6 +52,10 @@ const engineDouble = (calls: string[], cues = true): Engine =>
     },
     soloPlayer: (deck, part) => {
       calls.push(`solo:${deck}:${part ?? "off"}`);
+      return cues;
+    },
+    armPlayer: (deck, part) => {
+      calls.push(`arm:${deck}:${part ?? "off"}`);
       return cues;
     },
   });
@@ -321,6 +329,54 @@ describe("the player as a durable module", () => {
       // oxlint-disable-next-line no-unsafe-type-assertion -- a part id off the wire is untyped
       instrument.send({ t: "deck.playerSolo", deck: "a", part: 7 as unknown as string });
     }).toThrow(/deck.playerSolo part/u);
+  });
+
+  /**
+   * An arm is the solo's sibling: transport that reaches the graph and moves nothing durable, and
+   * it is refused on the same three facts about the spec, the pass's own answer, and the wire's
+   * own guard — each said by name (principle 5).
+   */
+  it("queues a part to the graph and lets it go, and refuses on the solo's own terms", () => {
+    const calls: string[] = [];
+    const instrument = loaded(calls);
+    const events: Event[] = [];
+    const song = [
+      { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4, steps: [] },
+    ];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    instrument.send({ t: "deck.playerArm", deck: "a", part: "one" });
+    instrument.send({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, arrange: 2, songs: oneSong(song) },
+    });
+    instrument.send({ t: "deck.playerArm", deck: "a", part: "one" });
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, songs: oneSong(song) } });
+    instrument.send({ t: "deck.playerArm", deck: "a", part: "two" });
+    instrument.send({ t: "deck.playerArm", deck: "a", part: "one" });
+    instrument.send({ t: "deck.playerArm", deck: "a", part: null });
+
+    expect(calls.filter((call) => call.startsWith("arm:"))).toEqual(["arm:a:one", "arm:a:off"]);
+    expect(songsParts(instrument.probe().decks.a?.player?.songs ?? [])).toEqual(song);
+    expect(errorsIn(events)).toEqual([
+      "deck.playerArm: deck a holds no pattern to arm",
+      "deck.playerArm: deck a is drawing its own arrangement",
+      "deck.playerArm: deck a stands in no part two",
+    ]);
+    const still = loaded([], false);
+    const quiet: Event[] = [];
+    still.on((event) => {
+      quiet.push(event);
+    });
+    still.send({ t: "deck.player", deck: "a", player: { ...PLAYER, songs: oneSong(song) } });
+    still.send({ t: "deck.playerArm", deck: "a", part: "one" });
+    expect(errorsIn(quiet)).toEqual(["deck.playerArm: deck a is not jumping"]);
+    expect(() => {
+      // oxlint-disable-next-line no-unsafe-type-assertion -- a part id off the wire is untyped
+      instrument.send({ t: "deck.playerArm", deck: "a", part: 7 as unknown as string });
+    }).toThrow(/deck.playerArm part/u);
   });
 
   it("refuses a clock the module would not accept, before anything durable moves", () => {

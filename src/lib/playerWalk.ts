@@ -175,6 +175,14 @@ export type PlayerStep = {
    * ordinal of its own (principle 1, `createSongs`).
    */
   place: SongPlace | null;
+  /**
+   * Whether this step is the first jump of its part — the boundary the cursor above spoke at. Said
+   * by the walk, which is the one thing that knows it, rather than worked out again from the count
+   * of jumps left by whoever wants it: the transport lands an armed part on exactly this step, and
+   * a second reader of the order is the drift principle 1 refuses (`SongDraw.first`, which is the
+   * top of the run and not of a part).
+   */
+  opens: boolean;
 };
 
 /**
@@ -708,6 +716,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       voice: standing === null ? null : voice,
       song: standingSong,
       place,
+      opens: begun !== null,
     };
     // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern

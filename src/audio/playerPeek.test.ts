@@ -189,6 +189,6 @@ describe("what a jumping deck reports", () => {
     // was in: this read is the transport's and it stops with it.
     host.voice.stop();
     host.voice.peek(out);
-    expect(out.player).toEqual({ step: null, at: null, sparkPosition: null });
+    expect(out.player).toEqual({ step: null, at: null, sparkPosition: null, armed: null });
   });
 });

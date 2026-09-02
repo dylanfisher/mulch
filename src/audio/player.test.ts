@@ -85,82 +85,82 @@ const exact = (at: number): string => at.toFixed(9);
 const startOf = (host: ReturnType<typeof deck>, step: number): [number, number] =>
   host.sources[step]?.started[0] ?? [Number.NaN, Number.NaN];
 
+/** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
+export const SPAN = 3.2;
+export const SLOT = SPAN / PLAYER_SLOTS;
+/** What a cue case has no opinion about: played, four jumps long, drawn by its own dials. */
+export const CUED = { skip: false, length: 4, steps: [] } as const;
+export const PLAYER: PlayerSpec = {
+  bypassed: false,
+  bed: 0,
+  bedPer: "jump",
+  beds: [],
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
+  seed: 7,
+  bias: 0,
+  stride: 0,
+  home: 0,
+  phrase: 0,
+  phraseKeep: 4,
+  phraseChance: 0,
+  phraseReturn: 0,
+  arrange: 0,
+  arrangeKeep: 4,
+  arrangeChance: 0,
+  arrangeReturn: 0,
+  arrangeAmount: 1,
+  arrangeGrow: 0,
+  arrangeSpan: 0,
+  arrangeApart: 0,
+  distance: 4,
+  repeats: 4,
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
+  ratchet: 0,
+  gate: 0,
+  drop: 0,
+  reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
+  sparkDelay: 0,
+  // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
+  // case below was written around back when the number said "slots" and meant this length.
+  burst: SLOT,
+  vary: 0,
+  varyChance: 1,
+  rest: 0,
+  restPulses: 0,
+  restSpan: 8,
+  restChance: 1,
+  restSpread: 0,
+  hold: 0,
+  chance: 1,
+  spread: 2,
+  drift: 4,
+  climb: 0,
+  songs: [],
+  cast: PLAYER_CAST_MAX,
+};
+/** The chain's own two gains — the deck fader and the rack's input — before any step's. */
+const PRE_PLAYER_GAINS = 2;
+
+export const jumping = (patch: Partial<PlayerSpec> = {}, span = SPAN) => {
+  const host = deck();
+  host.voice.setLoop(0, span);
+  host.voice.setPlayer({ ...PLAYER, ...patch });
+  host.voice.play();
+  return host;
+};
+
 // The player's whole transport contract: where it may read, that it reads the sequence its seed
 // draws and no other, that every seam is a fade, and that a pattern is armed ahead of the clock
 // the way a lane is (0089).
 // oxlint-disable-next-line max-lines-per-function
 describe("deck player", () => {
-  /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
-  const SPAN = 3.2;
-  const SLOT = SPAN / PLAYER_SLOTS;
-  /** What a cue case has no opinion about: played, four jumps long, drawn by its own dials. */
-  const CUED = { skip: false, length: 4, steps: [] } as const;
-  const PLAYER: PlayerSpec = {
-    bypassed: false,
-    bed: 0,
-    bedPer: "jump",
-    beds: [],
-    bedEvery: 0,
-    bedDistance: 2,
-    bedBias: 0,
-    bedHome: 0,
-    seed: 7,
-    bias: 0,
-    stride: 0,
-    home: 0,
-    phrase: 0,
-    phraseKeep: 4,
-    phraseChance: 0,
-    phraseReturn: 0,
-    arrange: 0,
-    arrangeKeep: 4,
-    arrangeChance: 0,
-    arrangeReturn: 0,
-    arrangeAmount: 1,
-    arrangeGrow: 0,
-    arrangeSpan: 0,
-    arrangeApart: 0,
-    distance: 4,
-    repeats: 4,
-    repeatsChance: 1,
-    repeatsSpread: 0,
-    repeatsHold: 0,
-    ratchet: 0,
-    gate: 0,
-    drop: 0,
-    reverse: 0,
-    spark: 0,
-    sparkLevel: 0.5,
-    sparkDelay: 0,
-    // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
-    // case below was written around back when the number said "slots" and meant this length.
-    burst: SLOT,
-    vary: 0,
-    varyChance: 1,
-    rest: 0,
-    restPulses: 0,
-    restSpan: 8,
-    restChance: 1,
-    restSpread: 0,
-    hold: 0,
-    chance: 1,
-    spread: 2,
-    drift: 4,
-    climb: 0,
-    songs: [],
-    cast: PLAYER_CAST_MAX,
-  };
-  /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
-  const PRE_PLAYER_GAINS = 2;
-
-  const jumping = (patch: Partial<PlayerSpec> = {}, span = SPAN) => {
-    const host = deck();
-    host.voice.setLoop(0, span);
-    host.voice.setPlayer({ ...PLAYER, ...patch });
-    host.voice.play();
-    return host;
-  };
-
   /** One step's seams, in the order they were scheduled: [starts at, when, over]. */
   const seamsOf = (host: ReturnType<typeof deck>, step: number): Call[] =>
     (host.gainLogs[PRE_PLAYER_GAINS + step] ?? []).filter(

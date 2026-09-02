@@ -7,6 +7,7 @@
  * @instead The transport that fills one → src/audio/deck.ts. The scratch's lifetime, one object
  *   per deck → src/app/facade.ts. What the drift makes of it → src/ui/moireRows.ts.
  */
+import type { SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import type { EffectInstanceId, GrownEffect } from "./effects/contract";
 
@@ -45,6 +46,13 @@ export type PlayerPeek = {
    * for the field it comes from: `spark` on the spec is the odds a landing throws one.
    */
   sparkPosition: number | null;
+  /**
+   * The part a hand has queued to play next, or null where the run is keeping its own order — a
+   * launch grid's ring. Held until the jump is *heard*: the pass draws it seconds ahead of the
+   * clock, and a cell that went dark at the draw would say the jump had happened while the part
+   * before it was still sounding (src/audio/player.ts).
+   */
+  armed: SongPartId | null;
 };
 
 /** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
@@ -124,7 +132,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meters: new Map(),
   grown: new Map(),
   waits: new Map(),
-  player: { step: null, at: null, sparkPosition: null },
+  player: { step: null, at: null, sparkPosition: null, armed: null },
 });
 
 /** What a deck with no graph behind it reads as. Emptied in place, never replaced. */
@@ -140,4 +148,5 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.player.step = null;
   out.player.at = null;
   out.player.sparkPosition = null;
+  out.player.armed = null;
 }

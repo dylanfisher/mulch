@@ -103,6 +103,7 @@ const STANDING: PlayerStep = {
   voice: null,
   song: null,
   place: { song: "song-1", songPlay: 0, partLeft: 4, songLeft: 14 },
+  opens: true,
 };
 
 /**
