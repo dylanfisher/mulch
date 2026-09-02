@@ -687,6 +687,183 @@ so, and an id come round again on a different argument is a record that stops be
 
 ---
 
+# The picture goes through the rack: every effect is a pass over the field, in signal order
+
+## Context
+
+Every effect draws one row, and rows multiply. That is the moiré, and it is right for what it does:
+a rack of six is one weave, and every row beats against every other. What it cannot do is say
+_which_ six. An effect's whole identity in the picture is a waveform (`drift`, src/lib/moireProfiles.ts)
+and twelve dimensions on a grating, which a 1:1 crop can tell apart and a glance cannot — reverb's
+`lobe` and delay's `twin` are two spacings of the same fringe, and a second reverb is more of the
+same weave and not a wetter picture. The three moves the rack made together in 0278 proved the other
+way round: the warp reads as _sway_ at any zoom, the fold reads as _an automator standing_, and both
+compose — a warped, folded picture is unmistakably both. They are whole-field moves, and a
+whole-field move is the size a glance reads at.
+
+**Decided before planning, at the interview** (2026-09-02):
+
+- **Passes over the finished field, and the rows stay.** Each effect keeps its row and gains one
+  pass, the way sway has the warp and the automator has the fold; the row is what the effect is _set
+  to_, the pass is _that it is there_. No row is replaced and no row is made louder.
+- **Rack order is the picture's order.** The field goes through the passes in the order the sound
+  goes through the rack: crush then reverb blurs the blocks, reverb then crush pixelates the bloom.
+  Reordering the rack changes the picture, and that is the point — the picture is the chain.
+- **Two of one kind are two passes.** Two reverbs bloom twice, in their own slots. Nothing is summed
+  by kind.
+- **Canvas 2D only, as today.** `drawImage`, patterns and composite operations on the field's alpha:
+  blur is a downscale and an upscale, pixelation is a downscale with smoothing off, a ghost is an
+  offset draw, contrast is the field composed with itself. No `ctx.filter` (SwiftShader draws it at
+  fifty milliseconds a frame, and support is uneven), no shader, no `getImageData` on a frame (0129).
+- **Strength travels on the wind's rate.** A pass's presence and its terms ease over `SHAPE_SECS`
+  (`easedToward`, 0266), so adding reverb blooms the picture over seconds and turning its wet down
+  drains it over seconds; carried across a rebuild by instance id, and a leaving instance travels to
+  nought before its pass is dropped. A yard not running arrives outright (0144).
+- **Overlay first; the strip must not break.** Every pass is designed and shot at the overlay's 1:1
+  crop. On the thirty-two-pixel strip a pass may vanish under its own scale, and may never alias,
+  flash or shift the picture's mean by more than the swing already allows.
+- **Infrastructure, then one pass a step.** The contract, the chain, the travel and the re-homing
+  land first, with the picture byte-identical; then one effect a step, in this order: reverb, crush,
+  delay, pop, tape, filter, eq, compressor, shift, scatter.
+- **The paint may slow under a full rack.** `DRIFT_PAINT_HZ` (24) stays the ceiling; a chain longer
+  than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve. Landed as its own step
+  once four new passes stand, because before that there is nothing to slow.
+- **Warp, fold and shatter are re-homed.** They are sway's, the automator's and scatter's passes,
+  declared on those entries under the one contract, and `rackShape` keeps only the lattice — which
+  stays the rack's, and which no effect may claim (0278 stands).
+
+**What each pass is,** its terms read off the entry's own values through the same presence-weighting
+`rackShape` uses, and the one Canvas 2D move that draws it:
+
+| Effect     | Look                                                                  | Terms                                               | The draw                                                                                                                                |
+| ---------- | --------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| reverb     | **bloom** — a soft halo, contrast washes out                          | wet → amount, decay → radius                        | the field downscaled and upscaled, laid back over itself `source-over` at the amount; the original stays under it                       |
+| crush      | **blocks** — pixelated, levels posterised                             | rate → block size, bits → level count               | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it      |
+| delay      | **echoes** — ghosted repeats, spaced, fading                          | time → spacing, feedback → count and fade           | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                  |
+| pop        | **sharpen** — edges bite, contrast lifts, colour saturates            | mix → amount, sheen → saturation                    | the blurred copy taken out `destination-out` at the amount then the field re-laid (an unsharp mask); saturation is a stepped ink term   |
+| tape       | **wobble** — rows swim sideways, grain in the ink, warm tint          | wow → wobble, hiss → grain, tone → tint             | slices slid by a sine of the tape's own clock (`cutAcross`); a noise tile baked once and swept, `destination-in`; tint is already `hue` |
+| filter     | **soften** — fine detail dissolves as the cutoff falls                | cutoff → radius                                     | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom                            |
+| eq         | **band** — one lit band across the field at the frequency             | frequency → position, gain → lift or cut, q → width | the band's slice re-laid `source-over` (lift) or taken out `destination-out` (cut), edges softened by the width                         |
+| compressor | **squash** — range flattened toward mid, windows dim, ink thins       | ratio → floor, threshold → ceiling                  | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                   |
+| shift      | **double** — a second picture at the interval's ratio                 | interval → zoom ratio, mix → amount                 | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                         |
+| scatter    | **shatter** (landed, 0269) — pieces drawn from elsewhere in the field | odds → share, span → piece size                     | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                  |
+| sway       | **warp** (landed, 0278)                                               | depth → bend, rate → wander                         | as today                                                                                                                                |
+| automator  | **fold** (landed, 0278)                                               | run → folds                                         | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                      |
+
+**The outcome wanted:** a glance at the picture says which effects are standing, in what order, and
+how many; two of one kind read as twice as much of that one thing; and turning an effect off drains
+its look out of the picture over the wind's seconds rather than between two frames.
+
+## The two things every step turns on
+
+1.  **A look is a declaration on the entry, checked at load, and drawn by nobody else.** Every
+    registered effect declares one `look` — a name from `LOOKS` (src/lib/moireLook.ts) and a
+    `lookFrom` mapping of its own parameters into that look's terms — beside `drift` and
+    `driftFrom`, and the registry refuses at load what it refuses of a profile: a look no maths
+    exists for, a look two entries share, a term reached twice, a parameter the entry does not
+    own, and the lattice, which is reserved (0122, 0278). A rack's picture is then
+    `rackLooks(effects)` (src/ui/moireLooks.ts): the standing, unbypassed instances in rack order,
+    each `{ key: instance id, look, presence, terms }`, read once when a set is built because it is
+    a fact about what the entries are set to (0070). It rests on `MoireRowSet` beside `shape`,
+    `wind` and `shatter`, travels there per frame (`looksTravelInto`) and is carried across a
+    rebuild by key (`carryLooks`, src/ui/moireCarry.ts) exactly as arrivals are — an index cannot
+    do it, because removing one instance shifts every pass after it. No list of looks lives in the
+    painter, and no painter code names an effect id: the painter draws whatever `LOOKS` says a look
+    is, and an effect added tomorrow gets its pass by declaring one (principle 1).
+2.  **A pass is a draw of the finished field, between the field and the screen, and never a bake.**
+    The chain runs where `cutField` runs today: after every row is cut and the frame fed back, and
+    before the field is taken out of the screen `destination-out`. Each pass reads one surface and
+    writes the other — `field` and the `between` surface that already exists — and the last one
+    written is what the lens, the shatter and the warp cut into the screen. Every pass is a
+    `drawImage` of alpha structure with a composite operation, at a working size the pass chooses
+    (a blur at half resolution is the blur), and nothing here touches a pixel or a tile's key
+    (0129, 0142). **Two things land elsewhere, and are said to at the declaration.** The fold is a
+    bake on a curved row's own coordinate (0278) and is applied before any field exists, so it takes
+    no slot: an automator's pass is applied first whatever its place in the rack, and the record
+    says so. And a colour term — pop's saturation — reaches the screen ink through the stepped
+    travel the ink already takes (`inkTravelInto`, 0266), because colour is the tile's and a
+    per-frame recolour is the pass 0269's plan refused.
+
+## Tests that must fail first
+
+- **src/audio/effects/registry.test.ts** — every entry declares a look; two entries on one look are
+  refused; a look `LOOKS` has no maths for is refused; the lattice is refused; a term reached twice
+  or from a parameter not owned is refused. Beside the drift profile's cases, which are the same
+  complaint.
+- **src/lib/moireLook.test.ts** — each look's terms answer inside their stated band at every input
+  and at the defaults: the bloom's radius off decay, the block size off rate stepped to whole
+  pixels, the echo count off feedback under `ECHO_CAP`, the band's position and width, the squash's
+  floor under its ceiling. One `it` per look, added with the look's step.
+- **src/ui/moireLooks.test.ts** — `rackLooks` keeps rack order, skips a bypassed instance, gives two
+  reverbs two entries with their own keys, weights terms by presence, and answers empty for an empty
+  rack. `looksTravelInto` walks presence over `SHAPE_SECS` and arrives outright on a yard not
+  running. Its own file, in the shape `moireShatter.test.ts` took.
+- **src/ui/moireCarry.test.ts** — `carryLooks` matches by key and not by index: an instance removed
+  ahead of another leaves the second where it had got to; a leaving instance is kept until its
+  presence reaches nought and dropped on the frame it does.
+- **src/ui/moireCanvasField.test.ts** — the chain draws the passes in rack order (the fake context's
+  call log is the assertion); a rack with no looks draws the field once, exactly as today; after the
+  re-homing step the warp and the shatter reach the screen through the same calls they do at `HEAD`,
+  so the step's first gate is a byte-identical shot. Per look, one case that the pass is a draw of
+  the field and not a fill over it — the shatter's own rule (0269).
+- **src/ui/moireCanvas.test.ts** — the paint cadence halves above `LOOK_FULL_RATE` passes and never
+  falls under twelve, read off the set and not off the clock.
+
+## Verification
+
+1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
+    it, then `./scripts/check` read whole. Each new test watched failing before the change.
+2.  The picture, per step — `./scripts/drive --dev --shot DIR`, the `{"shot":…}` swing and a 1:1
+    crop, never the whole-canvas view (0268's fixture: a `deck.load` and a loop before the
+    `effect.add`). One question per pass, asked of a yard holding that effect alone: does a reverb
+    yard read as _blooming_ and not as dim; a crush yard as _blocks_ and not as noise; a delay yard
+    as _repeats_ and not as a smear; a pop yard as _sharper_ and not as louder. Then the stacking
+    question, once per step from crush onward: a rack of `[crush, reverb]` and one of
+    `[reverb, crush]` shot side by side must differ at the crop, and a rack of two reverbs must read
+    as wetter than one. The strip is shot beside every one of these and its swing read: a pass that
+    flashes the strip is redrawn before it lands.
+3.  `./scripts/profile` at the end of the feature and inside the cadence step's own gate, against the
+    ~10.4ms frame p95 band. The profiler samples an idle page, so a loaded rack is priced by hand:
+    `./scripts/drive --dev` with ten passes standing, the frame time read off the swing's own
+    timing, and the cadence rule's threshold set from that number and not guessed.
+4.  A decision record per step, no longer than the decision is. The first amends 0278 (three
+    readings become three declared looks; the lattice alone stays the rack's). Next free today is 0279.
+
+## Refused
+
+**A shader.** One fragment chain over the field texture would draw every pass in this table in a
+line each. It is a second rendering path with its own tests, its own headless story and its own
+failure modes, for a picture that Canvas 2D already draws three passes of; revisit only if the
+cadence step finds that half rate is not enough for a full rack.
+
+**`ctx.filter`.** `blur()` and `saturate()` are the obvious way to write half this table. Headless
+SwiftShader draws them at tens of milliseconds a pass, support is uneven across the engines the
+export runs in, and a picture that needs a filter to be legible is one the smoke cannot shoot.
+
+**A fixed order by kind.** Geometry, then tone, then colour is deterministic and easy to test, and
+it says the picture is not the rack. The chain's order is the one fact about a rack the rows cannot
+show, and it is the reason two racks of the same six effects are two pictures.
+
+**One pass per kind with presence summed.** Cheaper, and it draws a rack of three reverbs as one
+wet reverb. Three of one thing is the thing the interview asked the picture to say.
+
+**Making the rows louder instead.** A profile, a geometry and a colour per effect, with no pass. It
+was the picture before 0278 and a glance could not read it; the warp and the fold are the evidence
+that a whole-field move is what a glance reads.
+
+**An effect claiming the lattice.** The lattice is how much rack is standing at all (0278), and an
+effect drawing it would have the picture say a plugin was doing what the arrangement is doing.
+
+**Giving the reference, session or fractal rows a pass.** None of them is an effect; each rests on
+a reading and not a parameter (0145), and the chain is a picture of the rack and of nothing else.
+
+**Per-pixel work on the frame path.** A posterise is one `getImageData` loop away and a proper
+unsharp mask another. 0129 refused the loop for the tile and the reason holds harder for the field,
+which is picture-sized: every look here is a composite of draws, and a look that cannot be one is
+not taken.
+
+---
+
 ## 2. Rules for every feature
 
 - `src/app` remains the only writer of session state. UI, workers, keyboard, and agent JSONL call
