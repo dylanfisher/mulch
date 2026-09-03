@@ -92,6 +92,7 @@ import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
+import { type MoireTint, tintThrough } from "@/ui/moireTint";
 import { tunable } from "@/lib/moireTuning";
 // oxlint-enable import/max-dependencies
 
@@ -542,6 +543,7 @@ export function paintMoire(
   wind: Readonly<MoireWind>,
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
+  tinting: Readonly<MoireTint>,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -588,6 +590,10 @@ export function paintMoire(
   // structure off the plane the picture already stands on and never off a second one (0296).
   cutField(context, field, rows, looks, shape, wind.veer, sounding, roamed);
   context.globalCompositeOperation = "source-over";
+  // And the band of the ramp washed over what is left, through the ink and never over the window
+  // the gratings agree on: after the cut, so the colour lies on the picture and not on the ground
+  // the cut takes back out (`tintThrough`, src/ui/moireTint.ts, 0302).
+  tintThrough(canvas, context, color, tinting);
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).
   endPainting();

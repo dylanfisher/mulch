@@ -76,10 +76,13 @@ import {
   carryJolt,
   carryLooks,
   carryShape,
+  carryTint,
   carryWind,
 } from "@/ui/moireCarry";
 import { looksPaintMs, looksTravelInto, looksWander } from "@/ui/moireLooks";
+import { DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { SHAPE_SECS, shapeTravelInto } from "@/ui/moireShape";
+import { tintTravelInto } from "@/ui/moireTint";
 import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -254,6 +257,7 @@ function useMoireRows(
       carryGround(painted.current, grown);
       carryFractal(painted.current, grown);
       carryInk(painted.current, grown);
+      carryTint(painted.current, grown);
       carryWind(painted.current, grown);
       carryJolt(painted.current, grown);
       carryShape(painted.current, grown);
@@ -334,6 +338,18 @@ function useMoireRows(
       set.jolt,
       set.shape,
     );
+    // And one step of the band washed over the whole of it, after the read because two of the
+    // three things it spends — the ink's saturation and its dispersion — are what the read just
+    // travelled; the third is the output's own level (`tintTravelInto`, 0302). On the ink's own
+    // rate, and arriving outright at nothing on a yard that is not sounding, for the ink's reason.
+    tintTravelInto(
+      set.tint,
+      set.ink,
+      master.level,
+      peek.sounding,
+      elapsed,
+      peek.sounding > 0 ? DRIFT_INK_SECS.value : 0,
+    );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
 
@@ -394,6 +410,7 @@ function useMoirePicture(
         set.wind,
         set.looks,
         set.shape,
+        set.tint,
       );
     },
     [refill],

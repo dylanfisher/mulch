@@ -84,6 +84,15 @@ export function carryInk(from: MoireRowSet, to: MoireRowSet): void {
 }
 
 /**
+ * And the band washed over the picture, for the ink's reason: a rebuild that dropped it back to
+ * nothing would blink the colour out on every knob touch and swell it back in over the ink's
+ * seconds (`tintTravelInto`, src/ui/moireTint.ts, 0302).
+ */
+export function carryTint(from: MoireRowSet, to: MoireRowSet): void {
+  Object.assign(to.tint, from.tint);
+}
+
+/**
  * And how far the wind had blown the picture, and which way it was blowing when it did. The same
  * argument a third time, and the one it matters most for is the rebuild that changes the wind
  * itself: adding an effect is a new population and a new direction, and a set that started still

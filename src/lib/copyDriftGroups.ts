@@ -230,6 +230,30 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         label: "Wander",
         hint: "How far either side of the picture's own ink the rest swings, as a share of the ramp.",
       },
+      {
+        id: "colour.wash",
+        wild: "max",
+        label: "Wash",
+        hint: "How much of the band of the ramp lies over the picture's own ink at the loudest output.",
+      },
+      {
+        id: "colour.level",
+        wild: "min",
+        label: "Level",
+        hint: "How far a quiet output brings the wash down; lower washes a quiet yard as strongly as a loud one.",
+      },
+      {
+        id: "colour.sweepSecs",
+        wild: "min",
+        label: "Sweep",
+        hint: "How many seconds of sounding the band takes to cross its own span of the picture.",
+      },
+      {
+        id: "colour.spread",
+        wild: "min",
+        label: "Spread",
+        hint: "How many picture widths one pass of the ramp there and back spans; lower holds more of the ramp at once.",
+      },
     ],
   },
   {

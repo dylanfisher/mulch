@@ -35,6 +35,7 @@ import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import { rackShape, shapeRest, type MoireShape } from "@/ui/moireShape";
+import { tintRest } from "@/ui/moireTint";
 import { looksHeldInto, looksSaturate, rackLooks, type MoireLook } from "@/ui/moireLooks";
 import { rackWind, windRest } from "@/ui/moireWind";
 import {
@@ -456,6 +457,8 @@ export function moireRows(
     veering: blowing.veering,
     wind: windRest(),
     jolt: joltRest(),
+    // And the band washed over it, at nothing: travelled by the read and carried, as the ink is.
+    tint: tintRest(),
     looks: rackLooks(effects),
     // And how it shapes the whole field, read the same way and for the same reason, in a pass of
     // its own: a third fact about the same population (`rackShape`, src/ui/moireShape.ts).

@@ -44,6 +44,7 @@ import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { heardBeat, heardBite, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import type { MoireJolt } from "@/ui/moireJolt";
 import type { MoireLook } from "@/ui/moireLooks";
+import type { MoireTint } from "@/ui/moireTint";
 import type { MoireShape, MoireShaping } from "@/ui/moireShape";
 import { LATTICE_GEOMETRY, latticeCut } from "@/lib/moireLattice";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
@@ -299,6 +300,13 @@ export type MoireRowSet = {
    */
   jolt: MoireJolt;
   /**
+   * And the band of the ramp washed across the whole picture: how strongly, how wide and where it
+   * has swept to (`tintTravelInto`, src/ui/moireTint.ts, 0302). On the set beside the ink and for
+   * the ink's reason — one screen is one band — travelled by the read and carried onto whatever set
+   * replaces this one (`carryTint`).
+   */
+  tint: MoireTint;
+  /**
    * And how the standing rack shapes the whole picture — how tight a lattice it folds the field
    * into, which is the one whole-field move no effect may claim — where it has got to and what the
    * population is asking for (`rackShape`, `shapeTravelInto`, src/ui/moireShape.ts). The reading is
@@ -430,6 +438,7 @@ export function macroInto(
   | "looks"
   | "shape"
   | "shaping"
+  | "tint"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);

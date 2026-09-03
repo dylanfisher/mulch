@@ -39,6 +39,7 @@ import {
 } from "@/ui/moireScreen";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
+import { tintRest } from "@/ui/moireTint";
 
 import { moireRow as row } from "@/lib/moireRow";
 
@@ -207,6 +208,7 @@ function paintedOn(
     { drift: wind, veer: 1 },
     [],
     shapeRest(),
+    tintRest(),
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).

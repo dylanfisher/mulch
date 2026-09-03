@@ -11,6 +11,7 @@ import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
+import { type MoireTint, tintRest } from "@/ui/moireTint";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
 
@@ -121,6 +122,9 @@ export function painterOn(stubGlobal: StubGlobal) {
       // src/ui/moireLooks.ts, 0279).
       looks = [],
       shape = shapeRest(),
+      // And the band washed over the picture: none unless a case says otherwise, which is every
+      // halted yard and the picture drawn before there was a band (`tintRest`, src/ui/moireTint.ts).
+      tinting = tintRest(),
     }: {
       frames?: number;
       advance?: number;
@@ -133,6 +137,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       wind?: MoireWind;
       looks?: readonly MoireLook[];
       shape?: MoireShape;
+      tinting?: MoireTint;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -289,6 +294,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         wind,
         looks,
         shape,
+        tinting,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.
