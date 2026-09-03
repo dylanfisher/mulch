@@ -105,7 +105,11 @@ export const swayEffect = defineEffect({
   icon: WaveSineIcon,
   drift: "sway",
   geometry: "linear",
-  // The oscillator's own rate is the cycle this effect works over, so it is the row's period. Its
+  // The oscillator's rate is how fast the picture is moving under the camera, and a camera does not
+  // sample the three channels at one instant: the faster the sway, the further apart the three
+  // channel lattices land, which is the fringe (`CHANNEL_LAG`, src/ui/moireScreen.ts, 0141). The
+  // cycle it works over is the warp's wander below, the same knob read whole-field; the row's own
+  // period is the one its id folds to, as the filter's is. Its
   // depth is how unevenly the row travels through its own fringes, which is `bend` — the reading
   // the tape's own wow already has, because a modulation is exactly a thing that does not run at
   // one speed (0146). The feedback is a repeat of what has already been heard, which in the
@@ -113,7 +117,7 @@ export const swayEffect = defineEffect({
   // has (0143). And the mix is how much of this entry is heard at all, which is how much of its
   // own depth its row cuts (0148).
   driftFrom: [
-    { param: "sway.rate", into: "period" },
+    { param: "sway.rate", into: "fringe" },
     { param: "sway.depth", into: "bend" },
     { param: "sway.feedback", into: "feedback" },
     { param: "sway.mix", into: "depth" },

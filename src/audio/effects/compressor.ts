@@ -70,14 +70,15 @@ export const compressorEffect = defineEffect({
   // is the level everything else here is measured from, so it is where the row is anchored; the
   // attack is how far the gain lags what it is following, which is a row surging and stalling
   // across its own cycle rather than travelling evenly (0146); and the knee is the range the ratio
-  // comes in over rather than the corner it turns at, which is one spacing swept across the picture
-  // exactly as the filter's cutoff is (0142, 0148).
+  // comes in over rather than the corner it turns at — a wide knee touches everything either side
+  // of the threshold and a hard one separates, which is the reading the EQ's Q already has: how
+  // far the three channel lattices stand apart (0141, 0148).
   driftFrom: [
     { param: "comp.ratio", into: "depth" },
     { param: "comp.release", into: "period" },
     { param: "comp.threshold", into: "centre" },
     { param: "comp.attack", into: "bend" },
-    { param: "comp.knee", into: "chirp" },
+    { param: "comp.knee", into: "fringe" },
   ],
   // The picture's whole range closed up toward its own middle: how far the floor comes up is the
   // Ratio — the same knob the presence above is read off, and the two agree at one to one, which is

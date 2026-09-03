@@ -91,11 +91,12 @@ export const crushEffect = defineEffect({
   // The hold's own rate is the cycle this effect works over, so it is the row's period. The mix is
   // how much of the effect is heard at all, which is how much of its own depth the row cuts — the
   // reading the tape's Amount and the pop's Mix already have (0148). And the bit depth is how
-  // finely the signal is resolved, which is how finely the row is drawn: `pitch` is how far apart
-  // its fringes stand, and a coarser quantiser is a coarser row (0139).
+  // coarsely the signal is quantised, which is how far the row's three channels stand apart: a
+  // level the quantiser cannot resolve lands on one channel first, and fewer bits is a wider
+  // fringe (0141) — the levels the blocks below posterise to are the same knob read whole-field.
   driftFrom: [
     { param: "crush.rate", into: "period" },
-    { param: "crush.bits", into: "pitch" },
+    { param: "crush.bits", into: "fringe" },
     { param: "crush.mix", into: "depth" },
   ],
   // And the whole-field move a crusher makes: the finished picture on a grid of flat cells, drawn

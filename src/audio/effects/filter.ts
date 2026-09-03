@@ -40,10 +40,12 @@ export const filterEffect = defineEffect({
   icon: FunnelIcon,
   drift: "slope",
   geometry: "linear",
-  // A cutoff is a slope across the spectrum rather than a line drawn on it, so it is the sweep of
-  // this row's own pitch across the picture: fringes crowded at one edge and open at the other,
-  // which is one broad family sweeping the frame where a fixed spacing was an even comb (0142).
-  driftFrom: [{ param: "filter.cutoff", into: "chirp" }],
+  // A cutoff is a dark sound or a bright one, and those are the two ends of the picture's own
+  // travel along its ramp of inks — the reading the reverb's tone and the tape's already have
+  // (0141): shut, the row is drawn at the cool end, and open past the audible band it is drawn at
+  // the hot one. The sweep it was (0142) is the soften below now, which is the whole field's
+  // reading of the same knob.
+  driftFrom: [{ param: "filter.cutoff", into: "hue" }],
   // And the whole field softens with it: a cutoff falling takes the fine detail out of the picture
   // the way it takes the top off the sound, and the blurred copy *replaces* the field rather than
   // being laid back over it — no halo, which is what tells a soften from a bloom (0286).

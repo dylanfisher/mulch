@@ -5,7 +5,10 @@
   [0130](0130-the-fringe-is-the-rows-own-ink-split.md),
   [0137](0137-an-effect-declares-the-wave-it-draws-with.md) and
   [0139](0139-a-row-is-what-an-effect-is-set-to.md); the fourth reviewed crossing of the colour
-  boundary ([boundaries](../boundaries.md))
+  boundary ([boundaries](../boundaries.md)); extended 2026-09-03 so every entry with a
+  value of its own turns one of the three — the filter's cutoff, the crusher's bits, the shift's
+  detune, the sway's rate and the compressor's knee each claim a colour, the delay's three values
+  keeping their older claims (0301, 0302)
 
 Every hue in the drift was three constants inside one tile — `CHANNEL_MIX`, `CHANNEL_LAG`,
 `CHANNEL_FRINGE` — over one ink the canvas resolved once off a `text-*` token. Fixed constants over

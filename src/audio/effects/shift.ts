@@ -127,11 +127,14 @@ export const shiftEffect = defineEffect({
   // The window is the cycle this stage works over — a head wraps once per window — so it is the
   // row's period, the reading the crush's own rate has. The interval is a frequency ratio, and how
   // far apart a row's fringes stand is `pitch`, which is the one dimension in the picture that is
-  // itself a ratio (0139). And the mix is how much of this entry is heard at all, which is how much
-  // of its own depth its row cuts (0148).
+  // itself a ratio (0139). The detune is the interval said finer, a cent either side of it, and
+  // a cent either side is what the picture's travel along its ramp reads: flat is drawn toward the
+  // cool end and sharp toward the hot one, about the row's own ink at none (0141). And the mix is
+  // how much of this entry is heard at all, which is how much of its own depth its row cuts (0148).
   driftFrom: [
     { param: "shift.window", into: "period" },
     { param: "shift.interval", into: "pitch" },
+    { param: "shift.detune", into: "hue" },
     { param: "shift.mix", into: "depth" },
   ],
   // A second picture at the interval's own ratio, laid over the first: how far it is zoomed is the
@@ -142,16 +145,6 @@ export const shiftEffect = defineEffect({
   lookFrom: [
     { param: "shift.interval", into: "zoom" },
     { param: "shift.mix", into: "amount" },
-  ],
-  // The detune is the interval said finer, and the interval already stands in `pitch`. A second
-  // value on one dimension is the contradiction the registry refuses, and a cent is under a
-  // hundredth of the travel the semitones already draw — so it reaches the picture through the
-  // knob beside it or not at all (0122).
-  driftUnreached: [
-    {
-      param: "shift.detune",
-      because: "it is the interval said finer, and the interval already stands in the row's pitch",
-    },
   ],
   // The window a head reads plus the crossfade the second head is standing in, which is the whole
   // of what this stage remembers: there is no filter and no feedback path in the processor, so what

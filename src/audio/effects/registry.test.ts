@@ -14,6 +14,7 @@ import { LATTICE_GEOMETRY } from "@/lib/moireLattice";
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copyNames";
 import {
+  COLOUR_REACH,
   DRIFT_GEOMETRIES,
   LINEAR_GEOMETRY,
   STRAIGHT_DIMENSIONS,
@@ -138,6 +139,21 @@ describe("effect registry", () => {
       expect(new Set(driftFrom.map(({ into }) => into)).size).toBe(driftFrom.length);
       const owned = new Set(params.map(({ id }) => id));
       for (const { param } of driftFrom) expect(owned.has(param)).toBe(true);
+    }
+  });
+
+  it("turns a colour on every entry with a value to turn one with", () => {
+    // Colour is something an effect turns (0141), and a rack whose entries none of them turned it
+    // was one hue whatever it held. Every entry claims at least one of the three, except the
+    // automator, which holds no value of its own (0296), and the delay, whose three values are the
+    // anchor's, the feedback's and the depth's oldest claims (0142, 0143, 0148).
+    const colours = new Set<string>(Object.keys(COLOUR_REACH));
+    for (const { id, driftFrom } of EFFECTS) {
+      if (id === "automator" || id === "delay") continue;
+      expect(
+        driftFrom.some(({ into }) => colours.has(into)),
+        `${id} turns no colour`,
+      ).toBe(true);
     }
   });
 

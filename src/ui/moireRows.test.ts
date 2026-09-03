@@ -386,8 +386,9 @@ describe("moireRows", () => {
   });
 
   it("keeps the fold for a dimension no value of the effect's reaches", () => {
-    // The filter declares its cutoff into the sweep of its row's pitch and nothing else, so its
-    // period is still the one its own id folds to and two of them still beat against each other.
+    // The filter declares its cutoff into where along the ramp its row is drawn and nothing else
+    // (0141), so its period is still the one its own id folds to and two of them still beat
+    // against each other.
     const rows = moireRows(
       [],
       [instance("fx1", { effect: "filter" }), instance("fx2", { effect: "filter" })],
@@ -404,7 +405,7 @@ describe("moireRows", () => {
       0,
       PLAIN_CUT,
     ).rows[0];
-    expect(wide?.chirp).not.toBe(rows[0]?.chirp);
+    expect(wide?.hue).not.toBe(rows[0]?.hue);
     expect(wide?.pitch).toBe(DRIFT_REST.pitch);
     expect(wide?.period).toBe(rows[0]?.period);
   });
@@ -472,7 +473,7 @@ describe("moireRows", () => {
     const reaching = (turn: number): MoireRow | undefined =>
       moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn])))
         .rows[1];
-    expect(reaching(0)?.chirp).not.toBe(reaching(1)?.chirp);
+    expect(reaching(0)?.hue).not.toBe(reaching(1)?.hue);
   });
 
   /**
