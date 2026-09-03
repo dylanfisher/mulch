@@ -87,8 +87,9 @@ What the research found, and what each step stands on:
 where it constrains a later change, its own decision. songs-01 landed as
 [0291](decisions/0291-a-removal-hands-the-list-over.md) and picture-01 as
 [0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md) and picture-02 as
-[0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md); the next free decision
-number today is 0294.
+[0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md); picture-03 landed
+with none, because the fade it went to photograph was legible and nothing was reshaped. The next
+free decision number today is 0294.
 
 1.  **A song list has a word for the lot, and taking a song away hands the next one over.** _(songs-01)_
     The songs heading takes the rack's row shape and, only while there is a song to take, a
@@ -167,7 +168,25 @@ All` is now `CLEAR_ALL_LABEL`, said once in src/lib/copy.ts for both headings, a
     reads coverage on a log — the step reshapes the travel from `at` into the pass's share, once,
     in `weighed` (src/lib/moireWeigh.ts:25), and never by adding `mix → amount` to an entry whose
     presence is already the mix (that squares the knob, which 0287 and 0288 refused). No shot, no
-    reshaping.
+    reshaping. **Landed, no decision owed**: the registry walk stands in src/ui/moireLooks.test.ts
+    over `EFFECTS` — every `.mix`, `.wet` and `.amount` parameter in the instrument is its entry's
+    own `presence.param`, and its `silent` is that knob's own bottom. It finds its population by the
+    knob's name, because no declaration marks one, and the case says so rather than claiming more
+    (the review's finding). The chain's half is one case over `LOOKS` rather than one per pass
+    (src/ui/moireCanvasChain.test.ts), and that half _does_ enumerate structurally, which is what
+    makes a pass landing after this one unable to forget it: every look that takes a slot, at both
+    ends of every term it declares and `at: 0`, draws the field once, whole, where it stands, at the
+    whole of itself, writing no pixel and laying no fill — the squash's floor included — and the
+    same look arrived is more than the field at one of those two ends, without which the case is
+    satisfied by a pass that never draws at all. Both ends and that guard are the review's: a term
+    band is not the same way round for all of them, and at `radius: 1` the soften is the field
+    whatever its presence, so the first cut pinned nothing about eight of nine passes. The shot was three yards in one page — a quarter, a half and a full mix
+    of one effect side by side, six effects, each read twice — and **the fade is legible at every
+    setting, so `weighed` is untouched**: reverb's halo widens (mean 0.366 → 0.343 → 0.293 against
+    a dry 0.223), crush's cells grow, sway's lattice goes from straight to waving, shift's second
+    picture goes from a faint ghost to a crossing family of diagonals, pop sharpens and delay
+    stands more repeats. What is thin rather than absent is the quarter on the three entries whose
+    term is the presence knob again, which is §4's.
 5.  **Two delays are twice the repeats and never a whiter picture, and Time is the knob that spaces
     them.** _(picture-04)_ The chain gets the number it lacks: a count of standing echoes passes,
     reduced in src/ui/moireLooks.ts beside `looksWarp` and weighed into each echoes pass's ceiling
@@ -248,7 +267,7 @@ fills(plain)`; the echoes case at line 208 takes the shared ceiling.
 5.  A decision record per step where one is owed: picture-01 amends 0274, picture-02 amends 0109
     and 0278, picture-04 amends 0282. songs-01 wrote 0291, for the neighbour a removal picks and the keyboard
     that follows it;
-    picture-03 records only if the fade is reshaped.
+    picture-03 recorded none: the fade was legible and the travel was left alone.
 
 ## Refused
 
@@ -415,6 +434,19 @@ drawn at `gratingFloor`, and that is the window's number: `moireWindowSecs` mult
 by `MOIRE_CYCLES`, and no reference width changes what a period is a share of. The rows are off the
 _ceiling_ everywhere now, which is the half of the band this step was about; the floor at a long
 reference stands where 0292 left it.
+
+**picture-03 left the quarter thin on the three entries that read their wet knob twice.** Reverb,
+pop and shift each declare `presence.param` on their mix and then map that same knob into the
+look's share (`reverb.wet → amount`, `pop.mix → amount`, `shift.mix → amount`), so what reaches the
+ceiling is the knob squared: a quarter mix draws a sixteenth of the pass's own ceiling. The shot
+says it is thin and not absent — at a quarter, reverb's rows carry a visible halo the dry yard has
+not, shift's crop carries a second faint diagonal family and pop's is measurably crisper — and the
+crush, the sway and the delay, whose share is a knob of its own, fade evenly across the three
+settings. So the step's own condition was not met and `weighed` was not reshaped: bending the
+travel there would have driven the five passes whose share is a separate knob as well, on evidence
+that only three entries have, and the step's own text refuses the other repair (adding or removing
+`mix → amount` squares or un-squares a knob 0287 and 0288 already argued). What is owed, if the
+quarter ever reads as nothing, is one entry's declaration and not the shared share.
 
 **songs-01 landed the clear as a file of its own, and paid for it twice.** The heading's row put
 src/ui/PlayerGrid.tsx at 402 lines against a 400-line warning, so the control and the press it

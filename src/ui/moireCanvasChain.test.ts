@@ -619,6 +619,77 @@ describe("the chain of passes", () => {
     expect(fills(arriving)).toEqual(fills(plain));
   });
 
+  // P285: every pass's own "at nothing it is the field it came from", said once over `LOOKS`
+  // rather than once per case — so a pass landing after this one cannot forget it.
+  // One case's length *is* the population it walks: nine passes at both ends of every term, and
+  // splitting it would state one pass's zero away from the walk that finds it. Waived here and not
+  // raised for the file. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
+  it("draws the field once and leaves it exactly as it was, for every pass at no presence", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    const passes = Object.entries(LOOKS).filter(([, each]) => each.at === "pass");
+    // The chain's own population, and not a list written beside it: a look that takes a slot is a
+    // look this case covers, which is what makes the property a registry-wide one (0279).
+    expect(passes.length).toBeGreaterThan(0);
+    // A pass drawn with `terms`, at the presence given — the chain's own surface, whatever it left.
+    const drawnAt = (name: string, terms: LookTerms, presence: number) => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const painted = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+        // oxlint-disable-next-line no-unsafe-type-assertion
+        looks: [{ ...look(name as LookName, terms), at: presence }],
+        // A wind the echoes would ride, so a pass that ignored its presence would have somewhere
+        // to put its repeats.
+        wind: { drift: 0, veer: 1 },
+      });
+      return { painted, pass: painted.surfaces[at] };
+    };
+    for (const [name, each] of passes) {
+      // Both ends of every term the look declares, because a band is not the same way round for
+      // all of them: the soften's radius is the field itself at one and its whole blur at nought,
+      // where the bloom's amount is the other way about. A pass is asserted at both, and what says
+      // the presence is doing the work is that it is *active* at one of them (below) — otherwise a
+      // pass that ignored its presence entirely would pass this case on the term's own rest.
+      const ends = [0, 1].map((end) =>
+        Object.fromEntries(Object.keys(each.terms).map((term) => [term, end])),
+      );
+      for (const terms of ends) {
+        const { painted, pass } = drawnAt(name, terms, 0);
+        const drew = pass?.drew ?? [];
+        expect({ name, terms, drew: drew.length }).toEqual({ name, terms, drew: 1 });
+        expect({ name, terms, alpha: drew[0]?.alpha }).toEqual({ name, terms, alpha: 1 });
+        expect({ name, terms, over: drew[0]?.over }).toEqual({ name, terms, over: "source-over" });
+        // And that one draw is the field itself, whole and where it stands: a pass that answered a
+        // presence of nothing with a resized or displaced copy would draw once and still have
+        // moved the picture.
+        expect({ name, terms, field: drew[0]?.tile === painted.elements[0] }).toEqual({
+          name,
+          terms,
+          field: true,
+        });
+        expect({ name, terms, box: drew[0]?.box }).toEqual({ name, terms, box: [0, 0] });
+        // No pixel written, no fill laid — the squash's floor included, which is the one fill the
+        // chain has and is a fill of nothing here (0288).
+        expect({ name, terms, wrote: pass?.wrote }).toEqual({ name, terms, wrote: [] });
+        expect({ name, terms, fills: pass?.fills }).toEqual({ name, terms, fills: [] });
+        expect({ name, terms, fills: fills(painted) }).toEqual({
+          name,
+          terms,
+          fills: fills(plain),
+        });
+      }
+      // And the same look arrived, at whichever end its own band is open at, is more than the field
+      // it came from: without this the case above is satisfied by a pass that never draws at all.
+      // More draws, or the squash's own floor under them — which is one draw and one fill (0288).
+      const standing = ends.map((terms) => {
+        const { pass } = drawnAt(name, terms, 1);
+        return (pass?.drew.length ?? 0) > 1 || (pass?.fills.length ?? 0) > 0;
+      });
+      expect({ name, standing: standing.some(Boolean) }).toEqual({ name, standing: true });
+    }
+  });
+
   // P281: and the chain's own half of that, which the blocks are the first pass to need.
   it("hands every pass a smoothing context, whichever pass wrote that surface before it", () => {
     vi.stubGlobal("devicePixelRatio", 2);

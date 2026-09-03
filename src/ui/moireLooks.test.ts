@@ -20,6 +20,7 @@
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
+import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { effectParamDefaults, PARAMS } from "@/audio/params";
 import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -134,6 +135,34 @@ describe("the looks a standing rack gives the picture", () => {
     ).toBe(0);
     // Two of one kind are two looks with two keys, and nothing is summed by kind here.
     expect(arrived(scatters(2)).map((look) => look.key)).toEqual(["scatter 0", "scatter 1"]);
+  });
+
+  // P285: the property the whole picture is read through, pinned over the registry rather than
+  // asserted of one entry. **Found by the knob's own name and not by a declaration**, because
+  // nothing in `ParamDeclaration` marks a knob as a wet one: an entry whose blend is called
+  // something else is outside this walk, and the honest fix if one ever arrives is a word in the
+  // declaration rather than a fourth suffix here. The chain's half of this property enumerates
+  // structurally (`at === "pass"`) and cannot miss one.
+  it("takes a wet knob as the whole of a look's presence, wherever an entry owns one", () => {
+    const wet = EFFECTS.flatMap((entry) =>
+      entry.params
+        // Every name a wet knob wears in this instrument: the Mix, the Wet, and the tape's own
+        // Amount, which is the same knob under a third word (src/audio/effects/tape.ts).
+        .filter((param) => /\.(mix|wet|amount)$/u.test(param.id))
+        .map((param) => [entry, param.id] as const),
+    );
+    // The list is the registry's and not a copy of it: an entry that loses its wet knob leaves this
+    // case with one pair fewer and nothing to state, which is why the count is asserted at all.
+    expect(wet.length).toBeGreaterThan(0);
+    for (const [entry, param] of wet) {
+      // A wet knob *is* how present the effect is: what a mix of nothing leaves is the dry signal,
+      // so the picture must draw nothing of that look at all (0202). An entry that read its wet as
+      // an ordinary term and its presence off some other knob would draw a look at a mix of
+      // nothing, and one that read it as both would square it (0287, 0288). Asked through the
+      // registry's own predicate, which is what "declares a presence at all" is said by (0202).
+      expect(isGrowable(entry) ? entry.presence.param : null).toBe(param);
+      expect(isGrowable(entry) ? entry.presence.silent : null).toBe(PARAMS[param].min);
+    }
   });
 
   it("travels each look's presence at the shape's own rate, and arrives outright on a halted yard", () => {
