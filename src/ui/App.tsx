@@ -33,7 +33,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
-import { DEV_ROUTE, SKETCH_ROUTE, useRoute } from "@/ui/routes";
+import { DEV_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
 import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
@@ -49,6 +49,11 @@ const DevPage = lazy(async () => ({ default: (await import("@/ui/dev/DevPage")).
 // of which the instrument ever draws (0247).
 const SketchPage = lazy(async () => ({
   default: (await import("@/ui/sketch/SketchPage")).SketchPage,
+}));
+
+// And the structure bench, which bakes the real escape kernel a pixel at a time, seven ways (0295).
+const StructurePage = lazy(async () => ({
+  default: (await import("@/ui/sketch/StructurePage")).StructurePage,
 }));
 
 function useActiveDeck(instrument: Instrument): DeckId | null {
@@ -180,6 +185,14 @@ function Screen({ instrument }: { instrument: Instrument }) {
     );
   }
 
+  if (route === "structure") {
+    return (
+      <Suspense fallback={null}>
+        <StructurePage />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="min-h-dvh">
       {/* Fixed and blurred, the treatment the gallery already wore: the menus, the meter and the
@@ -198,6 +211,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
               <MenubarContent className={INSTANT_POPUP}>
                 <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
                 <MenubarItem render={<a href={SKETCH_ROUTE}>Sketches</a>} />
+                <MenubarItem render={<a href={STRUCTURE_ROUTE}>Structure</a>} />
               </MenubarContent>
             </MenubarMenu>
           </Menubar>
