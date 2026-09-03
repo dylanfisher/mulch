@@ -3,8 +3,8 @@
  *   declarations in the rack's own order and off nothing else, that each travels its presence at the
  *   shape's own rate and arrives outright on a halted yard, that a look the rack has let go of is
  *   dropped on the frame it reaches nought, and that the five reductions the painting spends — the
- *   bend, the wander, the folds, the share and the piece size — say what the rack it can hear says
- *   (0269, 0278, 0279, 0290).
+ *   bend, the wander, the tears, the share and the piece size — say what the rack it can hear says
+ *   (0269, 0278, 0279, 0290, 0296).
  * @instead What a look *is*, and what the registry refuses of one → src/lib/moireLook.test.ts and
  *   src/audio/effects/registry.test.ts. The shatter's own arithmetic, over the band it is stated on
  *   → src/lib/moireSound.test.ts; the slices it is drawn through → src/lib/moireGeometry.test.ts,
@@ -24,13 +24,13 @@ import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { effectParamDefaults, PARAMS } from "@/audio/params";
 import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
-import { FOLD_CAP } from "@/lib/moireFold";
+import { SHARD_CAP } from "@/lib/moireShards";
 import { PLAIN_CUT, RACK_SHATTER_BROKEN } from "@/lib/moireSound";
 import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
 import {
   looksCrowd,
-  looksFolds,
+  looksShards,
   looksSaturate,
   looksShatter,
   looksShatterSize,
@@ -97,6 +97,9 @@ const arrived = (effects: SessionEffect[]): MoireLook[] => {
   return looks;
 };
 
+/** A table of tears poisoned so a slot the reading missed shows (`looksShards`). */
+const into = (): Float64Array => new Float64Array(SHARD_CAP).fill(Number.NaN);
+
 /** How broken a rack draws the picture, once its looks have arrived. */
 const shattered = (effects: SessionEffect[]): number => looksShatter(arrived(effects));
 
@@ -114,7 +117,7 @@ describe("the looks a standing rack gives the picture", () => {
     ]);
     // Rack order, because the order the sound goes through the rack is the order the picture is
     // chained in — and an entry whose look has not landed yet is in none of it.
-    expect(rack.map((look) => look.look)).toEqual(["warp", "bloom", "shatter", "fold"]);
+    expect(rack.map((look) => look.look)).toEqual(["warp", "bloom", "shatter", "shards"]);
     expect(rack.map((look) => look.key)).toEqual(["s", "r", "g", "x"]);
     // The terms are the entry's own values: a turn on its range where the look says so, and the
     // parameter's own units where it says the wander.
@@ -134,8 +137,8 @@ describe("the looks a standing rack gives the picture", () => {
       share: 1,
       size: normalize(span.default, span.min, span.max, span.curve),
     });
-    // The fold reads no term at all: how many times the plane is folded is how many automators are
-    // standing, and an entry with no honest presence stands at one.
+    // The shards read no term at all: how torn the picture is, is how many automators are standing,
+    // and an entry with no honest presence stands at one.
     expect(rack[3]?.terms).toEqual({});
     expect(rack[3]?.presence).toBe(1);
     // A bypassed entry is in none of it, which is the test every reading of the population is built
@@ -336,23 +339,46 @@ describe("the looks a standing rack gives the picture", () => {
     expect(looksSaturate(coming)).toBeCloseTo(0.5);
   });
 
-  it("folds the plane once per automator standing, and never past the cap", () => {
-    expect(looksFolds([])).toBe(0);
-    expect(looksFolds(arrived([instance("x", { effect: "automator" })]))).toBe(1);
+  // P296: one tear per automator standing, each at the presence it has travelled to.
+  it("tears the picture once per automator standing, in rack order and never past the cap", () => {
+    let table = into();
+    expect(looksShards([], table)).toBe(0);
+    table = into();
+    expect(looksShards(arrived([instance("x", { effect: "automator" })]), table)).toBe(1);
+    expect(table[0]).toBe(1);
+    // Two automators, with something that is not one between them: two slots, in the rack's order.
+    table = into();
+    const two = arrived([
+      instance("x", { effect: "automator" }),
+      instance("r", { effect: "reverb" }),
+      instance("y", { effect: "automator" }),
+    ]);
+    expect(looksShards(two, table)).toBe(2);
+    expect(Array.from(table.subarray(0, 2))).toEqual([1, 1]);
+    // Past the cap the count stops, and nothing past it is written.
+    table = into();
     expect(
-      looksFolds(
+      looksShards(
         arrived(
-          Array.from({ length: FOLD_CAP + 2 }, (_each, at) =>
+          Array.from({ length: SHARD_CAP + 2 }, (_each, at) =>
             instance(`x${at}`, { effect: "automator" }),
           ),
         ),
+        table,
       ),
-    ).toBe(FOLD_CAP);
-    expect(looksFolds(arrived([instance("x", { effect: "automator", bypassed: true })]))).toBe(0);
-    // Fractional on the way there, because a fold arriving is two folded pictures crossfaded.
-    const folding = rackLooks([instance("x", { effect: "automator" })]);
-    looksTravelInto(folding, SHAPE_SECS, SHAPE_SECS / 2, true);
-    expect(looksFolds(folding)).toBeCloseTo(0.5);
+    ).toBe(SHARD_CAP);
+    expect(Array.from(table).every((presence) => presence === 1)).toBe(true);
+    // A bypassed automator is in no set at all, and so in no slot.
+    table = into();
+    expect(
+      looksShards(arrived([instance("x", { effect: "automator", bypassed: true })]), table),
+    ).toBe(0);
+    // And one on its way in stands at a fraction, which is a fainter tear and not a whole one.
+    const tearing = rackLooks([instance("x", { effect: "automator" })]);
+    looksTravelInto(tearing, SHAPE_SECS, SHAPE_SECS / 2, true);
+    table = into();
+    expect(looksShards(tearing, table)).toBe(1);
+    expect(table[0]).toBeCloseTo(0.5);
   });
 
   it("breaks the field by the scatters it can hear and nothing else", () => {

@@ -27,7 +27,6 @@ import {
   steppedRings,
   type DriftPlace,
 } from "@/lib/moireGeometry";
-import { steppedFolds } from "@/lib/moireFold";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import type { DriftOrder } from "@/ui/driftTiles";
 import { stepped } from "@/ui/moireScreenInk";
@@ -55,7 +54,6 @@ const order: DriftOrder = {
     cover: 1,
     rings: 1,
     spokes: 1,
-    folds: 0,
     rim: 0,
     ...fractalRest(),
   },
@@ -73,8 +71,8 @@ const stepping: FractalStops = fractalStopsRest();
  * Where a curved row stands, filled into the one order the shop is asked with — its key, the row it
  * belongs to, and the place its tile is baked at.
  */
-// Every line is one field of the place and the key it makes: the fold is the seventh of them, and
-// a helper for one field would have one caller. See docs/decisions/0007-reviewed-oversized-functions.md.
+// Every line is one field of the place and the key it makes, and a helper for one field would have
+// one caller. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function placeCurved(
   row: MoireRow,
@@ -86,7 +84,6 @@ export function placeCurved(
   seed: Readonly<FractalStops>,
   zoom: number,
   fly: number,
-  folds: number,
 ): DriftOrder {
   const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
@@ -107,10 +104,6 @@ export function placeCurved(
   // And the opening and the flight, both of which the caller resolved: a scale and a travel, each
   // already on the one ladder every other key here is on (`cutGratings`, `fractalFlight`).
   fractalSeedInto(place, stepping, zoom, fly);
-  // And how many times the plane is folded before the row is cut: the automators standing,
-  // travelled, on the fold's own ladder — baked, so it is stepped for the seed's reason, and in
-  // every curved key because every curved geometry reads it (`foldPlane`, 0278).
-  place.folds = steppedFolds(folds);
   place.rim = 0;
   order.geometry = row.geometry;
   order.profile = row.profile;
@@ -122,7 +115,7 @@ export function placeCurved(
   // a seed no bake reads into every key would give each of them a tile of its own. Per coordinate
   // and not per fractal row, because an escape row reads four of the six (`fractalKeyed`).
   const cut = fractalKeyed(row.geometry, place);
-  order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${place.folds}|${width}x${height}`;
+  order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${width}x${height}`;
   // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
   // so the slot has to survive every step of the knob that changes the key (0144). Where it stands
   // in the order is part of that and not decoration — a row's shape is folded off its *parameter*,

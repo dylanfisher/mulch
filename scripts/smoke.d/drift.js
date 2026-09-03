@@ -18,11 +18,11 @@ const WASH_ID = "drift-wash";
 
 /**
  * And the rack the picture is shaped by (0278): two more entries to tighten the lattice, a sway to
- * bend the field, and a second automator to fold the plane onto the first one's fold.
+ * bend the field, and a second automator to tear the picture across the first one's tear (0296).
  */
 const LATTICE_IDS = ["drift-eq", "drift-filter"];
 const SWAY_ID = "drift-sway";
-const FOLD_ID = "drift-fold";
+const SHARD_ID = "drift-shard";
 
 /**
  * What the picture asks of the reading once the yard is soaked: a crest of at least one, which is
@@ -196,20 +196,21 @@ export const driftOpens = async ({ page }) => {
     fail("drift smoke: the strip drew no picture while the yard was washed", { washed, dry });
   }
 
-  // 0278: and the rack shapes the picture. How tight the lattice stands, how far a sway bends the
-  // field and how many times an automator folds the plane are each measured where the maths is
+  // 0278, 0296: and the rack shapes the picture. How tight the lattice stands, how far a sway bends
+  // the field and how far the automators tear it are each measured where the maths is
   // (src/ui/moireLooks.test.ts, src/ui/moireShape.test.ts, src/lib/moireLattice.test.ts,
-  // src/lib/moireWarp.test.ts, src/lib/moireFold.test.ts); what only a browser can say is that each reading reaches a real
-  // rack through the one per-frame read, that the lattice's cell bakes on a real surface, and that
-  // the picture goes on drawing through all three — a fold is a picture-sized bake per curved row
-  // and a lattice is a pattern fill, either of which could leave a blank canvas behind.
+  // src/lib/moireWarp.test.ts, src/lib/moireShards.test.ts); what only a browser can say is that
+  // each reading reaches a real rack through the one per-frame read, that the lattice's cell bakes
+  // on a real surface, and that the picture goes on drawing through all three — a tear is a column
+  // pass through a surface between and a lattice is a pattern fill, either of which could leave a
+  // blank canvas behind.
   await page.evaluate(
-    ([lattice, sway, fold]) => {
+    ([lattice, sway, shard]) => {
       for (const [id, effect] of [
         [lattice[0], "eq"],
         [lattice[1], "filter"],
         [sway, "sway"],
-        [fold, "automator"],
+        [shard, "automator"],
       ]) {
         window.mulch.send({ t: "effect.add", deck: "a", id, effect });
       }
@@ -217,12 +218,12 @@ export const driftOpens = async ({ page }) => {
       window.mulch.send({
         t: "param.set",
         deck: "a",
-        instance: fold,
+        instance: shard,
         param: "auto.stays",
         value: 5,
       });
     },
-    [LATTICE_IDS, SWAY_ID, FOLD_ID],
+    [LATTICE_IDS, SWAY_ID, SHARD_ID],
   );
   await page.waitForFunction(() => window.mulch.peek("a").grown.size === 2);
   await page.waitForTimeout(DRIFT_PAINTS_MS);
@@ -236,16 +237,16 @@ export const driftOpens = async ({ page }) => {
   }
 
   await page.evaluate(
-    ([grown, wash, lattice, sway, fold]) => {
+    ([grown, wash, lattice, sway, shard]) => {
       window.mulch.send({ t: "deck.stop", deck: "a" });
-      for (const instance of [grown, wash, ...lattice, sway, fold]) {
+      for (const instance of [grown, wash, ...lattice, sway, shard]) {
         window.mulch.send({ t: "effect.remove", deck: "a", instance });
       }
     },
-    [GROWN_ID, WASH_ID, LATTICE_IDS, SWAY_ID, FOLD_ID],
+    [GROWN_ID, WASH_ID, LATTICE_IDS, SWAY_ID, SHARD_ID],
   );
 
   report(
-    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}; and it drew ${washed} shades of a yard a full-wet reverb had smeared to a crest of ${wash.toFixed(3)}, from ${dry.toFixed(3)} dry; and it drew ${shaped} shades of that yard latticed by two more entries, bent by a sway and folded twice by ${standing} automators`,
+    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}; and it drew ${washed} shades of a yard a full-wet reverb had smeared to a crest of ${wash.toFixed(3)}, from ${dry.toFixed(3)} dry; and it drew ${shaped} shades of that yard latticed by two more entries, bent by a sway and torn twice by ${standing} automators`,
   );
 };

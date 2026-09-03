@@ -3,9 +3,9 @@
  *   hear and nothing else, that it travels at its stated rate and arrives outright on a halted yard,
  *   that the warp's wander is walked at the speed the looks name, and that a rebuilt set keeps where
  *   the shape had got to and never where it is going.
- * @instead The cell itself → src/lib/moireLattice.test.ts. The bend and the fold, which are their
+ * @instead The cell itself → src/lib/moireLattice.test.ts. The bend and the shards, which are their
  *   entries' own declared looks rather than readings of the rack → src/ui/moireLooks.test.ts,
- *   src/lib/moireWarp.test.ts and src/lib/moireFold.test.ts. The wind beside this reading →
+ *   src/lib/moireWarp.test.ts and src/lib/moireShards.test.ts. The wind beside this reading →
  *   src/ui/moireWind.test.ts.
  */
 import { describe, expect, it } from "vitest";
@@ -56,7 +56,7 @@ describe("how the standing rack shapes the picture", () => {
     expect(rackShape([instance("a", { params: { "reverb.wet": 1 } })]).standing).toBe(1);
     expect(rackShape([instance("a", { params: { "reverb.wet": 0 } })]).standing).toBe(0);
     expect(rackShape([instance("a", { bypassed: true })]).standing).toBe(0);
-    // An automator is a fold and never a cell: its places reach the lattice through the run.
+    // An automator is a tear and never a cell: its places reach the lattice through the run.
     expect(rackShape([instance("x", { effect: "automator" })])).toEqual(shapingRest());
     // And a sway is one more entry standing here and nothing else — how far it bends is its own
     // declared look now, and no longer a reading this pass takes (0279).

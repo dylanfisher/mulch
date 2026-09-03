@@ -430,7 +430,6 @@ const placeAt = (
     rings,
     spokes: gratingSpokes(pitch, ref),
     cover: geometryCover(geometry, pitch, TILE_W, TILE_H),
-    folds: 0,
     rim: 0,
     ...SEED,
   };
@@ -540,75 +539,6 @@ describe("curvedField", () => {
             );
           }
         }
-      }
-    }
-  });
-});
-
-/**
- * The fold, on the kernel: the plane folded about the row's own anchor before the row is cut along
- * it, and a fold arriving as two folded pictures crossfaded (src/lib/moireFold.ts, 0278).
- */
-describe("curvedField folded", () => {
-  it("mirrors a folded row about its own anchor, and leaves an unfolded one exactly as it was", () => {
-    const ref = geometryRef(TILE_W, TILE_H);
-    // A spiral, because a ring family is already its own mirror and a fan is one too on its axis:
-    // a spiral's spoke term is what a fold has to be seen on.
-    const flat = { ...placeAt("spiral", 6, 0.5, ref), y: TILE_H / 2 };
-    const once = { ...flat, folds: 1 };
-    const unfolded = new Uint8ClampedArray(TILE_W * TILE_H * 4);
-    const folded = new Uint8ClampedArray(TILE_W * TILE_H * 4);
-    curvedField(unfolded, TILE_W, TILE_H, "spiral", "plain", flat, ref);
-    curvedField(folded, TILE_W, TILE_H, "spiral", "plain", once, ref);
-    const byte = (field: Uint8ClampedArray, x: number, y: number): number =>
-      alphaAt(field, (y * TILE_W + x) * 4 + 3);
-    let asymmetric = 0;
-    for (let k = 1; k < TILE_H / 2; k++) {
-      for (let x = 0; x < TILE_W; x += 7) {
-        // The anchor stands on a pixel row, so row `y − k` mirrors onto `y + k`.
-        const above = byte(folded, x, TILE_H / 2 - k);
-        const below = byte(folded, x, TILE_H / 2 + k);
-        expect(Math.abs(above - below)).toBeLessThanOrEqual(1);
-        if (byte(unfolded, x, TILE_H / 2 - k) !== byte(unfolded, x, TILE_H / 2 + k))
-          asymmetric += 1;
-      }
-    }
-    // And the claim means something: the unfolded spiral was not a mirror of itself.
-    expect(asymmetric).toBeGreaterThan(0);
-    // The half below the anchor is the unfolded one, byte for byte: a fold keeps the side its
-    // coordinate is positive on, and the picture's `v` grows downward.
-    for (let y = TILE_H / 2; y < TILE_H; y++) {
-      for (let x = 0; x < TILE_W; x += 5) expect(byte(folded, x, y)).toBe(byte(unfolded, x, y));
-    }
-  });
-
-  it("crossfades a fold arriving between the two pictures either side of it", () => {
-    const ref = geometryRef(TILE_W, TILE_H);
-    const base = { ...placeAt("spiral", 6, 0.5, ref), y: TILE_H / 2 };
-    const field = (folds: number): Uint8ClampedArray => {
-      const out = new Uint8ClampedArray(TILE_W * TILE_H * 4);
-      curvedField(out, TILE_W, TILE_H, "spiral", "plain", { ...base, folds }, ref);
-      return out;
-    };
-    const none = field(0);
-    const whole = field(1);
-    const half = field(0.5);
-    let apart = 0;
-    for (let i = 3; i < none.length; i += 4 * 13) {
-      const expected = (alphaAt(none, i) + alphaAt(whole, i)) / 2;
-      apart = Math.max(apart, Math.abs(alphaAt(half, i) - expected));
-    }
-    // Two roundings either side of a mean is at most one alpha step out.
-    expect(apart).toBeLessThanOrEqual(1);
-    // And a whole second fold is a fold of the folded picture: the upper-left quarter of two folds
-    // is the upper-left quarter of one, mirrored again across the anchor's column.
-    const twice = field(2);
-    const byte = (f: Uint8ClampedArray, x: number, y: number): number =>
-      alphaAt(f, (y * TILE_W + x) * 4 + 3);
-    const cx = Math.round(base.x);
-    for (let y = 0; y < TILE_H / 2; y += 3) {
-      for (let k = 1; k < Math.min(cx, TILE_W - cx); k += 5) {
-        expect(Math.abs(byte(twice, cx - k, y) - byte(twice, cx + k, y))).toBeLessThanOrEqual(1);
       }
     }
   });

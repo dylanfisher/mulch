@@ -1,5 +1,5 @@
 /**
- * The seven fields, as arithmetic: each is the real kernel over the stand-in weave, so what is
+ * The six fields, as arithmetic: each is the real kernel over the stand-in weave, so what is
  * proved here is that each move is the move it claims — at its dial's nought it is the picture
  * without it, and at its rest it is something the picture without it is not.
  */
@@ -20,8 +20,6 @@ import {
   contourField,
   KALEIDO_DIAL,
   kaleidoField,
-  SHARDS_DIAL,
-  shardsField,
   TODAY_BITE,
 } from "@/ui/sketch/structure/sketchStructure";
 
@@ -61,7 +59,6 @@ describe("every dial rests inside its own band, on its own step", () => {
     ["beat", BEAT_DIAL],
     ["boxes", BOXES_DIAL],
     ["kaleido", KALEIDO_DIAL],
-    ["shards", SHARDS_DIAL],
     ["colour", COLOUR_DIAL],
     ["contour", CONTOUR_DIAL],
   ])("%s", (_, dial) => {
@@ -131,15 +128,6 @@ describe("the kaleidoscope", () => {
     }
     expect(differenceOf(whole, (x, y) => kaleidoField(x, y, 1))).toBeGreaterThan(0.01);
     expect(() => kaleidoField(1, 0.5, FOLD_CAP + 1)).toThrow();
-  });
-});
-
-describe("the shards", () => {
-  it("is the bite with nothing thrown, and torn at its rest", () => {
-    expect(differenceOf((x, y) => shardsField(x, y, 0), whole)).toBe(0);
-    expect(differenceOf((x, y) => shardsField(x, y, SHARDS_DIAL.rest), whole)).toBeGreaterThan(
-      0.05,
-    );
   });
 });
 

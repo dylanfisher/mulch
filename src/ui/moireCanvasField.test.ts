@@ -1,7 +1,8 @@
 /**
  * @role Tests the last pass of a painting — the rows' finished product taken back out of the screen
- *   through slices: bent through a lens, broken by a scattering rack and warped by a swaying one —
- *   and that each costs draws of what is already drawn and no second pass over any row.
+ *   through slices: bent through a lens, broken by a scattering rack, warped by a swaying one and
+ *   torn by an automator — and that each costs draws of what is already drawn and no second pass
+ *   over any row.
  * @instead Every other case the painter has → src/ui/moireCanvas.test.ts, which this split out of
  *   at the 800-line hard cap (0045) — and the chain of passes the cut is handed its picture by,
  *   which split out of *this* file at the same cap (src/ui/moireCanvasChain.test.ts, 0289). The pass
@@ -11,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, shatterBands, SHATTER_CEILING } from "@/lib/moireGeometry";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
+import { SHARD_CEILING } from "@/lib/moireShards";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
@@ -62,6 +64,27 @@ const elsewhere = (painted: Painted): number[] =>
 const fills = (painted: Painted): string[] =>
   painted.laid.filter((each) => each.ink !== PRODUCT).map((each) => each.over);
 
+/** The surface between the two slice passes, where the first pass laid a band per slice. */
+const betweenOf = (painted: Painted): Painted["surfaces"][number] | undefined =>
+  painted.surfaces.find(
+    (surface) => surface.drew.length >= LENS_SLICES && surface.drew[0]?.over === "source-over",
+  );
+
+/**
+ * How far each band laid into that surface was thrown, by the band's top: each is laid twice, where
+ * the throw carries it and a picture over, so its throw is the nearer of its two draws.
+ */
+function thrownOf(between: ReturnType<typeof betweenOf>): Map<number, number> {
+  const thrown = new Map<number, number>();
+  for (const { box } of between?.drew ?? []) {
+    const [, top, , , slid] = box;
+    if (top === undefined || slid === undefined) continue;
+    const near = Math.min(Math.abs(slid), Math.abs(slid - 128));
+    thrown.set(top, Math.min(thrown.get(top) ?? Infinity, near));
+  }
+  return thrown;
+}
+
 // One flat list of the pass's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("cutField", () => {
@@ -111,9 +134,7 @@ describe("cutField", () => {
     // One more surface than an unbent picture makes: the one between the two passes.
     expect(warped.elements).toHaveLength(flat.elements.length + 1);
     // The first pass went into it, a band per slice and its wrap, laid rather than cut.
-    const between = warped.surfaces.find(
-      (surface) => surface.drew.length >= LENS_SLICES && surface.drew[0]?.over === "source-over",
-    );
+    const between = betweenOf(warped);
     expect(between).toBeDefined();
     // The second pass reached the screen: a column per slice, the whole height of it, cut.
     const columns = warped.slices.filter((slice) => slice.top === 0 && slice.deep === 64);
@@ -219,16 +240,57 @@ describe("cutField", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     const plain = paintedOn(128, 64, [row({ period: 4 })]);
     vi.stubGlobal("devicePixelRatio", 2);
-    // A rack whose looks all land somewhere other than the chain — the fold at the bake, the warp
-    // and the shatter at the cut — takes no slot in it: no surface is made for a pass that does not
-    // exist, and the field reaches the screen through exactly the draws it did before (0278, 0279).
+    // A rack whose looks all land somewhere other than the chain — the warp and the shatter at the
+    // cut — takes no slot in it: no surface is made for a pass that does not exist, and the field
+    // reaches the screen through exactly the draws it did before (0278, 0279).
     const looked = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
-      looks: [look("fold"), look("shatter", { share: 1 }), look("warp", { bend: 0, wander: 0 })],
+      looks: [look("shatter", { share: 1 }), look("warp", { bend: 0, wander: 0 })],
     });
     expect(looked.elements).toHaveLength(plain.elements.length);
     expect(looked.slices).toEqual([]);
     expect(fills(looked)).toEqual(fills(plain));
     expect(looked.laid.length).toBe(plain.laid.length);
+  });
+
+  // P296: the automator's own look — the field torn along the structure's cross-section, through
+  // the same slices, and never a bake (0296).
+  it("tears the field along the structure's own cross-section, in slices cut once", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    // No automator standing: the field is drawn once, whole.
+    expect(plain.slices).toEqual([]);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const torn = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: [look("shards")] });
+    // The column pass is taken, as for the warp: one surface between, a band per slice laid into
+    // it, and a column per slice cut out to the screen.
+    expect(torn.elements).toHaveLength(plain.elements.length + 1);
+    const between = betweenOf(torn);
+    expect(between).toBeDefined();
+    const columns = torn.slices.filter((slice) => slice.top === 0 && slice.deep === 64);
+    expect(new Set(columns.map((slice) => slice.slid)).size).toBe(LENS_SLICES);
+    // Every band is slid by a different amount — a tear and not a shift — and no band further than
+    // the ceiling in shares of the height. Each band is laid twice, where the throw carries it and a
+    // picture over, so its throw is the nearer of its two draws.
+    const thrown = thrownOf(between);
+    expect(thrown.size).toBe(LENS_SLICES);
+    expect(Math.max(...thrown.values())).toBeLessThanOrEqual(SHARD_CEILING * 64 + 1e-9);
+    expect(Math.max(...thrown.values())).toBeGreaterThan(0);
+    expect(
+      new Set([...thrown.values()].map((near) => Math.round(near * 100))).size,
+    ).toBeGreaterThan(8);
+    // Cut once at the one alpha every cut here is made at, and never a fill over the field.
+    expect(fills(torn)).toEqual(fills(plain));
+    for (const draw of between?.drew ?? []) expect(draw.alpha).toBe(1);
+    for (const slice of torn.slices) expect(slice.alpha).toBe(1);
+    // Two automators are two tears crossing: the throws differ from one automator's, and at least
+    // one band is thrown further, because the second adds to the first and is never normalised.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const twice = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("shards", {}, "x"), look("shards", {}, "y")],
+    });
+    const thrownTwice = thrownOf(betweenOf(twice));
+    expect([...thrownTwice.values()]).not.toEqual([...thrown.values()]);
+    expect(Math.max(...thrownTwice.values())).toBeGreaterThan(Math.max(...thrown.values()));
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

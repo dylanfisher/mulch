@@ -1,13 +1,12 @@
 /**
- * @role Tests the plane folded for the automators standing: that a fold closes, that a fold onto
- *   folds is the next power of two images, and that the ladder a fold arrives on has one bake per
- *   step and stops at the cap.
- * @instead Where a curved row is actually folded before it is cut → src/lib/moireGeometry.test.ts.
+ * @role Tests the plane folded for the bench's kaleidoscope: that a fold closes, that a fold onto
+ *   folds is the next power of two images, and that only whole folds under the cap are taken.
+ * @instead What an automator does to the picture today → src/lib/moireShards.test.ts.
  */
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_STEPS, TAU } from "./moire.ts";
-import { FOLD_CAP, foldPlane, foldsOf, kaleido, steppedFolds, type Folded } from "./moireFold.ts";
+import { TAU } from "./moire.ts";
+import { FOLD_CAP, foldPlane, kaleido, type Folded } from "./moireFold.ts";
 
 /**
  * The number of distinct places a ring of points lands on once folded, at a pixel's tolerance. The
@@ -76,19 +75,5 @@ describe("the plane folded for the automators standing", () => {
       expect(out.u).toBeCloseTo(x);
       expect(out.v).toBeCloseTo(y);
     }
-  });
-
-  it("asks one fold per automator up to the cap, on a ladder of one bake a step", () => {
-    expect(foldsOf(0)).toBe(0);
-    expect(foldsOf(1)).toBe(1);
-    expect(foldsOf(FOLD_CAP + 3)).toBe(FOLD_CAP);
-    // And fractional on the way in, because a fold arriving is a crossfade and not a round (0279).
-    expect(foldsOf(0.5)).toBe(0.5);
-    expect(foldsOf(-1)).toBe(0);
-    const stops = new Set<number>();
-    for (let at = 0; at <= 1; at += 1 / 200) stops.add(steppedFolds(at));
-    expect(stops.size).toBe(DRIFT_STEPS + 1);
-    expect(steppedFolds(FOLD_CAP + 1)).toBe(FOLD_CAP);
-    expect(steppedFolds(2)).toBe(2);
   });
 });

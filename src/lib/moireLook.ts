@@ -8,14 +8,14 @@
  * @instead The declarations themselves → `look` and `lookFrom` on each entry in
  *   src/audio/effects/, checked in src/audio/effects/registry.ts. The reading of a standing rack
  *   into looks, and the travel and the reductions the painter spends → src/ui/moireLooks.ts. The
- *   maths each look is drawn by → src/lib/moireWarp.ts, src/lib/moireFold.ts and
- *   `rackScatter` in src/lib/moireSound.ts, except a look that takes a slot in the chain, whose one
- *   draw is here beside its declaration (0280). The one thing a draw here bakes rather than draws —
- *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286) — and
- *   the one look declared whole in a file of its own, its terms and its draw together, because this
- *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287), `squashLook` in
- *   src/lib/moireSquash.ts (0288), `doubleLook` in src/lib/moireDouble.ts (0289) and `echoesLook`
- *   in src/lib/moireEchoes.ts (0294).
+ *   maths each look is drawn by → src/lib/moireWarp.ts and `rackScatter` in src/lib/moireSound.ts,
+ *   except a look that takes a slot in the chain, whose one draw is here beside its declaration
+ *   (0280). The one thing a draw here bakes rather than draws — the wobble's noise tile →
+ *   src/lib/moireGrain.ts, split off here at the hard cap (0286) — and the one look declared whole
+ *   in a file of its own, its terms and its draw together, because this file stood at the cap again
+ *   → `bandLook` in src/lib/moireBand.ts (0287), `squashLook` in src/lib/moireSquash.ts (0288),
+ *   `doubleLook` in src/lib/moireDouble.ts (0289), `echoesLook` in src/lib/moireEchoes.ts (0294)
+ *   and, cut rather than passed, `shardsLook` in src/lib/moireShards.ts (0296).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -26,6 +26,7 @@
 import { bandLook } from "@/lib/moireBand";
 import { doubleLook } from "@/lib/moireDouble";
 import { echoesLook } from "@/lib/moireEchoes";
+import { shardsLook } from "@/lib/moireShards";
 import { squashLook } from "@/lib/moireSquash";
 import { cosTurn, wrap } from "@/lib/moire";
 import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
@@ -37,7 +38,7 @@ import { weighed } from "@/lib/moireWeigh";
 export const LOOK_NAMES = [
   "lattice",
   "warp",
-  "fold",
+  "shards",
   "shatter",
   "bloom",
   "blocks",
@@ -91,14 +92,15 @@ export type LookTerms = Readonly<Partial<Record<LookTerm, number>>>;
 export type LookRead = "turn" | "value";
 
 /**
- * Where in a painting a look lands. Three of the four kinds are not passes at all and say so at the
- * declaration (0278): the lattice is the rack's own pattern over the whole field, the fold is a
- * bake on a curved row's coordinate before any field exists, and the warp and the shatter are cut
- * into the screen through the slices the lens already reads the field back in. `pass` is the chain
- * proper — a draw of the finished field between the field and the screen — and the bloom is the
- * first look to wear it (0280).
+ * Where in a painting a look lands. Two of the three kinds are not passes at all and say so at the
+ * declaration (0278): the lattice is the rack's own pattern over the whole field, and the warp, the
+ * shatter and the shards are cut into the screen through the slices the lens already reads the
+ * field back in (0296). `pass` is the chain proper — a draw of the finished field between the field
+ * and the screen — and the bloom is the first look to wear it (0280). Nothing lands at a bake any
+ * more: the fold that did was the only look with a ladder of its own, and the shards took its place
+ * at the cut.
  */
-export type LookAt = "field" | "bake" | "cut" | "pass";
+export type LookAt = "field" | "cut" | "pass";
 
 /**
  * The one draw of the finished field a look that takes a slot in the chain is: `source` read, `into`
@@ -136,9 +138,9 @@ export type LookPass = (
 /**
  * One look: what it reads, and where it lands. **Where it lands and whether it has a draw of its own
  * are one fact and not two**: a look that says `pass` carries one and every other kind carries none,
- * so the painter cannot step over a declared pass and cannot draw a baked look twice. Three of the
- * four that were here before this step land at the bake and at the cut; the bloom is the first that
- * says `pass`, and it carries the one draw it is (0280).
+ * so the painter cannot step over a declared pass and cannot draw a cut look twice. The warp, the
+ * shatter and the shards land at the cut; the bloom is the first that says `pass`, and it carries
+ * the one draw it is (0280).
  */
 export type Look =
   | { at: Exclude<LookAt, "pass">; terms: Readonly<Partial<Record<LookTerm, LookRead>>> }
@@ -570,12 +572,8 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
   lattice: { at: "field", terms: {} },
   /** Sway's: how far the finished field is bent, and how fast that bend wanders (0278). */
   warp: { at: "cut", terms: { bend: "turn", wander: "value" } },
-  /**
-   * The automator's, and the one look with no terms at all: how many times the plane is folded is
-   * how many automators are standing, which is a fact about the run each of them *is* rather than
-   * about any value one holds. Applied before any field exists, so it takes no slot in the chain.
-   */
-  fold: { at: "bake", terms: {} },
+  /** The automator's, declared whole in a file of its own with its numbers and its maths (0296). */
+  shards: shardsLook,
   /**
    * Scatter's: how much of the field is drawn from somewhere else along it (0269), and how big a
    * piece of it each of those is — the Span, on its own range, because a window's length is how

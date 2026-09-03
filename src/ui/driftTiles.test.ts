@@ -58,7 +58,6 @@ const orderAt = (rings: number, slot = "the one radial row"): DriftOrder => ({
     cover: 1.05,
     rings,
     spokes: 8,
-    folds: 0,
     rim: 0,
     ...fractalRest(),
   },

@@ -39,7 +39,7 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effe
   driftFrom: [{ param, into: "period" }],
   // The one look with no terms at all, so an entry built here declares one — which every entry
   // must, now that every pass has landed (0290) — without also having to map values into it.
-  look: "fold",
+  look: "shards",
   presence: { param, silent: 0, full: 1 },
   params: [
     { id: param, label: param, min: 0, max: 1, default: 0, precision: 2, automation: "linear" },
@@ -389,7 +389,7 @@ describe("effect registry", () => {
     expect(claimed).toEqual(
       new Set([
         "warp",
-        "fold",
+        "shards",
         "shatter",
         "soften",
         "bloom",

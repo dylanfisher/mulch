@@ -82,8 +82,8 @@ export const octavesEarned = (standing: number): number =>
  * it, which is the last word on cost and may take a copy back off any row here (0230).
  *
  * A yard growing nothing stands nothing, earns one scale and changes no row: the picture is exactly
- * the picture it was before there was an automator in it, which is the property the fold has and
- * for the same reason (0243).
+ * the picture it was before there was an automator in it, which is the property the shards have
+ * and for the same reason (0243).
  *
  * Called once where the set is built and never per frame, as `shareOctaves` is: what a run is
  * standing moves a place at a time, and a place moving rebuilds the set (`grownStanding`, 0070).

@@ -1,21 +1,31 @@
 /**
  * @role Taking the rows' finished product back out of the screen: whole, or through the slices a
- *   lens bends it in, a scattering rack breaks it along and a swaying one warps it through. The
- *   last pass of a painting, and the one place the field is read from somewhere other than where
- *   it is laid.
+ *   lens bends it in, a scattering rack breaks it along, a swaying one warps it through and an
+ *   automator tears it across. The last pass of a painting, and the one place the field is read
+ *   from somewhere other than where it is laid.
  * @instead The painting itself, every grating in it and the frame before it laid back in →
  *   src/ui/moireCanvas.ts, which this split out of at the 800-line hard cap (0045) and which is this
  *   file's only caller. The slices, the lens's slide and the shatter's own →
- *   src/lib/moireGeometry.ts; the warp's two sines → src/lib/moireWarp.ts. How much of the standing
- *   rack is scattering and how much of it is swaying, as the looks their entries declare →
+ *   src/lib/moireGeometry.ts; the warp's two sines → src/lib/moireWarp.ts; the shards' throw table
+ *   and its numbers → src/lib/moireShards.ts. How much of the standing rack is scattering, how much
+ *   of it is swaying and how many automators are tearing it, as the looks their entries declare →
  *   src/ui/moireLooks.ts; what a look is → src/lib/moireLook.ts.
  */
 import { DRIFT_REST, turnsOf, wrap, type MoireRow } from "@/lib/moire";
-import { LENS_SLICES, lensSlide, shatterPieces, shatterSlide } from "@/lib/moireGeometry";
+import { fractalRest, fractalSeedInto, type FractalStops } from "@/lib/moireFractal";
+import {
+  geometryRef,
+  LENS_SLICES,
+  lensSlide,
+  shatterPieces,
+  shatterSlide,
+} from "@/lib/moireGeometry";
 import { LOOKS } from "@/lib/moireLook";
+import { SHARD_CAP, shardsInto } from "@/lib/moireShards";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
 import {
   looksCrowd,
+  looksShards,
   looksShatter,
   looksShatterSize,
   looksWarp,
@@ -26,6 +36,16 @@ import type { MoireShape } from "@/ui/moireShape";
 
 /** How far one row asks the finished field to be bent, read off the row that asks it loudest. */
 const lensOf = (row: MoireRow): number => row.lens;
+
+/**
+ * The shards' own scratch, kept rather than made: how far each slice is thrown across and each
+ * column down (`shardsInto`, src/lib/moireShards.ts), how present each automator standing is, and
+ * the seed the count is read off — the painter's roamed stops denormalised once a painting, at the
+ * zoom of one and the fly of nought the tear reads at. A painting allocates nothing (0070).
+ */
+const throws = new Float64Array(2 * LENS_SLICES);
+const presences = new Float64Array(SHARD_CAP);
+const thrown = fractalRest();
 
 /**
  * The surface a warped field is bent across on its way out, one per field and kept at the field's
@@ -71,11 +91,11 @@ function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanv
  * one written is what the lens, the shatter and the warp cut into the screen below (0279).
  *
  * **Most of the looks that exist take no slot, and say so at the declaration.** The lattice is the
- * whole rack standing, the fold is a bake on a curved row's coordinate before any field exists, and
- * the warp and the shatter are cut through the slices this file already reads the field back in
- * (0278, 0269) — so a rack of those alone hands the cut the field it was given and draws the
- * picture it drew before there was a chain. Reverb's bloom is the first that does take one (0280),
- * and every later pass arrives into this same loop by declaring itself into `LOOKS`.
+ * whole rack standing, and the warp, the shatter and the shards are cut through the slices this
+ * file already reads the field back in (0278, 0269, 0296) — so a rack of those alone hands the cut
+ * the field it was given and draws the picture it drew before there was a chain. Reverb's bloom is
+ * the first that does take one (0280), and every later pass arrives into this same loop by
+ * declaring itself into `LOOKS`.
  *
  * **And every pass is handed the same two numbers whether it reads them or not**: which way the
  * whole picture is being blown (0282) and how long the deck behind it has sounded, which is the one
@@ -139,6 +159,15 @@ function passLooks(
  * first sine is one more term on the slide every band already takes, and the second is the same
  * thing down the columns of what the first pass left, through one surface between (0278). No
  * bake, no key, and a straight row warps as a curved one does.
+ *
+ * **And the shards are the same slices once more, thrown by the structure** (0296). Every band is
+ * slid across by a table read once a painting off the escape count down the picture's centre
+ * column, and every column of what that left is slid down by the same count along its centre row —
+ * one cross-section per automator standing, summed and clamped in shares of the height
+ * (`shardsInto`, src/lib/moireShards.ts). The count is read off `stops`, which is where the
+ * painter's own roam has carried the plane the picture already stands on: the tear moves with the
+ * field and never on its own. So a straight row is torn as a curved one is, and nothing is baked
+ * for it — the column pass is taken for the shards exactly as for the warp.
  */
 export function cutField(
   context: CanvasRenderingContext2D,
@@ -148,6 +177,7 @@ export function cutField(
   shape: Readonly<MoireShape>,
   veer: number,
   clock: number,
+  stops: Readonly<FractalStops>,
 ): void {
   const { height, width } = field;
   // The chain first: the finished field through every pass the standing looks take, in rack order,
@@ -160,17 +190,25 @@ export function cutField(
   const lens = bold === null ? 0 : bold.lens;
   const broken = shatterPieces(shatter, piece);
   const bent = warpShare(looksWarp(looks));
-  if (lens <= 0 && broken <= 0 && bent <= 0) {
+  const standing = looksShards(looks, presences);
+  if (lens <= 0 && broken <= 0 && bent <= 0 && standing <= 0) {
     context.drawImage(passed, 0, 0);
     return;
+  }
+  // The throw table, filled once for the whole painting where anything is tearing it: the stops
+  // the painter roams, at the zoom of one and the fly of nought the tear reads at (0261, 0296).
+  if (standing > 0) {
+    fractalSeedInto(thrown, stops, 1, 0);
+    shardsInto(throws, thrown, geometryRef(width, height), width, height, presences, standing);
   }
   // A yard scattering with no row asking for a lens has nothing to take a phase off, and needs
   // none: the slices stand where they are and the field is drawn out of order through them.
   const turns = bold === null || lens <= 0 ? 0 : turnsOf(bold);
   // Where the bands land: straight into the screen, or into the surface between when there is a
-  // second pass to take. An engine that will not make that surface's context draws no picture at
-  // all, and an empty canvas says so (src/ui/moireCanvas.ts).
-  const between = bent > 0 ? betweenFor(field) : null;
+  // second pass to take — the warp's second sine, the shards' down throw, or both. An engine that
+  // will not make that surface's context draws no picture at all, and an empty canvas says so
+  // (src/ui/moireCanvas.ts).
+  const between = bent > 0 || standing > 0 ? betweenFor(field) : null;
   const ink = between === null ? context : between.getContext("2d");
   if (ink === null) {
     context.clearRect(0, 0, width, height);
@@ -185,18 +223,27 @@ export function cutField(
     const top = Math.floor((slice * height) / LENS_SLICES);
     const deep = Math.floor(((slice + 1) * height) / LENS_SLICES) - top;
     if (deep <= 0) continue;
-    // The lens's own slide, the warp's first sine across, and, where this slice belongs to a piece
-    // the share has broken, the whole piece the walk draws that piece from. Wrapped into one
-    // picture before it is drawn: the band is covered by the copy either side of the edge it is
-    // slid over, which is only true of an offset inside one width of it.
+    // The lens's own slide, the warp's first sine across, the shards' throw across — in shares of
+    // the height, as the warp's is — and, where this slice belongs to a piece the share has broken,
+    // the whole piece the walk draws that piece from. Wrapped into one picture before it is drawn:
+    // the band is covered by the copy either side of the edge it is slid over, which is only true
+    // of an offset inside one width of it.
     const slid =
       lensSlide(lens, turns, slice, LENS_SLICES) * width +
-      warpSlideX(bent, shape.sway, (top + deep / 2) / height) * height;
+      warpSlideX(bent, shape.sway, (top + deep / 2) / height) * height +
+      (standing > 0 ? (throws[slice] ?? 0) * height : 0);
     const off = shatterSlide(shatter, piece, slice, LENS_SLICES);
-    cutAcross(ink, passed, top, deep, off > 0 ? wrap(slid / width + off, 1) * width : slid);
+    cutAcross(
+      ink,
+      passed,
+      top,
+      deep,
+      off > 0 || standing > 0 ? wrap(slid / width + off, 1) * width : slid,
+    );
   }
   if (between === null) return;
-  // The second sine, down the columns of what the first pass left, and out to the screen.
+  // The second sine and the down throw, down the columns of what the first pass left, and out to
+  // the screen.
   for (let slice = 0; slice < LENS_SLICES; slice++) {
     const left = Math.floor((slice * width) / LENS_SLICES);
     const wide = Math.floor(((slice + 1) * width) / LENS_SLICES) - left;
@@ -206,7 +253,8 @@ export function cutField(
       between,
       left,
       wide,
-      warpSlideY(bent, shape.sway, (left + wide / 2) / height) * height,
+      warpSlideY(bent, shape.sway, (left + wide / 2) / height) * height +
+        (standing > 0 ? (throws[LENS_SLICES + slice] ?? 0) * height : 0),
     );
   }
 }

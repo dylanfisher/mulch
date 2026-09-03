@@ -7,8 +7,9 @@
  *   0266), and carried across a rebuilt set (`carryShape`).
  * @instead The cell itself → src/lib/moireLattice.ts, the size it stands at →
  *   `LATTICE_CELL_PX` in src/lib/moireGrating.ts, and where both are spent → `cutLattice` in
- *   src/ui/moireCanvas.ts. The bend and the fold, which are sway's and the automator's own declared
- *   looks rather than readings of the rack → src/lib/moireLook.ts and src/ui/moireLooks.ts (0279).
+ *   src/ui/moireCanvas.ts. The bend and the shards, which are sway's and the automator's own
+ *   declared looks rather than readings of the rack → src/lib/moireLook.ts and src/ui/moireLooks.ts
+ *   (0279, 0296).
  *   The other whole-field reading of the same population → src/ui/moireWind.ts.
  */
 import { effectById } from "@/audio/effects/registry";
@@ -23,8 +24,9 @@ import type { DeckState } from "@/state/store";
 /**
  * What the standing rack asks the picture's shape to become: how much of it is standing at all,
  * presence-weighted. Filled once when a set is built, because it is a fact about what the entries
- * are *set to* — and the whole of it since the bend and the fold became their entries' own declared
- * looks, which travel per instance rather than as one number the rack sums (0279).
+ * are *set to* — and the whole of it since the bend and the automator's own move became their
+ * entries' own declared looks, which travel per instance rather than as one number the rack sums
+ * (0279).
  */
 export type MoireShaping = { standing: number };
 
@@ -83,9 +85,9 @@ export function rackShape(effects: DeckState["effects"]): MoireShaping {
  * How long the lattice takes to go from its loosest to its tightest, and how long a look takes to
  * come all the way into the picture or drain out of it: the wind's own turn, because both are the
  * population changing and a field that tightened faster than it turned would be two speeds for one
- * event (0267). One rate for every look and not one a look declares, which is what 0279 takes from
- * the fold's own ink-ladder second: a rack whose passes arrived at their own speeds would be a
- * chain the eye could not read the order of.
+ * event (0267). One rate for every look and not one a look declares, which is what 0279 took from
+ * the ink-ladder second the automator's look once had: a rack whose passes arrived at their own
+ * speeds would be a chain the eye could not read the order of.
  */
 export const SHAPE_SECS = DRIFT_WIND_SECS;
 

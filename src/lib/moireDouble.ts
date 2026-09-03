@@ -81,7 +81,7 @@ export const doubleAmount = (presence: number, amount: number): number =>
  *
  * **About the centre, because a pass has no anchor of its own.** The anchor in the painter today is
  * a row's: a curved row's tile is baked and zoomed about the point that row is read from
- * (`aimCurved`, src/ui/moireCanvasCurved.ts) and the fold is a bake on that same coordinate (0278).
+ * (`aimCurved`, src/ui/moireCanvasCurved.ts) and its tile is baked about it (0278).
  * A pass is handed the *finished* field — every row already cut into one picture — so there is no
  * row to ask and no anchor to inherit, and the one point every pass shares is the middle of the
  * field it was given. A double about anything else would be a second picture sliding across the

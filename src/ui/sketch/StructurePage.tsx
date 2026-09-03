@@ -1,11 +1,12 @@
 /**
- * @role The structure bench at #/structure — the nav and the one list it mounts: seven ways the
- *   automator's mark on the picture, the fractal, the shards and the mirror, could be made plain.
+ * @role The structure bench at #/structure — the nav and the one list it mounts: six ways the
+ *   automator's mark on the picture, the fractal and the mirror, could be made plain — the seventh,
+ *   the Shards, won and left for the painter (0296).
  *   Every entry carries the one sentence it makes, the thing it gives up to make it and where in
  *   the real painter it would land, and every picture is the real escape kernel over the drift
  *   bench's stand-in weave, under the one dial that move turns. Its own route beside the sketch
  *   bench because each picture here is a pixel loop over a hundred-odd iterations, and a page that
- *   mounts the sketch bench's twenty pictures to show these seven is a page nobody opens (0295).
+ *   mounts the sketch bench's twenty pictures to show these six is a page nobody opens (0295).
  * @instead The picture these argue with → src/ui/moireCanvas.ts and src/ui/moireRowsField.ts. The
  *   bench beside this one, and the frame and stage this borrows → src/ui/sketch/SketchPage.tsx,
  *   src/ui/sketch/SketchFrame.tsx and src/ui/sketch/SketchDriftStage.tsx.
@@ -29,7 +30,6 @@ import { SketchStructureBoxes } from "@/ui/sketch/structure/SketchStructureBoxes
 import { SketchStructureColour } from "@/ui/sketch/structure/SketchStructureColour";
 import { SketchStructureContour } from "@/ui/sketch/structure/SketchStructureContour";
 import { SketchStructureKaleido } from "@/ui/sketch/structure/SketchStructureKaleido";
-import { SketchStructureShards } from "@/ui/sketch/structure/SketchStructureShards";
 import { TODAY_BITE, TODAY_ROWS } from "@/ui/sketch/structure/sketchStructure";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
@@ -100,19 +100,8 @@ export const SKETCH_STRUCTURES: readonly StructureEntry[] = [
     trades:
       "the rows' own motion at the seam. A straight row slides continuously and its mirror image slides the other way, so along every seam the picture is two rows meeting head-on — which is the moiré this instrument is made of, and also a line the eye cannot stop reading.",
     built:
-      "beside the lens's slices in src/ui/moireCanvasField.ts, where the finished field is already drawn back out through drawImage: one clipped drawImage per sector, each a mirror transform of the same surface, on the fold ladder moireFold.ts already steps. Frame-side — no bake, no key — and two to sixteen draws a frame at the cap.",
+      "beside the lens's slices in src/ui/moireCanvasField.ts, where the finished field is already drawn back out through drawImage: one clipped drawImage per sector, each a mirror transform of the same surface, on the whole folds src/lib/moireFold.ts already takes. Frame-side — no bake, no key — and two to sixteen draws a frame at the cap.",
     Content: SketchStructureKaleido,
-  },
-  {
-    id: "shards",
-    label: "The Shards",
-    thesis:
-      "The field's own slices thrown by the structure: every band the lens reads the picture back in slides by the escape count at its middle, across and then down, so the picture is torn along the structure's cross-section. The structure reaches every straight row through the tear, and the tear is the structure's own shape — drawn here over the bite at its own depth, because a tear through a fine weave alone is noise.",
-    trades:
-      "the shatter's own meaning. The scatter's slices slide off a rate today (0269, 0290), and a slice that slides off the structure instead is the scatter's look spent on the automator's — one dial on two hands, which 0279 was written to forbid.",
-    built:
-      "in shatterSlide in src/lib/moireGeometry.ts, handed the escape count at the slice's middle instead of a phase — sixty-four kernel reads a frame, which is nothing beside a tile. Frame-side entirely: the slices are already drawn one drawImage each, and the count they read is off the tile the painter already holds.",
-    Content: SketchStructureShards,
   },
   {
     id: "colour",

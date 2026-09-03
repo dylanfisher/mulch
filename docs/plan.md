@@ -72,7 +72,10 @@ What the research found, and what the step stands on:
 **Decided before planning** (2026-09-02): one step. The fold is replaced and not kept beside the
 shards — a look has one landing, and pre-release deletes are free. No bench step first: the bench
 already made the one-automator argument, and several automators are proved by the shot on a real
-yard holding two. The next free decision number today is 0296.
+yard holding two. structure-01 landed as
+[0296](decisions/0296-the-automator-shards-the-picture.md) on 2026-09-03; the zoomed picture went
+unphotographed (the headless smoke starves on the run's ghosts and no real browser was reachable),
+and the strip's crops carried the proof. The next free decision number today is 0297.
 
 1.  **The automator shards the picture, and every automator standing is a tear of its own.**
     _(structure-01)_ **Durable shape moved: none.** A new look, declared whole in

@@ -3,7 +3,7 @@
  *   the inside the trough, that the tile's every edge is gutter so it repeats without a seam, and
  *   that the readings the rack and the output give it are bounded.
  * @instead Where the cell is asked for and drawn as a pattern → src/ui/moireCanvas.test.ts. The
- *   fold beside it → src/lib/moireFold.test.ts.
+ *   shards beside it → src/lib/moireShards.test.ts.
  */
 import { describe, expect, it } from "vitest";
 

@@ -1,9 +1,10 @@
 /**
- * @role The seven fields the structure bench draws — one per way the automator's mark on the
- *   picture could be made plain: the escape field cut at a depth of its own, beaten against a copy
- *   of itself at a held ratio, the folded plane folded about its own centre, the whole field folded
- *   into mirrored sectors, the field's slices thrown by the structure, the structure read through
- *   the ramp of five, and its count cut into contours — and the one dial each is drawn under. Every
+ * @role The six fields the structure bench draws — one per way the automator's mark on the picture
+ *   could be made plain: the escape field cut at a depth of its own, beaten against a copy of
+ *   itself at a held ratio, the folded plane folded about its own centre, the whole field folded
+ *   into mirrored sectors, the structure read through the ramp of five, and its count cut into
+ *   contours — and the one dial each is drawn under. The seventh, the field's slices thrown by the
+ *   structure, won and is the painter's (src/lib/moireShards.ts, 0296). Every
  *   field answers how much ink is at a point of the picture, nought to one, for one amount of its
  *   dial, and nothing else: the real kernels over the drift bench's stand-in weave, no canvas, no
  *   clock, no context, so each is provable here and painted there.
@@ -21,8 +22,9 @@ import {
   fractalRest,
   nestedTurns,
 } from "@/lib/moireFractal";
-import { geometryRef, LENS_SLICES } from "@/lib/moireGeometry";
+import { geometryRef } from "@/lib/moireGeometry";
 import { gratingDepth } from "@/lib/moireGrating";
+import { SHARD_TURN } from "@/lib/moireShards";
 import { clamp } from "@/lib/range";
 import {
   FIELD_CENTRE,
@@ -70,14 +72,10 @@ export function escapeAt(x: number, y: number, zoom = 1): number {
 }
 
 /**
- * How many cycles of the count one pass of a ramp, a staircase or a throw is worth. The count runs
- * over a hundred cycles across the picture and climbs fastest at the boundary, so one pass every
- * sixteen is a handful of slow passes over the open plane and filigree at the edge.
+ * The count as one slow wave, nought to one, which is what a ramp or a staircase is read off — on
+ * the turn the painter's own tear reads it at, which moved there from here when the Shards won.
  */
-export const STRUCTURE_TURN = 16;
-
-/** The count as one slow wave, nought to one, which is what a ramp or a staircase is read off. */
-const wave = (count: number): number => 0.5 - 0.5 * cosTurn(count / STRUCTURE_TURN);
+const wave = (count: number): number => 0.5 - 0.5 * cosTurn(count / SHARD_TURN);
 
 /**
  * 01 — the structure cut at a depth of its own, the way the lattice is, and not at the share the
@@ -130,35 +128,6 @@ export const kaleidoField: SketchDriftField = (x, y, folds) => {
   foldPlane(folded, u, v, Math.round(folds));
   const [fx, fy] = fromRef(folded.u, folded.v);
   return biteField(fx, fy, BITE_DIAL.rest);
-};
-
-/**
- * How many slices the bench tears the picture into each way: the lens's own count scaled to the
- * bench, whose box stands a quarter the height of the popped-out picture the lens reads. At the
- * lens's own count a slice here is two pixels, and two-pixel slices thrown apart are noise.
- */
-export const SHARD_SLICES = LENS_SLICES / 4;
-
-/**
- * 05 — the field's own slices thrown by the structure: every band the lens already reads the
- * picture back in slides by the escape count at its middle, across and then down, so the picture
- * is torn along the structure's own cross-section. The dial is how far a slice may be thrown, as a
- * share of the height. Under it is the structure at its own depth (`BITE_DIAL`), because a tear
- * through a weave is noise and a tear through the filigree is a tear.
- */
-export const SHARDS_DIAL: SketchDial = { min: 0, max: 0.3, step: 0.01, rest: 0.08 };
-export const shardsField: SketchDriftField = (x, y, reach) => {
-  const row = Math.floor(clamp(y, 0, 1 - Number.EPSILON) * SHARD_SLICES);
-  const across =
-    reach * cosTurn(escapeAt(FIELD_CENTRE[0], (row + 0.5) / SHARD_SLICES) / STRUCTURE_TURN);
-  const column = Math.floor(clamp(x / FIELD_ASPECT, 0, 1 - Number.EPSILON) * SHARD_SLICES);
-  const down =
-    reach *
-    cosTurn(
-      escapeAt(((column + 0.5) / SHARD_SLICES) * FIELD_ASPECT, FIELD_CENTRE[1]) / STRUCTURE_TURN -
-        0.25,
-    );
-  return biteField(x + across, y + down, BITE_DIAL.rest);
 };
 
 /**

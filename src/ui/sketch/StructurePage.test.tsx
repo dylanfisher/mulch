@@ -1,5 +1,5 @@
 /**
- * The structure bench's own half of the naming rule (0252): seven ways to make the automator's
+ * The structure bench's own half of the naming rule (0252): six ways to make the automator's
  * mark plain, each on a canvas under its own dial, each naming what the dial stands at and the
  * inks it is drawn in, and each saying where in the painter it would land — at a file that exists.
  * In the shape SketchPage.test.tsx and SketchDrifts.test.tsx took, because it is the same bench
@@ -95,7 +95,7 @@ describe("StructurePage mounts the bench", () => {
   });
 });
 
-describe("each of the seven says where it would land", () => {
+describe("each of the six says where it would land", () => {
   it("names at least one real file of the painter in every build note, and draws the note", () => {
     for (const entry of SKETCH_STRUCTURES) {
       const named = [...entry.built.matchAll(/src\/[\w/.-]+\.tsx?/gu)].map((found) => found[0]);

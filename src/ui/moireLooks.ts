@@ -5,8 +5,9 @@
  *   actually got to, travelled here one step a frame on the repo's one rate (`easedToward`, 0266)
  *   and carried across a rebuilt set by instance id (`carryLooks`, src/ui/moireCarry.ts). Beside
  *   them the reductions the painting spends: how far the field is bent, how fast that bend wanders,
- *   how many times the plane is folded, how much of the picture is drawn from elsewhere in it and in
- *   how big a piece, how many looks of one kind stand at once (0294) — and
+ *   how many automators are tearing it and how far each is in (0296), how much of the picture is
+ *   drawn from elsewhere in it and in how big a piece, how many looks of one kind stand at once
+ *   (0294) — and
  *   how often a picture carrying this chain is painted at all (0284).
  * @instead What a look *is* — its name, its terms, how each is read and where it lands →
  *   src/lib/moireLook.ts, which the entries declare themselves into. The lattice, which is the one
@@ -17,8 +18,8 @@
 import { effectById } from "@/audio/effects/registry";
 import { effectHeard, PARAMS, paramIn } from "@/audio/params";
 import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS, easedToward } from "@/lib/moire";
-import { foldsOf } from "@/lib/moireFold";
 import { LOOKS, type LookName, type LookTerm, type LookTerms } from "@/lib/moireLook";
+import { SHARD_CAP } from "@/lib/moireShards";
 import { rackScatter } from "@/lib/moireSound";
 import { clamp, normalize } from "@/lib/range";
 import type { DeckState } from "@/state/store";
@@ -188,17 +189,22 @@ export function looksSaturate(looks: readonly MoireLook[]): number {
 }
 
 /**
- * And how many times the plane is folded before every curved row is cut along it: one fold per
- * automator standing, never past the cap, and fractional on the way there — a fold arriving is two
- * folded pictures crossfaded, which is what a whole number could not be (`foldPlane`,
- * src/lib/moireFold.ts, 0278).
+ * And how many automators are tearing the picture, each at the presence it has travelled to, into
+ * `into` in rack order — one slot per automator standing and never past the cap, which is what the
+ * cut hands the throw table's own maths (`shardsInto`, src/lib/moireShards.ts, 0296). Answers the
+ * count filled; a bypassed automator is in no set at all and so in none of them, and one on its way
+ * in stands at a fraction, which is a fainter tear and never a whole one rounded to. Filled in place
+ * rather than answered as a list, because this runs once a painting on the frame path (0070).
  */
-export function looksFolds(looks: readonly MoireLook[]): number {
-  let folds = 0;
+export function looksShards(looks: readonly MoireLook[], into: Float64Array): number {
+  let standing = 0;
   for (const look of looks) {
-    if (look.look === "fold") folds += look.at;
+    if (look.look !== "shards") continue;
+    if (standing >= SHARD_CAP) break;
+    into[standing] = look.at;
+    standing += 1;
   }
-  return foldsOf(folds);
+  return standing;
 }
 
 /**
@@ -229,9 +235,9 @@ export const LOOK_SLOW_HZ = 12;
  * slow the picture for whatever else the machine was doing that second, and would answer differently
  * on two windows of the same yard.
  *
- * **Only the passes count.** The lattice is a fill, the fold is a bake and the warp and the shatter
- * are cut through slices the field is read back in either way (0278, 0269), so a rack of sways is
- * not a chain at all and is painted at the whole rate.
+ * **Only the passes count.** The lattice is a fill, and the warp, the shatter and the shards are cut
+ * through slices the field is read back in either way (0278, 0269, 0296), so a rack of sways is not
+ * a chain at all and is painted at the whole rate.
  */
 export function looksPaintMs(looks: readonly MoireLook[]): number {
   let passes = 0;

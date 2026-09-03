@@ -86,7 +86,6 @@ const latticeOrder: DriftOrder = {
     cover: 1,
     rings: 1,
     spokes: 1,
-    folds: 0,
     rim: 0,
     ...fractalRest(),
   },

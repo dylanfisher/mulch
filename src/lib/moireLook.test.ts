@@ -5,7 +5,7 @@
  * @instead What each look's terms answer for a standing rack, and how they travel →
  *   src/ui/moireLooks.test.ts. What the registry refuses of an entry that declares one →
  *   src/audio/effects/registry.test.ts. The maths each look is drawn by → src/lib/moireWarp.test.ts,
- *   src/lib/moireFold.test.ts and src/lib/moireSound.test.ts.
+ *   src/lib/moireShards.test.ts and src/lib/moireSound.test.ts.
  */
 // Over the soft cap for the reason the file it tests is over it (src/lib/moireLook.ts): one case per
 // look, each one the whole of what that look's maths promises, and a case split into a second file
@@ -146,19 +146,19 @@ describe("what a look is", () => {
   it("says of every term how it is read, and of every look where it lands", () => {
     for (const name of LOOK_NAMES) {
       const look = LOOKS[name];
-      expect(["field", "bake", "cut", "pass"]).toContain(look.at);
+      expect(["field", "cut", "pass"]).toContain(look.at);
       for (const [term, read] of Object.entries(look.terms)) {
         expect(LOOK_TERMS).toContain(term);
         expect(["turn", "value"]).toContain(read);
       }
     }
-    // The three that stand: the warp bends on a turn of its own range and wanders in the parameter's
-    // own units, the shatter takes a share and a piece size on two turns, and the fold reads nothing
-    // at all — how many times the plane is folded is how many automators are standing (0278).
+    // The three at the cut: the warp bends on a turn of its own range and wanders in the parameter's
+    // own units, the shatter takes a share and a piece size on two turns, and the shards read nothing
+    // at all — how torn the picture is, is how many automators are standing (0278, 0296).
     expect(LOOKS.warp.terms).toEqual({ bend: "turn", wander: "value" });
     expect(LOOKS.shatter.terms).toEqual({ share: "turn", size: "turn" });
-    expect(LOOKS.fold.terms).toEqual({});
-    expect(LOOKS.fold.at).toBe("bake");
+    expect(LOOKS.shards.terms).toEqual({});
+    expect(LOOKS.shards.at).toBe("cut");
     // And where a look lands and whether it carries a draw of its own are one fact: every look that
     // says `pass` has one, and no look that lands elsewhere does.
     for (const name of LOOK_NAMES) {

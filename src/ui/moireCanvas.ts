@@ -87,7 +87,7 @@ import { viewOf } from "@/ui/canvasSurface";
 import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/driftTiles";
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
-import { looksFolds, type MoireLook } from "@/ui/moireLooks";
+import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
@@ -296,7 +296,6 @@ function cutGratings(
   age: number,
   sounding: number,
   shape: Readonly<MoireShape>,
-  folds: number,
   tint: Readonly<ScreenInk>,
 ): boolean {
   const { height, width } = field;
@@ -368,7 +367,6 @@ function cutGratings(
       roamed,
       fractalZoom(turns, agedOpening(age)),
       flight,
-      folds,
     );
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
@@ -518,11 +516,10 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `looks`, every whole-field move the standing rack is making, in the rack's own order and each
  * at the presence the picture has travelled to (`rackLooks`, src/ui/moireLooks.ts, 0279). The chain
  * runs them where the field is taken back out of the screen; the ones that land elsewhere say so
- * at the declaration — how many times the plane is folded before every curved row is cut along it,
- * which reaches the tile's key; how far the finished field is bent, and how much of it is drawn back
- * through itself displaced, both spent in the slices the lens already reads it back in. A picture
- * with nothing standing behind it takes no pass at all, which is the picture drawn before there was
- * a rack in it.
+ * at the declaration — how far the finished field is bent, how much of it is drawn back through
+ * itself displaced and how far the structure tears it, all spent in the slices the lens already
+ * reads it back in (0296). A picture with nothing standing behind it takes no pass at all, which is
+ * the picture drawn before there was a rack in it.
  *
  * And `shape`, how that same rack shapes the whole field (`shapeTravelInto`, src/ui/moireShape.ts,
  * 0278): how tight a lattice stands over it, which is a pattern and costs a fill, and how far the
@@ -573,23 +570,8 @@ export function paintMoire(
     return;
   }
   const dpr = viewOf(canvas).devicePixelRatio;
-  const folds = looksFolds(looks);
   if (
-    !cutGratings(
-      field,
-      ink,
-      rows,
-      windowSecs,
-      dpr,
-      count,
-      wash,
-      seed,
-      age,
-      sounding,
-      shape,
-      folds,
-      tint,
-    )
+    !cutGratings(field, ink, rows, windowSecs, dpr, count, wash, seed, age, sounding, shape, tint)
   ) {
     forget(canvas);
     endPainting();
@@ -601,7 +583,9 @@ export function paintMoire(
   inkThrough(canvas, context, rows, color, tint, wind.drift);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
-  cutField(context, field, rows, looks, shape, wind.veer, sounding);
+  // Handed the stops the pass above roamed to, because the tear an automator makes reads the
+  // structure off the plane the picture already stands on and never off a second one (0296).
+  cutField(context, field, rows, looks, shape, wind.veer, sounding, roamed);
   context.globalCompositeOperation = "source-over";
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).

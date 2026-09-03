@@ -25,10 +25,11 @@ export const DEV_ROUTE = "#/dev";
  */
 export const SKETCH_ROUTE = "#/sketch";
 /**
- * The structure bench, where the automator's mark on the picture — the fractal, the shards, the
- * mirror — is drawn plainly enough to argue about, seven ways. A bench of its own rather than a
- * third list on `#/sketch`, because every picture on it bakes the real escape kernel a pixel at a
- * time and a page that mounts twenty pictures to show seven is a page nobody opens (0295). Deleted
+ * The structure bench, where the automator's mark on the picture — the fractal, the mirror — is
+ * drawn plainly enough to argue about, six ways; the seventh, the shards, won and is the painter's
+ * (0296). A bench of its own rather than a third list on `#/sketch`, because every picture on it
+ * bakes the real escape kernel a pixel at a time and a page that mounts twenty pictures to show
+ * six is a page nobody opens (0295). Deleted
  * with `src/ui/sketch/structure/` the day one of its arguments wins (0247).
  */
 export const STRUCTURE_ROUTE = "#/structure";
