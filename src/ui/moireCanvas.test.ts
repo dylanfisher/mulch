@@ -3,9 +3,12 @@
  *   every row is cut out of ink laid down exactly once, that a row's period is its pitch and its
  *   parameter its angle, that the reference is the axis the rest are read against, and that a
  *   canvas which cannot make the pattern lays down no ink at all.
+ * @instead The tile shop's own cases → src/ui/moireCanvasTiles.test.ts. The band every spacing is
+ *   held inside → src/ui/moireCanvasBand.test.ts. Both split out of this file at the 800-line hard
+ *   cap (0045), and all three paint through the one harness in src/ui/moireCanvasPainted.ts.
  */
-// Every case here paints through the one harness below, so splitting the file would separate the
-// painter's cases from the stand-in canvas they are all made against. See
+// Over the soft file cap: every case here is one painting read off that harness, and a third split
+// would be the same fixtures declared a third time. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 // One over the cap, and the one over it is the session's own row builder: a case that paints what a
@@ -30,7 +33,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { runFeedback } from "@/lib/moireAge";
-import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
+import { gratingDepth, gratingTurns, LATTICE_CELL_PX } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import {
@@ -63,7 +66,7 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
-import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { painterOn, pitchOf, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
 import type { Aim } from "@/lib/moire";
 
@@ -87,10 +90,6 @@ const ARRIVED = Number.POSITIVE_INFINITY;
 const STOOD = fractalStopsRest();
 
 const fedRow = () => row({ period: 3, feedback: 1 });
-
-/** How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with. */
-const pitchOf = (move: Aim | undefined): number =>
-  Math.hypot(move?.a ?? 0, move?.b ?? 0) || Number.NaN;
 
 /**
  * What one aimed grating keeps at a point of the canvas, cutting `depth`: the tile the painter
@@ -337,28 +336,6 @@ describe("moireCanvas", () => {
     expect(drawnGratings([row({ period: 3, pulse: 0.5 })], 0)).toBe(1);
   });
 
-  it("orders the pitches by period, and keeps them all inside the band a lattice needs", () => {
-    // Two gratings only beat into something slow when their pitches are close, so the window's own
-    // spread — better than tenfold across a real yard — is pulled into a narrow band and clamped
-    // there. What survives is the order: a row that comes round often is still drawn finer than a
-    // slow one, and the ratio between them is now near enough one to be seen.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const rows = [row({ period: 0.75 }), row({ period: 2.4 }), row({ period: 12 })];
-    const { aims } = paintedOn(400, 128, rows);
-    expect(aims).toHaveLength(3);
-    const pitches = aims.map((aim) => pitchOf(aim) * TILE_PX);
-    // Ordered, and every one of them the pitch the maths says.
-    expect(pitches[0]).toBeLessThan(pitches[1] ?? 0);
-    expect(pitches[1]).toBeLessThan(pitches[2] ?? 0);
-    for (const [at, each] of rows.entries())
-      expect(pitches[at]).toBeCloseTo(gratingPitch(each.period, WINDOW, 400, 2), 9);
-    // And the whole spread inside a factor a lattice can carry: sixteenfold in periods comes out
-    // under fourfold in pitches, which is the difference between a fringe and a second hatch.
-    const spread = (pitches[2] ?? 0) / (pitches[0] ?? 1);
-    expect(spread).toBeGreaterThan(1);
-    expect(spread).toBeLessThan(4);
-  });
-
   it("fans every parameter to its own angle, and leaves the reference on the axis", () => {
     // A row's angle is its parameter's identity, the way its waveform used to be. The reference is
     // not fanned: it is the axis the others are read against, which is the whole of what being the
@@ -429,23 +406,6 @@ describe("moireCanvas", () => {
     expect(round[0]?.f).toBeCloseTo(first.f, 9);
   });
 
-  it("never draws a grating finer than the pixels can carry, at any window", () => {
-    // A grating finer than a few device pixels is not a fine picture but a shimmering one — it
-    // moves when nothing is moving. The band's own floor is what prevents it, so unlike the ribbon
-    // this replaces there is no separate bound to decline a tightening (0098 amended): nothing can
-    // ask for a pitch outside the band in the first place.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const fast = [row({ period: 0.05 }), row({ period: 900 })];
-    for (const windowSecs of [8, 60, 400, 4000]) {
-      const { aims } = paintedOn(720, 128, fast, 2, windowSecs);
-      const pitches = aims.map((aim) => pitchOf(aim) * TILE_PX);
-      expect(Math.min(...pitches)).toBeGreaterThan(6.9);
-      expect(Math.max(...pitches)).toBeLessThan(28.1);
-    }
-    // And a picture with nothing to scale by falls to the middle of the band rather than to zero.
-    expect(gratingPitch(3, 0, 400, 2)).toBe(14);
-    expect(gratingPitch(0, 20, 400, 2)).toBe(14);
-  });
   it("makes a field of two centres that is neither of the two rows in it alone", () => {
     // A row is measured from somewhere now, and two rows measured from two places cross into a
     // field neither of them holds — which is what a delay set to two times is (0142).
@@ -707,8 +667,8 @@ describe("moireCanvas", () => {
   });
   it("lays the lattice as one cell repeated, turned off the axis and the same a whole period on", () => {
     // The lattice is the straight rows' own pattern path with a cell for a tile: its scale is the
-    // picture's height over the cells the shape says, its turn is off the axis by the lean, and a
-    // whole period on it is the same matrix — a quarter turn and a cell along being symmetries of a
+    // cell's own size in device pixels over the tightening the shape says, its turn is off the
+    // axis by the lean, and a whole period on it is the same matrix — a quarter turn and a cell along being symmetries of a
     // square lattice, so the wrap is invisible (0278).
     const rows = rackRows({ id: "fx1", effect: "delay" });
     const lattice = rows.find((each) => each.geometry === LATTICE_GEOMETRY);
@@ -724,13 +684,25 @@ describe("moireCanvas", () => {
     if (aim === undefined) throw new Error("the lattice was not aimed");
     expect(aim.b).not.toBeCloseTo(0, 9);
     expect(aim.c).not.toBeCloseTo(0, 9);
-    expect(Math.hypot(aim.a, aim.b)).toBeCloseTo(128 / 2 / LATTICE_TILE_PX, 9);
+    expect(Math.hypot(aim.a, aim.b)).toBeCloseTo(LATTICE_CELL_PX / 2 / LATTICE_TILE_PX, 9);
+    // The same cell on a picture ten times as tall — a size in CSS pixels and never a share of the
+    // height (0293) — and twice the cell at twice the device pixels, the one thing that scales it.
+    const cellOn = (height: number, dpr: number): number => {
+      vi.stubGlobal("devicePixelRatio", dpr);
+      const at = paintedOn(400, height, rows, 3, WINDOW, { shape }).aims.at(-1);
+      return Math.hypot(at?.a ?? 0, at?.b ?? 0);
+    };
+    expect(cellOn(1400, 1)).toBeCloseTo(Math.hypot(aim.a, aim.b), 9);
+    expect(cellOn(128, 2)).toBeCloseTo((LATTICE_CELL_PX * 2) / 2 / LATTICE_TILE_PX, 9);
     // Tighter is smaller, and nothing else about it moves.
     vi.stubGlobal("devicePixelRatio", 1);
     const tight = paintedOn(400, 128, rows, 3, WINDOW, { shape: { ...shape, cells: 4 } }).aims.at(
       -1,
     );
-    expect(Math.hypot(tight?.a ?? 0, tight?.b ?? 0)).toBeCloseTo(128 / 4 / LATTICE_TILE_PX, 9);
+    expect(Math.hypot(tight?.a ?? 0, tight?.b ?? 0)).toBeCloseTo(
+      LATTICE_CELL_PX / 4 / LATTICE_TILE_PX,
+      9,
+    );
     expect(Math.atan2(tight?.b ?? 0, tight?.a ?? 0)).toBeCloseTo(Math.atan2(aim.b, aim.a), 9);
     // A whole period on is the same matrix.
     const later = rows.slice();

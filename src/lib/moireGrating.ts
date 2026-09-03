@@ -7,6 +7,7 @@
  *   curved row's tile is written through → src/lib/moireGeometry.ts.
  */
 import { halfCosine, rowOffset, type MoireRow } from "./moire.ts";
+import { devicePx } from "./range.ts";
 
 /**
  * How much light a whole stack of gratings lets through on average — and so, since the picture is
@@ -75,6 +76,26 @@ const PITCH_PX = 7;
 export const PITCH_SPREAD = 2;
 
 /**
+ * How wide one cell of the lattice stands at rest, in CSS pixels — four of the pitch, so the
+ * loosest lattice is a cell the strip's own height and the tightest is a cell of the pitch itself.
+ * A size and not a share of the picture's height (0293): a cell that was a share drew a
+ * thirty-two-pixel box on the strip and a three-hundred-pixel one on a tall window, which is the
+ * same rack reading as two different pictures. Declared here because it is the same kind of number
+ * as `PITCH_PX` and is read against it.
+ */
+export const LATTICE_CELL_PX = PITCH_PX * 4;
+
+/**
+ * The width a row's spread across the picture is read against, in CSS pixels. The window carries
+ * the row's period across the *canvas*, so a canvas twice as wide spreads every row twice as far
+ * and pushes the slow ones onto the band's ceiling, where they all stand at one spacing and stop
+ * fringing against each other — the popped-out picture came out coarser than the strip it was
+ * popped out of rather than bigger (0109, 0293). Reading the spread against one width instead
+ * makes the pitch a fact about the period, and the picture the same picture at both sizes.
+ */
+const PITCH_WIDTH_PX = 720;
+
+/**
  * The ratio that puts a row at the coarse end of that band whatever its period: `gratingPitch`
  * multiplies a row's own ratio into the spacing its period sets and clamps the product to the band,
  * so a ratio of the band's own spread lands at the top of it from anywhere inside. The broadest a
@@ -95,11 +116,18 @@ export const DRIFT_BROADEST_PITCH = PITCH_SPREAD;
 const PITCH_COMPRESS = 0.25;
 
 /**
+ * The finest a row is ever drawn, in device pixels — the floor of the band `gratingPitch` below
+ * holds every row inside, named so that a row whose spacing is swept across the picture can be held to the same floor at its crowded end
+ * rather than sweeping through it (0142).
+ */
+export const gratingFloor = (dpr: number): number => (PITCH_PX * devicePx(dpr)) / PITCH_SPREAD;
+
+/**
  * How far apart one row's fringes stand, in device pixels. The window still carries the row's
- * period across the canvas — a row that comes round often is drawn finer than a slow one, and the
- * order is never disturbed — but the spread of it is pulled into the band a lattice actually
- * happens in, and clamped there. So what two rows beat into is still the ratio of their periods,
- * and it is now a ratio near enough one to be seen.
+ * period across a picture of the reference width — a row that comes round often is drawn finer
+ * than a slow one, and the order is never disturbed — but the spread of it is pulled into the band
+ * a lattice actually happens in, and clamped there. So what two rows beat into is still the ratio
+ * of their periods, and it is now a ratio near enough one to be seen.
  *
  * `ratio` is what the row's own effect is set to, where the period is what the deck is running
  * (0139) — it moves the row inside the band rather than out of it, which is why it is an argument
@@ -109,13 +137,6 @@ const PITCH_COMPRESS = 0.25;
  * finer than `PITCH_PX / PITCH_SPREAD`, which is why this needs no separate bound to decline a
  * tightening the pixels could not carry (0098 amended).
  */
-/**
- * The finest a row is ever drawn, in device pixels — the floor of the band above, named so that a
- * row whose spacing is swept across the picture can be held to the same floor at its crowded end
- * rather than sweeping through it (0142).
- */
-export const gratingFloor = (dpr: number): number => (PITCH_PX * Math.max(1, dpr)) / PITCH_SPREAD;
-
 export const gratingPitch = (
   period: number,
   windowSecs: number,
@@ -123,10 +144,13 @@ export const gratingPitch = (
   dpr: number,
   ratio = 1,
 ): number => {
-  const middle = PITCH_PX * Math.max(1, dpr);
+  const middle = PITCH_PX * devicePx(dpr);
   const band = (pitch: number): number =>
     Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, pitch));
   if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return band(middle * ratio);
-  const across = (width * period) / windowSecs;
+  // How far the row's period reaches across a picture of the reference width, and never across
+  // this one: `width` says there is a canvas to draw on and no longer how coarse it is drawn
+  // (`PITCH_WIDTH_PX`).
+  const across = (PITCH_WIDTH_PX * devicePx(dpr) * period) / windowSecs;
   return band(middle * (across / middle) ** PITCH_COMPRESS * ratio);
 };

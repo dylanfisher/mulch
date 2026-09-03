@@ -47,6 +47,13 @@ export const PRODUCT = "the rows' own product";
 /** The window every painting a case here is drawn across, in seconds. */
 export const WINDOW = 20;
 
+/**
+ * How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with — here
+ * rather than in each file that reads one, because a pitch read two ways is two pitches.
+ */
+export const pitchOf = (move: Aim | undefined): number =>
+  Math.hypot(move?.a ?? 0, move?.b ?? 0) || Number.NaN;
+
 /** How far a deck reads between two paintings that are two frames, in seconds: one at sixty. */
 const FRAME_SECS = 1 / 60;
 

@@ -2,7 +2,9 @@
 
 - **Date:** 2026-08-21
 - **Status:** accepted, amended by
-  [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md)
+  [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md) and
+  [0293](0293-the-picture-holds-its-pitch-when-the-window-grows.md) (one window at two sizes now
+  means one spacing at two sizes: the pitch is read against a reference width, not the canvas)
 
 > **Amended.** One window at both sizes still holds, and so does the reason. What changed is what
 > the window buys: it ordered the rows' pitches directly, and now it orders them through a

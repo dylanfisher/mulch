@@ -3,10 +3,14 @@
  *   and the field showing through the inside. The one geometry that is a pattern rather than a
  *   place — a cell is baked once and the whole lattice is that cell repeated, turned, scaled and
  *   slid — so how tight it is, which way it leans and how it breathes are all free on a frame, and
- *   only the rim's width is baked. Pure maths on cell units, and the one place a cell is a number.
- * @instead Where the cell is baked, beside every other geometry → src/lib/moireGeometry.ts. Where
- *   the lattice is drawn through a pattern → `cutLattice` in src/ui/moireCanvas.ts. How many cells
- *   the rack standing asks for, and the lean and breath the output gives it → src/ui/moireShape.ts.
+ *   only the rim's width is baked. Pure maths on cell units, and the one place a cell's own shape
+ *   is a number.
+ * @instead How wide a cell stands, in CSS pixels, beside the pitch it is read against →
+ *   `LATTICE_CELL_PX` in src/lib/moireGrating.ts. Where the cell is baked, beside every other
+ *   geometry → src/lib/moireGeometry.ts. Where
+ *   the lattice is drawn through a pattern → `cutLattice` in src/ui/moireCanvas.ts. How much tighter
+ *   than that rest the rack standing asks for, and the lean and breath the output gives it →
+ *   src/ui/moireShape.ts.
  *   The bench picture this came off → src/ui/sketch/sketchDrift.ts.
  */
 import { type DriftGeometry, DRIFT_DISPERSE_REACH } from "./moire.ts";
@@ -108,9 +112,11 @@ export function latticeTile(
 }
 
 /**
- * How many cells stand in the picture's height, from the loosest lattice a rack of one draws to
- * the tightest, which `LATTICE_REACH` entries standing earn. Presence-weighted, so an entry fading
- * in tightens the lattice as it arrives and never in one step.
+ * How tight the lattice stands, as a ratio on the cell's own rest size (`LATTICE_CELL_PX`): one at
+ * the loosest lattice a rack of one draws, and the tightest — a cell that fraction of the rest —
+ * what `LATTICE_REACH` entries standing earn. A ratio and not a count per height, because the cell
+ * is a size in CSS pixels and the same size at every picture (0293). Presence-weighted, so an entry
+ * fading in tightens the lattice as it arrives and never in one step.
  */
 export const LATTICE_CELLS: readonly [number, number] = [1, 4];
 export const LATTICE_REACH = 6;

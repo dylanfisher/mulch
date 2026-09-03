@@ -8,7 +8,9 @@
   [0254](0254-the-bench-argues-the-card-fold-by-fold.md)'s rule; extending
   [0246](0246-the-fractal-is-a-row-and-not-a-mask.md) (the field's own geometries),
   [0266](0266-the-picture-travels-its-ink.md) (what a baked reading costs) and
-  [0267](0267-the-rack-tail-blows-the-field.md) (a reading of the population rests on the field)
+  [0267](0267-the-rack-tail-blows-the-field.md) (a reading of the population rests on the field),
+  amended by [0293](0293-the-picture-holds-its-pitch-when-the-window-grows.md) (the lattice's cell
+  is a size in CSS pixels, and what the rack says is how much tighter than it)
 
 **Three of the eight are taken, together, and each lands where its motion is free.** The bench's
 `built` lines said bake-side for all three; two of them are not, because the shot has to move

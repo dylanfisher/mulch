@@ -5,6 +5,14 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * How many device pixels one CSS pixel is on this display, never under one. Every reading in CSS
+ * pixels is spent through this — a pitch, a lattice cell, a hairline — and a display reporting less
+ * than one would otherwise draw them finer than the pixels it has (`gratingFloor`,
+ * src/lib/moireGrating.ts; `hairlinePx`, src/ui/canvasSurface.ts).
+ */
+export const devicePx = (dpr: number): number => Math.max(1, dpr);
+
 export type RangeCurve = "linear" | "log";
 
 function assertLogRange(min: number, max: number): void {

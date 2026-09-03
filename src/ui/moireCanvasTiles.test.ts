@@ -313,8 +313,10 @@ describe("moireCanvas tiles", () => {
     // and more curved rows than the cache holds must still not degrade into a miss on every lookup
     // of every frame, which is what an eviction by age alone does when the rows are walked in the
     // same order each time.
+    // Two periods the band tells apart at this size: the pitch is read against one reference width
+    // now (0293), so a hundred-pixel canvas no longer spreads a yard's own periods across it.
     const many = [0, 0.2, 0.4, 0.6, 0.8].flatMap((centre) =>
-      [3, 11].map((period) => row({ period, geometry: "radial", centre })),
+      [0.05, 3].map((period) => row({ period, geometry: "radial", centre })),
     );
     vi.stubGlobal("devicePixelRatio", 2);
     // One painting each, with the rows left exactly where they stand: a commit and not a frame.
@@ -652,7 +654,10 @@ describe("moireCanvas tiles", () => {
     // (0144).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const alike = [row({ period: 3, geometry: "radial" }), row({ period: 11, geometry: "radial" })];
+    const alike = [
+      row({ period: 0.05, geometry: "radial" }),
+      row({ period: 3, geometry: "radial" }),
+    ];
     const { surfaces } = paintedOn(100, 50, alike, 2, WINDOW, { frames: 1 });
     // One bake a painting, and the row that did not get it has nothing of its own yet: it draws
     // nothing this painting rather than the other row's rings.
@@ -668,7 +673,7 @@ describe("moireCanvas tiles", () => {
     // spacings the band tells apart — which is one automator's run of five chirping effects drawn
     // at three scales each, and then some. Every one of them is a picture-wide pixel loop.
     const swept = [0.15, 0.3, 0.45, 0.6].flatMap((chirp) =>
-      [0.5, 1, 2, 3, 5].map((period) => row({ period, chirp })),
+      [0.05, 0.2, 0.5, 1.2, 3].map((period) => row({ period, chirp })),
     );
     const painted = paintedOn(400, 128, swept, 200, WINDOW, { frames: 3, advance: 0 });
     // Each baked once and then held. Evicting by age alone is a miss on every lookup of every

@@ -5,7 +5,8 @@
  *   move no effect may claim (0278). The reading is taken when a set is built; where the picture has
  *   actually got to is travelled here, one step a frame, on the repo's one rate (`easedToward`,
  *   0266), and carried across a rebuilt set (`carryShape`).
- * @instead The cell itself → src/lib/moireLattice.ts, and where it is spent → `cutLattice` in
+ * @instead The cell itself → src/lib/moireLattice.ts, the size it stands at →
+ *   `LATTICE_CELL_PX` in src/lib/moireGrating.ts, and where both are spent → `cutLattice` in
  *   src/ui/moireCanvas.ts. The bend and the fold, which are sway's and the automator's own declared
  *   looks rather than readings of the rack → src/lib/moireLook.ts and src/ui/moireLooks.ts (0279).
  *   The other whole-field reading of the same population → src/ui/moireWind.ts.
@@ -28,7 +29,8 @@ import type { DeckState } from "@/state/store";
 export type MoireShaping = { standing: number };
 
 /**
- * And where the picture's shape has actually got to: how many cells stand in its height, travelled
+ * And where the picture's shape has actually got to: how much tighter than its rest the lattice's
+ * cell stands (`latticeCells`, a ratio and never a count per height), travelled
  * toward what the shaping says, and — accumulated rather than travelled — how far the warp's wander
  * has gone round, beside the lean and the loudness the output is giving the lattice this moment.
  *
@@ -37,6 +39,7 @@ export type MoireShaping = { standing: number };
  * says where it has got to (`looksWander`, src/ui/moireLooks.ts).
  */
 export type MoireShape = {
+  /** How far the cell is tightened off `LATTICE_CELL_PX`, one at rest. */
   cells: number;
   sway: number;
   lean: number;

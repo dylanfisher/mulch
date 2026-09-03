@@ -86,8 +86,9 @@ What the research found, and what each step stands on:
 **Decided before planning** (2026-09-02): five steps in this order, each with its own gate and,
 where it constrains a later change, its own decision. songs-01 landed as
 [0291](decisions/0291-a-removal-hands-the-list-over.md) and picture-01 as
-[0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md); the next free decision number
-today is 0293.
+[0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md) and picture-02 as
+[0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md); the next free decision
+number today is 0294.
 
 1.  **A song list has a word for the lot, and taking a song away hands the next one over.** _(songs-01)_
     The songs heading takes the rack's row shape and, only while there is a song to take, a
@@ -143,7 +144,19 @@ All` is now `CLEAR_ALL_LABEL`, said once in src/lib/copy.ts for both headings, a
     not push its rows onto the ceiling where they stop fringing. Two single-expression changes;
     the decision is written against 0109 (one picture at two sizes now means one _pitch_ at two
     sizes) and 0278. The bake queue is not this step's: it is measured and, if a 1280×1400 window
-    starves the curved rows, goes to §4 with its number.
+    starves the curved rows, goes to §4 with its number. **Landed,
+    [0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md)**: both numbers are
+    declared in src/lib/moireGrating.ts, which already owns the band — `LATTICE_CELL_PX` is
+    `PITCH_PX * 4` and `PITCH_WIDTH_PX` is 720 — and `latticeCells` keeps its own name and its own
+    `[1, 4]`, now read as the ratio it always was. `aimLattice` takes the dpr the painter already
+    holds, since a cell in CSS pixels is only a cell once the display says how many of its own it
+    is. The proof is the popped-out window photographed at 720×480 and at 1280×1400, base and head
+    interleaved: base drew two lattice bars a picture across at the small size and a coarse plaid at
+    the large one, head drew the same fine diagonal lattice at both, and the strip behind it read a
+    mean of 0.246/0.244 against base's 0.245/0.245 — the picture weighs what it weighed. Three
+    fixtures in src/ui/moireCanvasTiles.test.ts moved their periods apart: the pitch no longer
+    spreads with a hundred-pixel canvas, so periods that used to key two tiles now key one. The
+    cases the band owns are src/ui/moireCanvasBand.test.ts, split off at the hard cap.
 4.  **A wet knob is a look's whole presence, and the picture says so at every setting.** _(picture-03)_
     The plumbing is landed; what is owed is the proof and the shot. One registry-walking case in
     src/ui/moireLooks.test.ts: every entry owning a mix or wet parameter names it as
@@ -374,6 +387,34 @@ and at 7.0, 7.0 and 9.6 px on a three-minute one — the two short ones pinned t
 three-minute yard already read exactly those numbers, and an unlooped one drew no rows at all, so
 the state that got worse does not exist. It is the band's own behaviour at a long reference, which
 is 0278's and picture-02's, and no picture-sized number was added here to bend it.
+
+**picture-02 proved its two sizes by eye, and left the popout unmeasured by the smoke.** The claim
+is about the _size_ of the structure the picture draws, and the two numbers a browser reading gives
+— the mean and the swing across wide blocks — cannot see it: `gratingDepth` solves the picture's
+weight for the count of rows, so the mean is the same by construction, and the coarse swing read
+0.049 at 720×480 and 0.049 at 1280×1400 on base and on head alike. A metric that could see the cell
+would be the lattice's own maths written a second time in scripts/smoke.d/, which is what principle 1
+refuses. So the proof is the photograph: the popped-out window shot at both sizes, base and head
+interleaved, hand-looked at 1:1. The other half of the reason is cost — the same reading taken on
+the _shaped_ rack (a sway and two automators ghosting feedback rows) starved headless SwiftShader at
+1280×1400 and had to be killed after fourteen minutes, which is the ghost-free rule in the harness
+notes. What the smoke still asserts about that window is what it asserted before.
+
+**picture-02 left the bake queue at 1280×1400 argued rather than timed.** The step asked for the
+queue to be measured at that size. What there is: `./scripts/profile` inside this gate reads a
+frame p95 of 10.3ms against the ~10.4ms band with nothing regressed, at the profiler's own window;
+and the reasoning, which the state lens checked independently — the lattice's order carries no
+picture size (its key is `geometry|profile|rim|LATTICE_TILE_PX`), so a cell of a new size costs a
+matrix and no bake, and the curved key already carried `WxH` and so was invalidated by a resize
+either way. What there is not is a stopwatch on a 1280×1400 window: the reading that would have
+taken one starved, above.
+
+**picture-02 normalised the width and not the window, so a long file still pins its short rows to
+the floor.** picture-01 handed over a three-minute unlooped file whose 0.75s and 3s rack rows are
+drawn at `gratingFloor`, and that is the window's number: `moireWindowSecs` multiplies the reference
+by `MOIRE_CYCLES`, and no reference width changes what a period is a share of. The rows are off the
+_ceiling_ everywhere now, which is the half of the band this step was about; the floor at a long
+reference stands where 0292 left it.
 
 **songs-01 landed the clear as a file of its own, and paid for it twice.** The heading's row put
 src/ui/PlayerGrid.tsx at 402 lines against a 400-line warning, so the control and the press it

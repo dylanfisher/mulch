@@ -11,6 +11,7 @@
 import { halfCosine, TAU, turnedScale, type Aim, type MoireRow, type ScreenInk } from "@/lib/moire";
 import { fractalRest } from "@/lib/moireFractal";
 import { centreAcross } from "@/lib/moireGeometry";
+import { LATTICE_CELL_PX } from "@/lib/moireGrating";
 import {
   LATTICE_BREATH,
   LATTICE_GEOMETRY,
@@ -20,6 +21,7 @@ import {
   latticeRim,
 } from "@/lib/moireLattice";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
+import { devicePx } from "@/lib/range";
 import { curvedTileFor, heldStraight, type DriftOrder, type DriftTileImage } from "@/ui/driftTiles";
 import { stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
@@ -109,6 +111,7 @@ export function cutLattice(
   cut: number,
   shape: Readonly<MoireShape>,
   tint: Readonly<ScreenInk>,
+  dpr: number,
   aimed: Aim,
 ): boolean {
   const { height, width } = field;
@@ -126,7 +129,7 @@ export function cutLattice(
     held.tile,
   );
   if (grating === null) return false;
-  aimLattice(row, turns, shape, width, height, aimed);
+  aimLattice(row, turns, shape, dpr, width, height, aimed);
   grating.setTransform(aimed);
   ink.globalAlpha = cut;
   ink.fillStyle = grating;
@@ -135,8 +138,11 @@ export function cutLattice(
 }
 
 /**
- * Point the lattice: one cell scaled to the height over how many cells the shape says, breathing a
- * few percent over the row's period; turned a whole number of quarter turns a period plus the lean
+ * Point the lattice: one cell scaled to its own rest size in device pixels, tightened by the ratio
+ * the shape says and breathing a few percent over the row's period — so the picture is folded into
+ * `height / (LATTICE_CELL_PX · dpr)` cells at rest and that many times more as the rack fills, and
+ * a cell is the same size on a thirty-two-pixel strip and a window fourteen hundred tall (0293).
+ * Turned a whole number of quarter turns a period plus the lean
  * the output gives it; and slid one whole cell a period along its own axis, about the row's own
  * anchor. Every term comes back where it left at the wrap — a square lattice a quarter turn or a
  * cell on is the same lattice — so the phase wrapping is a symmetry and never a snap.
@@ -145,11 +151,12 @@ function aimLattice(
   row: MoireRow,
   turns: number,
   shape: Readonly<MoireShape>,
+  dpr: number,
   width: number,
   height: number,
   aimed: Aim,
 ): void {
-  const cell = height / Math.max(shape.cells, Number.EPSILON);
+  const cell = (LATTICE_CELL_PX * devicePx(dpr)) / Math.max(shape.cells, Number.EPSILON);
   const scale = (cell / LATTICE_TILE_PX) * (1 + LATTICE_BREATH * halfCosine(turns));
   const angle = TAU * ((LATTICE_QUARTERS * turns) / 4 + shape.lean);
   turnedScale(aimed, scale, angle);

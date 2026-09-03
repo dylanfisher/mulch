@@ -10,6 +10,8 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 
+import { devicePx } from "@/lib/range";
+
 import { paced, useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
@@ -92,7 +94,7 @@ export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
  * One CSS pixel wide on this display, never nothing. A function rather than a constant because
  * `devicePixelRatio` moves under zoom, which is exactly what `watchDisplay` above exists to catch.
  */
-export const hairlinePx = (): number => Math.max(1, devicePixelRatio);
+export const hairlinePx = (): number => devicePx(devicePixelRatio);
 
 /** No cadence at all: every ask is a paint, which is what a surface that is cheap to draw wants. */
 const AT_ONCE = (): number => 0;

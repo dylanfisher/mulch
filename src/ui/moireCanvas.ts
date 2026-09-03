@@ -346,7 +346,7 @@ function cutGratings(
     // the rack is fullest — the moment it is tightest and has the most to show.
     if (row.geometry === LATTICE_GEOMETRY) {
       const gutter = washedDepth(row, wash);
-      if (!cutLattice(field, ink, row, turns, gutter, shape, tint, aimed)) return false;
+      if (!cutLattice(field, ink, row, turns, gutter, shape, tint, dpr, aimed)) return false;
       continue;
     }
     if (straight) {
