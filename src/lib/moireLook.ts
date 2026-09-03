@@ -13,8 +13,8 @@
  *   draw is here beside its declaration (0280). The one thing a draw here bakes rather than draws —
  *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286) — and
  *   the one look declared whole in a file of its own, its terms and its draw together, because this
- *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287) and `squashLook` in
- *   src/lib/moireSquash.ts (0288).
+ *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287), `squashLook` in
+ *   src/lib/moireSquash.ts (0288) and `doubleLook` in src/lib/moireDouble.ts (0289).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -23,11 +23,13 @@
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { bandLook } from "@/lib/moireBand";
+import { doubleLook } from "@/lib/moireDouble";
 import { squashLook } from "@/lib/moireSquash";
 import { cosTurn, wrap } from "@/lib/moire";
 import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
 import { LENS_SLICES } from "@/lib/moireGeometry";
 import { clamp, denormalize } from "@/lib/range";
+import { weighed } from "@/lib/moireWeigh";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
 export const LOOK_NAMES = [
@@ -43,6 +45,7 @@ export const LOOK_NAMES = [
   "soften",
   "band",
   "squash",
+  "double",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -67,6 +70,7 @@ export const LOOK_TERMS = [
   "width",
   "floor",
   "ceiling",
+  "zoom",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -130,20 +134,6 @@ export type Look =
   | { at: "pass"; terms: Readonly<Partial<Record<LookTerm, LookRead>>>; pass: LookPass };
 
 /**
- * A share of the picture one pass lays down, under that pass's own ceiling: how present the look has
- * travelled to (0279), times the share its own terms state, times the most of the picture that look
- * ever takes. Both ends closed, because each is read off a number the picture eases toward and a
- * travel is asked for its value before it has arrived.
- *
- * **Three passes weigh a share this way, which is what makes it a helper and not a third copy**
- * (principle 3): the bloom's amount, the echoes' first rung and the sharpen's amount. The ceiling
- * stays each look's own number and is never shared — what a halo may take of the picture is not
- * what a ladder of ghosts may (0280, 0282).
- */
-export const weighed = (presence: number, share: number, ceiling: number): number =>
-  clamp(presence, 0, 1) * clamp(share, 0, 1) * ceiling;
-
-/**
  * The field taken down to a working size and put straight back up over the whole surface — the blur
  * every pass here draws one with is made of, and the only way to draw one under 0129's rules: no
  * `ctx.filter`, no read-back, and a `drawImage` in each direction. The small copy is left on the
@@ -152,7 +142,7 @@ export const weighed = (presence: number, share: number, ceiling: number): numbe
  * corner it was drawn into — carrying `alpha`, because the upscale is where a halo's share rides.
  *
  * **Three passes blur this way, which is what makes it a helper and not a third copy** (principle 3,
- * and `weighed` above said of a draw): the bloom's halo, the sharpen's mask and the soften's whole
+ * and `weighed` said of a share, src/lib/moireWeigh.ts): the bloom's halo, the sharpen's mask and the soften's whole
  * picture. What each does *after* it is what tells the three apart, and stays at each declaration.
  */
 const blurred = (
@@ -751,6 +741,15 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * every composite of the field with itself leaves nought at nought (0269).
    */
   squash: squashLook,
+  /**
+   * Shift's, declared away from here for the band's and the squash's reason and at the same cap
+   * (`doubleLook`, src/lib/moireDouble.ts, 0289): a second picture at the interval's own ratio laid
+   * over the first, zoomed about the middle of the field — because a pass is handed the finished
+   * picture and has no row's anchor to bake about (0278). How far it stands away is the Interval,
+   * in semitones; how much of it is heard is the Mix, which is the knob this entry's presence is
+   * already read off.
+   */
+  double: doubleLook,
 };
 
 /**

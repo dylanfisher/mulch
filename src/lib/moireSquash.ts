@@ -10,6 +10,7 @@
  *   `look` and `lookFrom` on src/audio/effects/compressor.ts.
  */
 import type { Look, LookPass } from "@/lib/moireLook";
+import { weighed } from "@/lib/moireWeigh";
 import { clamp, denormalize } from "@/lib/range";
 
 /**
@@ -50,14 +51,15 @@ export const SQUASH_TOP: readonly [number, number] = [0.7, 1];
  * whichever of the two numbers is asked, and the term says so rather than leaving the presence to
  * say it.
  *
- * A presence times a share under a ceiling is what `weighed` states, and this is that shape spelt
- * out rather than imported: **a look declared in a file of its own may take only _types_ from the
- * contract file**, because the contract file imports this look's own declaration, and a value read
- * back across that cycle is `undefined` at the moment `LOOKS` is built. src/lib/moireBand.ts spells
- * its own out for the same reason and states a second one beside it.
+ * A presence times a share under a ceiling is what `weighed` states, taken **from
+ * src/lib/moireWeigh.ts and never from the contract file**: a look declared in a file of its own may
+ * take only _types_ from there, because the contract file imports this look's own declaration and a
+ * value read back across that cycle is `undefined` at the moment `LOOKS` is built. This file spelt
+ * the shape out by hand until the double made it a third copy, and 0289 moved the declaration to a
+ * module every look reaches instead (principle 3).
  */
 export const squashFloor = (presence: number, floor: number): number =>
-  clamp(presence, 0, 1) * clamp(floor, 0, 1) * SQUASH_FLOOR;
+  weighed(presence, floor, SQUASH_FLOOR);
 
 /**
  * And the top of it — where the mask's covered pixels are brought down to, which is where the

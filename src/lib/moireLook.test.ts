@@ -24,6 +24,8 @@ import {
   bandLifts,
   bandTaper,
 } from "@/lib/moireBand";
+import { DOUBLE_CEILING, DOUBLE_ZOOM, doubleAmount, doubleZoom } from "@/lib/moireDouble";
+import { weighed } from "@/lib/moireWeigh";
 import { SQUASH_FLOOR, SQUASH_TOP, squashCeiling, squashFloor } from "@/lib/moireSquash";
 import {
   BLOCK_HARDENINGS,
@@ -50,7 +52,6 @@ import {
   softenScale,
   SHARPEN_SCALE,
   sharpenAmount,
-  weighed,
   WOBBLE_CEILING,
   WOBBLE_HZ,
   WOBBLE_WAVES,
@@ -96,6 +97,14 @@ const bandTurn = (q: number): number => normalize(q, 0.1, 18, "log");
  * stand on their own knobs.
  */
 const ratioHeard = (ratio: number): number => clamp((ratio - 1) / (4 - 1), 0, 1);
+/**
+ * And a shift's two, whose own declaration reads its presence off the very knob one of its terms is
+ * (src/audio/effects/shift.ts, 0202): how present a mix is heard to be — all the way in at the
+ * entry's own default of a half, which declares no `full` — and where that mix stands on its knob.
+ * The interval is a `value` and so has no turn at all: what the picture reads is its own semitones.
+ */
+const mixHeard = (mix: number): number => clamp(mix / 0.5, 0, 1);
+const mixTurn = (mix: number): number => normalize(mix, 0, 1, "linear");
 const ratioTurn = (ratio: number): number => normalize(ratio, 1, 20, "linear");
 const thresholdTurn = (db: number): number => normalize(db, -60, 0, "linear");
 
@@ -530,5 +539,53 @@ describe("what a look is", () => {
     expect(standing).toBeGreaterThan(0);
     expect(standing).toBeLessThan(SQUASH_FLOOR);
     expect(squashCeiling(ratioHeard(4), thresholdTurn(-24))).toBeLessThan(1);
+  });
+
+  // P289: shift's, and the ninth look to take a slot in the chain (0289).
+  it("stands a second picture at the interval's own ratio, at a share of the first", () => {
+    expect(LOOKS.double.at).toBe("pass");
+    // The zoom is the interval's own semitones and not a turn of its knob, because how far apart
+    // two voices stand is the musical distance; the amount is the Mix's turn, weighed under a
+    // ceiling of its own.
+    expect(LOOKS.double.terms).toEqual({ zoom: "value", amount: "turn" });
+    // The ratio is a doubling an octave: the unison stands the second picture exactly on the first,
+    // an octave up draws it twice the size, and **a downward interval zooms it in under one** —
+    // which is the half of this the band's shut end holds.
+    expect(doubleZoom(0)).toBe(1);
+    expect(doubleZoom(12)).toBe(2);
+    expect(doubleZoom(-12)).toBe(0.5);
+    expect(doubleZoom(-12)).toBeLessThan(1);
+    expect(doubleZoom(-1)).toBeLessThan(1);
+    expect(doubleZoom(-1)).toBeGreaterThan(DOUBLE_ZOOM[0]);
+    // And the band is the two octaves the entry declares either way, closed at both ends: a lane
+    // that walked the term past its own knob still draws a picture the field's own size bounds.
+    expect(DOUBLE_ZOOM).toEqual([1 / 4, 4]);
+    for (const semitones of [-96, -24, -7, 0, 7, 24, 96]) {
+      expect(doubleZoom(semitones)).toBeGreaterThanOrEqual(DOUBLE_ZOOM[0]);
+      expect(doubleZoom(semitones)).toBeLessThanOrEqual(DOUBLE_ZOOM[1]);
+    }
+    // The amount stays inside its own band at every input there is, and never reaches the whole of
+    // itself: a second picture laid at one replaces the first everywhere it lands, which is a
+    // transposition and not a doubling.
+    expect(DOUBLE_CEILING).toBeGreaterThan(0);
+    expect(DOUBLE_CEILING).toBeLessThan(1);
+    for (const presence of [0, 0.25, 0.5, 1]) {
+      for (const amount of [0, mixTurn(0.5), 1]) {
+        expect(doubleAmount(presence, amount)).toBeGreaterThanOrEqual(0);
+        expect(doubleAmount(presence, amount)).toBeLessThanOrEqual(DOUBLE_CEILING);
+      }
+    }
+    expect(doubleAmount(1, 1)).toBe(DOUBLE_CEILING);
+    // **The Mix is read twice and both readings stand at nought in the same place** (0202): a shift
+    // heard as nothing lays no second picture whichever number is asked, and one the picture has
+    // not travelled to yet lays none either.
+    expect(doubleAmount(mixHeard(0), mixTurn(0))).toBe(0);
+    expect(doubleAmount(0, 1)).toBe(0);
+    // At its own default the double is visibly there and a long way off the most it can do, and a
+    // wetter mix lays more of it.
+    const standing = doubleAmount(mixHeard(0.5), mixTurn(0.5));
+    expect(standing).toBeGreaterThan(0);
+    expect(standing).toBeLessThan(DOUBLE_CEILING);
+    expect(doubleAmount(mixHeard(1), mixTurn(1))).toBeGreaterThan(standing);
   });
 });

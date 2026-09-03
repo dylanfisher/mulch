@@ -13,9 +13,11 @@ import { TONE_REF_HZ } from "./waveform.ts";
 /**
  * Semitones per octave, and the cents one semitone is worth — the two constants that turn a
  * pitch in semitones into the doubling `AudioBufferSourceNode` applies to its read rate. Written
- * here because the rate maths below is the reason they exist (0031).
+ * here because the rate maths below is the reason they exist (0031). The octave is exported
+ * because an interval is the same doubling whichever sense it reaches — the shift's look zooms a
+ * second picture by it (`doubleZoom`, src/lib/moireDouble.ts) exactly as the rate below reads by it.
  */
-const SEMITONES_PER_OCTAVE = 12;
+export const SEMITONES_PER_OCTAVE = 12;
 export const CENTS_PER_SEMITONE = 100;
 
 /**

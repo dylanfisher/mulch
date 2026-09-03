@@ -50,7 +50,10 @@ _types_ from the contract file**, because the contract file imports the look's d
 value read back across that cycle is `undefined` at the moment `LOOKS` is built — two cases of
 src/lib/moireLook.test.ts fail on it. `weighed` and the blocks' walk stay where they are, and the
 walk's third site is here without folding them: that wants a module neither cycle reaches, which is
-four passes' worth of change and no part of this step.
+four passes' worth of change and no part of this step. (The double made `weighed` a third copy one
+step later, and [0289](0289-a-shift-doubles-the-picture.md) moved that one shape into
+src/lib/moireWeigh.ts — a module every look reaches and which imports none of them. The walk stays
+here.)
 
 **The floor stays under the ceiling at every input, and the two numbers are what keep it there.**
 The floor reaches `SQUASH_FLOOR` — 0.2 of full coverage — and the ceiling never falls under the shut

@@ -134,6 +134,15 @@ export const shiftEffect = defineEffect({
     { param: "shift.interval", into: "pitch" },
     { param: "shift.mix", into: "depth" },
   ],
+  // A second picture at the interval's own ratio, laid over the first: how far it is zoomed is the
+  // Interval, in the semitones it is declared in — the one look term that is a ratio, for the reason
+  // `pitch` above is one (0139) — and how much of it is heard is the Mix, the same knob this entry's
+  // presence is read off, the two agreeing at no mix at all (0202, 0289).
+  look: "double",
+  lookFrom: [
+    { param: "shift.interval", into: "zoom" },
+    { param: "shift.mix", into: "amount" },
+  ],
   // The detune is the interval said finer, and the interval already stands in `pitch`. A second
   // value on one dimension is the contradiction the registry refuses, and a cent is under a
   // hundredth of the travel the semitones already draw — so it reaches the picture through the

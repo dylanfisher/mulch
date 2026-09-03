@@ -764,7 +764,14 @@ whole-field move is the size a glance reads at.
   Ratio and its Threshold are declared on the compressor entry, the Ratio read twice and agreeing
   with its own presence at one to one, and its maths and its draw are whole in a file of its own
   (`squashLook`, src/lib/moireSquash.ts) because the contract file stood at the cap yet again —
-  then shift, scatter.
+  then shift — **landed, [0289](decisions/0289-a-shift-doubles-the-picture.md)**: the double takes
+  the ninth slot, and it is the pass that scales rather than slides — the field drawn again over
+  itself at the interval's own doubling, about the middle of the field, because a pass is handed the
+  finished picture and has no row's anchor to bake about (0278); its Interval and its Mix are
+  declared on the shift entry, the Interval the one term after the warp's wander read as a `value`
+  because a musical distance is a ratio and not a knob's place on its range, and its maths and its
+  draw are whole in a file of its own (`doubleLook`, src/lib/moireDouble.ts) at the same cap for the
+  third time. Every registered entry now declares a look — then scatter.
 - **The paint may slow under a full rack** — **landed,
   [0284](decisions/0284-a-long-chain-paints-half-as-often.md)**: `DRIFT_PAINT_HZ` (24) stays the
   ceiling; a chain longer than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve
@@ -791,7 +798,7 @@ whole-field move is the size a glance reads at.
 | filter     | **soften** (landed, 0286) — fine detail dissolves as the cutoff falls                 | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom — and the band closes at the field itself, where the entry's own presence already stands at nought                                      |
 | eq         | **band** (landed, 0287) — one lit band across the field at the frequency              | frequency → position, gain → lift or cut, q → width                        | the band's slice taken out `destination-out` (lift) or re-laid `source-over` (cut) — the shot's way round, because the field is a hole mask — in nested slices, so the width softens the edges                                                       |
 | compressor | **squash** (landed, 0288) — range flattened toward mid, windows dim, ink thins        | ratio → floor, threshold → ceiling                                         | the field drawn at the ceiling's own share and one flat alpha laid `destination-over` at the floor — the floor is the chain's one fill, because it is a level laid where the mask has none and no draw of the field can be; the ceiling stays a draw |
-| shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                                                      |
+| shift      | **double** (landed, 0289) — a second picture at the interval's ratio                  | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                                                      |
 | scatter    | **shatter** (landed, 0269; declared, 0279) — pieces drawn from elsewhere in the field | odds → share, span → piece size                                            | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                                                                                                                               |
 | sway       | **warp** (landed, 0278; declared, 0279)                                               | depth → bend, rate → wander                                                | as today                                                                                                                                                                                                                                             |
 | automator  | **fold** (landed, 0278; declared, 0279)                                               | none — one fold per automator standing                                     | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                                                                                                                                   |
@@ -888,7 +895,8 @@ its look out of the picture over the wind's seconds rather than between two fram
 4.  A decision record per step, no longer than the decision is. The first amended 0278 (three
     readings became three declared looks; the lattice alone stays the rack's) and is 0279; the
     bloom's is 0280, the blocks' is 0281, the echoes' is 0282, the sharpen's is 0283, the cadence's
-    is 0284, the wobble's is 0285, the soften's is 0286 and the band's is 0287. Next free today is 0288.
+    is 0284, the wobble's is 0285, the soften's is 0286, the band's is 0287, the squash's is 0288
+    and the double's is 0289. Next free today is 0290.
 
 ## Refused
 
@@ -1047,6 +1055,16 @@ field drawn at the ceiling's own share are the same arithmetic on a cleared surf
 draws it and 0269's rule gains an exception one composite wide instead of two — stated at the
 declaration, back-linked from 0269 and asserted in src/ui/moireCanvasField.test.ts rather than left
 to a reader.
+
+**A double zoomed about a row's own anchor, refused.** The plan says the second picture is scaled
+about "the anchor", and the anchor in the painter is a row's: a curved row's tile is baked and
+zoomed about the point that row is read from (`aimCurved`, src/ui/moireCanvasCurved.ts) and the fold
+is a bake on that same coordinate (0278). A pass cannot have it. It is handed the _finished_ field
+with every row already cut into one picture, so there is no row to ask — the boldest row's would be
+one row's anchor speaking for a picture the whole rack drew, and it would slide the second picture
+across the first whenever a different row got bold. The double scales about the middle of the field
+instead, which is the one point every pass shares (0289). The draw itself is the plan's, unnarrowed:
+one `source-over` of the field at the interval's ratio, at the amount.
 
 **Crush's loaded factor, measured and kept.** Landing crush (`4f16805`) dropped `./scripts/profile`'s
 loaded factor from 26.4x to 16.0x — a flat ~395ms on the 16s loaded render, reproducible across three
