@@ -62,6 +62,7 @@ import {
   LOOKS,
   RESERVED_LOOKS,
 } from "@/lib/moireLook";
+import { SHATTER_BANDS, shatterBands, SHATTER_CEILING, shatterPieces } from "@/lib/moireGeometry";
 import { clamp, normalize } from "@/lib/range";
 
 /**
@@ -108,6 +109,14 @@ const mixTurn = (mix: number): number => normalize(mix, 0, 1, "linear");
 const ratioTurn = (ratio: number): number => normalize(ratio, 1, 20, "linear");
 const thresholdTurn = (db: number): number => normalize(db, -60, 0, "linear");
 
+/**
+ * And a scatter's one: where a window's length stands on the log range the entry declares it over
+ * (src/audio/effects/scatter.ts). The share has no helper here — how present a scatter is heard to
+ * be is `rackScatter`'s band and not one instance's knob, which is src/ui/moireLooks.test.ts's own
+ * case (0269).
+ */
+const spanTurn = (span: number): number => normalize(span, 0.01, 1, "log");
+
 // One flat list of what the contract is, a case per question it answers (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("what a look is", () => {
@@ -140,10 +149,10 @@ describe("what a look is", () => {
       }
     }
     // The three that stand: the warp bends on a turn of its own range and wanders in the parameter's
-    // own units, the shatter takes a share on a turn, and the fold reads nothing at all — how many
-    // times the plane is folded is how many automators are standing (0278).
+    // own units, the shatter takes a share and a piece size on two turns, and the fold reads nothing
+    // at all — how many times the plane is folded is how many automators are standing (0278).
     expect(LOOKS.warp.terms).toEqual({ bend: "turn", wander: "value" });
-    expect(LOOKS.shatter.terms).toEqual({ share: "turn" });
+    expect(LOOKS.shatter.terms).toEqual({ share: "turn", size: "turn" });
     expect(LOOKS.fold.terms).toEqual({});
     expect(LOOKS.fold.at).toBe("bake");
     // And where a look lands and whether it carries a draw of its own are one fact: every look that
@@ -587,5 +596,50 @@ describe("what a look is", () => {
     expect(standing).toBeGreaterThan(0);
     expect(standing).toBeLessThan(DOUBLE_CEILING);
     expect(doubleAmount(mixHeard(1), mixTurn(1))).toBeGreaterThan(standing);
+  });
+
+  // P290: scatter's, and the last look to gain a term — the pass itself landed at 0269 and is cut
+  // through the slices rather than drawn in the chain (0290).
+  it("breaks the field into whole pieces, as big as the span is long", () => {
+    expect(LOOKS.shatter.at).toBe("cut");
+    // Both terms are turns of their own knobs: how many pieces are drawn from elsewhere is the
+    // Odds, and how big each piece is, is the Span.
+    expect(LOOKS.shatter.terms).toEqual({ share: "turn", size: "turn" });
+    // The count runs from eighths at the shut end of the span to halves at the open one, and stays
+    // inside that band at every reading there is, a lane past either end of the knob included.
+    expect(shatterBands(0)).toBe(SHATTER_BANDS[0]);
+    expect(shatterBands(1)).toBe(SHATTER_BANDS[1]);
+    for (const size of [-1, 0, 0.2, spanTurn(0.12), 0.5, 0.9, 1, 2]) {
+      expect(shatterBands(size)).toBeGreaterThanOrEqual(SHATTER_BANDS[1]);
+      expect(shatterBands(size)).toBeLessThanOrEqual(SHATTER_BANDS[0]);
+      // And it is a whole count of pieces at every one of them: there is no half a piece of a
+      // picture, and a count that stepped would be a band cut at a fraction of a slice.
+      expect(shatterBands(size)).toBe(Math.round(shatterBands(size)));
+    }
+    // A longer window is a longer piece and never a shorter one, all the way along the knob.
+    const walked = [0, 0.25, 0.5, 0.75, 1].map((size) => shatterBands(size));
+    for (let at = 1; at < walked.length; at++) {
+      expect(walked[at] ?? 0).toBeLessThanOrEqual(walked[at - 1] ?? 0);
+    }
+    expect(new Set(walked).size).toBeGreaterThan(1);
+    // At its own default the span breaks the field into more than the fewest pieces and fewer than
+    // the most, so the picture reads as broken at either end of the knob from there.
+    const standingSize = shatterBands(spanTurn(0.12));
+    expect(standingSize).toBeGreaterThan(SHATTER_BANDS[1]);
+    expect(standingSize).toBeLessThan(SHATTER_BANDS[0]);
+    // However big the pieces are, never more than half of them are drawn from somewhere else: a
+    // picture drawn entirely from elsewhere is a picture of nothing (0250, 0269).
+    for (const size of [0, 0.5, 1]) {
+      expect(shatterPieces(1, size)).toBeLessThanOrEqual(SHATTER_CEILING * shatterBands(size));
+      expect(shatterPieces(1, size)).toBeGreaterThanOrEqual(1);
+    }
+    // And a coarse count cannot honour a fine share: at the open end the picture is two pieces, so
+    // a rack asking for a fifth of it drawn from elsewhere breaks nothing — a piece is drawn whole
+    // or not at all (0269) and half the picture is the most there may be (0250), which together
+    // leave a share smaller than the pieces are with nothing to spend itself on. The shut end,
+    // where the pieces are eighths, spends the same share on one of them.
+    expect(shatterPieces(0.4, 1)).toBe(0);
+    expect(shatterPieces(0.4, 0)).toBe(2);
+    expect(shatterPieces(1, 1)).toBe(1);
   });
 });

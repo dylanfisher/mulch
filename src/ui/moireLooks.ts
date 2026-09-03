@@ -5,7 +5,8 @@
  *   actually got to, travelled here one step a frame on the repo's one rate (`easedToward`, 0266)
  *   and carried across a rebuilt set by instance id (`carryLooks`, src/ui/moireCarry.ts). Beside
  *   them the reductions the painting spends: how far the field is bent, how fast that bend wanders,
- *   how many times the plane is folded, how much of the picture is drawn from elsewhere in it — and
+ *   how many times the plane is folded, how much of the picture is drawn from elsewhere in it and in
+ *   how big a piece — and
  *   how often a picture carrying this chain is painted at all (0284).
  * @instead What a look *is* — its name, its terms, how each is read and where it lands →
  *   src/lib/moireLook.ts, which the entries declare themselves into. The lattice, which is the one
@@ -49,9 +50,9 @@ export type MoireLook = {
  * on a frame (0070).
  *
  * **A bypassed entry is in none of it**, the test every reading of the population is built through:
- * what nobody can hear is not in the picture. An entry with no look declared yet is in none of it
- * either — its pass has not landed — and an entry whose presence cannot be stated is skipped rather
- * than weighed at nothing (`rackWind`, principle 5).
+ * what nobody can hear is not in the picture. Every registered entry declares a look and the
+ * registry refuses one that does not (0290), so nothing is skipped for want of one; an entry whose
+ * presence cannot be stated is skipped rather than weighed at nothing (`rackWind`, principle 5).
  *
  * **An entry that declares no honest presence stands at one.** The automator is the only one, and
  * it is right: what it is doing to the picture is holding a run at all, so it is either in the rack
@@ -63,7 +64,6 @@ export function rackLooks(effects: DeckState["effects"]): MoireLook[] {
     if (instance.bypassed) continue;
     const entry = effectById(instance.effect);
     const look = entry.look;
-    if (look === undefined) continue;
     const presence = "none" in entry.presence ? 1 : effectHeard(instance.effect, instance.params);
     if (presence === null) continue;
     const terms: Partial<Record<LookTerm, number>> = {};
@@ -219,7 +219,7 @@ export function looksPaintMs(looks: readonly MoireLook[]): number {
 }
 
 /**
- * The pairs the shatter's own reduction reads, kept rather than built: the four reductions here are
+ * The pairs the shatter's own reduction reads, kept rather than built: the reductions here are
  * spent once a painting on the frame path, and this is the only one whose maths takes a list (0070).
  * Filled and trimmed in place, and never held past the call below.
  */
@@ -242,4 +242,21 @@ export function looksShatter(looks: readonly MoireLook[]): number {
   }
   broken.length = at;
   return rackScatter(broken);
+}
+
+/**
+ * And how big a piece of the picture each of those is: the standing scatters' own spans, weighted by
+ * how present each is. A mean and not a sum, for the wander's reason — a knob moves how long a
+ * window is and never how many of them there are, and two scatters break one field into pieces of
+ * one size, which the share above is what makes twice as many of (0290).
+ */
+export function looksShatterSize(looks: readonly MoireLook[]): number {
+  let size = 0;
+  let weight = 0;
+  for (const look of looks) {
+    if (look.look !== "shatter") continue;
+    size += look.at * termAt(look, "size");
+    weight += look.at;
+  }
+  return weight > 0 ? size / weight : 0;
 }

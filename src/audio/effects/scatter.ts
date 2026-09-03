@@ -148,9 +148,14 @@ export const scatterEffect = defineEffect({
   // And the whole-field move a scatter makes: the picture read back out of order, a share of it
   // drawn from somewhere else along itself (0269, 0279). How much of it is that share is how
   // crowded the windows are, on Odds' own range — the reading this entry's claim on the field has
-  // always been, now declared here rather than read off the id in a pass of its own.
+  // always been, now declared here rather than read off the id in a pass of its own. And how big
+  // each of those pieces is, is Span: a window's length is how long a piece of what was heard this
+  // stage holds, so it is how long a piece of the picture the field comes apart into (0290).
   look: "shatter",
-  lookFrom: [{ param: "scatter.odds", into: "share" }],
+  lookFrom: [
+    { param: "scatter.odds", into: "share" },
+    { param: "scatter.span", into: "size" },
+  ],
   // Exactly the capture, and exactly once: a window is taken from the stage's own last few seconds
   // and can reach no further back than they go, so when the capture has been overwritten once this
   // stage is playing back only what it is being given now.

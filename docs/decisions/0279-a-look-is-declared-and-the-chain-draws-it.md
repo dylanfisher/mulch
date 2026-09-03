@@ -21,7 +21,8 @@ speed. No code outside that file knows which.
 and the passes land one effect a step, so an entry cannot name one before its own step; three name
 one today. The field becomes required on the step that gives the last effect its look, and until
 then an entry that maps terms without a look is refused, which is the same silence from the other
-side.
+side. **Come due**: the scatter's own term was that last step, and
+[0290](0290-the-scatter-breaks-the-picture-into-its-own-spans.md) made the field required.
 
 **The picture is `rackLooks`, and it travels per instance.** The standing, unbypassed instances in
 rack order, each `{ key, look, presence, terms }` read once when a set is built because it is a fact

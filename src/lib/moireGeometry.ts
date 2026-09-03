@@ -11,12 +11,17 @@
  *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
  *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
+// Over the soft cap and a long way under the hard one: the lens's slices, the warp's and the
+// shatter's own reading of them are one geometry read three ways — the same sixty-four bands of the
+// finished field — and a shatter split into a file of its own would be a piece size stated away
+// from the slices it is a count of. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { cosTurn, DRIFT_TRAVEL_CYCLES, TAU, wrap, type DriftGeometry } from "./moire.ts";
 import { escapeTurns, nestedTurns, type FractalSeed } from "./moireFractal.ts";
 import { type Folded, foldPlane } from "./moireFold.ts";
 import { LATTICE_GEOMETRY, latticeTile } from "./moireLattice.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
-import { clamp } from "./range.ts";
+import { clamp, denormalize } from "./range.ts";
 
 /**
  * How far in from the edges a row's anchor may be carried, as a fraction of the picture. A knob at
@@ -332,54 +337,103 @@ export const SHATTER_CEILING = 0.5;
 export const shatterShare = (amount: number): number => SHATTER_CEILING * clamp(amount, 0, 1);
 
 /**
- * How many pieces a shattered field comes apart into. Eight, where the lens bends the same field in
- * sixty-four: a slice is one pixel of a strip and a bend across sixty-four of them is one smooth
- * wave, where a *displacement* that changed every pixel would be a tear so fine the picture reads as
- * smeared rather than as broken. Eight pieces are each a band deep enough to see a straight row
- * inside, and the row is what has to be seen breaking across the edge between two of them.
+ * How many pieces a shattered field comes apart into, at the shut end of the span and at the open
+ * one — the shut end first, which is how every other band the picture walks down is written
+ * (`BLOOM_SCALE`, `BLOCK_PIXELS`, src/lib/moireLook.ts).
+ * Eight, where the lens bends the same field in sixty-four: a slice is one pixel of a strip and a
+ * bend across sixty-four of them is one smooth wave, where a *displacement* that changed every pixel
+ * would be a tear so fine the picture reads as smeared rather than as broken. Eight pieces are each
+ * a band deep enough to see a straight row inside, and the row is what has to be seen breaking
+ * across the edge between two of them.
+ *
+ * **Halves at the open end and not the whole picture** (0290): one piece drawn from somewhere else
+ * along a width it is the whole of is that width wrapped onto itself, which is the picture exactly
+ * where it was — so a count of one is the pass switched off rather than the biggest piece it has,
+ * and two is the fewest pieces a break can be seen between.
  */
-export const SHATTER_BANDS = 8;
+export const SHATTER_BANDS: readonly [number, number] = [8, 2];
+
+/**
+ * How many pieces a field whose windows are `size` long comes apart into: the band above, walked
+ * from eighths at the shut end of the span to halves at the open one and stepped to a whole count,
+ * because a piece is a slice of the picture and there is no such thing as four and a half of them.
+ * A longer window is a longer piece of what was heard, and a longer piece of the picture with it.
+ */
+export const shatterBands = (size: number): number =>
+  Math.round(denormalize(size, ...SHATTER_BANDS));
 
 /**
  * How many of those pieces a field shattering `amount` draws from elsewhere: the share above, in
- * eighths. **Whole pieces and never a share of every piece.** Two draws of one band under
+ * pieces. **Whole pieces and never a share of every piece.** Two draws of one band under
  * `destination-out` compose multiplicatively rather than as a crossfade — the residual is the
  * product of what each of them left, largest exactly at a half — so a picture blended with a
  * displaced copy of itself is a picture hazed evenly all over, which is the flattening that reading
  * is supposed to break. A piece is therefore drawn from where it belongs or from somewhere else,
  * cut once either way, and the share is how many of them are the second kind.
+ *
+ * Rounded to the nearest piece and then held under the ceiling in whole ones, because a count that
+ * rounded up would spend more than half the picture at counts the half does not divide.
+ *
+ * **A coarse count cannot honour a fine share, and answers nothing rather than too much.** At the
+ * open end of the span the picture is two pieces, so the only breakable amount is a half of it —
+ * anything under a quarter of the width asked for rounds to no piece at all and the picture stands
+ * exactly where it was. That is 0269's rule meeting 0250's bound rather than a floor missing here:
+ * a piece is drawn whole or not at all, and half the picture is the most that may be drawn from
+ * elsewhere, so a share smaller than the pieces are is a share this count has no way to spend.
  */
-export const shatterPieces = (amount: number): number =>
-  Math.round(shatterShare(amount) * SHATTER_BANDS);
+export const shatterPieces = (amount: number, size: number): number => {
+  const bands = shatterBands(size);
+  return Math.min(Math.round(shatterShare(amount) * bands), Math.floor(SHATTER_CEILING * bands));
+};
 
 /** Which of those pieces one slice of the field belongs to. */
-const shatterBand = (slice: number, slices: number): number =>
-  Math.floor((slice * SHATTER_BANDS) / Math.max(1, slices));
+const shatterBand = (slice: number, slices: number, bands: number): number =>
+  Math.floor((slice * bands) / Math.max(1, slices));
 
 /**
- * How many pieces along the walk steps to find where a displaced piece is drawn from. Coprime with
- * `SHATTER_BANDS`, so the walk is a permutation of the picture's own width — every piece is drawn
- * from a different distance along it and no two from the same — and far enough along that
- * neighbouring pieces are never displaced by neighbouring amounts, which would be the picture bent
- * rather than broken.
+ * How many pieces along the walk steps to find where a displaced piece is drawn from: the longest
+ * step no further than half the picture that is coprime with the count of pieces, and one where the
+ * count has no such step. Coprime, so the walk is a permutation of the picture's own width — every
+ * piece is drawn from a different distance along it and no two from the same — and as long as that
+ * leaves it, so that neighbouring pieces are displaced by neighbouring amounts as rarely as a count
+ * allows, a picture stepped by one being bent rather than broken.
  */
-const SHATTER_STRIDE = 3;
+const shatterStride = (bands: number): number => {
+  for (let step = Math.floor(bands / 2); step > 1; step--) {
+    let a = step;
+    let b = bands;
+    while (b > 0) {
+      const rest = a % b;
+      a = b;
+      b = rest;
+    }
+    if (a === 1) return step;
+  }
+  return 1;
+};
 
 /**
  * How far along the picture one slice is drawn from, as a fraction of its width: nought where the
- * piece it belongs to is drawn from where it belongs, and one of the walk's own eighths where it is
- * one of the pieces the share has broken. The whole width in eighths and not a span of a twentieth,
+ * piece it belongs to is drawn from where it belongs, and one of the walk's own pieces where it is
+ * one of the pieces the share has broken. The whole width in pieces and not a span of a twentieth,
  * which is what separates this from the lens beside it: a lens slides every slice a little on one
  * wave and reads as the field bending, where this draws a whole piece of the picture from somewhere
  * else in it and breaks every straight row across that piece's edge.
  *
- * Which pieces break is the walk's own order and never the first few, so a broken field comes apart
- * across the whole of itself rather than at one end of it; the piece the walk leaves where it is is
+ * Which pieces break is the walk's own order, so wherever the count leaves the stride above one a
+ * broken field comes apart across the whole of itself rather than at one end of it; the piece the
+ * walk leaves where it is is
  * the one it never breaks. Stable at every frame, because the displacement is where the field is
  * read from and not a motion of its own: what moves under it is the field, and a source that
  * wandered per frame would be a picture of noise (0126).
  */
-export const shatterSlide = (amount: number, slice: number, slices: number): number => {
-  const step = (shatterBand(slice, slices) * SHATTER_STRIDE) % SHATTER_BANDS;
-  return step >= 1 && step <= shatterPieces(amount) ? step / SHATTER_BANDS : 0;
+export const shatterSlide = (
+  amount: number,
+  size: number,
+  slice: number,
+  slices: number,
+): number => {
+  const bands = shatterBands(size);
+  const step = (shatterBand(slice, slices, bands) * shatterStride(bands)) % bands;
+  return step >= 1 && step <= shatterPieces(amount, size) ? step / bands : 0;
 };

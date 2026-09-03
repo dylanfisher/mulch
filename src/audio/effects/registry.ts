@@ -99,11 +99,12 @@ export type EffectAutomationParamId = AutomationParamsOf<(typeof EFFECTS)[number
  * painter as a move nothing draws, two entries on one look would draw the same move twice and read
  * as more of one thing, and the lattice is the whole rack standing and no plugin's (0278).
  *
- * **An entry with no look is not a failure yet.** A look is drawn by the maths `LOOKS` holds for
- * it and the passes land one a step, so an entry cannot name one before its own step; what is
- * checked is that an entry which *does* name one names it honestly. Every term the look declares is
- * reached and no other, because a look reading a number nobody stated is the silence a registry
- * answers for.
+ * **And an entry with no look is a failure** (0290). It was not while the passes were landing one a
+ * step, because no entry can name a look before the maths that draws it exists; every one of them
+ * has landed, so an entry that names none is an effect a glance at the picture cannot find. The
+ * type says so too, and this says it of a declaration reaching the registry from outside the
+ * literal. Every term the look declares is reached and no other, because a look reading a number
+ * nobody stated is the silence a registry answers for.
  *
  * Its own function rather than another paragraph of `validateEffects`, which is already waived at
  * the line cap: this is a rule about a different declaration and reads on its own.
@@ -113,12 +114,10 @@ function validateLook(effect: Effect, owned: ReadonlySet<string>, seen: Set<stri
   // declaration reaching the registry from outside its own literal, which is what a plugin written
   // by hand is (0122).
   const look: string | undefined = effect.look;
-  if (look === undefined) {
-    if (effect.lookFrom !== undefined) {
-      throw new Error(`effect maps look terms without a look: ${effect.id}`);
-    }
-    return;
-  }
+  // The type says an entry has one; a plugin written by hand is exactly the one that arrives
+  // without, which is the shape this whole function exists to catch (0122, 0290).
+  // oxlint-disable-next-line no-unnecessary-condition
+  if (look === undefined) throw new Error(`effect declares no look: ${effect.id}`);
   if (!isLookName(look)) throw new Error(`unknown effect look: ${effect.id}.${look}`);
   if (RESERVED_LOOKS.includes(look)) {
     throw new Error(`effect claims a reserved look: ${effect.id}`);

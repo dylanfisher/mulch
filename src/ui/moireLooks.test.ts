@@ -2,8 +2,9 @@
  * @role Tests the looks a standing rack gives the picture: that they are read off the entries'
  *   declarations in the rack's own order and off nothing else, that each travels its presence at the
  *   shape's own rate and arrives outright on a halted yard, that a look the rack has let go of is
- *   dropped on the frame it reaches nought, and that the four reductions the painting spends — the
- *   bend, the wander, the folds and the share — say what the rack it can hear says (0269, 0278, 0279).
+ *   dropped on the frame it reaches nought, and that the five reductions the painting spends — the
+ *   bend, the wander, the folds, the share and the piece size — say what the rack it can hear says
+ *   (0269, 0278, 0279, 0290).
  * @instead What a look *is*, and what the registry refuses of one → src/lib/moireLook.test.ts and
  *   src/audio/effects/registry.test.ts. The shatter's own arithmetic, over the band it is stated on
  *   → src/lib/moireSound.test.ts; the slices it is drawn through → src/lib/moireGeometry.test.ts,
@@ -12,8 +13,11 @@
  *   is no effect's → src/ui/moireShape.test.ts.
  */
 // One reading's own cases over one population, and a test file's imports are the modules the
-// reading reaches. See docs/decisions/0007-reviewed-oversized-functions.md.
+// reading reaches. Over the soft cap with the piece size's own case (0290): the reductions are five
+// readings of one rack, and a case moved out would state one of them away from the population every
+// other is asserted against. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults, PARAMS } from "@/audio/params";
@@ -27,6 +31,7 @@ import {
   looksFolds,
   looksSaturate,
   looksShatter,
+  looksShatterSize,
   looksTravelInto,
   looksWander,
   looksWarp,
@@ -110,7 +115,13 @@ describe("the looks a standing rack gives the picture", () => {
       amount: normalize(wet.default, wet.min, wet.max, wet.curve),
       radius: normalize(decay.default, decay.min, decay.max, decay.curve),
     });
-    expect(rack[2]?.terms).toEqual({ share: 1 });
+    // A scatter turned all the way up, its span left where its own knob rests: the share is a turn
+    // of Odds and the piece size a turn of Span, on the log range that entry declares it over.
+    const span = PARAMS["scatter.span"];
+    expect(rack[2]?.terms).toEqual({
+      share: 1,
+      size: normalize(span.default, span.min, span.max, span.curve),
+    });
     // The fold reads no term at all: how many times the plane is folded is how many automators are
     // standing, and an entry with no honest presence stands at one.
     expect(rack[3]?.terms).toEqual({});
@@ -278,6 +289,40 @@ describe("the looks a standing rack gives the picture", () => {
     expect(
       shattered(Array.from({ length: 6 }, (_e, at) => instance(`r${at}`, { effect: "reverb" }))),
     ).toBe(0);
+  });
+
+  // P290: and how big a piece of the picture each break is, which is the scatters' own spans (0290).
+  it("sizes the broken pieces on the spans, as a mean of them and never a sum", () => {
+    const sized = (span: number, standing = 3): number =>
+      looksShatterSize(
+        arrived(
+          Array.from({ length: standing }, (_each, at) =>
+            instance(`s${at}`, { params: { ...BROKEN, "scatter.span": span } }),
+          ),
+        ),
+      );
+    // Nothing scattering says nothing about the size, and a longer window is a bigger piece.
+    expect(looksShatterSize([])).toBe(0);
+    expect(sized(PARAMS["scatter.span"].min)).toBe(0);
+    expect(sized(PARAMS["scatter.span"].max)).toBe(1);
+    // A mean and not a sum: two scatters break one field into pieces of one size, and adding a
+    // second at the same span leaves that size exactly where it was — how *many* pieces are drawn
+    // from elsewhere is the share beside it, which is the reading that does add up.
+    expect(sized(0.5, 6)).toBeCloseTo(sized(0.5, 1), 12);
+    // Two spans apart stand between them, and nearer the one more of the rack is set to.
+    const long = { ...BROKEN, "scatter.span": PARAMS["scatter.span"].max };
+    const short = { ...BROKEN, "scatter.span": PARAMS["scatter.span"].min };
+    const mixed = looksShatterSize(
+      arrived([instance("a", { params: long }), instance("b", { params: short })]),
+    );
+    expect(mixed).toBeGreaterThan(0);
+    expect(mixed).toBeLessThan(1);
+    // And it travels: a scatter halfway in weighs half of its own span, on the rate the rest of the
+    // picture's shape travels at (0266).
+    const arriving = rackLooks([instance("c", { params: long })]);
+    looksTravelInto(arriving, SHAPE_SECS, SHAPE_SECS / 2, true);
+    expect(arriving[0]?.at ?? 0).toBeLessThan(1);
+    expect(looksShatterSize(arriving)).toBeCloseTo(1, 12);
   });
 
   it("reads each instance over its own values and never off a default", () => {

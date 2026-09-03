@@ -49,7 +49,11 @@ replaced, which is the opposite of the step. `shatterSlide` displaces along the 
 different eighth of the picture, one lands back where it was, and each is deep enough to see a
 straight row inside — which is what has to be seen breaking across the edge between two of them. It
 is stable at every frame because the displacement is where the field is read from and not a motion
-of its own — what moves under it is the field (0126).
+of its own — what moves under it is the field (0126). **Amended by
+[0290](0290-the-scatter-breaks-the-picture-into-its-own-spans.md)**: eight is now the shut end of a
+band and not a written number — the count is read off the scatter's own Span, eighths of the width
+to halves of it, and the stride is chosen per count so the walk stays a permutation at every one of
+them. Everything else here stands, the draw-not-fill rule first.
 
 **The share is bounded at `SHATTER_CEILING`, which is the number `DRIFT_FEEDBACK_CEILING` is and
 bounded for 0250's reason.** Written where it is spent rather than derived from the feedback's: two

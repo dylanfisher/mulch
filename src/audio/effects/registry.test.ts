@@ -30,6 +30,9 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effe
   drift,
   geometry: LINEAR_GEOMETRY,
   driftFrom: [{ param, into: "period" }],
+  // The one look with no terms at all, so an entry built here declares one — which every entry
+  // must, now that every pass has landed (0290) — without also having to map values into it.
+  look: "fold",
   presence: { param, silent: 0, full: 1 },
   params: [
     { id: param, label: param, min: 0, max: 1, default: 0, precision: 2, automation: "linear" },
@@ -75,7 +78,17 @@ describe("effect registry", () => {
 
   it("rejects duplicate parameter ids across effects", () => {
     expect(() => {
-      validateEffects([unbuilt("one", "shared"), unbuilt("two", "shared", "twin")]);
+      validateEffects([
+        unbuilt("one", "shared"),
+        {
+          ...unbuilt("two", "shared", "twin"),
+          look: "warp",
+          lookFrom: [
+            { param: "shared", into: "bend" },
+            { param: "shared", into: "wander" },
+          ],
+        },
+      ]);
     }).toThrow(/duplicate effect param id: shared/u);
   });
 
@@ -331,14 +344,10 @@ describe("effect registry", () => {
   // Beside the drift declarations, and answered at load for the same reasons: a look the picture
   // has no maths for reaches the painter as a move nothing draws, two entries on one look draw the
   // same move twice, and the lattice is the whole rack standing and no plugin's (0122, 0278, 0279).
-  it("carries an honest look on every entry that declares one", () => {
+  it("carries an honest look on every entry, and every entry one", () => {
     const claimed = new Set<LookName>();
     for (const effect of EFFECTS) {
       const { look, lookFrom, params } = effect;
-      if (look === undefined) {
-        expect(lookFrom).toBeUndefined();
-        continue;
-      }
       expect(LOOKS[look]).toBeDefined();
       expect(RESERVED_LOOKS).not.toContain(look);
       expect(claimed.has(look)).toBe(false);
@@ -380,11 +389,21 @@ describe("effect registry", () => {
     }).toThrow(/unknown effect look: one\.glow/u);
     expect(() => {
       validateEffects([
-        { ...one, look: "shatter", lookFrom: [{ param: "one.a", into: "share" }] },
+        {
+          ...one,
+          look: "shatter",
+          lookFrom: [
+            { param: "one.a", into: "share" },
+            { param: "one.a", into: "size" },
+          ],
+        },
         {
           ...unbuilt("two", "two.a", "twin"),
           look: "shatter",
-          lookFrom: [{ param: "two.a", into: "share" }],
+          lookFrom: [
+            { param: "two.a", into: "share" },
+            { param: "two.a", into: "size" },
+          ],
         },
       ]);
     }).toThrow(/duplicate effect look: shatter/u);
@@ -423,10 +442,13 @@ describe("effect registry", () => {
     expect(() => {
       validateEffects([{ ...one, look: "shatter" }]);
     }).toThrow(/effect leaves a look term unread: one\.share/u);
-    // And a mapping with no look to reach is the same silence from the other side.
+    // And an entry that names no look at all is refused outright, now that every pass has landed
+    // and there is nothing left for an entry to be waiting on (0290). The type says so too; this is
+    // the one shape of it the type system cannot see, which is a plugin written by hand.
     expect(() => {
-      validateEffects([{ ...one, lookFrom: [{ param: "one.a", into: "share" }] }]);
-    }).toThrow(/maps look terms without a look: one/u);
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      validateEffects([{ ...one, look: undefined as unknown as LookName }]);
+    }).toThrow(/effect declares no look: one/u);
   });
 
   it("rejects an effect cut along a coordinate the picture cannot draw", () => {

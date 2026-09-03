@@ -310,11 +310,11 @@ export type Effect<
   /**
    * The whole-field move this effect makes — a name from `LOOKS` (src/lib/moireLook.ts), declared
    * beside the drift profile and for its reason: a row says what an effect is *set to*, a look says
-   * *that it is there*, at a glance's size. Claimed exclusively, and absent where a look has not
-   * landed, because no entry names one before its maths exists. `lookFrom` maps its values into that
-   * look's terms as `driftFrom` maps them into a row's — every term reached and no other (0122, 0279).
+   * *that it is there*, at a glance's size. Claimed exclusively, and **required now that every pass
+   * has landed** (0290): it was optional only while a look could not be named before the maths that
+   * draws it existed. `lookFrom` maps its values into its terms as `driftFrom` does a row's (0122).
    */
-  look?: LookName;
+  look: LookName;
   lookFrom?: readonly { param: Params[number]["id"]; into: LookTerm }[];
   /**
    * How long this entry, at these values, goes on sounding like what it was given rather than like

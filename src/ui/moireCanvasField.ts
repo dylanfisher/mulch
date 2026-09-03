@@ -14,7 +14,7 @@ import { DRIFT_REST, turnsOf, wrap, type MoireRow } from "@/lib/moire";
 import { LENS_SLICES, lensSlide, shatterPieces, shatterSlide } from "@/lib/moireGeometry";
 import { LOOKS } from "@/lib/moireLook";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
-import { looksShatter, looksWarp, type MoireLook } from "@/ui/moireLooks";
+import { looksShatter, looksShatterSize, looksWarp, type MoireLook } from "@/ui/moireLooks";
 import { boldestRow } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 
@@ -119,7 +119,9 @@ function passLooks(
  * from somewhere else along the picture instead of from where it belongs — cut once either way, at
  * the one alpha every cut here is made at — so a shattered picture is the same picture read out of
  * order rather than a picture blended with a copy of itself, which would haze every window in it
- * evenly (`shatterPieces`, src/lib/moireGeometry.ts).
+ * evenly (`shatterPieces`, src/lib/moireGeometry.ts). How many pieces it comes apart into is the
+ * scatter's own Span — eighths of the picture at the shut end of it and halves at the open one
+ * (`shatterBands`, 0290).
  *
  * **And the warp is the same slices, twice.** The sketch's warp bends x by a sine of y and then y
  * by a sine of x, and warping the rows' product is warping every row by the same warp — so the
@@ -142,9 +144,10 @@ export function cutField(
   // on (0126). What comes back is the field itself wherever no standing look takes a slot.
   const passed = passLooks(field, looks, veer, clock);
   const shatter = looksShatter(looks);
+  const piece = looksShatterSize(looks);
   const bold = boldestRow(rows, lensOf, DRIFT_REST.lens);
   const lens = bold === null ? 0 : bold.lens;
-  const broken = shatterPieces(shatter);
+  const broken = shatterPieces(shatter, piece);
   const bent = warpShare(looksWarp(looks));
   if (lens <= 0 && broken <= 0 && bent <= 0) {
     context.drawImage(passed, 0, 0);
@@ -172,13 +175,13 @@ export function cutField(
     const deep = Math.floor(((slice + 1) * height) / LENS_SLICES) - top;
     if (deep <= 0) continue;
     // The lens's own slide, the warp's first sine across, and, where this slice belongs to a piece
-    // the share has broken, the whole eighth the walk draws that piece from. Wrapped into one
+    // the share has broken, the whole piece the walk draws that piece from. Wrapped into one
     // picture before it is drawn: the band is covered by the copy either side of the edge it is
     // slid over, which is only true of an offset inside one width of it.
     const slid =
       lensSlide(lens, turns, slice, LENS_SLICES) * width +
       warpSlideX(bent, shape.sway, (top + deep / 2) / height) * height;
-    const off = shatterSlide(shatter, slice, LENS_SLICES);
+    const off = shatterSlide(shatter, piece, slice, LENS_SLICES);
     cutAcross(ink, passed, top, deep, off > 0 ? wrap(slid / width + off, 1) * width : slid);
   }
   if (between === null) return;

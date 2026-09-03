@@ -71,6 +71,7 @@ export const LOOK_TERMS = [
   "floor",
   "ceiling",
   "zoom",
+  "size",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -667,8 +668,13 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * about any value one holds. Applied before any field exists, so it takes no slot in the chain.
    */
   fold: { at: "bake", terms: {} },
-  /** Scatter's: how much of the field is drawn from somewhere else along it (0269). */
-  shatter: { at: "cut", terms: { share: "turn" } },
+  /**
+   * Scatter's: how much of the field is drawn from somewhere else along it (0269), and how big a
+   * piece of it each of those is — the Span, on its own range, because a window's length is how
+   * long a piece of what was heard the stage holds and so how long a piece of the picture it breaks
+   * off (0290).
+   */
+  shatter: { at: "cut", terms: { share: "turn", size: "turn" } },
   /**
    * Reverb's, and the first look that takes a slot in the chain: the field blurred and laid back
    * over itself, so the picture keeps every row it had and gains a halo around each of them. How
