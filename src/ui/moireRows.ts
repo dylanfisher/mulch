@@ -259,7 +259,7 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
 function groundTravel(
   rows: readonly MoireRow[],
   reads: readonly RowRead[],
-  sounding: boolean,
+  travelling: boolean,
 ): number {
   for (let index = 0; index < reads.length; index += 1) {
     const read = reads[index];
@@ -271,8 +271,11 @@ function groundTravel(
   // a loop nudged a beat along slides and one dragged across the file sweeps, and both are over
   // inside the loop they are about. Only while the yard sounds, for the ink's reason below: a
   // halted picture is painted on a commit and never on a frame (0144), so a loop moved on a
-  // stopped yard arrives outright rather than stranding the field mid-travel.
-  if (!sounding) return 0;
+  // stopped yard arrives outright rather than stranding the field mid-travel — and only where
+  // there is a loop for the move to be about. A yard with no loop reads the whole file (0292), so
+  // the reference row's period is the file's and half of that is minutes: the loop being cleared
+  // is not a loop dragged along, and it arrives outright the way it did before it had a row.
+  if (!travelling) return 0;
   for (let index = 0; index < reads.length; index += 1) {
     const read = reads[index];
     if (read === undefined || read.heard === null) continue;
@@ -561,13 +564,14 @@ export function refillRows(
   const stand = playerRowStand(peek.player.step?.bed ?? null, loop, duration);
   // And a yard jumping nowhere stands on its loop, which is a place it really is reading: a hand
   // moving the loop across the file is a ground move like a jump is, and the field travels to it
-  // (`loopStand`, 0274). Only a yard with no loop at all rests in the middle of the picture.
+  // (`loopStand`, 0274) — and a yard with no loop stands on the whole file, which is the loop it
+  // is reading (0292). Only a yard with nothing loaded rests in the middle of the picture.
   const groundCentre = stand?.centre ?? loopStand(loop, duration) ?? DRIFT_REST.centre;
   const groundOn = stand === null ? null : stand.ground;
   const place = peek.player.step?.place ?? null;
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
-  const travel = groundTravel(rows, reads, peek.sounding > 0);
+  const travel = groundTravel(rows, reads, peek.sounding > 0 && loop !== null);
   // And one step of the picture's own travel, across the plane its structure stands on. Here in the
   // prologue and never inside the walk: the two fractal rows are one structure, so a step taken per
   // row would take it twice (0246, 0248).

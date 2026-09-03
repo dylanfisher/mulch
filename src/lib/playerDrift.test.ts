@@ -41,9 +41,15 @@ describe("loopStand", () => {
     expect(loopStand({ in: 0, out: 2 }, 16)).toBe(0);
   });
 
-  it("rests a yard with no loop and one with no source, exactly as the walk's ground does", () => {
-    expect(loopStand(null, 16)).toBe(null);
+  it("stands a yard with no loop on the whole file, and rests only one with no source", () => {
+    // 0292: a yard with no loop is a yard whose loop is the whole file, which begins at the top of
+    // it — so the ground is the anchor that loop's own in-point would give, and never the middle.
+    expect(loopStand(null, 16)).toBe(0);
+    expect(loopStand(null, 16)).toBe(loopStand({ in: 0, out: 16 }, 16));
     expect(loopStand({ in: 4, out: 6 }, 0)).toBe(null);
+    expect(loopStand(null, 0)).toBe(null);
+    // The walk's own ground still needs a loop to be standing in: a bed is a slot of a loop, and
+    // there is no bed on a yard that has none.
     expect(playerRowStand(0, null, 16)).toBe(null);
     expect(playerRowStand(0, { in: 4, out: 6 }, 0)).toBe(null);
   });

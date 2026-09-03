@@ -28,7 +28,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
-import { playerJumps } from "@/audio/playerGrid";
+import { loopJumps } from "@/audio/playerGrid";
 import { growthLeft } from "@/lib/copyAuto";
 import {
   PLAYER_PART_LABEL,
@@ -121,7 +121,7 @@ const scopePace = (): number => PLAYER_SCOPE_PAINT_MS;
 /**
  * How long one slot of this yard's grid lasts in wall seconds, or null where the loop has no grid
  * to jump around at all — the same question the transport asks before it lays a pattern down
- * (`gridOf`, src/audio/playerGrid.ts), asked here through the one export that says it (`playerJumps`),
+ * (`gridOf`, src/audio/playerGrid.ts), asked here through the one export that says it (`loopJumps`),
  * so the picture and the sound agree about whether there is anything to draw (0159, principle 1).
  *
  * The arrangement's rows count down through the same answer: a yard whose loop has no grid has no
@@ -132,9 +132,9 @@ export function slotSecsOf(state: DeckState): number | null {
   // The deck's own rate, exactly as `gridOf` reads it: a yard at half speed jumps a loop twice as
   // long in wall seconds, so a picture that asked at unity would both disagree about whether the
   // yard jumps at all and lay every rest out at the wrong width (0035, src/ui/MoireStrip.tsx).
-  const period = loopPeriodSecs(state.loop, deckRate(state.params));
-  if (state.loop === null || !playerJumps(period)) return null;
-  return period / PLAYER_SLOTS;
+  const rate = deckRate(state.params);
+  if (!loopJumps(state.loop, rate)) return null;
+  return loopPeriodSecs(state.loop, rate) / PLAYER_SLOTS;
 }
 
 /**

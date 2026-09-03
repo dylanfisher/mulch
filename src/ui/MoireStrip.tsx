@@ -61,7 +61,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftSurface } from "@/ui/driftTiles";
-import { playerJumps } from "@/audio/playerGrid";
+import { loopJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
@@ -99,9 +99,17 @@ import { useAltHeld } from "@/ui/shortcuts";
  * of any of its two dozen dials (src/app/execute.ts) and only two of them can reach a row — keyed
  * on the spec, a hand on the Gate dial would rebuild every row in the picture.
  */
-const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | null => {
+const jumpsPeriod = (
+  player: DeckState["player"],
+  loop: DeckState["loop"],
+  rate: number,
+): number | null => {
   const held = playerSounding(player);
-  return held === null || !playerJumps(loopPeriod) ? null : playerRowPeriod(held);
+  // The loop and not the picture's period: an unlooped yard is read on the whole file (0292) and
+  // the transport is not — `gridOf` answers null without a loop — so the question is asked through
+  // the one export that says it whole, and a module this plays straight past draws no row (0159,
+  // principle 1).
+  return held === null || !loopJumps(loop, rate) ? null : playerRowPeriod(held);
 };
 
 /**
@@ -112,7 +120,8 @@ const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | 
  */
 function useSessionRows(
   state: DeckState,
-  loopPeriod: number,
+  rate: number,
+  period: number,
   sync: number | null,
 ): { session: MoireRowSet; grow: (grown: GrownRun) => MoireRowSet } {
   // Keyed on the two things a row can live in and nothing else, so a load or a fold leaves the
@@ -131,13 +140,12 @@ function useSessionRows(
     [state.analysis, state.duration],
   );
   const playerPeriod = useMemo(
-    () => jumpsPeriod(state.player, loopPeriod),
-    [loopPeriod, state.player],
+    () => jumpsPeriod(state.player, state.loop, rate),
+    [rate, state.loop, state.player],
   );
   const grow = useCallback(
-    (grown: GrownRun) =>
-      moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod, grown, sync),
-    [cut, lanes, state.effects, loopPeriod, playerPeriod, sync],
+    (grown: GrownRun) => moireRows(lanes, state.effects, period, cut, playerPeriod, grown, sync),
+    [cut, lanes, state.effects, period, playerPeriod, sync],
   );
   const session = useMemo(() => grow(NO_GROWN), [grow]);
   return { session, grow };
@@ -175,13 +183,18 @@ function useMoireRows(
 } {
   const rate = deckRate(state.params);
   const loop = state.loop;
-  const loopPeriod = loopPeriodSecs(loop, rate);
+  // The one period every row of this picture is read against, and the one place it is decided
+  // (principle 1): a yard with no loop is a yard whose loop is the whole file, so the fallback is
+  // that same loop said literally — from the top of the source to its end — and not a second
+  // arithmetic beside `loopPeriodSecs` (0292). A yard with nothing loaded answers 0 the way one
+  // with no loop used to, and stays empty.
+  const period = loopPeriodSecs(loop ?? { in: 0, out: state.duration }, rate);
   // The session's own clock, subscribed to rather than read once: the row of the whole session
   // runs on it, and a press on the header's switch is a new set of rows for every open picture
   // (`sessionInto`, src/ui/moireRowsField.ts, 0097).
   const readSync = useCallback(() => instrument.state.getState().sync, [instrument]);
   const sync = useSyncExternalStore(instrument.state.subscribe, readSync, readSync);
-  const { session, grow } = useSessionRows(state, loopPeriod, sync);
+  const { session, grow } = useSessionRows(state, rate, period, sync);
   /** The set a frame paints, and the one it was grown from — the same object until a run moves. */
   const painted = useRef(session);
   const from = useRef(session);

@@ -85,7 +85,9 @@ What the research found, and what each step stands on:
 
 **Decided before planning** (2026-09-02): five steps in this order, each with its own gate and,
 where it constrains a later change, its own decision. songs-01 landed as
-[0291](decisions/0291-a-removal-hands-the-list-over.md); the next free decision number today is 0292.
+[0291](decisions/0291-a-removal-hands-the-list-over.md) and picture-01 as
+[0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md); the next free decision number
+today is 0293.
 
 1.  **A song list has a word for the lot, and taking a song away hands the next one over.** _(songs-01)_
     The songs heading takes the rack's row shape and, only while there is a song to take, a
@@ -118,7 +120,20 @@ All` is now `CLEAR_ALL_LABEL`, said once in src/lib/copy.ts for both headings, a
     `paintsPerFrame` animates it off `playing` as it already does. A yard with nothing loaded has
     `duration === 0` and stays empty, which is what makes the seam safe. The ground follows the
     same rule — the whole file is the loop it stands on, so `loopStand` reads it and the yard no
-    longer rests in the middle — and the decision amends 0274 to say so.
+    longer rests in the middle — and the decision amends 0274 to say so. **Landed,
+    [0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md)**: the fallback is that loop
+    said literally — `loopPeriodSecs(loop ?? { in: 0, out: duration }, rate)` — so the file's period
+    is `loopPeriodSecs`'s own answer rather than a second arithmetic beside it, and a yard with
+    nothing loaded answers 0 through the same call. The two things the period could not be handed to
+    are the jumps module and the ground's travel: `gridOf` answers null without a loop, so the whole
+    question is one export the sound and both pictures ask (`loopJumps`, three callers), and
+    `groundTravel` takes its fallback only where there is a loop for the move to be about — the
+    review found half a file is minutes of gliding after a loop is cleared. The shot is `deck.load` + `deck.play` with no loop, settled past
+    `SHAPE_SECS` and read twice against a looped yard read twice: base drew no strip at all, head
+    drew one at mean alpha 0.227 both times — the looped yard's own 0.227 — and the 1:1 crop is
+    fringes on the file's period. Four lenses, four findings kept: the shared `loopJumps`, the
+    travel, the stale sentences in `referenceInto`, `washInto`, `sessionInto` and `moireWindowSecs`,
+    and the long file's pitch, which is §4's.
 3.  **The picture holds its pitch when the window grows.** _(picture-02)_ The lattice's cell becomes a
     size in CSS pixels declared beside `PITCH_PX` — a few multiples of seven — and
     `latticeCells` becomes the presence-weighted _tightening ratio_ over that rest rather than a
@@ -349,6 +364,16 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**picture-01 leaves a long unlooped file's rack rows on the pitch floor, and hands the number to
+picture-02.** The reference row is now the file, so `moireWindowSecs` multiplies the file's own
+length by `MOIRE_CYCLES` and the window a rack row is measured across grows with it. At a 2208
+device-pixel strip, rack rows at 0.75s, 3s and 12s are drawn at 12.4, 17.5 and 24.8 px on a 4s file
+and at 7.0, 7.0 and 9.6 px on a three-minute one — the two short ones pinned to the same
+`gratingFloor`, where two rows on one pitch do not beat (0131). It is not a regression: a _looped_
+three-minute yard already read exactly those numbers, and an unlooped one drew no rows at all, so
+the state that got worse does not exist. It is the band's own behaviour at a long reference, which
+is 0278's and picture-02's, and no picture-sized number was added here to bend it.
 
 **songs-01 landed the clear as a file of its own, and paid for it twice.** The heading's row put
 src/ui/PlayerGrid.tsx at 402 lines against a 400-line warning, so the control and the press it

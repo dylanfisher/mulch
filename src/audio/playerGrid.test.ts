@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { PLAYER_MIN_SLOT_SECS } from "@/lib/player";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 
-import { bedStart, gridOf, gridSpan, loopIn, playerJumps, slotStart } from "./playerGrid";
+import {
+  bedStart,
+  gridOf,
+  gridSpan,
+  loopIn,
+  loopJumps,
+  playerJumps,
+  slotStart,
+} from "./playerGrid";
 
 /** A real seconds length that divides into slots long enough to carry a seam, and one that does not. */
 const LONG_SECS = PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS * 2;
@@ -20,6 +28,17 @@ describe("playerJumps", () => {
   it("takes the floor itself, so the picture and the sound cannot disagree at the boundary", () => {
     expect(playerJumps(PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS)).toBe(true);
     expect(playerJumps(PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS - Number.EPSILON)).toBe(false);
+  });
+
+  it("asks the whole question of a loop, so a yard that has none jumps nowhere at any rate", () => {
+    // 0292: the picture reads an unlooped yard on the whole file, so its period no longer says
+    // there is nothing to jump around — the loop itself has to be part of the question, and this
+    // is the one export both the sound and the two pictures ask it through (0159, principle 1).
+    expect(loopJumps({ in: 0, out: LONG_SECS }, RATE)).toBe(true);
+    expect(loopJumps({ in: 0, out: SHORT_SECS }, RATE)).toBe(false);
+    expect(loopJumps(null, RATE)).toBe(false);
+    // And a rate of nothing is no period at all rather than an infinite one (`loopPeriodSecs`).
+    expect(loopJumps({ in: 0, out: LONG_SECS }, 0)).toBe(false);
   });
 });
 

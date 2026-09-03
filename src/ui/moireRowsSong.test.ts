@@ -405,12 +405,13 @@ describe("the jumps module's row", () => {
     const peek = emptyDeckPeek();
 
     // Nothing standing: no ground of the walk's is being read, and the yard is still reading its
-    // loop — a place it really is at — so the row anchors on the loop's own in-point (0274), and
-    // rests in the middle of the picture only with no loop at all.
+    // loop — a place it really is at — so the row anchors on the loop's own in-point (0274). With
+    // no loop the yard is reading the whole file, which is a loop beginning at the top of it
+    // (0292), and the row anchors there rather than resting in the middle.
     refillRows(rows, reads, peek, 1, loop, duration);
     expect(row.centre).toBe(2 / 16);
     refillRows(rows, reads, peek, 1, null, duration);
-    expect(row.centre).toBe(DRIFT_REST.centre);
+    expect(row.centre).toBe(0);
 
     // A ground of zero is the loop itself — a place the yard really is reading, so it anchors
     // there rather than resting. The peaks hide their rectangle here; an anchor claims no move.

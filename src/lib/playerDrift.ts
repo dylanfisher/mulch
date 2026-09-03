@@ -274,11 +274,12 @@ const standingCentre = (at: number, duration: number): number =>
  * loop is a place the yard really is reading whether or not a walk is standing in it, so a hand
  * moving the loop across the file is a ground move like a jump is, and the field travels to it
  * (`easedCentre`, src/lib/moire.ts, 0235) instead of standing in the middle of the picture while
- * every phase in it restacks. Null on a yard with no loop and on a source of no length, which
- * are reading nowhere and rest — exactly the two answers `playerRowStand` gives.
+ * every phase in it restacks. A yard with no loop is reading the whole file, which is a loop
+ * beginning at the top of it (0292), so it stands there rather than in the middle. Null only on a
+ * source of no length, which is reading nowhere and rests.
  */
 export const loopStand = (loop: Loop | null, duration: number): number | null =>
-  loop === null || duration <= 0 ? null : standingCentre(loop.in, duration);
+  duration <= 0 ? null : standingCentre(loop?.in ?? 0, duration);
 
 /**
  * The identity the song's row draws while the walk stands in no place at all — a pattern holding no

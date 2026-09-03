@@ -122,11 +122,21 @@ describe("MoireStrip", () => {
     expect(render({ ...emptyDeck(), effects: [{ ...instance("fx1"), bypassed: true }] })).toBe("");
   });
 
-  // P117: *holding* a pattern is not jumping. A loop with no grid to jump around plays straight
-  // past the module (`playerJumps`, src/audio/playerGrid.ts), so a yard the transport never jumps has
-  // no more of a picture than one with nothing running at all — the rule a bypassed instance is
-  // held to, said for the one module that is not in the rack (0159, 0139).
-  it("draws nothing for a yard holding a pattern it has no loop to jump around", () => {
+  // 0292: a yard with no loop is a yard whose loop is the whole file, so a loaded one has a
+  // reference row on the file's own period and a picture with it. P117 still holds over the top of
+  // that: *holding* a pattern is not jumping, a yard with no loop has no grid to jump around
+  // (`gridOf`, src/audio/playerGrid.ts), and the module draws no row it cannot light (0159, 0139).
+  it("draws a loaded yard with no loop on the file's own period, and no row for a pattern it cannot jump around", () => {
+    const loaded: DeckState = { ...emptyDeck(), duration: 4 };
+    expect(render(loaded)).toContain("<canvas");
+    // The whole file is the loop, so the picture is the one a yard looped over the whole of it
+    // draws — the same rows on the same period, down to the markup.
+    expect(render(loaded)).toBe(render({ ...loaded, loop: { in: 0, out: 4 } }));
+    // And the module is not jumping: no row of its own, and nothing that never comes round.
+    const holding: DeckState = { ...loaded, player: { seed: 5, ...PLAYER_DEFAULTS } };
+    expect(render(holding)).toBe(render(loaded));
+    expect(render(holding)).not.toContain(RECURRENCE_UNBOUNDED);
+    // A yard with nothing loaded has no length to be a loop of, and draws nothing at all.
     expect(render({ ...emptyDeck(), player: { seed: 5, ...PLAYER_DEFAULTS } })).toBe("");
   });
 

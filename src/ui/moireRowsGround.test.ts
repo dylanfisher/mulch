@@ -36,6 +36,10 @@ const STOOD = fractalStopsRest();
 // (0283). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("the loop as the ground", () => {
+  // One ground read at eight elapsed times through one closure: splitting it would hand `rows`,
+  // `reads` and the reference row between two cases that are the same picture (0292 added the
+  // no-loop pair). See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("travels the field to a moved loop over half the loop while the yard sounds, and stands on it outright halted", () => {
     // 0274: a loop is a place the yard really is reading, so a hand moving it across the file is a
     // ground move like a jump is — and the picture is the one surface that could show it (0235).
@@ -82,7 +86,11 @@ describe("the loop as the ground", () => {
     // A halted yard is painted on a commit and never on a frame, so the loop it was moved to is
     // where it stands, outright.
     expect(travelled({ in: 4, out: 6 }, 0, 0)).toBe(4 / 16);
-    // And a yard with no loop at all is reading nowhere and rests in the middle of the picture.
-    expect(travelled(null, ARRIVED, 1)).toBe(DRIFT_REST.centre);
+    // And no loop at all is the whole file, the loop it stands on: the top of it, not the middle
+    // (0292), and outright however little of the window has passed — a loop cleared is not a loop
+    // dragged along, and half the file is minutes of gliding.
+    expect(travelled(null, over / 8, 1)).toBe(0);
+    expect(travelled(null, ARRIVED, 1)).toBe(0);
+    expect(DRIFT_REST.centre).not.toBe(0);
   });
 });

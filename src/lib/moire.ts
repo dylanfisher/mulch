@@ -55,9 +55,11 @@ export const DRIFT_PAINT_MS = 1000 / DRIFT_PAINT_HZ;
 /**
  * How wide a window the rows are drawn across, in real seconds: a few periods of `reference` —
  * the deck's own loop, which is what a listener is counting in — pulled back where that would not
- * be enough for the slowest row to come round twice. A deck with no loop has no reference and
- * falls back to its slowest row. At close zoom the pattern reads as static, which is why the
- * cycles asked for are many rather than few — and why both sizes ask for the same number.
+ * be enough for the slowest row to come round twice. A caller with no reference at all falls back
+ * to its slowest row. At close zoom the pattern reads as static, which is why the
+ * cycles asked for are many rather than few — and why both sizes ask for the same number. Since
+ * 0292 the drift's own caller always has a reference where anything is loaded — the whole file
+ * where there is no loop — so the fallback answers the callers that hold no yard at all.
  */
 export function moireWindowSecs(
   reference: number,

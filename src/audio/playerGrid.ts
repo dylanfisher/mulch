@@ -11,6 +11,7 @@
 import { PLAYER_MIN_SLOT_SECS } from "@/lib/player";
 import { bedBounds, bedWrap } from "@/lib/playerBed";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
+import { loopPeriodSecs } from "@/lib/recurrence";
 import type { Loop } from "@/lib/timeline";
 
 /** A range of buffer seconds — the deck's loop, or the one slot of it a step is repeating. */
@@ -60,6 +61,18 @@ export const bedStart = (grid: Grid, bed: number): number =>
 export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLAYER_MIN_SLOT_SECS;
 
 /**
+ * And the whole question, loop and all: a yard with no loop has no grid to jump around, and since
+ * 0292 the picture's own period no longer says so — it is the whole file where there is no loop, so
+ * a caller asking `playerJumps` alone would draw a module the sound plays straight past. A type
+ * predicate because that is what `gridOf` reads it as, and one export because the third caller is
+ * where the rule said twice becomes a picture that can disagree with the sound (principle 1, 0159).
+ * Through `loopPeriodSecs` for the same reason: the loop's length in real seconds is that one
+ * function's answer, rate guard and all, and never a division written out again here (0035).
+ */
+export const loopJumps = (loop: Span | null, rate: number): loop is Span =>
+  loop !== null && playerJumps(loopPeriodSecs(loop, rate));
+
+/**
  * The grid this loop divides into, or null when its slots are too short to carry a seam.
  *
  * `duration` is the buffer's, and is here for the ground alone: how many of the loop's own
@@ -69,7 +82,7 @@ export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLA
  * A loop with no room for a whole *bed* still crawls, which is the crawl's whole point.
  */
 export function gridOf(loop: Span | null, rate: number, duration: number): Grid | null {
-  if (loop === null || !playerJumps((loop.out - loop.in) / rate)) return null;
+  if (!loopJumps(loop, rate)) return null;
   const span = loop.out - loop.in;
   return { in: loop.in, slot: span / PLAYER_SLOTS, ...bedBounds(loop.in, span, duration) };
 }

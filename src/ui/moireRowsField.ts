@@ -345,7 +345,8 @@ export const plainRow = (
 });
 
 /**
- * The reference row onto a picture whose yard has a loop: the axis every other row is fanned either
+ * The reference row onto a picture whose yard has a period — its loop, or the whole file where it
+ * has none (0292): the axis every other row is fanned either
  * side of, so its identity is the zero no fold produces rather than one of its own (`gratingTurns`,
  * src/lib/moire.ts). What it is cut to and how fine it is drawn are the source's, out of the clip's
  * own analysis — so a yard playing one file and a yard playing another draw two pictures through
@@ -448,8 +449,8 @@ export function macroInto(
 const WASH_SHAPE = fold("the yard washed over");
 
 /**
- * The field's own row onto a picture with a loop to lay it over: one broad grating on the loop's own
- * period, cut by nothing until the yard is washed and by half a picture when it fully is
+ * The field's own row onto a picture with a period to lay it over: one broad grating on the loop's
+ * own period, or the whole file's where there is no loop (0292), cut by nothing until the yard is washed and by half a picture when it fully is
  * (`washedDepth`). It carries no read of its own — its depth is the field's reading, which the paint
  * spends over every row at once (0213) — so it runs on the deck's clock the way the macro row does.
  *
@@ -498,8 +499,8 @@ export function sessionInto(
   const period = sync ?? loopPeriod;
   if (!(period > 0)) return;
   // And nothing onto a picture that holds nothing of its own: a yard with no lane, no instance, no
-  // module and no loop draws no drift at all (`MoireStrip`), and one row of somebody else's session
-  // is not that yard's picture arriving.
+  // module and nothing loaded draws no drift at all (`MoireStrip`), and one row of somebody else's
+  // session is not that yard's picture arriving.
   if (rows.length === 0) return;
   rows.push({ ...plainRow(period, 0, true), depth: 0 });
   reads.push({ ...READS_NOTHING, key: ROW_KEYS.session, session: true });
