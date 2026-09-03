@@ -59,23 +59,26 @@ export const SHARD_RATIO = 1.5;
 export const SHARD_PHASE = 0.25;
 
 /**
- * How many cycles of the count one piece spans. The count climbs a handful of cycles down the centre
- * column where the plane is open and a hundred at the boundary, so a cycle a piece is six to ten
- * pieces across an open picture and splinters at the edge. **Cut into pieces and not read as a
- * wave** (0297): a cosine of the raw count moved every slice by nearly what its neighbour moved
- * wherever the count climbed slowly, which was the whole picture bent once by less than a tenth —
- * and a periodic weave bent smoothly is the same weave.
+ * How many cycles of the count one piece spans at a full run, which is the narrowest a piece gets.
+ * The count climbs a handful of cycles down the centre column where the plane is open and a hundred
+ * at the boundary, so two cycles a piece is three to five pieces across an open picture and
+ * splinters at the edge. Two and not one: a full run has grown six rows of its own, and against
+ * that weave a piece a cycle wide read as texture and not as a tear (0298). **Cut into pieces and
+ * not read as a wave** (0297): a cosine of the raw count moved every slice by nearly what its
+ * neighbour moved wherever the count climbed slowly, which was the whole picture bent once by less
+ * than a tenth — and a periodic weave bent smoothly is the same weave.
  */
-export const SHARD_STEP = 1;
+export const SHARD_STEP = 2;
 
 /**
  * How many times wider than the step a piece is for an automator holding one effect. The pieces
  * start big and splinter as the run fills, reaching the step itself at a full run
  * (`GROWTH_COUNT_MAX`), so a picture torn by a young run is a few large pieces and one torn by a
- * full run is the fine break (0298). Four, geometrically: a handful of cycles down an open column
- * at four a piece is one or two seams, which is torn and not merely slid.
+ * full run is twice as many (0298). Two, geometrically: four cycles a piece at one held is one or
+ * two seams down an open column, which is torn and not merely slid, and a full run doubling that
+ * is still pieces and not a texture.
  */
-export const SHARD_WIDEST = 4;
+export const SHARD_WIDEST = 2;
 
 /**
  * How many cycles of the count one piece spans for an automator whose run holds `held` effects —

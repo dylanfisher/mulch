@@ -6,8 +6,9 @@
 
 **The pieces are as big as the run is young.** `shardWidth(held)` (src/lib/moireShards.ts) is the
 step times `SHARD_WIDEST` for an automator holding one effect, falling geometrically to the step
-itself at a full run (`GROWTH_COUNT_MAX`), so a picture torn by a young run is a few large pieces and
-one torn by a full run is 0297's fine break. `held` is the presences of the automator's places summed,
+itself at a full run (`GROWTH_COUNT_MAX`): four cycles a piece at one effect, two at six, so a full
+run is twice as finely torn and no finer. Not 0297's one cycle — a full run has grown six rows of its
+own, and against that weave a piece a cycle wide read as texture and the sense of a tear was lost. `held` is the presences of the automator's places summed,
 written onto its look every frame off the read (`looksHeldInto`, src/ui/moireLooks.ts) and never a
 term: a term is read off what an instance is set to, and a run is set to nothing (0204). A run
 holding nothing yet is torn as one holding one, because an automator standing is a tear (0296).
