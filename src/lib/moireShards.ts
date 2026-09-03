@@ -1,18 +1,20 @@
 /**
  * @role The automator's look, whole: the finished picture torn along the structure's own
- *   cross-section — every slice the cut already reads the field back in thrown across by a cosine
- *   of the escape count read down the centre column, and every column thrown down by the same read
- *   along the centre row a quarter turn off. One tear per automator standing, each read at its own
- *   depth into the structure and its own phase, summed and clamped, so two automators are two tears
- *   at different pitches crossing and never one tear twice as far (0296). Its terms — none — its
+ *   cross-section — every slice the cut already reads the field back in thrown across by the escape
+ *   count read down the centre column, and every column thrown down by the same read along the
+ *   centre row a quarter turn off. The count is cut into pieces a cycle wide and every piece is
+ *   thrown by an amount unrelated to its neighbour's, so the picture is flat pieces with hard seams
+ *   and never one slow bend (0297). One tear per automator standing, each read at its own depth
+ *   into the structure and its own phase, summed and clamped, so two automators are two tears at
+ *   different pitches crossing and never one tear twice as far (0296). Its terms — none — its
  *   numbers, its maths and where it lands are all here, and `LOOKS` holds the name against it.
  * @instead What a look is at all → src/lib/moireLook.ts. The count the tear reads →
  *   `escapeTurns` in src/lib/moireFractal.ts, whose seed is the stops the painter already roams.
  *   How many automators stand, and how far each has travelled in → `looksShards` in
  *   src/ui/moireLooks.ts. Where the table is filled once a painting and spent on the slices →
  *   `cutField` in src/ui/moireCanvasField.ts. The declaration itself → `look` on
- *   src/audio/effects/automator.ts. The bench picture this came off and the one ramp it still
- *   reads at this turn → src/ui/sketch/structure/sketchStructure.ts.
+ *   src/audio/effects/automator.ts. The bench picture this came off, and the turn its own ramps
+ *   still read the count at → src/ui/sketch/structure/sketchStructure.ts.
  */
 import { cosTurn } from "@/lib/moire";
 import { escapeTurns, type FractalSeed } from "@/lib/moireFractal";
@@ -29,11 +31,14 @@ import { clamp } from "@/lib/range";
 export const SHARD_CAP = 4;
 
 /**
- * How far one automator throws a slice, as a share of the **height**, both ways. The bench's own
- * rest (0295) — and the height and not the wobble's width, because the strip is thirty-two pixels
- * tall and thousands wide: a share of the width thrown down it would wrap the strip several times.
+ * How far one automator throws a piece, as a share of the **height**, both ways. Two neighbouring
+ * pieces can land a reach either side of where they were, so the seam between them is up to twice
+ * this: near a third of the height, which is a break and not a bend — the bench's rest of 0.08 read
+ * as one on the strip and as a wobble on the zoomed picture (0297). The height and not the wobble's
+ * width, because the strip is thirty-two pixels tall and thousands wide: a share of the width thrown
+ * down it would wrap the strip several times.
  */
-export const SHARD_REACH = 0.08;
+export const SHARD_REACH = 0.15;
 
 /**
  * The most any slice is thrown, summed over every automator standing: three whole reaches. Bounded
@@ -41,9 +46,9 @@ export const SHARD_REACH = 0.08;
  * picture is drawn from elsewhere and not how far a piece of it moves. **A clamp and never a
  * normalisation**: a second automator adds to the first and only the peaks flatten, where a sum
  * scaled to the ceiling would shrink the first tear as the second arrives — the picture *less* torn
- * for a moment by more automators.
+ * for a moment by more automators. Under one height, so the down throw wraps once and never twice.
  */
-export const SHARD_CEILING = 0.25;
+export const SHARD_CEILING = 3 * SHARD_REACH;
 
 /**
  * The depth the k-th standing automator reads the count at, as a scale over the first's: the beat's
@@ -55,29 +60,42 @@ export const SHARD_RATIO = 1.5;
 
 /**
  * And a quarter turn per automator on the throw's cosine. The zoom alone leaves the slow middle
- * slices, where the count barely climbs, nearly in step — two tears that agree where the plane is
+ * slices, where the count barely climbs, in the same piece — two tears that agree where the plane is
  * open and differ only in the filigree read as one tear with a frayed edge.
  */
 export const SHARD_PHASE = 0.25;
 
 /**
- * How many cycles of the count one pass of the throw is worth. The count runs over a hundred cycles
- * across the picture and climbs fastest at the boundary, so one pass every sixteen is a handful of
- * slow waves over the open plane and a tear at the edge — moved here from the bench, which reads
- * the same turn for the ramps it still draws.
+ * How many cycles of the count one piece spans. The count climbs a handful of cycles down the centre
+ * column where the plane is open and a hundred at the boundary, so a cycle a piece is six to ten
+ * pieces across an open picture and splinters at the edge. **Cut into pieces and not read as a
+ * wave** (0297): a cosine of the raw count moved every slice by nearly what its neighbour moved
+ * wherever the count climbed slowly, which was the whole picture bent once by less than a tenth —
+ * and a periodic weave bent smoothly is the same weave.
  */
-export const SHARD_TURN = 16;
+export const SHARD_STEP = 1;
+
+/**
+ * The turn each successive piece takes on the throw's cosine: the golden ratio's conjugate, so
+ * consecutive pieces land on phases spread over the whole circle and no run of pieces climbs one
+ * flank of the wave together. Neighbouring pieces are thrown by unrelated amounts, which is what a
+ * seam is; a turn of a simple fraction would repeat every few pieces.
+ */
+export const SHARD_SCATTER = (Math.sqrt(5) - 1) / 2;
 
 /** The down throw's phase against the across: a quarter behind, as the bench threw it. */
 export const SHARD_DOWN = -0.25;
 
 /**
- * One automator's throw of one slice: its presence times the reach, on a cosine of the count read at
- * the slice's middle, `k` quarter-turns on for the k-th automator and `phase` further for the down
- * throw. Nought at no presence, which is what a tear on its way in or out is a share of.
+ * One automator's throw of one slice: its presence times the reach, on a cosine of the piece the
+ * count read at the slice's middle falls in, scattered a golden turn a piece, `k` quarter-turns on
+ * for the k-th automator and `phase` further for the down throw. Nought at no presence, which is
+ * what a tear on its way in or out is a share of.
  */
 const throwOf = (presence: number, count: number, k: number, phase: number): number =>
-  presence * SHARD_REACH * cosTurn(count / SHARD_TURN + k * SHARD_PHASE + phase);
+  presence *
+  SHARD_REACH *
+  cosTurn(Math.floor(count / SHARD_STEP) * SHARD_SCATTER + k * SHARD_PHASE + phase);
 
 /**
  * The table the cut spends, into `out`: `out[0 ‥ LENS_SLICES)` is how far each slice is thrown

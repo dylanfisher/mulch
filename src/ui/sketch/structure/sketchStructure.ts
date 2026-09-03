@@ -24,7 +24,6 @@ import {
 } from "@/lib/moireFractal";
 import { geometryRef } from "@/lib/moireGeometry";
 import { gratingDepth } from "@/lib/moireGrating";
-import { SHARD_TURN } from "@/lib/moireShards";
 import { clamp } from "@/lib/range";
 import {
   FIELD_CENTRE,
@@ -72,10 +71,15 @@ export function escapeAt(x: number, y: number, zoom = 1): number {
 }
 
 /**
- * The count as one slow wave, nought to one, which is what a ramp or a staircase is read off — on
- * the turn the painter's own tear reads it at, which moved there from here when the Shards won.
+ * How many cycles of the count one pass of a ramp is worth: the count runs over a hundred cycles
+ * across the picture and climbs fastest at the boundary, so one pass every sixteen is a handful of
+ * slow waves over the open plane and a staircase at the edge. The bench's own — the painter's tear
+ * read it once and now cuts the count into pieces instead (`SHARD_STEP`, 0297).
  */
-const wave = (count: number): number => 0.5 - 0.5 * cosTurn(count / SHARD_TURN);
+const STRUCTURE_TURN = 16;
+
+/** The count as one slow wave, nought to one, which is what a ramp or a staircase is read off. */
+const wave = (count: number): number => 0.5 - 0.5 * cosTurn(count / STRUCTURE_TURN);
 
 /**
  * 01 — the structure cut at a depth of its own, the way the lattice is, and not at the share the

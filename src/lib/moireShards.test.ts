@@ -55,6 +55,18 @@ describe("the shards", () => {
     expect(distinct(down(one))).toBeGreaterThan(8);
   });
 
+  it("throws contiguous slices as one piece and breaks between pieces, never as a wave", () => {
+    // A tear is flat pieces with hard seams (0297): somewhere two neighbouring slices fall in one
+    // piece and are thrown exactly alike, and somewhere two fall either side of a seam and land
+    // further apart than one reach — which a cosine of the raw count, climbing slowly down the
+    // open plane, never does.
+    for (const throws of [across(thrown(1)), down(thrown(1))]) {
+      const seams = throws.slice(1).map((slid, at) => Math.abs(slid - (throws[at] ?? 0)));
+      expect(seams.some((seam) => seam === 0)).toBe(true);
+      expect(Math.max(...seams)).toBeGreaterThan(SHARD_REACH);
+    }
+  });
+
   it("reads the second automator at its own depth and phase, so it is a different tear", () => {
     const first = across(thrown(1));
     const second = across(thrown(0, 1));
