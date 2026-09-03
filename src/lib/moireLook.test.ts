@@ -24,6 +24,7 @@ import {
   bandLifts,
   bandTaper,
 } from "@/lib/moireBand";
+import { SQUASH_FLOOR, SQUASH_TOP, squashCeiling, squashFloor } from "@/lib/moireSquash";
 import {
   BLOCK_HARDENINGS,
   BLOCK_PIXELS,
@@ -87,6 +88,16 @@ const turnAt = (frequency: number): number => normalize(frequency, 20, 20_000, "
 const gainHeard = (gain: number): number => clamp(Math.abs(gain) / 12, 0, 1);
 const gainTurn = (gain: number): number => normalize(gain, -24, 24, "linear");
 const bandTurn = (q: number): number => normalize(q, 0.1, 18, "log");
+
+/**
+ * And a compressor's two, whose own declaration reads its presence off the very knob one of its
+ * terms is (src/audio/effects/compressor.ts, 0202): how present a ratio is heard to be — all the
+ * way in at the entry's own default, which declares no `full` — and where a ratio and a threshold
+ * stand on their own knobs.
+ */
+const ratioHeard = (ratio: number): number => clamp((ratio - 1) / (4 - 1), 0, 1);
+const ratioTurn = (ratio: number): number => normalize(ratio, 1, 20, "linear");
+const thresholdTurn = (db: number): number => normalize(db, -60, 0, "linear");
 
 // One flat list of what the contract is, a case per question it answers (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -475,5 +486,49 @@ describe("what a look is", () => {
     expect(bandAlpha(gainHeard(6))).toBeLessThan(BAND_CEILING);
     expect(bandAlpha(gainHeard(-6))).toBe(bandAlpha(gainHeard(6)));
     expect(bandLifts(gainTurn(-6))).not.toBe(bandLifts(gainTurn(6)));
+  });
+
+  // P288: compressor's, and the eighth look to take a slot in the chain (0288).
+  it("closes the field's range up between a floor and a ceiling, the floor always the lower", () => {
+    expect(LOOKS.squash.at).toBe("pass");
+    expect(LOOKS.squash.terms).toEqual({ floor: "turn", ceiling: "turn" });
+    // The floor is a share weighed under a ceiling of its own, because the term is the Ratio's own
+    // turn and one to one is no compression at all; the ceiling's band is stated open end last,
+    // because the term is the Threshold's and a threshold nothing reaches is a wire. Neither reaches
+    // the other, and neither closes the range to nothing.
+    expect(SQUASH_FLOOR).toBeGreaterThan(0);
+    expect(SQUASH_FLOOR).toBeLessThan(SQUASH_TOP[0]);
+    expect(SQUASH_TOP[1]).toBe(1);
+    expect(SQUASH_TOP[0]).toBeGreaterThan(0);
+    expect(SQUASH_TOP[0]).toBeLessThan(1);
+    // **The floor stays under the ceiling at every input there is**, which is the one thing this
+    // pair may never do — a floor at or over the ceiling is a picture with no range left in it at
+    // all, and the two bands are what keep them apart rather than a clamp at the draw.
+    for (const presence of [0, 0.25, 0.5, 1]) {
+      for (const floor of [0, 0.5, ratioTurn(4), 1]) {
+        for (const ceiling of [0, 0.5, thresholdTurn(-24), 1]) {
+          expect(squashFloor(presence, floor)).toBeLessThan(squashCeiling(presence, ceiling));
+          expect(squashFloor(presence, floor)).toBeGreaterThanOrEqual(0);
+          expect(squashCeiling(presence, ceiling)).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+    // A harder ratio lays a higher floor and a lower threshold brings the ceiling further down, so
+    // the range between them closes both ways.
+    expect(squashFloor(1, ratioTurn(20))).toBeGreaterThan(squashFloor(1, ratioTurn(4)));
+    expect(squashCeiling(1, thresholdTurn(-60))).toBeLessThan(squashCeiling(1, thresholdTurn(-24)));
+    // And a compressor the picture has not travelled to yet is the field at the whole of itself:
+    // the floor walks out from nothing and the ceiling from one, which is the blocks' walk and not
+    // the bloom's weighed share.
+    expect(squashFloor(0, 1)).toBe(0);
+    expect(squashCeiling(0, 0)).toBe(1);
+    // At the compressor's own declared silence — one to one, which is where its presence stands at
+    // nought too (0202) — the pass lays no floor at all whichever of the two numbers is asked, and
+    // at its default of four to one it is visibly squashing and a long way off the most it can do.
+    expect(squashFloor(ratioHeard(1), ratioTurn(1))).toBe(0);
+    const standing = squashFloor(ratioHeard(4), ratioTurn(4));
+    expect(standing).toBeGreaterThan(0);
+    expect(standing).toBeLessThan(SQUASH_FLOOR);
+    expect(squashCeiling(ratioHeard(4), thresholdTurn(-24))).toBeLessThan(1);
   });
 });

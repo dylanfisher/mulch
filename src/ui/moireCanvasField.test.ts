@@ -31,6 +31,7 @@ import {
   type LookTerms,
 } from "@/lib/moireLook";
 import { BAND_CEILING, BAND_EDGES } from "@/lib/moireBand";
+import { squashCeiling, squashFloor } from "@/lib/moireSquash";
 import { GRAIN_TILE } from "@/lib/moireGrain";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
@@ -676,6 +677,56 @@ describe("cutField", () => {
       looks: [{ ...look("band", terms), at: 0 }],
     });
     expect(arriving.surfaces[at]?.drew).toHaveLength(1);
+    expect(fills(arriving)).toEqual(fills(plain));
+  });
+
+  // P288: compressor's squash, whose floor is the chain's one fill — a level laid where the mask has
+  // none, which is where the picture's deepest ink stands, and which no draw of the field can be
+  // (0269, 0288). Its ceiling is a draw like every other pass's.
+  it("squashes the field's own alpha between a floor and a ceiling, the floor its one fill", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const at = plain.elements.length;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const terms = { floor: 1, ceiling: 0 };
+    const squashed = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("squash", terms)],
+    });
+    const pass = squashed.surfaces[at];
+    const field = squashed.elements[0];
+    // The ceiling half is a draw of the field and not a fill, at the share that lands the top of
+    // the range where the ceiling says once the floor is under it — off the field and not off the
+    // surface being written, and drawn once.
+    const top = squashCeiling(1, terms.ceiling);
+    const floor = squashFloor(1, terms.floor);
+    const drew = pass?.drew ?? [];
+    expect(drew).toHaveLength(1);
+    expect(drew[0]?.tile).toBe(field);
+    expect(drew[0]?.over).toBe("source-over");
+    expect(drew[0]?.alpha).toBeCloseTo((top - floor) / (1 - floor), 10);
+    expect(pass?.wrote).toEqual([]);
+    // And the floor is the one fill, laid under what that draw left. **This is the whole of the
+    // exception this pass takes out of 0269** — one composite wide, and only for the half that
+    // reaches the mask's own blank, which is where the picture's deepest ink stands.
+    expect(pass?.fills.map((each) => each.over)).toEqual(["destination-over"]);
+    expect(pass?.fills[0]?.alpha).toBeCloseTo(floor, 10);
+    // A softer ratio lays a lower floor, and a higher threshold leaves more of the range: the draw
+    // carries more of the field and the fill lays less under it.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const gentle = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [look("squash", { floor: 0.25, ceiling: 0.75 })],
+    });
+    expect(gentle.surfaces[at]?.fills[0]?.alpha).toBeLessThan(pass?.fills[0]?.alpha ?? 0);
+    expect(gentle.surfaces[at]?.drew[0]?.alpha).toBeGreaterThan(drew[0]?.alpha ?? 1);
+    // A compressor at one to one, and one the picture has not travelled to yet, are both the field
+    // it came from — the field at the whole of itself, and no fill over the picture at all.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const arriving = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [{ ...look("squash", terms), at: 0 }],
+    });
+    expect(arriving.surfaces[at]?.drew).toHaveLength(1);
+    expect(arriving.surfaces[at]?.drew[0]?.alpha).toBe(1);
+    expect(arriving.surfaces[at]?.fills).toEqual([]);
     expect(fills(arriving)).toEqual(fills(plain));
   });
 

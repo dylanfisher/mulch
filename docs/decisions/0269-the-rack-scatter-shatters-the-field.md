@@ -4,7 +4,11 @@
 - **Status:** accepted, amended by
   [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (the shatter is scatter's own declared
   look: it rests on the set among `looks` rather than in a field of its own, and its presence
-  travels where it used to snap); on
+  travels where it used to snap) and by
+  [0288](0288-a-compressor-squashes-the-picture.md) (the rule below that a pass is a draw of the
+  field and never a fill over it holds for every pass and for every composite but one: the squash's
+  floor is a level laid where the field has none, which no composite of the field with itself can
+  be, and its ceiling is still a draw); on
   [0213](0213-a-reading-of-the-output-belongs-to-the-field.md),
   [0250](0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md) and
   [0267](0267-the-rack-tail-blows-the-field.md)

@@ -350,8 +350,8 @@ describe("effect registry", () => {
       const owned = new Set(params.map(({ id }) => id));
       for (const { param } of lookFrom ?? []) expect(owned.has(param)).toBe(true);
     }
-    // The ten that stand today, on the entries whose whole-field moves have landed (0278, 0280,
-    // 0281, 0282, 0283, 0285, 0286, 0287).
+    // The eleven that stand today, on the entries whose whole-field moves have landed (0278, 0280,
+    // 0281, 0282, 0283, 0285, 0286, 0287, 0288).
     expect(claimed).toEqual(
       new Set([
         "warp",
@@ -364,6 +364,7 @@ describe("effect registry", () => {
         "sharpen",
         "wobble",
         "band",
+        "squash",
       ]),
     );
   });

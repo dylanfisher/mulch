@@ -756,7 +756,15 @@ whole-field move is the size a glance reads at.
   because the contract file stood at the hard cap again; its Freq, Gain and Q are declared on the eq
   entry, a cut is now as present as a lift — `effectHeard` reads how far the knob stands from its
   silence whichever side of it, which the EQ is the one entry to force (0202) — and the shot swapped
-  which composite is the lift, because the field is a hole mask — then compressor, shift, scatter.
+  which composite is the lift, because the field is a hole mask — then compressor — **landed,
+  [0288](decisions/0288-a-compressor-squashes-the-picture.md)**: the squash takes the eighth slot,
+  and its floor is the one fill in the chain — one of its two composites, because every composite of
+  the field with itself leaves nought at nought and so cannot thin an ink line at all, the mask's
+  own blank being where the picture's deepest ink stands; its
+  Ratio and its Threshold are declared on the compressor entry, the Ratio read twice and agreeing
+  with its own presence at one to one, and its maths and its draw are whole in a file of its own
+  (`squashLook`, src/lib/moireSquash.ts) because the contract file stood at the cap yet again —
+  then shift, scatter.
 - **The paint may slow under a full rack** — **landed,
   [0284](decisions/0284-a-long-chain-paints-half-as-often.md)**: `DRIFT_PAINT_HZ` (24) stays the
   ceiling; a chain longer than `LOOK_FULL_RATE` passes paints at half of it, and never below twelve
@@ -773,20 +781,20 @@ whole-field move is the size a glance reads at.
 **What each pass is,** its terms read off the entry's own values through the same presence-weighting
 `rackShape` uses, and the one Canvas 2D move that draws it:
 
-| Effect     | Look                                                                                  | Terms                                                                      | The draw                                                                                                                                                                                                        |
-| ---------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| reverb     | **bloom** (landed, 0280) — a soft halo, contrast washes out                           | wet → amount, decay → radius                                               | the field downscaled and upscaled, laid back over itself at the amount; the original stays under it                                                                                                             |
-| crush      | **blocks** (landed, 0281) — pixelated, levels posterised                              | rate → block size, bits → level count                                      | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it                                                                              |
-| delay      | **echoes** (landed, 0282) — ghosted repeats, spaced, fading                           | time → spacing, feedback → count and fade                                  | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                                                                                          |
-| pop        | **sharpen** (landed, 0283) — edges bite, contrast lifts, colour saturates             | mix → amount, sheen → saturation                                           | the blurred copy taken out of the field and the mask that leaves added back `lighter` at the amount — `source-over` hazed it, the shot decided; saturation is a stepped ink term                                |
-| tape       | **wobble** (landed, 0285) — rows swim sideways, grain in the ink, warm tint           | wow → wobble, hiss → grain; tone → tint is the row's own `hue`, so no term | slices slid by a sine of the tape's own clock, the cut's own wrap; a noise tile baked once and swept, `destination-out` — `destination-in` would multiply the field by the term's share as well as by the noise |
-| filter     | **soften** (landed, 0286) — fine detail dissolves as the cutoff falls                 | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom — and the band closes at the field itself, where the entry's own presence already stands at nought |
-| eq         | **band** (landed, 0287) — one lit band across the field at the frequency              | frequency → position, gain → lift or cut, q → width                        | the band's slice taken out `destination-out` (lift) or re-laid `source-over` (cut) — the shot's way round, because the field is a hole mask — in nested slices, so the width softens the edges                  |
-| compressor | **squash** — range flattened toward mid, windows dim, ink thins                       | ratio → floor, threshold → ceiling                                         | a flat alpha laid `destination-over` at the floor and `destination-in` at the ceiling                                                                                                                           |
-| shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                 |
-| scatter    | **shatter** (landed, 0269; declared, 0279) — pieces drawn from elsewhere in the field | odds → share, span → piece size                                            | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                                                                                          |
-| sway       | **warp** (landed, 0278; declared, 0279)                                               | depth → bend, rate → wander                                                | as today                                                                                                                                                                                                        |
-| automator  | **fold** (landed, 0278; declared, 0279)                                               | none — one fold per automator standing                                     | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                                                                                              |
+| Effect     | Look                                                                                  | Terms                                                                      | The draw                                                                                                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| reverb     | **bloom** (landed, 0280) — a soft halo, contrast washes out                           | wet → amount, decay → radius                                               | the field downscaled and upscaled, laid back over itself at the amount; the original stays under it                                                                                                                                                  |
+| crush      | **blocks** (landed, 0281) — pixelated, levels posterised                              | rate → block size, bits → level count                                      | downscaled to the block grid with smoothing off and upscaled; composed with itself `destination-in` once per lost bit to harden it                                                                                                                   |
+| delay      | **echoes** (landed, 0282) — ghosted repeats, spaced, fading                           | time → spacing, feedback → count and fade                                  | the field drawn again `source-over` offset along the wind's veer, `n` times at a geometric alpha, capped at `ECHO_CAP`                                                                                                                               |
+| pop        | **sharpen** (landed, 0283) — edges bite, contrast lifts, colour saturates             | mix → amount, sheen → saturation                                           | the blurred copy taken out of the field and the mask that leaves added back `lighter` at the amount — `source-over` hazed it, the shot decided; saturation is a stepped ink term                                                                     |
+| tape       | **wobble** (landed, 0285) — rows swim sideways, grain in the ink, warm tint           | wow → wobble, hiss → grain; tone → tint is the row's own `hue`, so no term | slices slid by a sine of the tape's own clock, the cut's own wrap; a noise tile baked once and swept, `destination-out` — `destination-in` would multiply the field by the term's share as well as by the noise                                      |
+| filter     | **soften** (landed, 0286) — fine detail dissolves as the cutoff falls                 | cutoff → radius                                                            | the blurred copy _replaces_ the field (`source-over` at one); no halo, which is what tells it from the bloom — and the band closes at the field itself, where the entry's own presence already stands at nought                                      |
+| eq         | **band** (landed, 0287) — one lit band across the field at the frequency              | frequency → position, gain → lift or cut, q → width                        | the band's slice taken out `destination-out` (lift) or re-laid `source-over` (cut) — the shot's way round, because the field is a hole mask — in nested slices, so the width softens the edges                                                       |
+| compressor | **squash** (landed, 0288) — range flattened toward mid, windows dim, ink thins        | ratio → floor, threshold → ceiling                                         | the field drawn at the ceiling's own share and one flat alpha laid `destination-over` at the floor — the floor is the chain's one fill, because it is a level laid where the mask has none and no draw of the field can be; the ceiling stays a draw |
+| shift      | **double** — a second picture at the interval's ratio                                 | interval → zoom ratio, mix → amount                                        | the field drawn again `source-over` scaled about the anchor by `2^(interval/12)`, at the amount                                                                                                                                                      |
+| scatter    | **shatter** (landed, 0269; declared, 0279) — pieces drawn from elsewhere in the field | odds → share, span → piece size                                            | as today; `SHATTER_BANDS` becomes a term off span, in eighths to whole                                                                                                                                                                               |
+| sway       | **warp** (landed, 0278; declared, 0279)                                               | depth → bend, rate → wander                                                | as today                                                                                                                                                                                                                                             |
+| automator  | **fold** (landed, 0278; declared, 0279)                                               | none — one fold per automator standing                                     | as today — a bake on the curved row's coordinate, and the one pass that cannot take a slot (below)                                                                                                                                                   |
 
 **The outcome wanted:** a glance at the picture says which effects are standing, in what order, and
 how many; two of one kind read as twice as much of that one thing; and turning an effect off drains
@@ -851,7 +859,9 @@ its look out of the picture over the wind's seconds rather than between two fram
   call log is the assertion); a rack with no looks draws the field once, exactly as today; after the
   re-homing step the warp and the shatter reach the screen through the same calls they do at `HEAD`,
   so the step's first gate is a byte-identical shot. Per look, one case that the pass is a draw of
-  the field and not a fill over it — the shatter's own rule (0269).
+  the field and not a fill over it — the shatter's own rule (0269) — and, for the squash alone, how much
+  of it is a fill: a floor is a level laid where the mask has none, which no composite of the field
+  with itself can be, and its ceiling is a draw like every other pass's (0288).
 - **src/ui/moireCanvas.test.ts** — the paint cadence halves above `LOOK_FULL_RATE` passes and never
   falls under twelve, read off the set and not off the clock. **Landed, 0284**, with the rack of
   sways that is not a chain at all beside it.
@@ -1022,6 +1032,21 @@ the magnitude now, which changes what the lattice makes of a cutting EQ as well 
 draws — the EQ is the one entry whose silence sits inside its own range, and the reading it should
 always have had. The wind is unmoved either way: an EQ settles at the floor, and a tail that short
 weighs nothing in it.
+
+**A squash drawn out of the field alone, tried and refused.** 0269 refuses a pass that fills over
+the picture and every look before this one obeys it, so the squash was cut both ways before it
+landed (0288). Its floor cannot be a draw of the field: every composite of the field's alpha with
+itself leaves nought at nought, and the mask's blank is where the picture's deepest ink stands, so a
+squash made of them cannot thin an ink line — the half of the move a compressor is named for. The
+strip says the same. With the floor drawn as `destination-over` of the field over itself the picture
+read a mean ink of 0.350 at a swing of 0.033 against `BASE`'s 0.185 at 0.032 — the whole of its block
+swing kept and only its mean moved, which is a brightener; the fill, on the same fixture interleaved
+against the same `BASE`, read 0.320 at 0.026, the structure closed up. The ceiling half went the
+other way and is where the plan's stated draw is narrowed: a `destination-in` at the ceiling and the
+field drawn at the ceiling's own share are the same arithmetic on a cleared surface, so the pass
+draws it and 0269's rule gains an exception one composite wide instead of two — stated at the
+declaration, back-linked from 0269 and asserted in src/ui/moireCanvasField.test.ts rather than left
+to a reader.
 
 **Crush's loaded factor, measured and kept.** Landing crush (`4f16805`) dropped `./scripts/profile`'s
 loaded factor from 26.4x to 16.0x — a flat ~395ms on the 16s loaded render, reproducible across three

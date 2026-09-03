@@ -79,6 +79,15 @@ export const compressorEffect = defineEffect({
     { param: "comp.attack", into: "bend" },
     { param: "comp.knee", into: "chirp" },
   ],
+  // The picture's whole range closed up toward its own middle: how far the floor comes up is the
+  // Ratio — the same knob the presence above is read off, and the two agree at one to one, which is
+  // the filter's answer and not the bloom's (0286, 0288) — and where the ceiling comes down to is
+  // the Threshold, the level everything else here is measured from.
+  look: "squash",
+  lookFrom: [
+    { param: "comp.ratio", into: "floor" },
+    { param: "comp.threshold", into: "ceiling" },
+  ],
   driftUnreached: [
     {
       param: "comp.output",

@@ -13,7 +13,8 @@
  *   draw is here beside its declaration (0280). The one thing a draw here bakes rather than draws —
  *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286) — and
  *   the one look declared whole in a file of its own, its terms and its draw together, because this
- *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287).
+ *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287) and `squashLook` in
+ *   src/lib/moireSquash.ts (0288).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -22,6 +23,7 @@
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { bandLook } from "@/lib/moireBand";
+import { squashLook } from "@/lib/moireSquash";
 import { cosTurn, wrap } from "@/lib/moire";
 import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
 import { LENS_SLICES } from "@/lib/moireGeometry";
@@ -40,6 +42,7 @@ export const LOOK_NAMES = [
   "wobble",
   "soften",
   "band",
+  "squash",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -62,6 +65,8 @@ export const LOOK_TERMS = [
   "position",
   "lift",
   "width",
+  "floor",
+  "ceiling",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];
@@ -737,6 +742,15 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * out of the rest of it — lit where the gain lifts and taken out where it cuts.
    */
   band: bandLook,
+  /**
+   * Compressor's, declared away from here for the band's reason and at the same cap (`squashLook`,
+   * src/lib/moireSquash.ts, 0288): the picture's whole range closed up toward its own middle, its
+   * deepest ink thinned by the floor the Ratio lays under the mask's own blank and its windows
+   * dimmed by where the Threshold brings the ceiling down. **And the one pass that lays a fill at
+   * all** — one composite of its two — because a floor is a level where the field has none, and
+   * every composite of the field with itself leaves nought at nought (0269).
+   */
+  squash: squashLook,
 };
 
 /**
