@@ -21,7 +21,7 @@ import {
   shatterSlide,
 } from "@/lib/moireGeometry";
 import { LOOKS } from "@/lib/moireLook";
-import { SHARD_CAP, shardsInto } from "@/lib/moireShards";
+import { SHARD_CAP, SHARD_LAYER, shardsInto } from "@/lib/moireShards";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
 import {
   looksCrowd,
@@ -38,29 +38,49 @@ import type { MoireShape } from "@/ui/moireShape";
 const lensOf = (row: MoireRow): number => row.lens;
 
 /**
- * The shards' own scratch, kept rather than made: how far each slice is thrown across and each
- * column down (`shardsInto`, src/lib/moireShards.ts), how present each automator standing is, and
- * the seed the count is read off — the painter's roamed stops denormalised once a painting, at the
- * zoom of one and the fly of nought the tear reads at. A painting allocates nothing (0070).
+ * The shards' own scratch, kept rather than made: how far each automator throws each slice across
+ * and each column down, a layer per automator (`shardsInto`, src/lib/moireShards.ts), how present
+ * each automator standing is and how much its run holds, and the seed the count is read off — the
+ * painter's roamed stops denormalised once a painting, at the zoom of one and the fly of nought the
+ * tear reads at. A painting allocates nothing (0070).
  */
-const throws = new Float64Array(2 * LENS_SLICES);
+const throws = new Float64Array(SHARD_CAP * SHARD_LAYER);
 const presences = new Float64Array(SHARD_CAP);
+const helds = new Float64Array(SHARD_CAP);
 const thrown = fractalRest();
 
 /**
- * The surface a warped field is bent across on its way out, one per field and kept at the field's
- * own size: the first pass slides its bands into this, and the second slides this one's columns
- * into the screen. Made the first time a picture is warped and never for one that is not, so a
- * picture with no sway behind it pays nothing for the pass it does not take.
+ * The two surfaces a bent or torn field goes through on its way out, one pair per field and kept at
+ * the field's own size: an across pass slides its bands into the first, a down pass slides that one's
+ * columns into the second — or into the screen, on the last layer — and the next layer's across pass
+ * reads the second back (0298). Made the first time a picture takes a layer and never for one that
+ * does not, so a picture with no sway and no automator behind it pays nothing for passes it does not
+ * take.
  */
-const betweens = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+const betweens = new WeakMap<
+  HTMLCanvasElement,
+  [HTMLCanvasElement | null, HTMLCanvasElement | null]
+>();
 
-function betweenFor(field: HTMLCanvasElement): HTMLCanvasElement {
-  const held = betweens.get(field) ?? document.createElement("canvas");
+function betweenFor(field: HTMLCanvasElement, which: 0 | 1): HTMLCanvasElement {
+  const pair = betweens.get(field) ?? [null, null];
+  betweens.set(field, pair);
+  // Made one at a time: a single layer lands in the screen and never asks for the second.
+  const held = pair[which] ?? document.createElement("canvas");
+  pair[which] = held;
   if (held.width !== field.width) held.width = field.width;
   if (held.height !== field.height) held.height = field.height;
-  betweens.set(field, held);
   return held;
+}
+
+/** A surface's context, cleared for a layer to land in; `null` where the engine will not make one. */
+function clearedInk(surface: HTMLCanvasElement): CanvasRenderingContext2D | null {
+  const ink = surface.getContext("2d");
+  if (ink === null) return null;
+  ink.globalCompositeOperation = "source-over";
+  ink.globalAlpha = 1;
+  ink.clearRect(0, 0, surface.width, surface.height);
+  return ink;
 }
 
 /**
@@ -162,12 +182,17 @@ function passLooks(
  *
  * **And the shards are the same slices once more, thrown by the structure** (0296). Every band is
  * slid across by a table read once a painting off the escape count down the picture's centre
- * column, and every column of what that left is slid down by the same count along its centre row —
- * one cross-section per automator standing, summed and clamped in shares of the height
- * (`shardsInto`, src/lib/moireShards.ts). The count is read off `stops`, which is where the
- * painter's own roam has carried the plane the picture already stands on: the tear moves with the
- * field and never on its own. So a straight row is torn as a curved one is, and nothing is baked
- * for it — the column pass is taken for the shards exactly as for the warp.
+ * column, and every column of what that left is slid down by the same count along its centre row,
+ * in shares of the height (`shardsInto`, src/lib/moireShards.ts). The count is read off `stops`,
+ * which is where the painter's own roam has carried the plane the picture already stands on: the
+ * tear moves with the field and never on its own. So a straight row is torn as a curved one is, and
+ * nothing is baked for it — the column pass is taken for the shards exactly as for the warp.
+ *
+ * **And every automator tears what the ones before it left** (0298). The first automator's throw
+ * rides the warp's two passes; each further one is two passes of its own — its across throw over
+ * the surface the last layer landed in, its down throw out of that — so the second tears pieces of
+ * the first's pieces, the way a flattened picture is torn again, and never adds its table to the
+ * first's. Two surfaces between suffice whatever the count: a layer reads one and writes the other.
  */
 export function cutField(
   context: CanvasRenderingContext2D,
@@ -190,7 +215,7 @@ export function cutField(
   const lens = bold === null ? 0 : bold.lens;
   const broken = shatterPieces(shatter, piece);
   const bent = warpShare(looksWarp(looks));
-  const standing = looksShards(looks, presences);
+  const standing = looksShards(looks, presences, helds);
   if (lens <= 0 && broken <= 0 && bent <= 0 && standing <= 0) {
     context.drawImage(passed, 0, 0);
     return;
@@ -199,51 +224,104 @@ export function cutField(
   // the painter roams, at the zoom of one and the fly of nought the tear reads at (0261, 0296).
   if (standing > 0) {
     fractalSeedInto(thrown, stops, 1, 0);
-    shardsInto(throws, thrown, geometryRef(width, height), width, height, presences, standing);
+    shardsInto(
+      throws,
+      thrown,
+      geometryRef(width, height),
+      width,
+      height,
+      presences,
+      helds,
+      standing,
+    );
   }
   // A yard scattering with no row asking for a lens has nothing to take a phase off, and needs
   // none: the slices stand where they are and the field is drawn out of order through them.
   const turns = bold === null || lens <= 0 ? 0 : turnsOf(bold);
-  // Where the bands land: straight into the screen, or into the surface between when there is a
-  // second pass to take — the warp's second sine, the shards' down throw, or both. An engine that
-  // will not make that surface's context draws no picture at all, and an empty canvas says so
-  // (src/ui/moireCanvas.ts).
-  const between = bent > 0 || standing > 0 ? betweenFor(field) : null;
-  const ink = between === null ? context : between.getContext("2d");
-  if (ink === null) {
-    context.clearRect(0, 0, width, height);
+  // How many two-pass layers the picture goes through: one for a bend or the first tear, and one
+  // more for every further automator. None, and the bands land straight in the screen.
+  const layers = Math.max(standing, bent > 0 ? 1 : 0);
+  if (layers === 0) {
+    slideAcross(context, passed, lens, turns, shatter, piece, 0, shape.sway, -1);
     return;
   }
-  if (between !== null) {
-    ink.globalCompositeOperation = "source-over";
-    ink.globalAlpha = 1;
-    ink.clearRect(0, 0, width, height);
+  // Each layer: the across pass into the first surface between, the down pass out of it into the
+  // second — or into the screen, on the last. The lens, the shatter and the warp ride the first
+  // layer only; an engine that will not make a surface's context draws no picture at all, and an
+  // empty canvas says so (src/ui/moireCanvas.ts).
+  let source = passed;
+  for (let layer = 0; layer < layers; layer++) {
+    const across = betweenFor(field, 0);
+    const ink = clearedInk(across);
+    const last = layer === layers - 1;
+    const down = last ? context : clearedInk(betweenFor(field, 1));
+    if (ink === null || down === null) {
+      context.clearRect(0, 0, width, height);
+      return;
+    }
+    const tear = layer < standing ? layer : -1;
+    if (layer === 0) {
+      slideAcross(ink, source, lens, turns, shatter, piece, bent, shape.sway, tear);
+      slideDown(down, across, bent, shape.sway, tear);
+    } else {
+      slideAcross(ink, source, 0, 0, 0, 0, 0, shape.sway, tear);
+      slideDown(down, across, 0, shape.sway, tear);
+    }
+    if (!last) source = betweenFor(field, 1);
   }
+}
+
+/**
+ * One across pass: every band of `source` slid into `ink` by the lens's own slide, the warp's first
+ * sine and — where `tear` names a layer of the throw table — that automator's throw across, in shares
+ * of the height as the warp's is; and, where the band belongs to a piece the shatter's share has
+ * broken, the whole piece the walk draws that piece from. Wrapped into one picture before it is
+ * drawn: the band is covered by the copy either side of the edge it is slid over, which is only
+ * true of an offset inside one width of it.
+ */
+function slideAcross(
+  ink: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  lens: number,
+  turns: number,
+  shatter: number,
+  piece: number,
+  bent: number,
+  sway: number,
+  tear: number,
+): void {
+  const { height, width } = source;
   for (let slice = 0; slice < LENS_SLICES; slice++) {
     const top = Math.floor((slice * height) / LENS_SLICES);
     const deep = Math.floor(((slice + 1) * height) / LENS_SLICES) - top;
     if (deep <= 0) continue;
-    // The lens's own slide, the warp's first sine across, the shards' throw across — in shares of
-    // the height, as the warp's is — and, where this slice belongs to a piece the share has broken,
-    // the whole piece the walk draws that piece from. Wrapped into one picture before it is drawn:
-    // the band is covered by the copy either side of the edge it is slid over, which is only true
-    // of an offset inside one width of it.
     const slid =
       lensSlide(lens, turns, slice, LENS_SLICES) * width +
-      warpSlideX(bent, shape.sway, (top + deep / 2) / height) * height +
-      (standing > 0 ? (throws[slice] ?? 0) * height : 0);
+      warpSlideX(bent, sway, (top + deep / 2) / height) * height +
+      (tear >= 0 ? (throws[tear * SHARD_LAYER + slice] ?? 0) * height : 0);
     const off = shatterSlide(shatter, piece, slice, LENS_SLICES);
     cutAcross(
       ink,
-      passed,
+      source,
       top,
       deep,
-      off > 0 || standing > 0 ? wrap(slid / width + off, 1) * width : slid,
+      off > 0 || tear >= 0 ? wrap(slid / width + off, 1) * width : slid,
     );
   }
-  if (between === null) return;
-  // The second sine and the down throw, down the columns of what the first pass left, and out to
-  // the screen.
+}
+
+/**
+ * One down pass: every column of `between` slid into `context` by the warp's second sine and — where
+ * `tear` names a layer — that automator's throw down, in shares of the height.
+ */
+function slideDown(
+  context: CanvasRenderingContext2D,
+  between: HTMLCanvasElement,
+  bent: number,
+  sway: number,
+  tear: number,
+): void {
+  const { height, width } = between;
   for (let slice = 0; slice < LENS_SLICES; slice++) {
     const left = Math.floor((slice * width) / LENS_SLICES);
     const wide = Math.floor(((slice + 1) * width) / LENS_SLICES) - left;
@@ -253,8 +331,8 @@ export function cutField(
       between,
       left,
       wide,
-      warpSlideY(bent, shape.sway, (left + wide / 2) / height) * height +
-        (standing > 0 ? (throws[LENS_SLICES + slice] ?? 0) * height : 0),
+      warpSlideY(bent, sway, (left + wide / 2) / height) * height +
+        (tear >= 0 ? (throws[tear * SHARD_LAYER + LENS_SLICES + slice] ?? 0) * height : 0),
     );
   }
 }

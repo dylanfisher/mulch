@@ -70,6 +70,7 @@ const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireL
   presence: 1,
   at: 1,
   terms,
+  held: 0,
 });
 
 /** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */

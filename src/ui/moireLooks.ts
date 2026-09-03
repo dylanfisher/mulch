@@ -23,6 +23,7 @@ import { SHARD_CAP } from "@/lib/moireShards";
 import { rackScatter } from "@/lib/moireSound";
 import { clamp, normalize } from "@/lib/range";
 import type { DeckState } from "@/state/store";
+import type { GrownRun } from "@/ui/moireGrown";
 
 /**
  * One look standing in one rack: which instance it belongs to, which look it is, how present that
@@ -42,6 +43,13 @@ export type MoireLook = {
   /** And how much of that the picture has actually taken, travelled by `looksTravelInto`. */
   at: number;
   terms: LookTerms;
+  /**
+   * How much of a run the instance is holding, for the one look that *is* a run: the presences the
+   * automator's places stand at, summed, written every frame off the read (`looksHeldInto`) and
+   * nought for every other look, whose instance holds no run. A per-frame fact and never a term,
+   * because a term is read off what an instance is set to and a run is set to nothing (0204, 0298).
+   */
+  held: number;
 };
 
 /**
@@ -76,7 +84,7 @@ export function rackLooks(effects: DeckState["effects"]): MoireLook[] {
           ? normalize(value, spec.min, spec.max, spec.curve)
           : value;
     }
-    looks.push({ key: instance.id, look, presence, at: 0, terms });
+    looks.push({ key: instance.id, look, presence, at: 0, terms, held: 0 });
   }
   return looks;
 }
@@ -189,19 +197,40 @@ export function looksSaturate(looks: readonly MoireLook[]): number {
 }
 
 /**
- * And how many automators are tearing the picture, each at the presence it has travelled to, into
- * `into` in rack order — one slot per automator standing and never past the cap, which is what the
- * cut hands the throw table's own maths (`shardsInto`, src/lib/moireShards.ts, 0296). Answers the
- * count filled; a bypassed automator is in no set at all and so in none of them, and one on its way
- * in stands at a fraction, which is a fainter tear and never a whole one rounded to. Filled in place
- * rather than answered as a list, because this runs once a painting on the frame path (0070).
+ * How much each automator's run is holding, written onto its look off the frame's own read of the
+ * run — the presences of its places summed, so a place arriving counts for what it has arrived by
+ * (0204, 0298). Every other look holds no run and reads nought. In place and every frame, because a
+ * run moves on its own clock and nothing but the read knows when (0070).
  */
-export function looksShards(looks: readonly MoireLook[], into: Float64Array): number {
+export function looksHeldInto(looks: readonly MoireLook[], grown: GrownRun): void {
+  for (const look of looks) {
+    if (look.look !== "shards") continue;
+    let held = 0;
+    for (const place of grown.get(look.key) ?? []) held += clamp(place.presence, 0, 1);
+    look.held = held;
+  }
+}
+
+/**
+ * And how many automators are tearing the picture, each at the presence it has travelled to and
+ * how much its run holds, into `presences` and `helds` in rack order — one slot per automator
+ * standing and never past the cap, which is what the cut hands the throw table's own maths
+ * (`shardsInto`, src/lib/moireShards.ts, 0296). Answers the count filled; a bypassed automator is
+ * in no set at all and so in none of them, and one on its way in stands at a fraction, which is a
+ * fainter tear and never a whole one rounded to. Filled in place rather than answered as a list,
+ * because this runs once a painting on the frame path (0070).
+ */
+export function looksShards(
+  looks: readonly MoireLook[],
+  presences: Float64Array,
+  helds: Float64Array,
+): number {
   let standing = 0;
   for (const look of looks) {
     if (look.look !== "shards") continue;
     if (standing >= SHARD_CAP) break;
-    into[standing] = look.at;
+    presences[standing] = look.at;
+    helds[standing] = look.held;
     standing += 1;
   }
   return standing;

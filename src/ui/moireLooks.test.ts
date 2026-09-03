@@ -30,6 +30,7 @@ import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
 import {
   looksCrowd,
+  looksHeldInto,
   looksShards,
   looksSaturate,
   looksShatter,
@@ -99,6 +100,25 @@ const arrived = (effects: SessionEffect[]): MoireLook[] => {
 
 /** A table of tears poisoned so a slot the reading missed shows (`looksShards`). */
 const into = (): Float64Array => new Float64Array(SHARD_CAP).fill(Number.NaN);
+
+/** One place of a run, standing at `presence`, as the read holds it (`looksHeldInto`). */
+const place = (presence: number) => ({
+  effect: "filter",
+  instance: "grown",
+  presence,
+  remain: 1,
+  life: 1,
+  values: [],
+});
+
+/** The presences and the helds `looksShards` fills, and the count it answers. */
+const sharded = (
+  looks: MoireLook[],
+): { standing: number; at: Float64Array; held: Float64Array } => {
+  const at = into();
+  const held = into();
+  return { standing: looksShards(looks, at, held), at, held };
+};
 
 /** How broken a rack draws the picture, once its looks have arrived. */
 const shattered = (effects: SessionEffect[]): number => looksShatter(arrived(effects));
@@ -341,44 +361,53 @@ describe("the looks a standing rack gives the picture", () => {
 
   // P296: one tear per automator standing, each at the presence it has travelled to.
   it("tears the picture once per automator standing, in rack order and never past the cap", () => {
-    let table = into();
-    expect(looksShards([], table)).toBe(0);
-    table = into();
-    expect(looksShards(arrived([instance("x", { effect: "automator" })]), table)).toBe(1);
-    expect(table[0]).toBe(1);
+    expect(sharded([]).standing).toBe(0);
+    const one = sharded(arrived([instance("x", { effect: "automator" })]));
+    expect(one.standing).toBe(1);
+    expect(one.at[0]).toBe(1);
+    // A run the frame has not read yet holds nothing, and says so rather than poisoning the slot.
+    expect(one.held[0]).toBe(0);
     // Two automators, with something that is not one between them: two slots, in the rack's order.
-    table = into();
-    const two = arrived([
+    const two = sharded(
+      arrived([
+        instance("x", { effect: "automator" }),
+        instance("r", { effect: "reverb" }),
+        instance("y", { effect: "automator" }),
+      ]),
+    );
+    expect(two.standing).toBe(2);
+    expect(Array.from(two.at.subarray(0, 2))).toEqual([1, 1]);
+    // Past the cap the count stops, and nothing past it is written.
+    const many = sharded(
+      arrived(
+        Array.from({ length: SHARD_CAP + 2 }, (_each, at) =>
+          instance(`x${at}`, { effect: "automator" }),
+        ),
+      ),
+    );
+    expect(many.standing).toBe(SHARD_CAP);
+    expect(Array.from(many.at).every((presence) => presence === 1)).toBe(true);
+    // A bypassed automator is in no set at all, and so in no slot.
+    expect(
+      sharded(arrived([instance("x", { effect: "automator", bypassed: true })])).standing,
+    ).toBe(0);
+  });
+
+  // P298: how much each automator's run holds is written onto its look off the frame's read.
+  it("writes how much each automator's run holds onto its look, and nought on every other", () => {
+    const looks = arrived([
       instance("x", { effect: "automator" }),
       instance("r", { effect: "reverb" }),
       instance("y", { effect: "automator" }),
     ]);
-    expect(looksShards(two, table)).toBe(2);
-    expect(Array.from(table.subarray(0, 2))).toEqual([1, 1]);
-    // Past the cap the count stops, and nothing past it is written.
-    table = into();
-    expect(
-      looksShards(
-        arrived(
-          Array.from({ length: SHARD_CAP + 2 }, (_each, at) =>
-            instance(`x${at}`, { effect: "automator" }),
-          ),
-        ),
-        table,
-      ),
-    ).toBe(SHARD_CAP);
-    expect(Array.from(table).every((presence) => presence === 1)).toBe(true);
-    // A bypassed automator is in no set at all, and so in no slot.
-    table = into();
-    expect(
-      looksShards(arrived([instance("x", { effect: "automator", bypassed: true })]), table),
-    ).toBe(0);
-    // And one on its way in stands at a fraction, which is a fainter tear and not a whole one.
-    const tearing = rackLooks([instance("x", { effect: "automator" })]);
-    looksTravelInto(tearing, SHAPE_SECS, SHAPE_SECS / 2, true);
-    table = into();
-    expect(looksShards(tearing, table)).toBe(1);
-    expect(table[0]).toBeCloseTo(0.5);
+    // Presences summed, so a place halfway in counts for half; a run the read does not hold is a
+    // run holding nothing; and the slot is what the cut is handed.
+    looksHeldInto(looks, new Map([["x", [place(1), place(1), place(0.5)]]]));
+    expect(looks.map((look) => look.held)).toEqual([2.5, 0, 0]);
+    expect(Array.from(sharded(looks).held.subarray(0, 2))).toEqual([2.5, 0]);
+    // And rewritten every frame, not accumulated.
+    looksHeldInto(looks, NO_GROWN);
+    expect(looks.map((look) => look.held)).toEqual([0, 0, 0]);
   });
 
   it("breaks the field by the scatters it can hear and nothing else", () => {

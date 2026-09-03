@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, shatterBands, SHATTER_CEILING } from "@/lib/moireGeometry";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
-import { SHARD_CEILING } from "@/lib/moireShards";
+import { SHARD_REACH } from "@/lib/moireShards";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
@@ -40,6 +40,7 @@ const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireL
   presence: 1,
   at: 1,
   terms,
+  held: 0,
 });
 
 /**
@@ -63,6 +64,10 @@ const elsewhere = (painted: Painted): number[] =>
 /** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */
 const fills = (painted: Painted): string[] =>
   painted.laid.filter((each) => each.ink !== PRODUCT).map((each) => each.over);
+
+/** Where each whole column cut out to the screen was laid down, in the order they were drawn. */
+const screenOf = (painted: Painted): number[] =>
+  painted.slices.filter((slice) => slice.top === 0 && slice.deep === 64).map((slice) => slice.down);
 
 /** The surface between the two slice passes, where the first pass laid a band per slice. */
 const betweenOf = (painted: Painted): Painted["surfaces"][number] | undefined =>
@@ -269,11 +274,11 @@ describe("cutField", () => {
     const columns = torn.slices.filter((slice) => slice.top === 0 && slice.deep === 64);
     expect(new Set(columns.map((slice) => slice.slid)).size).toBe(LENS_SLICES);
     // Every band is slid by a different amount — a tear and not a shift — and no band further than
-    // the ceiling in shares of the height. Each band is laid twice, where the throw carries it and a
+    // the reach in shares of the height. Each band is laid twice, where the throw carries it and a
     // picture over, so its throw is the nearer of its two draws.
     const thrown = thrownOf(between);
     expect(thrown.size).toBe(LENS_SLICES);
-    expect(Math.max(...thrown.values())).toBeLessThanOrEqual(SHARD_CEILING * 64 + 1e-9);
+    expect(Math.max(...thrown.values())).toBeLessThanOrEqual(SHARD_REACH * 64 + 1e-9);
     expect(Math.max(...thrown.values())).toBeGreaterThan(0);
     expect(
       new Set([...thrown.values()].map((near) => Math.round(near * 100))).size,
@@ -282,15 +287,18 @@ describe("cutField", () => {
     expect(fills(torn)).toEqual(fills(plain));
     for (const draw of between?.drew ?? []) expect(draw.alpha).toBe(1);
     for (const slice of torn.slices) expect(slice.alpha).toBe(1);
-    // Two automators are two tears crossing: the throws differ from one automator's, and at least
-    // one band is thrown further, because the second adds to the first and is never normalised.
+    // Two automators are two layers, the second tearing what the first left (0298): a second
+    // surface between, the first surface's bands laid twice over — once a layer — and the columns
+    // that reach the screen thrown by the second automator's own table, which is not the first's.
     vi.stubGlobal("devicePixelRatio", 2);
     const twice = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
       looks: [look("shards", {}, "x"), look("shards", {}, "y")],
     });
-    const thrownTwice = thrownOf(betweenOf(twice));
-    expect([...thrownTwice.values()]).not.toEqual([...thrown.values()]);
-    expect(Math.max(...thrownTwice.values())).toBeGreaterThan(Math.max(...thrown.values()));
+    expect(twice.elements).toHaveLength(plain.elements.length + 2);
+    expect(betweenOf(twice)?.drew.length).toBe((between?.drew.length ?? 0) * 2);
+    expect(screenOf(twice)).not.toEqual(screenOf(torn));
+    expect(new Set(screenOf(twice).map((down) => Math.round(down * 100))).size).toBeGreaterThan(8);
+    for (const slice of twice.slices) expect(slice.alpha).toBe(1);
   });
 
   // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean

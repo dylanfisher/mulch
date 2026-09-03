@@ -4,18 +4,21 @@
  *   count read down the centre column, and every column thrown down by the same read along the
  *   centre row a quarter turn off. The count is cut into pieces a cycle wide and every piece is
  *   thrown by an amount unrelated to its neighbour's, so the picture is flat pieces with hard seams
- *   and never one slow bend (0297). One tear per automator standing, each read at its own depth
- *   into the structure and its own phase, summed and clamped, so two automators are two tears at
- *   different pitches crossing and never one tear twice as far (0296). Its terms — none — its
- *   numbers, its maths and where it lands are all here, and `LOOKS` holds the name against it.
+ *   and never one slow bend (0297). The pieces are widest for an automator holding one effect
+ *   and narrow to the step as its run fills, and every automator standing tears the picture the
+ *   ones before it already tore, each in a layer of its own read at its own depth and phase — so
+ *   two automators are pieces of pieces and never one tear twice as far (0296, 0298). Its terms —
+ *   none — its numbers, its maths and where it lands are all here, and `LOOKS` holds the name
+ *   against it.
  * @instead What a look is at all → src/lib/moireLook.ts. The count the tear reads →
  *   `escapeTurns` in src/lib/moireFractal.ts, whose seed is the stops the painter already roams.
- *   How many automators stand, and how far each has travelled in → `looksShards` in
- *   src/ui/moireLooks.ts. Where the table is filled once a painting and spent on the slices →
- *   `cutField` in src/ui/moireCanvasField.ts. The declaration itself → `look` on
+ *   How many automators stand, how far each has travelled in and how much each run holds →
+ *   `looksShards` and `looksHeldInto` in src/ui/moireLooks.ts. Where the table is filled once a
+ *   painting and each layer spent on the slices → `cutField` in src/ui/moireCanvasField.ts. The declaration itself → `look` on
  *   src/audio/effects/automator.ts. The bench picture this came off, and the turn its own ramps
  *   still read the count at → src/ui/sketch/structure/sketchStructure.ts.
  */
+import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { cosTurn } from "@/lib/moire";
 import { escapeTurns, type FractalSeed } from "@/lib/moireFractal";
 import { LENS_SLICES } from "@/lib/moireGeometry";
@@ -25,8 +28,8 @@ import { clamp } from "@/lib/range";
 /**
  * How many tears the picture takes at most, whatever the rack holds — how much is torn being how
  * many automators stand, since the look has no terms and an automator no knob to turn it down by
- * (0202, 0279). Four, because every automator past it is a further cross-section thrown under a
- * ceiling the third already reaches, and a fifth is kernel reads for a tear nobody can see.
+ * (0202, 0279). Four, because every layer is two more slice passes over the whole picture, and a
+ * fifth tear through pieces four tears have already cut is passes for a change nobody can see.
  */
 export const SHARD_CAP = 4;
 
@@ -39,16 +42,6 @@ export const SHARD_CAP = 4;
  * down it would wrap the strip several times.
  */
 export const SHARD_REACH = 0.15;
-
-/**
- * The most any slice is thrown, summed over every automator standing: three whole reaches. Bounded
- * for 0250's reason, and not derived from the shatter's ceiling, which bounds how much of the
- * picture is drawn from elsewhere and not how far a piece of it moves. **A clamp and never a
- * normalisation**: a second automator adds to the first and only the peaks flatten, where a sum
- * scaled to the ceiling would shrink the first tear as the second arrives — the picture *less* torn
- * for a moment by more automators. Under one height, so the down throw wraps once and never twice.
- */
-export const SHARD_CEILING = 3 * SHARD_REACH;
 
 /**
  * The depth the k-th standing automator reads the count at, as a scale over the first's: the beat's
@@ -76,6 +69,25 @@ export const SHARD_PHASE = 0.25;
 export const SHARD_STEP = 1;
 
 /**
+ * How many times wider than the step a piece is for an automator holding one effect. The pieces
+ * start big and splinter as the run fills, reaching the step itself at a full run
+ * (`GROWTH_COUNT_MAX`), so a picture torn by a young run is a few large pieces and one torn by a
+ * full run is the fine break (0298). Four, geometrically: a handful of cycles down an open column
+ * at four a piece is one or two seams, which is torn and not merely slid.
+ */
+export const SHARD_WIDEST = 4;
+
+/**
+ * How many cycles of the count one piece spans for an automator whose run holds `held` effects —
+ * the presences its places stand at, summed, so a piece narrows as a place arrives rather than
+ * snapping when it has. Widest at one held and never wider: a run holding nothing yet is torn as a
+ * run holding one, because an automator standing is a tear (0296).
+ */
+export const shardWidth = (held: number): number =>
+  SHARD_STEP *
+  SHARD_WIDEST ** ((GROWTH_COUNT_MAX - clamp(held, 1, GROWTH_COUNT_MAX)) / (GROWTH_COUNT_MAX - 1));
+
+/**
  * The turn each successive piece takes on the throw's cosine: the golden ratio's conjugate, so
  * consecutive pieces land on phases spread over the whole circle and no run of pieces climbs one
  * flank of the wave together. Neighbouring pieces are thrown by unrelated amounts, which is what a
@@ -88,29 +100,44 @@ export const SHARD_DOWN = -0.25;
 
 /**
  * One automator's throw of one slice: its presence times the reach, on a cosine of the piece the
- * count read at the slice's middle falls in, scattered a golden turn a piece, `k` quarter-turns on
- * for the k-th automator and `phase` further for the down throw. Nought at no presence, which is
- * what a tear on its way in or out is a share of.
+ * count read at the slice's middle falls in — `width` cycles a piece — scattered a golden turn a
+ * piece, `k` quarter-turns on for the k-th automator and `phase` further for the down throw. Nought
+ * at no presence, which is what a tear on its way in or out is a share of.
  */
-const throwOf = (presence: number, count: number, k: number, phase: number): number =>
+const throwOf = (
+  presence: number,
+  count: number,
+  width: number,
+  k: number,
+  phase: number,
+): number =>
   presence *
   SHARD_REACH *
-  cosTurn(Math.floor(count / SHARD_STEP) * SHARD_SCATTER + k * SHARD_PHASE + phase);
+  cosTurn(Math.floor(count / width) * SHARD_SCATTER + k * SHARD_PHASE + phase);
+
+/** How many doubles one automator's layer of the table is: every slice across, every column down. */
+export const SHARD_LAYER = 2 * LENS_SLICES;
 
 /**
- * The table the cut spends, into `out`: `out[0 ‥ LENS_SLICES)` is how far each slice is thrown
- * across and `out[LENS_SLICES ‥ 2·LENS_SLICES)` how far each column is thrown down, both as shares
- * of the height. Per automator of the `standing`, per slice, the count at the slice's middle on the
- * centre column — or the column's middle on the centre row — in reference radii, at the depth that
- * automator reads the structure at (`SHARD_RATIO`, over the seed's own zoom); summed over the
- * automators and clamped to the ceiling.
+ * The table the cut spends, into `out`, one layer per automator of the `standing` (0298): layer `k`
+ * is `out[k·SHARD_LAYER ‥ k·SHARD_LAYER + LENS_SLICES)`, how far the k-th automator throws each
+ * slice across, and the `LENS_SLICES` after it, how far it throws each column down, both as shares of
+ * the height. Per automator, per slice, the count at the slice's middle on the centre column — or
+ * the column's middle on the centre row — in reference radii, at the depth that automator reads the
+ * structure at (`SHARD_RATIO`, over the seed's own zoom), cut into pieces as wide as its run is
+ * young (`shardWidth` of `helds[k]`).
+ *
+ * **Layers and never a sum**: the cut throws the picture by layer 0, then throws what that left by
+ * layer 1, and so on, so a second automator tears pieces of the first's pieces and the two are never
+ * one table added up. Nothing is clamped, because one automator's throw is bounded by its reach and
+ * no layer reads another's.
  *
  * **The seed is the one the picture already stands on**, at a fly of nought: the roam is continuous
  * and is the plane the picture is cut from, so the tear moving with it is the field moving under it
  * and no motion of its own (0126); the flight and the breath are stepped ladders on the tiles, and a
  * tear that stepped with them would snap where the rows crossfade (0261). At most `SHARD_CAP` times
- * twice `LENS_SLICES` kernel reads a painting, into a table the caller keeps: no allocation (0070)
- * and no read-back (0129).
+ * `SHARD_LAYER` kernel reads a painting, into a table the caller keeps: no allocation (0070) and no
+ * read-back (0129).
  */
 export function shardsInto(
   out: Float64Array,
@@ -119,40 +146,50 @@ export function shardsInto(
   width: number,
   height: number,
   presences: Readonly<Float64Array>,
+  helds: Readonly<Float64Array>,
   standing: number,
 ): void {
-  if (out.length < 2 * LENS_SLICES) {
-    throw new Error(`A throw table of ${out.length} holds no ${2 * LENS_SLICES} slices.`);
+  if (out.length < SHARD_CAP * SHARD_LAYER) {
+    throw new Error(
+      `A throw table of ${out.length} holds no ${SHARD_CAP} layers of ${SHARD_LAYER}.`,
+    );
   }
-  if (standing < 0 || standing > SHARD_CAP || standing > presences.length) {
+  if (
+    standing < 0 ||
+    standing > SHARD_CAP ||
+    standing > presences.length ||
+    standing > helds.length
+  ) {
     throw new Error(`${standing} automators is not a count the picture tears for.`);
   }
-  out.fill(0, 0, 2 * LENS_SLICES);
+  out.fill(0, 0, standing * SHARD_LAYER);
   const { cx, cy, fly } = seed;
   for (let k = 0; k < standing; k++) {
     const presence = presences[k] ?? 0;
     if (presence <= 0) continue;
     const zoom = seed.zoom * SHARD_RATIO ** k;
+    const wide = shardWidth(helds[k] ?? 0);
+    const layer = k * SHARD_LAYER;
     for (let slice = 0; slice < LENS_SLICES; slice++) {
       const middle = (slice + 0.5) / LENS_SLICES;
       const v = ((middle - 0.5) * height) / ref;
       const u = ((middle - 0.5) * width) / ref;
-      out[slice] =
-        (out[slice] ?? 0) + throwOf(presence, escapeTurns(0, v, cx, cy, zoom, fly), k, 0);
-      out[LENS_SLICES + slice] =
-        (out[LENS_SLICES + slice] ?? 0) +
-        throwOf(presence, escapeTurns(u, 0, cx, cy, zoom, fly), k, SHARD_DOWN);
+      out[layer + slice] = throwOf(presence, escapeTurns(0, v, cx, cy, zoom, fly), wide, k, 0);
+      out[layer + LENS_SLICES + slice] = throwOf(
+        presence,
+        escapeTurns(u, 0, cx, cy, zoom, fly),
+        wide,
+        k,
+        SHARD_DOWN,
+      );
     }
-  }
-  for (let at = 0; at < 2 * LENS_SLICES; at++) {
-    out[at] = clamp(out[at] ?? 0, -SHARD_CEILING, SHARD_CEILING);
   }
 }
 
 /**
  * The automator's, and the one look with no terms at all: how torn the picture is, is how many
- * automators are standing, which is a fact about the run each of them *is* and not about any value
- * one holds. Cut through the slices the lens already reads the field back in, so it takes no slot
+ * automators are standing and how much each run holds, which are facts about the run each of them
+ * *is* and not about any value one holds. Cut through the slices the lens already reads the field back in, so it takes no slot
  * in the chain and bakes nothing (0296).
  */
 export const shardsLook: Look = { at: "cut", terms: {} };
