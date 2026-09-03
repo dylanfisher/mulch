@@ -201,6 +201,18 @@ Fixing a plausible-but-wrong finding is worse than not reviewing: it edits worki
 false premise and spends a gate run proving nothing. A refuted finding and an empty lens cost the
 same and are worth the same.
 
+## Shoot a picture twice, interleaved, on a settled yard
+
+> A `--shot` proof is two readings of each fixture, base and head alternated, taken after the
+> travel has arrived — never one frame.
+
+A strip swing is a frame, not a fact: the picture is moving, so one reading of `[crush, reverb]`
+against one of `[reverb, crush]` can land either way round. Shoot each fixture at least twice,
+interleave base and head, and let the yard settle past `SHAPE_SECS` (or stop it, so the travel
+arrives outright) before the read. Read the mean and the swing together, and the 1:1 crop beside
+them. Two readings that agree to the digit are the proof; a pair that disagrees is a fixture that
+has not settled, not a finding.
+
 ## Interleave base and head
 
 > When attributing a regression, alternate the runs — `BASE`, `HEAD`, `BASE`, `HEAD` — never all

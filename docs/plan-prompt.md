@@ -11,13 +11,17 @@ a decision is genuinely ambiguous, take the most conservative option that keeps 
 clean and the plan's rules intact, record the choice in `docs/decisions/` or in the commit
 message, and keep going.
 
-**Document order under "### Scheduled" is the run order.** Take the first entry, always. A
-step's number is an identifier, not a position — never sort by it, and never reorder on
-your own judgment.
+**The plan is feature blocks, and the newest block's decided order is the run order.** §1
+holds one block per feature, newest last; a block's "Decided before planning" list (or its
+"Steps" list) names its steps in order, and a step already marked landed with a decision
+number is done. The next step is the first unlanded one in the last block that has any.
+There is no "### Scheduled" heading and no step numbers to sort by; never reorder on your
+own judgment. Give each step an identifier of your own for the report path (e.g.
+`looks-03`) and the block's own title for the step.
 
 **`docs/plan.md` is the loop's only state.** Never hold progress solely in your own
-context. If you are resumed mid-run, re-read the file and continue from the first
-scheduled entry; the steps already removed from it are the steps already done.
+context. If you are resumed mid-run, re-read the file and continue from the first unlanded
+step; the steps marked landed are the steps already done.
 
 **§4 is "Not taken".** Everything abandoned, narrowed, or landed with a known cost goes
 there as one paragraph. Nothing in §4 is scheduled by being there.
@@ -28,15 +32,15 @@ a report: the notification only ever carried its final message, and the file is 
 
 ## Loop
 
-Repeat until `docs/plan.md` §1 has no entries left under "### Scheduled":
+Repeat until every step of `docs/plan.md` §1's last block is marked landed:
 
 0. **Pre-flight.** The branch must be `main`. `git status --porcelain` must contain nothing
    under `src/` or `scripts/` — if it does, stop the loop and report exactly what is
    uncommitted; never stash it, never work around it. Uncommitted changes under `docs/` are
    the human editing the plan while you run: fold them into the current step's commit and
    keep going. Then record `BASE=$(git rev-parse HEAD)` for this step.
-1. Read `docs/plan.md` and identify the next step: the first entry in document order
-   under "### Scheduled".
+1. Read `docs/plan.md` by its entries and identify the next step: the first unlanded step
+   in the last block's decided order.
 2. Spawn ONE Opus subagent and give it the **Step prompt** below verbatim, with
    `<STEP>` replaced by that step's identifier and title.
 3. Wait for it. Do not start the next step, and do not run a second step's subagent
@@ -62,25 +66,11 @@ Repeat until `docs/plan.md` §1 has no entries left under "### Scheduled":
      run it yourself and read the output whole.
 5. If any of that fails, send the same subagent back with the specific gap. Only spawn a
    replacement if it is dead or has lost the thread. Never patch its work yourself.
-6. When a step is accepted, run a profile check — but only if the step could plausibly
-   have moved the number. A rename, a copy change or a docs-only step does not warrant an
-   agent; anything touching a per-frame path, the audio graph, a canvas painter, or the
-   gate's browser work does. Spawn one subagent to run `./scripts/profile`, which
-   exits 0 whatever it finds ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)).
-   Skipping is deliberate and it is safe now for a reason: the argument for running it on
-   every step was that breadth once caught a step that broke `./scripts/profile` itself
-   under a green gate, and `scripts/check`'s `closures` step now catches that class. Run
-   `--compare` yourself once after the last step whatever you skipped, per AGENTS.md's
-   end-of-a-feature rule, so the skipped steps are still covered in aggregate.
-   - If it suspects a regression it must interleave the runs, per the clause in
-     `docs/subagent-prompt.md`.
-   - It may only report the issue resolved if either A: it fixed it and `--compare` is
-     acceptable, or B: it established that the regression predates this commit.
-   - A profile fix may land as a second commit referencing the step; the working tree must
-     be clean again before the loop continues.
-   - If it still regressed after that, record the regression and its suspected cause in
-     `plan.md` §4 and continue — the profiler blocks nothing, and a step held hostage to it
-     is worse than a recorded regression.
+6. Do not profile per step. `./scripts/profile` runs once, after the last step, in the
+   end-of-run pass below — AGENTS.md's rule is "at the end of a feature, not every change",
+   and `scripts/check`'s `closures` step already catches a step that breaks the profiler
+   itself under a green gate. A step whose own text puts the profile inside its gate (a
+   cadence rule, a bake budget) is the one exception, and the step's subagent runs it.
 7. Report one line for the finished step (what shipped, what the reviews caught), then
    continue the loop.
 
@@ -106,8 +96,21 @@ Repeat until `docs/plan.md` §1 has no entries left under "### Scheduled":
 - **The plan is ambiguous about a step's scope.** Read it the narrowest way that still
   delivers a usable vertical slice, state the reading in the commit message, and proceed.
 
-At the very end, after the last step, report a single summary: every step, its commit,
-and every choice made under this section.
+## After the last step
+
+1. Run `./scripts/profile` yourself, in the foreground, and read the output whole — it exits
+   0 whatever it finds ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)). If it
+   flags nothing, the run's steps are covered in aggregate and you are done with it.
+2. If it flags a number above its own machine-drift line, spawn one Opus subagent to
+   attribute it. It must interleave base and head per the clause in
+   `docs/subagent-prompt.md`, where base is the commit the run started from, and it may only
+   report the issue resolved if either A: it fixed it and the profiler is acceptable, or B: it
+   established that the regression predates the run. A fix lands as one commit naming the
+   step it belongs to; the working tree must be clean afterward. If it still regresses,
+   record the regression and its suspected cause in `plan.md` §4 — the profiler blocks
+   nothing, and a run held hostage to it is worse than a recorded regression.
+3. Report a single summary: every step, its commit, the profile's verdict, and every choice
+   made under "Resolving what would otherwise be a question".
 
 ---
 
@@ -132,10 +135,13 @@ record the decision, and finish.
 2. Implement the step, including the proof the step names and the test that fails without
    the change.
 3. Run `./scripts/fix`, then `./scripts/check`. Read the gate's output whole.
-4. Remove the completed step from `plan.md` §1 "### Scheduled" and update the rest of the
-   document as needed — the baseline paragraph, the ordering paragraph, and any later step
-   that referred to this one. If the step's decision constrains future changes, write it in
-   `docs/decisions/`. The step is removed before the review pass begins.
+4. Mark the step landed in `plan.md` §1 the way the block's landed lines are written — its
+   decision number in the ordering sentence and in any table row or bullet that names it —
+   and update the rest of the block as needed: the outcome paragraph, the next-free decision
+   number, and any later step that referred to this one. Anything the step narrowed,
+   replaced on evidence, or landed with a known cost goes to `plan.md` §4 "Not taken" as one
+   paragraph. If the step's decision constrains future changes, write it in
+   `docs/decisions/`. The plan is updated before the review pass begins.
 5. With the gate passing, spawn up to 4 read-only Opus subagents in the working tree — no
    separate worktree — one per lens. For a simple task such as a rename, 1 is enough; if
    you run fewer than four, say which lenses you combined and why.
