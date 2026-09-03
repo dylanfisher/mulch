@@ -14,7 +14,13 @@ import { DRIFT_REST, turnsOf, wrap, type MoireRow } from "@/lib/moire";
 import { LENS_SLICES, lensSlide, shatterPieces, shatterSlide } from "@/lib/moireGeometry";
 import { LOOKS } from "@/lib/moireLook";
 import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
-import { looksShatter, looksShatterSize, looksWarp, type MoireLook } from "@/ui/moireLooks";
+import {
+  looksCrowd,
+  looksShatter,
+  looksShatterSize,
+  looksWarp,
+  type MoireLook,
+} from "@/ui/moireLooks";
 import { boldestRow } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 
@@ -74,6 +80,11 @@ function chainFor(field: HTMLCanvasElement, source: HTMLCanvasElement): HTMLCanv
  * **And every pass is handed the same two numbers whether it reads them or not**: which way the
  * whole picture is being blown (0282) and how long the deck behind it has sounded, which is the one
  * clock the picture moves on (0126, 0285). A pass that wants neither takes four arguments.
+ *
+ * **And one number that is the slot's own**: how many looks of this pass's kind stand in the same
+ * rack (`looksCrowd`, 0294). Counted here because this is where the chain is, and per slot rather
+ * than once for the set, because the answer is a different one for each kind — the loop is at most
+ * a rack long and this runs once a painting, not once a row.
  */
 function passLooks(
   field: HTMLCanvasElement,
@@ -101,7 +112,7 @@ function passLooks(
     // echoes are the first pass to leave anywhere but one (0282).
     ink.imageSmoothingEnabled = true;
     ink.clearRect(0, 0, into.width, into.height);
-    declared.pass(ink, source, at, terms, veer, clock);
+    declared.pass(ink, source, at, terms, veer, clock, looksCrowd(looks, look));
     source = into;
   }
   return source;

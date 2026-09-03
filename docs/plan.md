@@ -87,9 +87,10 @@ What the research found, and what each step stands on:
 where it constrains a later change, its own decision. songs-01 landed as
 [0291](decisions/0291-a-removal-hands-the-list-over.md) and picture-01 as
 [0292](decisions/0292-a-yard-with-no-loop-loops-the-whole-file.md) and picture-02 as
-[0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md); picture-03 landed
+[0293](decisions/0293-the-picture-holds-its-pitch-when-the-window-grows.md) and picture-04 as
+[0294](decisions/0294-two-delays-share-one-ceiling.md); picture-03 landed
 with none, because the fade it went to photograph was legible and nothing was reshaped. The next
-free decision number today is 0294.
+free decision number today is 0295.
 
 1.  **A song list has a word for the lot, and taking a song away hands the next one over.** _(songs-01)_
     The songs heading takes the rack's row shape and, only while there is a song to take, a
@@ -200,7 +201,23 @@ All` is now `CLEAR_ALL_LABEL`, said once in src/lib/copy.ts for both headings, a
     standing apart, and `spacing` also lengthens the fade so a long delay reads as slower repeats.
     The floor and the curve change the knob's feel as well as the look, which is the point, and are
     a free shape change pre-release. All of it amends 0282, whose numbers were the argument for the
-    current band, and all of it is re-shot at one, two and three delays.
+    current band, and all of it is re-shot at one, two and three delays. **Landed,
+    [0294](decisions/0294-two-delays-share-one-ceiling.md)**: the count is `looksCrowd(looks, name)`
+    — a look's kind and not an effect's name — and `passLooks` calls it once per slot and hands the
+    number to the pass as its seventh argument, so the reduction is general and the echoes are the
+    first to read it. `echoCeiling(crowd)` is `gratingDepth`'s arithmetic said of ghosts, and the
+    crowd weighs each look by how far in it has travelled, which is what keeps a delay arriving from
+    dimming the one already standing — the review's finding, and §4's. The fade's floor rises with
+    the spacing rather than the term being summed into it, for the review's other finding: the sum
+    clamped, and the clamp ate the top third of the Feedback knob. The shot, base and head interleaved and each fixture read twice:
+    three delays read a mean of 0.126/0.127 at base against a dry 0.224 — the strip washed out —
+    and 0.286/0.293 at head against a dry 0.225/0.230, at a swing that holds at 0.15 rather than
+    climbing to 0.30; one and two read 0.241/0.244 and 0.266/0.270. A Time of 20 ms against 1.6 s
+    shot a swing of 0.090/0.103 against 0.140/0.142, with the diagonals visibly further apart at
+    the crop. The step also split `echoesLook` whole into
+    src/lib/moireEchoes.ts: src/lib/moireLook.ts crossed the 800-line hard cap with the shared
+    ceiling on it, and a whole look in a file of its own is what 0287, 0288 and 0289 already do with
+    that cap.
 
 **The outcome wanted:** a song list that can be emptied in one asked-for press and that keeps the
 hand's place when one song goes; a picture for every yard that is sounding, loop or no loop; a
@@ -212,7 +229,7 @@ as a whiter strip.
 
 1.  **A fact is derived once, and the step moves it where it is derived.** The period at
     src/ui/MoireStrip.tsx:178, the lattice's rest at src/lib/moireLattice.ts:115, the pitch's width
-    term at src/lib/moireGrating.ts:130, the echoes' ceiling at src/lib/moireLook.ts:352, the
+    term at src/lib/moireGrating.ts:130, the echoes' ceiling at src/lib/moireEchoes.ts (0294), the
     delay's own declaration at src/audio/effects/delay.ts:18. No step adds a second place a
     picture-sized number is decided, and no painter code names an effect (0279).
 2.  **A view is a view.** The pick and the focus stay on the yard's `useState`; clearing the songs
@@ -265,7 +282,8 @@ fills(plain)`; the echoes case at line 208 takes the shared ceiling.
     the one step that could move it (the lattice pattern and the bake queue at a new size) and its
     number is read inside its own gate.
 5.  A decision record per step where one is owed: picture-01 amends 0274, picture-02 amends 0109
-    and 0278, picture-04 amends 0282. songs-01 wrote 0291, for the neighbour a removal picks and the keyboard
+    and 0278, picture-04 amended 0282 as
+    [0294](decisions/0294-two-delays-share-one-ceiling.md). songs-01 wrote 0291, for the neighbour a removal picks and the keyboard
     that follows it;
     picture-03 recorded none: the fade was legible and the travel was left alone.
 
@@ -464,3 +482,22 @@ confirm, after src/ui/DeckRemove.tsx and src/ui/EffectRack.tsx, and the `Confirm
 spelled in all three. songs-01 copied it because its own step text said to copy it; the next
 destructive question is the one that should land a shared component instead, and the three call
 sites are already the same five values.
+
+**picture-04 shared the ceiling on a weighted crowd, and the whole count it was written with was
+wrong.** The step's first cut counted the standing looks of a kind whole, and the review named the
+failing frame: `looksCrowd` sees a look the frame its instance enters the set, when its own ladder
+draws nothing, so the delay already standing was dimmed to two delays' share for the whole six
+seconds the newcomer took to travel in — whiter than one delay, in the one direction the step
+forbids, and invisible to a shot of the settled state. `looksCrowd` now weighs each look by `at`,
+which is `looksWarp`'s own shape, and neither end of a travel steps. What is left unshot is the
+travel itself: every reading in this block is of a settled yard, and the claim that the union holds
+_through_ an add or a remove is argued from the arithmetic and pinned by
+src/ui/moireLooks.test.ts, not photographed.
+
+**picture-04 opened the spacing band and left the top of it argued from one fixture.** The top went
+from a twelfth of the width to a sixth on a short-against-long shot of one yard at one size (a swing
+of 0.094 against 0.14, the diagonals countable at the crop). 0282 narrowed the same band on a shot
+of the same shape, so the number is as well-founded as the one it replaces and no better: what a
+long delay reads as on a wide popout, or against a rack whose other looks have already displaced
+the field, is unshot. `ECHO_SPACING[1] * ECHO_CAP` is still under half the field, which is the
+property the cases pin.

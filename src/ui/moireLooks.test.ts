@@ -29,6 +29,7 @@ import { PLAIN_CUT, RACK_SHATTER_BROKEN } from "@/lib/moireSound";
 import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
 import {
+  looksCrowd,
   looksFolds,
   looksSaturate,
   looksShatter,
@@ -70,6 +71,16 @@ const BROKEN = { "scatter.odds": 1, "scatter.gate": 1 };
 
 /** And one sway all the way in, bending as far as it can. */
 const SWAYING = { "sway.mix": 1, "sway.depth": PARAMS["sway.depth"].max };
+
+/**
+ * And one delay heard all the way in — the population the shared echo ceiling is stated across
+ * (0294). Its Mix is spelt out rather than left at the default because a case below turns it down,
+ * and the two readings have to be stated the same way round.
+ */
+const delay = (
+  id: string,
+  over: Partial<Pick<SessionEffect, "bypassed" | "params">> = {},
+): SessionEffect => instance(id, { effect: "delay", params: { "delay.mix": 1 }, ...over });
 
 /** A rack of `standing` broken scatters, which is the population the band is stated across. */
 const scatters = (standing: number): SessionEffect[] =>
@@ -225,6 +236,62 @@ describe("the looks a standing rack gives the picture", () => {
       ),
     ).toBe(3);
     expect(looksWander([])).toBe(0);
+  });
+
+  // P294: the count the chain lacked, so that two of one kind share one ceiling's worth of ink.
+  it("weighs the looks of one kind standing, off the rack it can hear", () => {
+    // One delay claims the whole of the echoes' ceiling; two share it, so the field they leave is
+    // the field one delay leaves and the repeats are twice as many (`echoCeiling`).
+    expect(looksCrowd(arrived([delay("d")]), "echoes")).toBe(1);
+    expect(looksCrowd(arrived([delay("d"), delay("e")]), "echoes")).toBe(2);
+    expect(looksCrowd(arrived([delay("d"), delay("e"), delay("f")]), "echoes")).toBe(3);
+    // A bypassed one counts nothing, because it is in no set at all — what nobody can hear takes no
+    // ink out of the picture and must not dim what the ones that can be heard draw.
+    expect(looksCrowd(arrived([delay("d"), delay("e", { bypassed: true })]), "echoes")).toBe(1);
+    // And the count is of a kind and never of the rack: a sway standing beside two delays is no
+    // part of what the ghosts share, and the echoes are no part of the bend.
+    const mixed = arrived([
+      delay("d"),
+      instance("s", { effect: "sway", params: SWAYING }),
+      delay("e"),
+    ]);
+    expect(looksCrowd(mixed, "echoes")).toBe(2);
+    expect(looksCrowd(mixed, "warp")).toBe(1);
+    expect(looksCrowd(mixed, "bloom")).toBe(0);
+    expect(looksCrowd([], "echoes")).toBe(0);
+  });
+
+  // P294: and the half of the crowd that is a travel and not a population.
+  it("weighs each of them by how far in it stands, at both ends of the travel", () => {
+    // Weighted, which is the bend's shape and not a tally, which is the bend's shape and not a tally: a delay
+    // added is nothing of a crowd on the frame it arrives and the whole of one when it has
+    // travelled. A whole count here would dim the delay already standing to two delays' share while
+    // the newcomer drew nothing at all — a picture whiter than one delay, for as long as the travel
+    // takes, which is the one thing the shared ceiling exists to prevent.
+    const coming = rackLooks([delay("d"), delay("e")]);
+    expect(looksCrowd(coming, "echoes")).toBe(0);
+    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS / 2, true);
+    expect(looksCrowd(coming, "echoes")).toBeCloseTo(1, 10);
+    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS, true);
+    expect(looksCrowd(coming, "echoes")).toBe(2);
+    // And a delay heard at half is half a delay's worth, for the same reason: what the ceiling is
+    // shared between is the ink about to be laid. Half is a Mix of an eighth, because this entry
+    // declares no `full` and so stands all the way in at its own default of a quarter (0202) —
+    // spelt out here rather than derived, for the reason the look maths' defaults are.
+    const half = arrived([delay("d", { params: { "delay.mix": 0.125 } }), delay("e")]);
+    expect(looksCrowd(half, "echoes")).toBeCloseTo(1.5, 10);
+    // And a delay the rack has let go of weighs whatever it is still drawing: `carryLooks` keeps it
+    // in the set at no presence while its own ladder drains (src/ui/moireCarry.ts), so the crowd
+    // falls with the ladder rather than stepping on the frame the set lets go of it.
+    const leaving = arrived([delay("d"), delay("e")]);
+    const going = leaving[1];
+    if (going === undefined) throw new Error("the rack drew no second delay");
+    going.presence = 0;
+    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS / 2, true);
+    expect(going.at).toBeGreaterThan(0);
+    expect(looksCrowd(leaving, "echoes")).toBeCloseTo(1.5, 10);
+    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS, true);
+    expect(looksCrowd(leaving, "echoes")).toBe(1);
   });
 
   it("saturates the picture's ink by the pops it can hear, and never past the whole of it", () => {

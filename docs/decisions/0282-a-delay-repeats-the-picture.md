@@ -1,11 +1,21 @@
 # 0282 — A delay repeats the picture
 
 - **Date:** 2026-09-02
-- **Status:** accepted, standing on [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (a look
+- **Status:** accepted, amended by
+  [0294](0294-two-delays-share-one-ceiling.md) (the ceiling is shared between the standing delays,
+  the spacing band is open at the top and the Time is floored and read logarithmically), standing on [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (a look
   is declared on the entry and the chain draws it) beside
   [0280](0280-a-room-blooms-the-picture.md) and [0281](0281-a-crusher-blocks-the-picture.md), and
   inside the per-frame line [0129](0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md) draws
   — no pixel loop, no read-back, and no `ctx.filter`
+
+> **Amended.** The ladder, the wind in its alpha and the count off the feedback all stand. What
+> 0294 replaces are this record's numbers: the band it narrowed to a twelfth of the width is open to
+> a sixth again, now that the Time is read on a log curve and a long delay reaches the top of the
+> knob; the fade is lifted by the spacing as well as by the feedback; and every delay standing draws
+> its first rung under a share of `ECHO_CEILING` rather than the whole of it, because three of them
+> each taking the whole washed the strip out to 0.127 against a dry 0.224. The maths and the draw
+> moved to src/lib/moireEchoes.ts with them.
 
 **Delay's look is the echoes, and it is the third to take a slot in the chain.** The field again
 behind itself, spaced along the wind and fading a fixed share every repeat: `LOOKS.echoes` says

@@ -9,19 +9,27 @@
  */
 // One flat list of the chain's cases, one per look plus the two the chain itself owes (0007).
 // oxlint-disable max-lines
+// And the same waiver for the count of its imports: a case per look reaches whichever module that
+// look is declared in, and the looks that stand in files of their own are four of thirteen now
+// (0287, 0288, 0289, 0294). Shedding an import here would mean testing a pass away from the chain
+// that runs it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  BLOCK_HARDENINGS,
-  BLOCK_PIXELS,
-  BLOOM_CEILING,
   ECHO_CAP,
   ECHO_CEILING,
   ECHO_FADE,
   ECHO_SPACING,
+  echoCeiling,
   echoCount,
-  GRAIN_CEILING,
   echoSpacing,
+} from "@/lib/moireEchoes";
+import {
+  BLOCK_HARDENINGS,
+  BLOCK_PIXELS,
+  BLOOM_CEILING,
+  GRAIN_CEILING,
   LOOKS,
   SHARPEN_CEILING,
   SOFTEN_SCALE,
@@ -285,6 +293,32 @@ describe("the chain of passes", () => {
     });
     expect(turning.surfaces[at]?.drew[1]?.box).toEqual([step / 2, 0]);
     expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING / 2, 10);
+    // P294: and two delays are two ladders in two slots, sharing one ceiling's worth of ink. Each
+    // pass still draws its own repeats — 0279's rule, and what makes two of a kind twice as much of
+    // the thing — but each first rung stands at the share that leaves the same picture untouched
+    // once both of them have been laid over it, so a second delay is more repeats and never a
+    // paler strip.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const two = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+      looks: [
+        look("echoes", { spacing: 1, count: 1, fade: 1 }, "one"),
+        look("echoes", { spacing: 1, count: 1, fade: 1 }, "two"),
+      ],
+      wind: { drift: 0, veer: 1 },
+    });
+    const rungs = [
+      two.surfaces[at]?.drew[1]?.alpha ?? 0,
+      two.surfaces[at + 1]?.drew[1]?.alpha ?? 0,
+    ];
+    expect(two.surfaces[at]?.drew).toHaveLength(1 + ECHO_CAP);
+    expect(two.surfaces[at + 1]?.drew).toHaveLength(1 + ECHO_CAP);
+    for (const rung of rungs) expect(rung).toBeCloseTo(echoCeiling(2), 10);
+    expect(1 - (1 - rungs[0]!) * (1 - rungs[1]!)).toBeCloseTo(ECHO_CEILING, 10);
+    expect(rungs[0]).toBeLessThan(ECHO_CEILING);
+    // And neither of them fills over the picture on the way: the bound is on a number the passes are
+    // handed, not on a wash laid across what they drew (0129, 0269).
+    expect(two.surfaces[at]?.fills).toEqual([]);
+    expect(two.surfaces[at + 1]?.fills).toEqual([]);
   });
 
   // P283: pop's sharpen, and the one pass whose second term is not drawn here at all.

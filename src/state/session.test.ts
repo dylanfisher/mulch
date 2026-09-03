@@ -164,7 +164,7 @@ describe("rack session validation", () => {
     ).toThrow(/not an increasing range/u);
     expect(() =>
       validateSession(withRack([storedAuto({ "delay.time": { min: -1, max: 0.4 } })])),
-    ).toThrow(/outside \[0, 2\]/u);
+    ).toThrow(/outside \[0\.01, 2\]/u);
     expect(() =>
       validateSession(withRack([storedAuto({ "delay.time": { min: 0.1, max: 0.4, mid: 0.2 } })])),
     ).toThrow(/expected \[max, min\]/u);

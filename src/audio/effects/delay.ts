@@ -15,14 +15,28 @@ import {
  * maximum above the node's is silently clamped, so the parameter would read past what is heard. */
 const MAX_DELAY_SECS = 2;
 
+/**
+ * The shortest delay there is. A delay of nothing is not a delay — the wet path is the dry signal
+ * arriving twice at once, which is a gain and not an echo — so the knob's bottom is the shortest gap
+ * an ear hears as a separate sound rather than as a comb (0294). It is also what the log curve
+ * needs: a logarithmic range has no bottom at nought.
+ */
+const MIN_DELAY_SECS = 0.01;
+
 const params = [
   {
     id: "delay.time",
     label: "Time",
-    min: 0,
+    min: MIN_DELAY_SECS,
     max: MAX_DELAY_SECS,
     default: 0.25,
     precision: 2,
+    // Logarithmically, because the ear counts delays that way: a linear knob spends four fifths of
+    // its travel between one second and two, where every setting is the same long echo, and the
+    // slaps and the quarter-second repeats are all crowded into the first eighth of it. On the
+    // curve the musical window is most of the knob — and the picture's own spacing reads the same
+    // travel, so the repeats stand apart across the whole of it rather than at the very top (0294).
+    curve: "log",
     automation: "linear",
   },
   {

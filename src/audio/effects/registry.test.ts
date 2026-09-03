@@ -3,6 +3,11 @@
 // Waived at the file rather than raised for the tree.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And the same waiver for the count of them: a rule that holds over every entry is asserted against
+// whatever those entries declare themselves into, so the knob floor case (0294) reaches the one
+// parameter lookup and the range maths as well. Splitting the file to shed an import would split
+// the contract.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { LATTICE_GEOMETRY } from "@/lib/moireLattice";
@@ -16,6 +21,8 @@ import {
 } from "@/lib/moire";
 import { LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
+import { PARAMS } from "@/audio/params";
+import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
 import type { Effect, ParamDeclaration } from "./contract";
@@ -183,6 +190,24 @@ describe("effect registry", () => {
         expect(because.trim().length).toBeGreaterThan(0);
       }
     }
+  });
+
+  // P294: a knob read logarithmically has no bottom at nought, and the one that is a length of time
+  // has no bottom there either — a delay of nothing is not a delay.
+  it("floors every logarithmic knob above nought, the delay's Time among them", () => {
+    for (const [id, spec] of Object.entries(PARAMS)) {
+      if (spec.curve !== "log") continue;
+      // Said as a string so a failure names the knob rather than reading `expected 0 to be > 0`.
+      expect(`${id} ${spec.min > 0}`).toBe(`${id} true`);
+    }
+    // Why the floor is owed rather than nice: a logarithmic range that reached nought is not read
+    // at all but thrown on, which src/lib/range.test.ts:50 already pins and this does not restate.
+    // And the delay's Time is the one that gained the floor: ten milliseconds, on the curve, with
+    // the default well past the middle of the knob rather than in the first eighth of it.
+    const time = PARAMS["delay.time"];
+    expect(time.curve).toBe("log");
+    expect(time.min).toBe(0.01);
+    expect(normalize(time.default, time.min, time.max, time.curve)).toBeGreaterThan(0.5);
   });
 
   it("rejects an effect that is silent about a value of its own", () => {

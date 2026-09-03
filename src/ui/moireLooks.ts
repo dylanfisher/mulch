@@ -6,7 +6,7 @@
  *   and carried across a rebuilt set by instance id (`carryLooks`, src/ui/moireCarry.ts). Beside
  *   them the reductions the painting spends: how far the field is bent, how fast that bend wanders,
  *   how many times the plane is folded, how much of the picture is drawn from elsewhere in it and in
- *   how big a piece — and
+ *   how big a piece, how many looks of one kind stand at once (0294) — and
  *   how often a picture carrying this chain is painted at all (0284).
  * @instead What a look *is* — its name, its terms, how each is read and where it lands →
  *   src/lib/moireLook.ts, which the entries declare themselves into. The lattice, which is the one
@@ -126,6 +126,31 @@ export function looksWarp(looks: readonly MoireLook[]): number {
     if (look.look === "warp") bent += look.at * termAt(look, "bend");
   }
   return clamp(bent, 0, 1);
+}
+
+/**
+ * How much of one kind of look stands in a rack — the count the chain lacks (0294). A pass that lays
+ * a share of the picture over the picture is drawn under a ceiling, and a second instance of the same
+ * look takes that share again out of the same field: what a rack of delays must not read as is a
+ * whiter picture, so a pass is handed how much of its own kind is about to draw and shares the
+ * ceiling between them (`echoCeiling`, src/lib/moireEchoes.ts).
+ *
+ * **Weighted by how much of each the picture has taken, which is the bend's shape and not a tally**
+ * (`looksWarp`, 0278). A whole count steps: a second delay added is counted the frame it arrives,
+ * when it is drawing nothing yet, so the delay already standing would be dimmed to two delays' share
+ * for the six seconds the newcomer took to travel in — a picture whiter than one delay, which is the
+ * one thing this bound exists to prevent (the review's finding). Weighted, the share standing and
+ * the share arriving move together, and a delay leaving fades out of the crowd exactly as its own
+ * ladder fades off the field. A bypassed entry is in no set at all, so it weighs nothing here for
+ * the reason it weighs nothing anywhere (`rackLooks`), and a rack under one whole look's worth asks
+ * nothing of the ceiling at all (`echoCeiling`).
+ */
+export function looksCrowd(looks: readonly MoireLook[], look: LookName): number {
+  let crowd = 0;
+  for (const standing of looks) {
+    if (standing.look === look) crowd += standing.at;
+  }
+  return crowd;
 }
 
 /**

@@ -14,7 +14,8 @@
  *   the wobble's noise tile → src/lib/moireGrain.ts, split off here at the hard cap (0286) — and
  *   the one look declared whole in a file of its own, its terms and its draw together, because this
  *   file stood at the cap again → `bandLook` in src/lib/moireBand.ts (0287), `squashLook` in
- *   src/lib/moireSquash.ts (0288) and `doubleLook` in src/lib/moireDouble.ts (0289).
+ *   src/lib/moireSquash.ts (0288), `doubleLook` in src/lib/moireDouble.ts (0289) and `echoesLook`
+ *   in src/lib/moireEchoes.ts (0294).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -24,6 +25,7 @@
 // oxlint-disable max-lines
 import { bandLook } from "@/lib/moireBand";
 import { doubleLook } from "@/lib/moireDouble";
+import { echoesLook } from "@/lib/moireEchoes";
 import { squashLook } from "@/lib/moireSquash";
 import { cosTurn, wrap } from "@/lib/moire";
 import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
@@ -113,6 +115,13 @@ export type LookAt = "field" | "bake" | "cut" | "pass";
  * and it is the deck's (0126) — so the chain hands every pass the one it has, for the veer's reason,
  * and a halted yard hands the same second twice and the motion stands still (0144). The wobble is
  * the first pass to read it and the four before it take five arguments and ignore it.
+ *
+ * And `crowd`, how many looks of this pass's own kind stand in the same rack, itself included
+ * (`looksCrowd`, src/ui/moireLooks.ts). A pass that lays a share of the picture over the picture
+ * needs to know how many others are about to do the same, or two of a kind take twice the ink out
+ * of one field; the chain is the only thing that can count them, so it counts once per slot and
+ * hands the number down. The echoes are the first pass to read it (0294), and it names no effect —
+ * it is a count of a look, which is what a pass already is.
  */
 export type LookPass = (
   into: CanvasRenderingContext2D,
@@ -121,6 +130,7 @@ export type LookPass = (
   terms: LookTerms,
   veer: number,
   clock: number,
+  crowd: number,
 ) => void;
 
 /**
@@ -292,108 +302,6 @@ const blocksPass: LookPass = (into, source, presence, terms) => {
   if (hard <= 0) return;
   into.globalCompositeOperation = "destination-in";
   for (let taken = 0; taken < hard; taken++) into.drawImage(into.canvas, 0, 0);
-};
-
-/**
- * How far one repeat stands from the one before it, as a share of the field's width: the band the
- * spacing term is stated across, closest first, because a delay's Time reads the same way round — a
- * few milliseconds is a slap on the back of the sound and two seconds is a repeat the ear counts.
- * In shares and not in pixels, which is the bloom's answer and not the blocks' (0280, 0281): a
- * ghost is a displacement of the whole picture and nothing about it lands on a grid, so the strip,
- * the overlay and an export at any scale repeat by the same amount of picture. **And a narrow band,
- * because the picture it displaces is nearly periodic**: a repeat further off than the picture's own
- * diagonals stand apart is a copy nothing can be told to belong to, and the ladder reads as the
- * whole field washing out rather than as one picture said twice (shot before this landed).
- */
-export const ECHO_SPACING: readonly [number, number] = [1 / 48, 1 / 12];
-
-/** How far one repeat stands from the last, off the spacing term its entry declared, as a share. */
-export const echoSpacing = (spacing: number): number => denormalize(spacing, ...ECHO_SPACING);
-
-/**
- * The most repeats a delay draws behind the field. Every one is a whole draw of the picture, so the
- * cap is what keeps the pass at four draws however hard the feedback is driven — and past three
- * repeats the ghosts stand closer together than the picture's own diagonals do, which reads as one
- * smeared picture rather than as a picture repeated (shot before this landed).
- */
-export const ECHO_CAP = 3;
-
-/**
- * How many repeats stand behind the field, off the feedback term: **one at no feedback at all**,
- * because a delay line with nothing fed back still repeats once and a picture that drew nothing
- * would say the effect was not there, up to the cap. Whole, because half a ghost is not a draw.
- *
- * **And not weighted by presence**, which is what tells this count from the crusher's hardening
- * (0281). A whole count stepping with the travel would pop a whole picture in and out of the field
- * as a delay arrives; the ladder's alpha carries the travel instead, so a delay coming in is its
- * repeats fading up behind the picture, which is what a delay coming in sounds like.
- */
-export const echoCount = (count: number): number =>
-  1 + Math.round(clamp(count, 0, 1) * (ECHO_CAP - 1));
-
-/**
- * How much of one repeat is left in the next: the band the fade term is stated across, quickest
- * first, so a hard feedback is a long tail of repeats and a soft one is a ghost or two. Short of the
- * whole of itself at either end — a fade of one is a ladder of solid copies, and the picture under
- * it would be gone.
- */
-export const ECHO_FADE: readonly [number, number] = [0.35, 0.75];
-
-/** How much of one repeat survives into the next, off the fade term its entry declared. */
-export const echoFade = (fade: number): number => denormalize(fade, ...ECHO_FADE);
-
-/**
- * The most of itself the first repeat stands at. The echoes' own number and not the bloom's, though
- * it is here for the bloom's reason (0280): the field is a hole mask, so every ghost drawn behind it
- * takes more ink out of the screen, and a halo may take most of it where a ladder of three may not.
- * Under a half, so what stands in front is always the picture itself and what is behind it is always
- * a ghost of one.
- */
-export const ECHO_CEILING = 0.45;
-
-/**
- * How much of the picture the first repeat is drawn at: the presence the look has travelled to and
- * how hard the wind is blowing, under the ceiling. Every repeat after it is this times the fade,
- * again, which is the geometric ladder a feedback delay is.
- *
- * **The wind is in the alpha because it is in the spacing.** A veer on its way through nought is a
- * ladder gathered onto the field it came from, and three copies of a hole mask laid exactly over
- * each other are not repeats at all — they are the picture composed with itself, which lifts every
- * half-covered pixel toward solid and hazes every window evenly, the one thing a pass may not do
- * (0269). Fading the ladder by the same number that gathers it means the repeats leave as they
- * arrive on top of one another, and a wind standing still draws the field once.
- */
-export const echoAlpha = (presence: number, veer: number): number =>
-  weighed(presence, Math.abs(veer), ECHO_CEILING);
-
-/**
- * The echoes, drawn: the field itself at the whole of itself, and then the field again behind it
- * once per repeat — each one spacing further along the wind and each at the last one's alpha times
- * the fade, which is the geometric ladder a feedback delay is. The first rung is the ceiling and not
- * the picture, so what stands in front is always the picture and what is behind it is always a ghost
- * of one. Draws of what is already drawn, no fill over the picture and no pixel touched (0129, 0269).
- *
- * **Along the wind's veer, and by the whole of it rather than by its sign.** The veer is a direction
- * the picture travels to over the wind's seconds, so multiplying the spacing by it walks the repeats
- * in as the wind picks up and takes them back out as it turns — where a sign would flip the whole
- * ladder across the picture between two frames, which is the one thing the wind's own travel exists
- * to prevent (0267). The same number is in the ladder's alpha, so a gathering ladder fades as it
- * gathers rather than stacking three copies of the picture on the picture (`echoAlpha`).
- */
-const echoesPass: LookPass = (into, source, presence, terms, veer) => {
-  into.drawImage(source, 0, 0);
-  let alpha = echoAlpha(presence, veer);
-  // A delay the picture has not travelled to yet, and one whose wind is standing still, are both the
-  // field itself — and this is the one draw that says so.
-  if (alpha <= 0) return;
-  const count = echoCount(terms.count ?? 0);
-  const fade = echoFade(terms.fade ?? 0);
-  const step = echoSpacing(terms.spacing ?? 0) * source.width * clamp(veer, -1, 1);
-  for (let echo = 1; echo <= count; echo++) {
-    into.globalAlpha = alpha;
-    into.drawImage(source, step * echo, 0);
-    alpha *= fade;
-  }
 };
 
 /**
@@ -695,7 +603,7 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * both the Feedback, on its — which is the one look whose two terms come off one knob, because a
    * feedback delay's count and its fade are one number in the sound as well.
    */
-  echoes: { at: "pass", terms: { spacing: "turn", count: "turn", fade: "turn" }, pass: echoesPass },
+  echoes: echoesLook,
   /**
    * Pop's: the field with its own blurred copy taken out of it and the mask that leaves added back
    * on, so every row keeps where it is and gains what of it stands above its neighbours. How hard the mask

@@ -28,6 +28,18 @@ import { DOUBLE_CEILING, DOUBLE_ZOOM, doubleAmount, doubleZoom } from "@/lib/moi
 import { weighed } from "@/lib/moireWeigh";
 import { SQUASH_FLOOR, SQUASH_TOP, squashCeiling, squashFloor } from "@/lib/moireSquash";
 import {
+  ECHO_CAP,
+  ECHO_CEILING,
+  ECHO_FADE,
+  ECHO_SPACING,
+  ECHO_TIME_FADE,
+  echoAlpha,
+  echoCeiling,
+  echoCount,
+  echoFade,
+  echoSpacing,
+} from "@/lib/moireEchoes";
+import {
   BLOCK_HARDENINGS,
   BLOCK_PIXELS,
   blockHarden,
@@ -36,14 +48,6 @@ import {
   BLOOM_SCALE,
   bloomAmount,
   bloomScale,
-  ECHO_CAP,
-  ECHO_CEILING,
-  ECHO_FADE,
-  ECHO_SPACING,
-  echoAlpha,
-  echoCount,
-  echoFade,
-  echoSpacing,
   GRAIN_CEILING,
   grainBite,
   isLookName,
@@ -289,42 +293,77 @@ describe("what a look is", () => {
     expect(ECHO_SPACING[1] * ECHO_CAP).toBeLessThan(1);
     // And the fade is how much of one repeat survives into the next: harder feedback is a longer
     // tail, and neither end of the band is a ladder of solid copies or no ladder at all.
-    expect(echoFade(0)).toBe(ECHO_FADE[0]);
-    expect(echoFade(1)).toBeCloseTo(ECHO_FADE[1], 12);
+    expect(echoFade(0, 0)).toBe(ECHO_FADE[0]);
+    expect(echoFade(1, 0)).toBeCloseTo(ECHO_FADE[1], 12);
     expect(ECHO_FADE[0]).toBeGreaterThan(0);
     expect(ECHO_FADE[1]).toBeLessThan(1);
-    expect(echoFade(0.5)).toBeGreaterThan(echoFade(0.25));
+    expect(echoFade(0.5, 0)).toBeGreaterThan(echoFade(0.25, 0));
+    // And a long delay is slower repeats as well as wider ones: the spacing lengthens the tail by
+    // half the band on its own, so a second of delay stands its ghosts further apart *and* holds
+    // them longer, which is what the ear hears. Still the one band, whatever the two terms are.
+    expect(echoFade(0, 1)).toBeCloseTo(
+      ECHO_FADE[0] + (ECHO_FADE[1] - ECHO_FADE[0]) * ECHO_TIME_FADE,
+      12,
+    );
+    expect(echoFade(0.5, 1)).toBeGreaterThan(echoFade(0.5, 0));
+    expect(ECHO_TIME_FADE).toBeGreaterThan(0);
+    expect(ECHO_TIME_FADE).toBeLessThan(1);
+    for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
+      expect(echoFade(turn, 1)).toBeGreaterThanOrEqual(ECHO_FADE[0]);
+      expect(echoFade(turn, 1)).toBeLessThanOrEqual(ECHO_FADE[1]);
+    }
     // And the ladder starts under half the picture however present the delay is, because every
     // ghost behind the field takes more ink out of the screen and a ladder starting at the whole of
     // it would pale the picture away before its second rung — the bloom's reason (0280), at a
     // number of the echoes' own, because a halo may take most of the picture where three ghosts
     // may not.
     expect(ECHO_CEILING).toBeLessThan(0.5);
-    expect(echoAlpha(1, 1)).toBe(ECHO_CEILING);
-    expect(echoAlpha(0, 1)).toBe(0);
-    expect(echoAlpha(0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(2, 1)).toBe(ECHO_CEILING);
-    expect(echoAlpha(-1, 1)).toBe(0);
+    expect(echoAlpha(1, 1, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(0, 1, 1)).toBe(0);
+    expect(echoAlpha(0.5, 1, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(2, 1, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(-1, 1, 1)).toBe(0);
+    // And the ceiling is one delay's however many stand: each of `crowd` ladders is drawn at the
+    // share that leaves the same picture untouched when all of them have been laid over it, so two
+    // delays are twice the repeats and never a whiter picture (0294).
+    expect(echoCeiling(1)).toBe(ECHO_CEILING);
+    expect(echoCeiling(0)).toBe(ECHO_CEILING);
+    expect(echoCeiling(-1)).toBe(ECHO_CEILING);
+    for (let crowd = 1; crowd <= 4; crowd++) {
+      const share = echoCeiling(crowd);
+      expect(1 - (1 - share) ** crowd).toBeCloseTo(ECHO_CEILING, 12);
+      expect(share).toBeGreaterThan(0);
+      expect(share).toBeLessThanOrEqual(ECHO_CEILING);
+    }
+    expect(echoCeiling(2)).toBeLessThan(echoCeiling(1));
+    expect(echoCeiling(3)).toBeLessThan(echoCeiling(2));
+    expect(echoAlpha(1, 1, 2)).toBeCloseTo(echoCeiling(2), 12);
+    expect(echoAlpha(1, 1, 3)).toBeCloseTo(echoCeiling(3), 12);
     // And the wind is in the alpha because it is in the spacing: a ladder gathered onto the field
     // it came from is three copies of a hole mask laid exactly over each other, which hazes every
     // window in the picture evenly instead of repeating it (0269). So a wind standing still draws
     // no ladder at all, a wind halfway round draws a faint one, and either direction draws the same.
-    expect(echoAlpha(1, 0)).toBe(0);
-    expect(echoAlpha(1, 0.5)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(1, -0.5)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(1, -1)).toBe(ECHO_CEILING);
-    expect(echoAlpha(1, 2)).toBe(ECHO_CEILING);
-    expect(echoAlpha(1, -2)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, 0, 1)).toBe(0);
+    expect(echoAlpha(1, 0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(1, -0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(echoAlpha(1, -1, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, 2, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, -2, 1)).toBe(ECHO_CEILING);
     // At delay's own declared defaults and ranges (src/audio/effects/delay.ts, spelt out here for
     // the reason the bloom's are) the repeats are countable and the picture survives them: more
     // than the one every delay draws, fewer than the cap, and the last of the ladder well faded.
-    const time = normalize(0.25, 0, 2, "linear");
+    // The Time is on its own log curve from a floor of ten milliseconds, so the default sits past
+    // the middle of the knob and the spacing it reads sits past the middle of its band — which is
+    // the whole point of the curve: a quarter-second delay is a repeat the ear counts, not the
+    // bottom eighth of a travel (0294).
+    const time = normalize(0.25, 0.01, 2, "log");
     const feedback = normalize(0.35, 0, 0.9, "linear");
+    expect(time).toBeGreaterThan(0.5);
     expect(echoCount(feedback)).toBeGreaterThan(1);
     expect(echoCount(feedback)).toBeLessThan(ECHO_CAP);
     expect(echoSpacing(time)).toBeGreaterThan(ECHO_SPACING[0]);
     expect(echoSpacing(time)).toBeLessThan(ECHO_SPACING[1]);
-    expect(echoFade(feedback) ** echoCount(feedback)).toBeLessThan(0.5);
+    expect(echoFade(feedback, time) ** echoCount(feedback)).toBeLessThan(0.5);
   });
 
   it("sharpens on one amount under its ceiling, and saturates on a term no pass draws", () => {
@@ -352,7 +391,7 @@ describe("what a look is", () => {
     // helper they share and not three copies of it (principle 3). Each keeps its own ceiling.
     expect(weighed(0.5, 0.5, 1)).toBeCloseTo(0.25, 10);
     expect(bloomAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, BLOOM_CEILING), 12);
-    expect(echoAlpha(0.5, -0.5)).toBeCloseTo(weighed(0.5, 0.5, ECHO_CEILING), 12);
+    expect(echoAlpha(0.5, -0.5, 1)).toBeCloseTo(weighed(0.5, 0.5, ECHO_CEILING), 12);
     expect(sharpenAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, SHARPEN_CEILING), 12);
     // At pop's own declared defaults and ranges (src/audio/effects/pop.ts, spelt out here for the
     // reason the bloom's are) the mask bites and neither term is at an end of its band: a pop
