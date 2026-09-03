@@ -8,7 +8,7 @@
  *   The grid itself → src/ui/PlayerGrid.tsx. What one song is called, and every other word the
  *   interface says, the badge a cell wears included → src/lib/copy.ts.
  */
-import { PLAYER_STANDING_LABEL, READOUT_JOIN } from "./copy.ts";
+import { PLAYER_SONG_LABEL, PLAYER_STANDING_LABEL, READOUT_JOIN } from "./copy.ts";
 import type { SongPartId } from "./playerSong.ts";
 import type { PlayerSong, PlayerSongId } from "./playerSongs.ts";
 
@@ -21,6 +21,25 @@ export const PLAYER_SONGS_LABEL = "Songs";
  * song, a row per part, and what a press on a cell does. Said once, where the run is edited (0080).
  */
 export const PLAYER_SONGS_TOOLTIP = `Arrange this pattern as a grid: a column per song, a row per part. A song plays its parts down its column and says how many times it goes round before the next; the run comes round past the last song, and a count of none passes one over. The cell playing is lit, the one coming is ringed, and pressing a cell arms it for the next boundary.`;
+
+/**
+ * The one gesture the songs heading carries beside the fold, and the only one on it that is about
+ * the run rather than about a song: every song off at once, for a pattern arranged by trying
+ * columns that is quicker to empty than to unpick. The word on it is `CLEAR_ALL_LABEL`, said once
+ * in src/lib/copy.ts so this heading and the rack's cannot drift apart (principle 1); what is here
+ * is the sentence this list says about itself.
+ */
+export const PLAYER_SONGS_CLEAR_TOOLTIP = `Take every song off this pattern. One press, one undo — the whole run comes back a step back, and the pattern draws its own arrangement meanwhile.`;
+
+/**
+ * The question that press is asked first: it takes every named column at once, so it says how many
+ * are going and waits to be told again, exactly as the rack's own clear does
+ * (`effectsClearTitle`, src/ui/EffectRack.tsx). The count is the whole point of the sentence, so
+ * it is minted here beside the words rather than at the surface that shows it.
+ */
+export const playerSongsClearTitle = (held: number): string =>
+  `${held} ${held === 1 ? PLAYER_SONG_LABEL : PLAYER_SONGS_LABEL} In The Run`;
+export const PLAYER_SONGS_CLEAR_CONFIRM_LABEL = `Clear The ${PLAYER_SONGS_LABEL}`;
 
 /** What the dial saying how many times a run goes round is called under it. One word, like every
  *  caption — and not "Jumps", which is the part's own count one tier down (0059). */
@@ -72,6 +91,17 @@ export const standingSaid = (
   const held = songNamed(songs, song);
   const named = held?.parts.find((each) => each.id === part)?.name ?? "";
   return `${PLAYER_STANDING_LABEL} ${held?.name ?? ""}${READOUT_JOIN}${named}`;
+};
+
+/** The name a part is called, found by its id across the run — for the foot line, which names
+ *  what is coming and never counts where it is. Beside the two sentences the foot line is written
+ *  from, because it is the third of them (principle 1). */
+export const partNamed = (songs: readonly PlayerSong[], id: SongPartId): string => {
+  for (const song of songs) {
+    const part = song.parts.find((held) => held.id === id);
+    if (part !== undefined) return part.name;
+  }
+  return "";
 };
 
 /** Which round of that song, of how many — the one amount the tier over a part carries. */

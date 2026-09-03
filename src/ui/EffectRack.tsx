@@ -13,8 +13,8 @@ import { useCallback, type ComponentType } from "react";
 import {
   ACTION_TOOLTIPS,
   BYPASS_TOOLTIP,
+  CLEAR_ALL_LABEL,
   EFFECTS_CLEAR_CONFIRM_LABEL,
-  EFFECTS_CLEAR_LABEL,
   EFFECTS_CLEAR_TOOLTIP,
   effectsClearTitle,
   EFFECTS_LABEL,
@@ -420,9 +420,9 @@ export function EffectRack({
                     size="xs"
                     variant="ghost"
                     className="text-muted-foreground"
-                    aria-label={`${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                    aria-label={`${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
                   >
-                    {EFFECTS_CLEAR_LABEL}
+                    {CLEAR_ALL_LABEL}
                   </Button>
                 }
               />
@@ -432,7 +432,7 @@ export function EffectRack({
               <Button
                 size="xs"
                 variant="destructive"
-                aria-label={`Confirm ${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                aria-label={`Confirm ${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
                 onClick={clear}
               >
                 {EFFECTS_CLEAR_CONFIRM_LABEL}

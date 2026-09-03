@@ -10,14 +10,23 @@ import { isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
-// The two hooks the row calls, made callable outside a renderer so a control's own handler can be
-// pressed — the same stand-in src/ui/PlayerCard.test.tsx uses.
+/** The refs the row keeps, handed out in the order it asks for them — which is what React's own
+ *  hook order gives a mounted component, and what lets a case call the row twice and have the
+ *  second call see what the first wrote (the removal that the focus follows). */
+const hooks = vi.hoisted(() => ({ refs: [] as { current: unknown }[], at: 0 }));
+
+// The three hooks the row calls, made callable outside a renderer so a control's own handler can
+// be pressed — the same stand-in src/ui/PlayerCard.test.tsx uses.
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
+    useRef: (initial: unknown) => {
+      hooks.refs[hooks.at] ??= { current: initial };
+      return hooks.refs[hooks.at++]!;
+    },
   };
 });
 
@@ -53,6 +62,8 @@ type Control = {
   onChange?: Press;
   onBlur?: (event: { currentTarget: { value: string } }) => void;
   disabled?: boolean;
+  /** The callback ref a control is mounted through: what the Remove button takes the focus by. */
+  ref?: (element: { focus: () => void } | null) => void;
   "aria-label"?: string;
   /** What a dial is named by: the knob draws its own label off this (src/ui/Knob.tsx). */
   name?: string;
@@ -92,7 +103,15 @@ const labelled = (element: unknown, label: string): Control => {
   return held.found;
 };
 
-const row = (songs: readonly PlayerSong[], pick: GridPick, soloed = false) => {
+/** One call is one render. `keep` is the second render of the same mounted row — the refs stand
+ *  and are handed out again in order; without it the row is mounted afresh. */
+const row = (
+  songs: readonly PlayerSong[],
+  pick: GridPick,
+  { soloed = false, keep = false }: { soloed?: boolean; keep?: boolean } = {},
+) => {
+  if (!keep) hooks.refs.length = 0;
+  hooks.at = 0;
   const player: PlayerSpec = { seed: 3, ...PLAYER_DEFAULTS, songs };
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const onPick = vi.fn<(pick: GridPick | null) => void>();
@@ -149,6 +168,41 @@ describe("the row under the grid", () => {
     labelled(element, "Remove Yard A Song 1").onClick?.();
     expect(patch).toHaveBeenLastCalledWith({ songs: [] });
     expect(onPick).toHaveBeenLastCalledWith(null);
+  });
+
+  /** A remove keeps the hand's aim: the song that slid into the gap is the one the row draws
+   *  next, which is what `partRemove` already does for the tier under this one. */
+  it("hands the pick to the song that slid into the gap, else to the one before it", () => {
+    const [one, two, three] = [song([part()]), song([]), song([])];
+    const first = row([one, two, three], { song: one.id, part: null });
+    labelled(first.element, "Remove Yard A Song 1").onClick?.();
+    expect(first.patch).toHaveBeenLastCalledWith({ songs: [two, three] });
+    expect(first.onPick).toHaveBeenLastCalledWith({ song: two.id, part: null });
+    // Nothing slides into the last index, so the pick falls back onto the one before it.
+    const last = row([one, two, three], { song: three.id, part: null });
+    labelled(last.element, "Remove Yard A Song 3").onClick?.();
+    expect(last.patch).toHaveBeenLastCalledWith({ songs: [one, two] });
+    expect(last.onPick).toHaveBeenLastCalledWith({ song: two.id, part: null });
+  });
+
+  it("moves the keyboard onto the neighbour's own Remove, and never onto an ordinary pick's", () => {
+    const [one, two] = [song([part()]), song([])];
+    const taken = row([one, two], { song: one.id, part: null });
+    labelled(taken.element, "Remove Yard A Song 1").onClick?.();
+    // The row re-renders for the neighbour, which is when its Remove is mounted again.
+    const after = row([two], { song: two.id, part: null }, { keep: true });
+    const focus = vi.fn<() => void>();
+    labelled(after.element, "Remove Yard A Song 1").ref?.({ focus });
+    expect(focus).toHaveBeenCalledTimes(1);
+    // And once only: the row is re-mounted by every edit, and the caret is not moved by any
+    // of them but the removal that asked for it.
+    labelled(after.element, "Remove Yard A Song 1").ref?.({ focus });
+    expect(focus).toHaveBeenCalledTimes(1);
+    // An ordinary pick took no song away, so the pointer keeps what it is holding.
+    const picked = row([one, two], { song: two.id, part: null });
+    const idle = vi.fn<() => void>();
+    labelled(picked.element, "Remove Yard A Song 2").ref?.({ focus: idle });
+    expect(idle).not.toHaveBeenCalled();
   });
 
   it("patches the whole run with one part's field moved, and moves a part along its song", () => {

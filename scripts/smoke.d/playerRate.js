@@ -13,6 +13,7 @@
 // second half. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { PLAYER_CHARACTER_TOOLTIPS } from "../../src/lib/copy.ts";
+import { playerSongsClearTitle } from "../../src/lib/copySongs.ts";
 import { fail, report } from "./harness.js";
 
 /**
@@ -283,10 +284,29 @@ export const playerRate = async ({ page }) => {
   }
   await section.getByLabel("Remove Yard A Song 2").click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs.length === 1);
+  // And what a removal hands over, which no unit test can say for the *page*: nothing slid into
+  // the copy's index, so the song before it is what the row under the grid draws — and the
+  // keyboard goes with it, onto that song's own Remove, so a run can be emptied by pressing one
+  // key over and over.
+  const handed = await (
+    await page.waitForFunction(() => {
+      // Waited on the commit and not on the session: song 1's own head is on the page before the
+      // removal as well as after it, so the row and the caret are what say the render has landed.
+      const row = document.querySelector('[aria-label="Name Yard A Song 1"]');
+      const gone = document.querySelector('[aria-label="Name Yard A Song 2"]');
+      const named = document.activeElement?.getAttribute("aria-label") ?? null;
+      return row === null || gone !== null || named === null
+        ? null
+        : { drawn: row.getAttribute("aria-label"), named };
+    })
+  ).jsonValue();
+  if (handed.named !== "Remove Yard A Song 1") {
+    fail("player song smoke: taking a song away left the keyboard behind", handed);
+  }
   // And the one dial the tier carries, whose nought is the skip: durable like every other number
-  // on this card, so what the knob leaves is what the session holds (P170). Under the row the
-  // column's head fills when it is picked.
-  await section.getByLabel("Select Yard A Song 1", { exact: true }).click();
+  // on this card, so what the knob leaves is what the session holds (P170). The row is already
+  // the survivor's — the removal above handed it over — so nothing is pressed to open it, and
+  // pressing that song's head here would let the pick go rather than take it.
   const plays = section.getByRole("slider", { name: "Yard A Song 1 Plays", exact: true });
   await plays.focus();
   await page.keyboard.press("Home");
@@ -574,6 +594,28 @@ export const playerRate = async ({ page }) => {
   });
   await page.waitForFunction(() => window.mulch.probe().decks.a.playing === false);
 
+  /**
+   * And the one gesture on the heading that is about the run rather than about a song: every song
+   * off in one press, asked first. Reached by keys and never by a click — a popover the driver
+   * clicks through costs its animations at both ends (plan §3) — and the question is read for the
+   * count it carries, which is the whole reason it is asked.
+   */
+  await section.getByLabel("Clear All Songs on Yard A", { exact: true }).press("Enter");
+  const asked = await page.locator('[data-slot="popover-title"]').textContent();
+  const counted = await page.evaluate(() => window.mulch.probe().decks.a.player.songs.length);
+  if (asked !== playerSongsClearTitle(counted)) {
+    fail("player song smoke: the clear did not ask with the songs it would take", {
+      asked,
+      counted,
+    });
+  }
+  await page.getByLabel("Confirm Clear All Songs on Yard A", { exact: true }).press("Enter");
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.songs.length === 0);
+  // And the word goes with them: nothing to take is nothing to offer (P73).
+  await page.waitForFunction(
+    () => document.querySelector('[aria-label="Clear All Songs on Yard A"]') === null,
+  );
+
   // Left as it was found: the song goes back to none, the count goes back to where the character
   // menu left it and the loop to the one this page came with.
   await page.evaluate(
@@ -676,6 +718,6 @@ export const playerRate = async ({ page }) => {
   await page.mouse.move(0, 0);
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the pad's own corners drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}, and a hover of the word Riff said what that corner sounds like; a press on the walk's own picture read the landing under it and wrote nothing, and a drag across the pad beside it weighed the whole cast into burst ${blended.burst.toFixed(3)}s and repeats ${blended.repeats} while the ground and the arrangement stood where they were; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1, except that the copy's cell, armed while it still sounded, ringed ${armed.ringed} and was what the next boundary crossed into, after which the ring fell back to the run's own next, ${landed.ringed}; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else`,
+    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the pad's own corners drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}, and a hover of the word Riff said what that corner sounds like; a press on the walk's own picture read the landing under it and wrote nothing, and a drag across the pad beside it weighed the whole cast into burst ${blended.burst.toFixed(3)}s and repeats ${blended.repeats} while the ground and the arrangement stood where they were; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1, except that the copy's cell, armed while it still sounded, ringed ${armed.ringed} and was what the next boundary crossed into, after which the ring fell back to the run's own next, ${landed.ringed}; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else; taking the copy away handed the row and the keyboard to ${handed.drawn} — ${handed.named} — and the heading's own Clear All, reached by keys, asked "${asked}" and left the run empty and the word gone`,
   );
 };

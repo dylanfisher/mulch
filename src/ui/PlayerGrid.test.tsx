@@ -29,9 +29,12 @@ vi.mock("react", async (importOriginal) => {
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { manualClock } from "@/app/clock";
-import { createInstrument } from "@/app/facade";
+import { silentEngine } from "@/app/engineDouble";
+import { turns } from "@/app/persistenceDouble";
+import { createInstrument, type Instrument } from "@/app/facade";
 import { partVoice, type PartVoice, type PlayerSpec } from "@/lib/player";
-import { partBadge, PLAYER_SONG_DRAWN } from "@/lib/copy";
+import { CLEAR_ALL_LABEL, partBadge, PLAYER_SONG_DRAWN } from "@/lib/copy";
+import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { tierName } from "@/lib/copyNames";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
@@ -67,11 +70,13 @@ type Control = {
   disabled?: boolean;
   "aria-label"?: string;
   children?: unknown;
+  /** What a popover's trigger holds its own control in (src/ui/components/popover.tsx). */
+  render?: unknown;
 };
 
 /** The components of the grid called rather than descended into, by name: each holds nothing but
  *  the hook stubbed above, so calling one is exactly writing its contents out here. */
-const CALLED = new Set(["GridCell", "GridHead", "GridAddPart"]);
+const CALLED = new Set(["GridCell", "GridHead", "GridAddPart", "PlayerSongsClear"]);
 
 const labelled = (element: unknown, label: string): Control => {
   // Held in a box rather than a `let`: a closure's write is not one the checker follows, and the
@@ -95,6 +100,9 @@ const labelled = (element: unknown, label: string): Control => {
       return;
     }
     walk(props.children);
+    // A control a popover opens from is the element handed to its trigger's `render`, and not a
+    // child of it — the same reach `findLabelled` takes (src/ui/effectRackDouble.tsx).
+    walk(props.render);
   };
   walk(element);
   if (held.found === null) throw new Error(`no control labelled ${label}`);
@@ -105,13 +113,30 @@ const labelled = (element: unknown, label: string): Control => {
  * The section's own element tree, built inside a render of its own — which is where its hooks
  * run: the ref the frame lights through, and the commit that paints once (src/ui/PlayerGrid.tsx).
  */
-const grid = (songs: readonly PlayerSong[], pick: GridPick | null = null, arrange = 0) => {
-  const instrument = createInstrument(manualClock());
+const grid = (
+  songs: readonly PlayerSong[],
+  pick: GridPick | null = null,
+  arrange = 0,
+  /** The instrument to draw against, where a case is about what a press does to a session rather
+   *  than about which command it sends: given one, the patch is the card's own — a `deck.player`
+   *  carrying the whole spec (src/ui/PlayerCard.tsx) — and nothing is stubbed out. */
+  live: Instrument | null = null,
+) => {
+  const instrument = live ?? createInstrument(manualClock());
   const player: PlayerSpec = { seed: 3, ...PLAYER_DEFAULTS, songs, arrange };
-  const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
+  const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>(
+    live === null
+      ? undefined
+      : (fields) => {
+          instrument.send({ t: "deck.player", deck: "a", player: { ...player, ...fields } });
+        },
+  );
   const setPick = vi.fn<(pick: GridPick | null) => void>();
   const setSolo = vi.fn<(solo: string | null) => void>();
-  const sent = vi.spyOn(instrument, "send").mockImplementation(() => {});
+  const sent =
+    live === null
+      ? vi.spyOn(instrument, "send").mockImplementation(() => {})
+      : vi.spyOn(instrument, "send");
   let element: ReactNode = null;
   function Probe(): null {
     element = PlayerGrid({
@@ -207,6 +232,62 @@ describe("the launch grid", () => {
     // A pick naming what the run no longer holds is no pick, and draws no row.
     const stale = grid([one], { song: "gone", part: held.id });
     expect(stale.markup).not.toContain('aria-label="Name Yard A Song 1"');
+  });
+
+  /** The one gesture on the heading that is about the run rather than about a song, asked first
+   *  the way the rack's own clear is (src/ui/EffectRack.test.tsx). */
+  it("offers the run's own clear only while a song stands, and asks before it empties it", () => {
+    const named = `${CLEAR_ALL_LABEL} ${PLAYER_SONGS_LABEL} on Yard A`;
+    const { element, patch, setPick, sent } = grid([song([part()]), song([])]);
+    // The trigger carries no command at all: the confirmation, which says how many are going, is
+    // what sends it.
+    expect(labelled(element, named).onClick).toBeUndefined();
+    expect(patch).not.toHaveBeenCalled();
+    labelled(element, `Confirm ${named}`).onClick?.();
+    expect(patch).toHaveBeenCalledExactlyOnceWith({ songs: [] });
+    // The gesture is closed on both sides of the edit, so a song edit inside the idle window
+    // cannot swallow it from either (src/app/history.ts), and the pick goes with what it named.
+    expect(sent.mock.calls.flat()).toEqual([{ t: "gesture.end" }, { t: "gesture.end" }]);
+    expect(setPick).toHaveBeenLastCalledWith(null);
+    // A word over an empty list is a control that does nothing, so it is not there (P73).
+    const empty = grid([]);
+    expect(empty.markup).not.toContain(CLEAR_ALL_LABEL);
+    expect(() => labelled(empty.element, named)).toThrow();
+    // Nor over the run the pattern drew for itself: the written list is held and not shown then,
+    // so the press would take columns nothing on screen says are there (0158).
+    const drawn = grid([song([part()])], null, 2);
+    expect(drawn.markup).not.toContain(CLEAR_ALL_LABEL);
+    expect(() => labelled(drawn.element, named)).toThrow();
+  });
+
+  it("empties the run as one entry, even inside a song edit's own idle window", async () => {
+    // The silent graph, because a pattern is held only where there is a host to hand it to
+    // (src/app/refusals.ts, src/app/engineDouble.ts).
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    // A yard with nothing loaded holds no pattern at all, so there is something to jump around
+    // before there is a run to empty (src/app/deckPlayer.ts).
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
+    await turns();
+    const one = song([part()]);
+    const { element, patch } = grid([one], null, 0, instrument);
+    // A song renamed, which is a `deck.player` keyed by the deck alone: the clear that follows it
+    // inside `GESTURE_IDLE_MS` would fold into this entry without the gesture's end.
+    patch({ songs: [{ ...one, name: "Out" }] });
+    await turns();
+    labelled(element, `Confirm ${CLEAR_ALL_LABEL} ${PLAYER_SONGS_LABEL} on Yard A`).onClick?.();
+    await turns();
+    expect(instrument.probe().decks.a?.player?.songs).toEqual([]);
+    // And the gesture is closed behind the press as well as in front of it: a song added inside
+    // the same idle window is its own entry, so the first undo is that song and not the run.
+    patch({ songs: [{ ...one, name: "Back" }] });
+    await turns();
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a?.player?.songs).toEqual([]);
+    // One undo more, and the run a hand had is back — with the rename it was given, not without it.
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a?.player?.songs.map((each) => each.name)).toEqual(["Out"]);
   });
 
   it("shows the run the pattern drew rather than the grid a hand wrote", () => {

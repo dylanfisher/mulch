@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
-import { EFFECTS_CLEAR_LABEL, effectsClearTitle, EFFECTS_LABEL } from "@/lib/copy";
+import { CLEAR_ALL_LABEL, effectsClearTitle, EFFECTS_LABEL } from "@/lib/copy";
 import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
 import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, WEIGHT_LABEL } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
@@ -396,11 +396,11 @@ describe("emptying the rack", () => {
     // says how many cards are going — is what sends the group (src/ui/DeckRemove.tsx).
     const tree = rackTree(instrument);
     expect(
-      findLabelled(tree, `${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick,
+      findLabelled(tree, `${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick,
     ).toBeUndefined();
     expect(sent).not.toHaveBeenCalled();
 
-    findLabelled(tree, `Confirm ${EFFECTS_CLEAR_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick?.();
+    findLabelled(tree, `Confirm ${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on Yard A`)?.onClick?.();
 
     expect(sent).toHaveBeenCalledTimes(1);
     expect(groupOf(sent.mock.calls[0]?.[0])).toEqual([
@@ -422,9 +422,9 @@ describe("emptying the rack", () => {
   // (P73). The fold beside it stays, because a section says what it is whether or not it is full.
   it("offers nothing to clear where the rack holds nothing", () => {
     const instrument = createInstrument(manualClock());
-    expect(markupOf(instrument)).not.toContain(EFFECTS_CLEAR_LABEL);
+    expect(markupOf(instrument)).not.toContain(CLEAR_ALL_LABEL);
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
-    expect(markupOf(instrument)).toContain(EFFECTS_CLEAR_LABEL);
+    expect(markupOf(instrument)).toContain(CLEAR_ALL_LABEL);
   });
 });
 

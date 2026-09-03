@@ -84,7 +84,8 @@ What the research found, and what each step stands on:
   band and the squash refuse to weigh one knob twice (src/lib/moireBand.ts:59, src/lib/moireSquash.ts:44).
 
 **Decided before planning** (2026-09-02): five steps in this order, each with its own gate and,
-where it constrains a later change, its own decision. The next free decision number today is 0291.
+where it constrains a later change, its own decision. songs-01 landed as
+[0291](decisions/0291-a-removal-hands-the-list-over.md); the next free decision number today is 0292.
 
 1.  **A song list has a word for the lot, and taking a song away hands the next one over.** _(songs-01)_
     The songs heading takes the rack's row shape and, only while there is a song to take, a
@@ -99,7 +100,17 @@ where it constrains a later change, its own decision. The next free decision num
     selected; and keyboard focus follows it, through a callback ref on the row's own Remove button
     in the shape src/ui/KnobReadout.tsx:145 already uses, gated on a ref flag so an ordinary pick
     never steals focus from the pointer. Selection stays `useState` on the yard: no command, nothing
-    durable (plan §2).
+    durable (plan §2). **Landed, [0291](decisions/0291-a-removal-hands-the-list-over.md)**: the
+    control and the press it sends are src/ui/PlayerSongsClear.tsx, because the heading's row put
+    src/ui/PlayerGrid.tsx over the 400-line warning and the split is what the cap asks for; `Clear
+All` is now `CLEAR_ALL_LABEL`, said once in src/lib/copy.ts for both headings, and the foot
+    line's `partNamed` moved to src/lib/copySongs.ts beside the two sentences it is written with,
+    which is what paid for the row's own lines. The browser proof is
+    scripts/smoke.d/playerRate.js: the removal's neighbour and `document.activeElement` after it,
+    and the clear reached by keys with the count read off its title. The review moved two things:
+    the word is absent while the pattern draws its own arrangement, the state three lenses found it
+    live in, and the gesture is ended after the patch as well as before it, or the next song added
+    inside the idle window joins the clear's entry.
 2.  **A yard with no loop is a yard whose loop is the whole file.** _(picture-01)_ The period is
     derived in one place (src/ui/MoireStrip.tsx:178) and that place answers the file's own length at
     the deck's rate when there is no loop: `loopPeriodSecs(loop, rate) || duration / rate`. That one
@@ -207,7 +218,8 @@ fills(plain)`; the echoes case at line 208 takes the shared ceiling.
     the one step that could move it (the lattice pattern and the bake queue at a new size) and its
     number is read inside its own gate.
 5.  A decision record per step where one is owed: picture-01 amends 0274, picture-02 amends 0109
-    and 0278, picture-04 amends 0282. songs-01 needs none unless the gesture-key rule bites;
+    and 0278, picture-04 amends 0282. songs-01 wrote 0291, for the neighbour a removal picks and the keyboard
+    that follows it;
     picture-03 records only if the fade is reshaped.
 
 ## Refused
@@ -337,3 +349,20 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**songs-01 landed the clear as a file of its own, and paid for it twice.** The heading's row put
+src/ui/PlayerGrid.tsx at 402 lines against a 400-line warning, so the control and the press it
+sends are src/ui/PlayerSongsClear.tsx, and the foot line's `partNamed` moved out of PlayerGrid into
+src/lib/copySongs.ts beside `standingSaid` and `playsSaid` — its two siblings — which is what put
+the file back under. The step also promoted `EFFECTS_CLEAR_LABEL` to `CLEAR_ALL_LABEL`: two
+headings saying "Clear All" is one word, not two declarations (principle 1), and the rack's own
+sentence and confirm stay effects-specific. No decision was owed for the gesture key on its own —
+`gesture.end` before a clear is what the rack already does — but the neighbour's pick and the
+focus that follows it constrain every list after this one, so 0291 says all three.
+
+**A shared confirm popover is owed and was not taken.** src/ui/PlayerSongsClear.tsx is the third
+`Popover` → trigger with no command → `PopoverTitle` counting what goes → `variant="destructive"`
+confirm, after src/ui/DeckRemove.tsx and src/ui/EffectRack.tsx, and the `Confirm ${label}` name is
+spelled in all three. songs-01 copied it because its own step text said to copy it; the next
+destructive question is the one that should land a shared component instead, and the three call
+sites are already the same five values.

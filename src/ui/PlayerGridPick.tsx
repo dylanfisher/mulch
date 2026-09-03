@@ -18,7 +18,7 @@
 // splitting the rows would hand one pick between components with one caller each. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { useCallback, useMemo, type FocusEvent, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useRef, type FocusEvent, type KeyboardEvent } from "react";
 
 import { partVoice, type PlayerSpec } from "@/lib/player";
 import {
@@ -54,6 +54,7 @@ import {
   PLAYER_SONGS_MAX,
   withSong,
   type PlayerSong,
+  type PlayerSongId,
 } from "@/lib/playerSongs";
 import type { PartStep } from "@/lib/playerStrip";
 import type { DeckId } from "@/state/store";
@@ -275,10 +276,42 @@ export function PlayerGridPick({
     patch({ songs: [...songs.slice(0, songAt + 1), copy, ...songs.slice(songAt + 1)] });
     onPick({ song: copy.id, part: null });
   }, [patch, songs, song, songAt, onPick]);
+  /**
+   * Which song this row should hand the keyboard to once it has re-rendered, or nothing: written
+   * only by a removal, so an ordinary pick never takes the caret off whatever the pointer is on.
+   * A ref and not state — the focus is a thing done to the DOM after a render, and nothing on
+   * screen is drawn from it (0070).
+   */
+  const following = useRef<PlayerSongId | null>(null);
+  /**
+   * Taking a song away hands the next one over: the survivors are computed once and the song that
+   * slid into the removed index is picked, else the one before it, else nothing at all — a remove
+   * keeps the hand's aim, which is what `partRemove` below already does for the tier under this
+   * one. The pick is the app's own idea of selected, so the row simply re-renders for the
+   * neighbour (plan §2).
+   */
   const songRemove = useCallback(() => {
-    patch({ songs: songs.filter((each) => each.id !== song.id) });
-    onPick(null);
-  }, [patch, songs, song.id, onPick]);
+    const left = songs.filter((each) => each.id !== song.id);
+    const next = left[songAt] ?? left[songAt - 1] ?? null;
+    following.current = next?.id ?? null;
+    patch({ songs: left });
+    onPick(next === null ? null : { song: next.id, part: null });
+  }, [patch, songs, song.id, songAt, onPick]);
+  /**
+   * And the keyboard follows the pick onto the neighbour's own Remove button, so a run emptied by
+   * keys can be emptied without reaching for the pointer — the callback ref
+   * src/ui/KnobReadout.tsx:145 uses, keyed on the song under the row so React runs it again when
+   * the neighbour arrives (React reuses this element across the edit otherwise). Gated on the ref
+   * above: this fires on every pick, and only a removal asked for the focus.
+   */
+  const takeRemoveFocus = useCallback(
+    (element: HTMLButtonElement | null) => {
+      if (element === null || following.current !== song.id) return;
+      following.current = null;
+      element.focus();
+    },
+    [song.id],
+  );
 
   /** And every part gesture rebuilds its song's parts and sends the whole spec down the same road. */
   const writeParts = useCallback(
@@ -403,6 +436,7 @@ export function PlayerGridPick({
           </Says>
           <Says what={ACTION_TOOLTIPS.remove}>
             <Button
+              ref={takeRemoveFocus}
               size="icon-sm"
               variant="ghost"
               aria-label={`Remove ${songNamed}`}

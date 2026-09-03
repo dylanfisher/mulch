@@ -436,13 +436,15 @@ export const EFFECTS_LABEL = "Effects";
 export const CLIPS_LABEL = "Clips";
 
 /**
- * The one gesture the effects heading carries beside the fold: every card off the rack at once,
- * for a rack built by trying things that is quicker to empty than to unpick. A word rather than a
- * picture, because it is the one destructive control on this instrument that is not about one
- * named thing — a bare bin at the end of a heading says nothing about how much it takes (0055).
- * Titlecase per (0059), and the sentence says both what goes and what brings it back.
+ * The one gesture a list's heading carries beside the fold: everything off it at once, for a list
+ * built by trying things that is quicker to empty than to unpick. A word rather than a picture,
+ * because these are the destructive controls on this instrument that are not about one named
+ * thing — a bare bin at the end of a heading says nothing about how much it takes (0055).
+ * Titlecase per (0059). One word for every such heading, so two lists never disagree about what
+ * emptying is called (principle 1): the rack's sentence is here, the songs' is in
+ * src/lib/copySongs.ts, and each says both what goes and what brings it back.
  */
-export const EFFECTS_CLEAR_LABEL = "Clear All";
+export const CLEAR_ALL_LABEL = "Clear All";
 export const EFFECTS_CLEAR_TOOLTIP =
   "Take every effect off this yard's rack. One press, one undo — the whole rack comes back a step back.";
 

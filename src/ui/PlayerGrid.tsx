@@ -31,6 +31,7 @@ import {
   PLAYER_SONGS_EMPTY,
   PLAYER_SONGS_LABEL,
   PLAYER_SONGS_TOOLTIP,
+  partNamed,
   playsSaid,
   standingSaid,
 } from "@/lib/copySongs";
@@ -64,6 +65,7 @@ import {
   standingIn,
   type StandingRow,
 } from "@/ui/playerLit";
+import { PlayerSongsClear } from "@/ui/PlayerSongsClear";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
@@ -282,17 +284,31 @@ export function PlayerGrid({
     >
       {/* The heading is the fold, the word inside the control and the caret beside it — the rack's
           own heading, one section in (0055, 0106). The sentence on it is what a song is. */}
-      <Says what={PLAYER_SONGS_TOOLTIP}>
-        <Toggle
-          size="sm"
-          className="-ml-2.5 text-muted-foreground"
-          pressed={folded}
-          onPressedChange={onFold}
-        >
-          <span className="type-eyebrow">{PLAYER_SONGS_LABEL}</span>
-          <FoldCaret />
-        </Toggle>
-      </Says>
+      <div className="flex w-full items-center justify-between gap-2">
+        <Says what={PLAYER_SONGS_TOOLTIP}>
+          <Toggle
+            size="sm"
+            className="-ml-2.5 text-muted-foreground"
+            pressed={folded}
+            onPressedChange={onFold}
+          >
+            <span className="type-eyebrow">{PLAYER_SONGS_LABEL}</span>
+            <FoldCaret />
+          </Toggle>
+        </Says>
+        {/* Never over the run the pattern drew for itself: the written list is held and not shown
+            then, so a press emptying it would take a dozen columns nothing on screen says are
+            there (0158) — the same reason the pick is dropped while drawn (src/ui/PlayerCard.tsx). */}
+        {drawn ? null : (
+          <PlayerSongsClear
+            instrument={instrument}
+            deck={deck}
+            held={songs.length}
+            patch={patch}
+            onPick={setPick}
+          />
+        )}
+      </div>
       {folded ? null : drawn ? (
         <PlayerDrawn instrument={instrument} deck={deck} count={player.arrange} playing={playing} />
       ) : (
@@ -379,14 +395,4 @@ export function PlayerGrid({
       )}
     </section>
   );
-}
-
-/** The name a part is called, found by its id across the run — for the foot line, which names
- *  what is coming and never counts where it is. */
-function partNamed(songs: readonly PlayerSong[], id: SongPartId): string {
-  for (const song of songs) {
-    const part = song.parts.find((held) => held.id === id);
-    if (part !== undefined) return part.name;
-  }
-  return "";
 }
