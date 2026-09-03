@@ -92,6 +92,7 @@ import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
+import { tunable } from "@/lib/moireTuning";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -192,8 +193,8 @@ const forget = (canvas: HTMLCanvasElement): void => {
 };
 
 /** How far a fed-back frame is scaled and turned before it is laid back into this one. */
-const FEEDBACK_ZOOM = 0.03;
-const FEEDBACK_TURNS = 0.006;
+const FEEDBACK_ZOOM = tunable("feedback.zoom", 0.03, { min: 0, max: 0.2, step: 0.005 });
+const FEEDBACK_TURNS = tunable("feedback.turns", 0.006, { min: 0, max: 0.05, step: 0.001 });
 
 /** The surface `canvas` builds its product on, kept at the canvas's own size. */
 function fieldFor(canvas: HTMLCanvasElement): HTMLCanvasElement {
@@ -307,7 +308,7 @@ function cutGratings(
   // carried it through: the structure a stop is baked at is where the roam has got to, and the
   // stops the set carries are the population's own (0273).
   fractalRoamInto(roamed, seed, sounding);
-  const depth = gratingDepth(count, PICTURE_FLOOR);
+  const depth = gratingDepth(count, PICTURE_FLOOR.value);
   const ref = geometryRef(width, height);
   let at = -1;
   // And where a fractal row stands among the structure's own rows, which is what that row's
@@ -605,8 +606,8 @@ const feedbackOf = (row: MoireRow): number => row.feedback;
 function aimFeedback(row: MoireRow, width: number, height: number): void {
   turnedScale(
     aimed,
-    1 + FEEDBACK_ZOOM * row.feedback,
-    TAU * FEEDBACK_TURNS * cosTurn(turnsOf(row)),
+    1 + FEEDBACK_ZOOM.value * row.feedback,
+    TAU * FEEDBACK_TURNS.value * cosTurn(turnsOf(row)),
   );
   aimed.e = width / 2 - (aimed.a * width) / 2 - (aimed.c * height) / 2;
   aimed.f = height / 2 - (aimed.b * width) / 2 - (aimed.d * height) / 2;

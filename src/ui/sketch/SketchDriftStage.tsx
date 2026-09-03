@@ -19,9 +19,9 @@ import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { Slider } from "@/ui/components/slider";
-import { type Ink, inkOf } from "@/ui/moireScreen";
+import { type Ink, ramp } from "@/lib/moireColour";
+import { inkOf } from "@/ui/moireScreen";
 import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
-import { ramp } from "@/ui/sketch/sketchField";
 import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
 
 /**

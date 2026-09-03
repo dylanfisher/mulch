@@ -25,7 +25,9 @@ export function arrivedInk(rows: readonly MoireRow[], wash = 0, age = 0): Screen
   const ink = screenInkRest();
   // Saturated at nothing, because that term is the standing rack's looks' and no row's (0283): a
   // case about what a *look* does to the ink hands the painter one of its own.
-  inkTravelInto(ink, rows, wash, age, 0, DRIFT_INK_SECS, DRIFT_INK_SECS);
+  // And at no seconds of sounding, so the rest the claim is spent against is the caller's own ink
+  // and a case reads the claim and not the orbit (`orbitHue`, src/lib/moireColour.ts).
+  inkTravelInto(ink, rows, wash, age, 0, 0, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
   return ink;
 }
 

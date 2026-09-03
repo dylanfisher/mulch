@@ -173,7 +173,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the fine weave's legibility. A tunnel carries everything toward the middle and smears the fringes into rays on its way, so at any zoom worth seeing the picture is the tunnel and the rows are what it is made of; and it is only ever as sharp as the ghost it sums, which is half the ink (DRIFT_FEEDBACK_CEILING).",
     built:
-      "aimFeedback in src/ui/moireCanvas.ts already scales the ghost by FEEDBACK_ZOOM at three percent and turns it a fraction; the zoom goes to the dial's band and the centre moves with the wind's veer. Frame-side entirely — one drawImage transform, no bake, no key — and feedbackAlpha's ceiling is what keeps the sum from blowing out, which the closed form in sketchField.ts states as the geometric series it is.",
+      "aimFeedback in src/ui/moireCanvas.ts already scales the ghost by FEEDBACK_ZOOM.value at three percent and turns it a fraction; the zoom goes to the dial's band and the centre moves with the wind's veer. Frame-side entirely — one drawImage transform, no bake, no key — and feedbackAlpha's ceiling is what keeps the sum from blowing out, which the closed form in sketchField.ts states as the geometric series it is.",
     Content: SketchDriftTunnel,
   },
   {

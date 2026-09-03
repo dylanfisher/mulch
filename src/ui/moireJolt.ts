@@ -18,6 +18,7 @@ import { WASH_CREST_STRUCK, WASH_HEARD_FLOOR } from "@/lib/moireSound";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { clamp, normalize } from "@/lib/range";
 import type { PlayerPeek } from "@/audio/deckPeek";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * How hard the picture is jolting and what it last jolted for. Two numbers, because a jolt is an
@@ -56,7 +57,7 @@ export const joltRest = (): MoireJolt => ({ at: 0, landing: null, slot: null });
  * its own window's mean power is a struck skin in near silence, and nothing an instrument sustains
  * reaches it. Under that the jolt is the fraction of the way it got.
  */
-export const JOLT_CREST_HIT = 20;
+export const JOLT_CREST_HIT = tunable("jolt.crest", 20, { min: 8, max: 40, step: 1 });
 
 /**
  * How hard the output just struck, from the crest of its own window and the level beside it —
@@ -67,7 +68,11 @@ export const JOLT_CREST_HIT = 20;
  */
 export const joltHeard = (crest: number, level: number): number =>
   Number.isFinite(crest) && crest > 0 && level >= WASH_HEARD_FLOOR
-    ? normalize(clamp(crest, WASH_CREST_STRUCK, JOLT_CREST_HIT), WASH_CREST_STRUCK, JOLT_CREST_HIT)
+    ? normalize(
+        clamp(crest, WASH_CREST_STRUCK, JOLT_CREST_HIT.value),
+        WASH_CREST_STRUCK,
+        JOLT_CREST_HIT.value,
+      )
     : 0;
 
 /**
@@ -107,10 +112,10 @@ export function joltWalked(player: Readonly<PlayerPeek>, jolt: Readonly<MoireJol
  * wind's turn (`DRIFT_WIND_SECS`, src/ui/moireWind.ts), because a wind is a population changing and
  * a jolt is a hit.
  */
-export const DRIFT_JOLT_SECS = 1.5;
+export const DRIFT_JOLT_SECS = tunable("jolt.secs", 1.5, { min: 0.1, max: 6, step: 0.1 });
 
 /** The whole travel a jolt has: nothing to wholly. */
-const JOLT_REACH = 1;
+const JOLT_REACH = tunable("jolt.reach", 1, { min: 0.5, max: 2, step: 0.1 });
 
 /**
  * One step of the jolt: up to whatever struck this frame outright, and back down at the rate a
@@ -135,5 +140,6 @@ export function joltInto(
   jolt.landing = player.at;
   jolt.slot = player.step?.slot ?? null;
   const thrown = agedJolt(clamp(struck, 0, 1), age);
-  jolt.at = thrown > jolt.at ? thrown : easedToward(jolt.at, thrown, elapsed, over, JOLT_REACH);
+  jolt.at =
+    thrown > jolt.at ? thrown : easedToward(jolt.at, thrown, elapsed, over, JOLT_REACH.value);
 }

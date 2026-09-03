@@ -8,13 +8,14 @@
  */
 import { halfCosine, rowOffset, type MoireRow } from "./moire.ts";
 import { devicePx } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * How much light a whole stack of gratings lets through on average — and so, since the picture is
  * one minus that, how much of it is a window rather than ink. Not a tuning: it is what
  * `gratingDepth` solves for, so how many rows a yard has does not say what the picture weighs.
  */
-export const PICTURE_FLOOR = 0.3;
+export const PICTURE_FLOOR = tunable("grating.floor", 0.3, { min: 0.05, max: 0.8, step: 0.01 });
 
 /**
  * How deep each of `count` gratings cuts, so that all of them multiplied leave `floor` of the ink
@@ -36,7 +37,7 @@ export const PICTURE_FLOOR = 0.3;
  * effects are turned down sits above the floor — that is the effect being heard less, which is a
  * thing the picture is supposed to say, where the number of rows is not.
  */
-export const gratingDepth = (count: number, floor = PICTURE_FLOOR): number =>
+export const gratingDepth = (count: number, floor = PICTURE_FLOOR.value): number =>
   Math.min(1, 2 * (1 - floor ** (1 / Math.max(1, count))));
 
 /**
@@ -50,7 +51,7 @@ export const gratingKeep = (at: number, pitch: number, depth: number): number =>
   1 - depth * halfCosine(at / pitch);
 
 /** How wide a fan the picture's gratings are spread through, in turns of a circle. */
-const FAN_TURNS = 0.05;
+const FAN_TURNS = tunable("grating.fan", 0.05, { min: 0, max: 0.25, step: 0.005 });
 
 /**
  * How far off the reference axis a row's grating lies, in turns. The fold spreads the row through
@@ -65,14 +66,14 @@ const FAN_TURNS = 0.05;
  * src/ui/moireRowsField.ts).
  */
 export const gratingTurns = (row: MoireRow): number =>
-  row.reference ? 0 : (rowOffset(row.shape) - 0.5) * FAN_TURNS;
+  row.reference ? 0 : (rowOffset(row.shape) - 0.5) * FAN_TURNS.value;
 
 /**
  * The pitch a lattice reads best at, in CSS pixels, and the most a period may move it either way,
  * as a ratio. CSS pixels for the reason `GRID_PX` is: how coarse the lattice looks is a
  * proportion, and one that moved with the display would draw a different picture on every screen.
  */
-const PITCH_PX = 7;
+const PITCH_PX = tunable("pitch.px", 7, { min: 3, max: 14, step: 0.5 });
 export const PITCH_SPREAD = 2;
 
 /**
@@ -83,7 +84,7 @@ export const PITCH_SPREAD = 2;
  * same rack reading as two different pictures. Declared here because it is the same kind of number
  * as `PITCH_PX` and is read against it.
  */
-export const LATTICE_CELL_PX = PITCH_PX * 4;
+export const latticeCellPx = (): number => PITCH_PX.value * 4;
 
 /**
  * The width a row's spread across the picture is read against, in CSS pixels. The window carries
@@ -93,7 +94,7 @@ export const LATTICE_CELL_PX = PITCH_PX * 4;
  * popped out of rather than bigger (0109, 0293). Reading the spread against one width instead
  * makes the pitch a fact about the period, and the picture the same picture at both sizes.
  */
-const PITCH_WIDTH_PX = 720;
+const PITCH_WIDTH_PX = tunable("pitch.width", 720, { min: 240, max: 1920, step: 10 });
 
 /**
  * The ratio that puts a row at the coarse end of that band whatever its period: `gratingPitch`
@@ -113,14 +114,15 @@ export const DRIFT_BROADEST_PITCH = PITCH_SPREAD;
  * that: a fine comb over a coarse one, with no fringe anywhere in it. Measured in the real app,
  * which is the only way this was going to be found.
  */
-const PITCH_COMPRESS = 0.25;
+const PITCH_COMPRESS = tunable("pitch.compress", 0.25, { min: 0, max: 1, step: 0.01 });
 
 /**
  * The finest a row is ever drawn, in device pixels — the floor of the band `gratingPitch` below
  * holds every row inside, named so that a row whose spacing is swept across the picture can be held to the same floor at its crowded end
  * rather than sweeping through it (0142).
  */
-export const gratingFloor = (dpr: number): number => (PITCH_PX * devicePx(dpr)) / PITCH_SPREAD;
+export const gratingFloor = (dpr: number): number =>
+  (PITCH_PX.value * devicePx(dpr)) / PITCH_SPREAD;
 
 /**
  * How far apart one row's fringes stand, in device pixels. The window still carries the row's
@@ -144,13 +146,13 @@ export const gratingPitch = (
   dpr: number,
   ratio = 1,
 ): number => {
-  const middle = PITCH_PX * devicePx(dpr);
+  const middle = PITCH_PX.value * devicePx(dpr);
   const band = (pitch: number): number =>
     Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, pitch));
   if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return band(middle * ratio);
   // How far the row's period reaches across a picture of the reference width, and never across
   // this one: `width` says there is a canvas to draw on and no longer how coarse it is drawn
   // (`PITCH_WIDTH_PX`).
-  const across = (PITCH_WIDTH_PX * devicePx(dpr) * period) / windowSecs;
-  return band(middle * (across / middle) ** PITCH_COMPRESS * ratio);
+  const across = (PITCH_WIDTH_PX.value * devicePx(dpr) * period) / windowSecs;
+  return band(middle * (across / middle) ** PITCH_COMPRESS.value * ratio);
 };

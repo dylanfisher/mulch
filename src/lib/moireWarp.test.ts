@@ -11,13 +11,13 @@ describe("the warp a sway bends the field with", () => {
   it("bends nothing at rest, and never past the ceiling", () => {
     expect(warpShare(0)).toBe(0);
     expect(warpShare(-1)).toBe(0);
-    expect(warpShare(1)).toBe(WARP_CEILING);
-    expect(warpShare(4)).toBe(WARP_CEILING);
+    expect(warpShare(1)).toBe(WARP_CEILING.value);
+    expect(warpShare(4)).toBe(WARP_CEILING.value);
     for (let t = 0; t <= 2; t += 0.05) {
       expect(warpSlideX(0, 0.3, t)).toBeCloseTo(0);
       expect(warpSlideY(0, 0.3, t)).toBeCloseTo(0);
-      expect(Math.abs(warpSlideX(warpShare(1), 0.3, t))).toBeLessThanOrEqual(WARP_CEILING);
-      expect(Math.abs(warpSlideY(warpShare(1), 0.3, t))).toBeLessThanOrEqual(WARP_CEILING);
+      expect(Math.abs(warpSlideX(warpShare(1), 0.3, t))).toBeLessThanOrEqual(WARP_CEILING.value);
+      expect(Math.abs(warpSlideY(warpShare(1), 0.3, t))).toBeLessThanOrEqual(WARP_CEILING.value);
     }
   });
 

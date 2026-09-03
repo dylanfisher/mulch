@@ -57,12 +57,12 @@ describe("the jolt the picture answers a hit with", () => {
     expect(washAmount(WASH_CREST_SMEARED, HEARD)).toBe(1);
     expect(joltHeard(WASH_CREST_STRUCK, HEARD)).toBe(0);
     expect(washAmount(WASH_CREST_STRUCK, HEARD)).toBe(0);
-    const between = (WASH_CREST_STRUCK + JOLT_CREST_HIT) / 2;
+    const between = (WASH_CREST_STRUCK + JOLT_CREST_HIT.value) / 2;
     expect(joltHeard(between, HEARD)).toBeCloseTo(0.5, 9);
-    expect(joltHeard(JOLT_CREST_HIT, HEARD)).toBe(1);
-    expect(joltHeard(JOLT_CREST_HIT * 2, HEARD)).toBe(1);
+    expect(joltHeard(JOLT_CREST_HIT.value, HEARD)).toBe(1);
+    expect(joltHeard(JOLT_CREST_HIT.value * 2, HEARD)).toBe(1);
     // And silence is not a hit, for the reason silence is not a wash.
-    expect(joltHeard(JOLT_CREST_HIT, 0)).toBe(0);
+    expect(joltHeard(JOLT_CREST_HIT.value, 0)).toBe(0);
     expect(joltHeard(0, HEARD)).toBe(0);
   });
 
@@ -74,7 +74,7 @@ describe("the jolt the picture answers a hit with", () => {
     const jolt = joltRest();
     // Nothing to measure from yet: the first landing of a pass is the jolt's first ordinal.
     expect(joltWalked(standingOn(0, 0), jolt)).toBe(0);
-    joltInto(jolt, 0, standingOn(0, 0), 1, 0, DRIFT_JOLT_SECS);
+    joltInto(jolt, 0, standingOn(0, 0), 1, 0, DRIFT_JOLT_SECS.value);
     expect(jolt.slot).toBe(0);
 
     // The far side of the ring is the whole strike, and one slot along is the least of one.
@@ -86,7 +86,7 @@ describe("the jolt the picture answers a hit with", () => {
     expect(joltWalked(standingOn(PLAYER_SLOTS / 2, 1, true), jolt)).toBe(0);
 
     // And once per landing: the same ordinal standing a second frame strikes nothing more.
-    joltInto(jolt, 1, standingOn(PLAYER_SLOTS / 2, 1), 1, 0, DRIFT_JOLT_SECS);
+    joltInto(jolt, 1, standingOn(PLAYER_SLOTS / 2, 1), 1, 0, DRIFT_JOLT_SECS.value);
     expect(joltWalked(standingOn(PLAYER_SLOTS / 2, 1), jolt)).toBe(0);
   });
 
@@ -97,11 +97,11 @@ describe("the jolt the picture answers a hit with", () => {
   it("snaps up to a hit outright and falls back over the jolt", () => {
     const jolt = joltRest();
     const still = standingOn(0, null);
-    joltInto(jolt, 1, still, 1, 0, DRIFT_JOLT_SECS);
+    joltInto(jolt, 1, still, 1, 0, DRIFT_JOLT_SECS.value);
     expect(jolt.at).toBe(1);
-    joltInto(jolt, 0, still, 1, DRIFT_JOLT_SECS / 2, DRIFT_JOLT_SECS);
+    joltInto(jolt, 0, still, 1, DRIFT_JOLT_SECS.value / 2, DRIFT_JOLT_SECS.value);
     expect(jolt.at).toBeCloseTo(0.5, 9);
-    joltInto(jolt, 0, still, 1, DRIFT_JOLT_SECS, DRIFT_JOLT_SECS);
+    joltInto(jolt, 0, still, 1, DRIFT_JOLT_SECS.value, DRIFT_JOLT_SECS.value);
     expect(jolt.at).toBe(0);
     // And no fall at all where there is no clock to fall against, which is a halted yard.
     joltInto(jolt, 1, still, 1, 0, 0);
@@ -116,10 +116,10 @@ describe("the jolt the picture answers a hit with", () => {
    */
   it("throws a fresh picture over half the room and an old one over all of it", () => {
     const fresh = joltRest();
-    joltInto(fresh, 1, standingOn(0, null), 0, 0, DRIFT_JOLT_SECS);
-    expect(fresh.at).toBeCloseTo(DRIFT_AGE_FLOOR, 9);
+    joltInto(fresh, 1, standingOn(0, null), 0, 0, DRIFT_JOLT_SECS.value);
+    expect(fresh.at).toBeCloseTo(DRIFT_AGE_FLOOR.value, 9);
     const old = joltRest();
-    joltInto(old, 1, standingOn(0, null), 1, 0, DRIFT_JOLT_SECS);
+    joltInto(old, 1, standingOn(0, null), 1, 0, DRIFT_JOLT_SECS.value);
     expect(old.at).toBe(1);
   });
 
@@ -133,7 +133,7 @@ describe("the jolt the picture answers a hit with", () => {
     const peek = emptyDeckPeek();
     peek.sounding = 1;
     peek.meter = HEARD;
-    peek.crest = JOLT_CREST_HIT;
+    peek.crest = JOLT_CREST_HIT.value;
     refillRows(
       set.rows,
       set.reads,

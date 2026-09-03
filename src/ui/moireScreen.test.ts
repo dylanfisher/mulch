@@ -651,12 +651,19 @@ describe("moireScreen", () => {
     expect(new Set(lattices).size).toBe(3);
   });
 
-  it("carries the picture's ink toward a second one, and neither of them at rest", () => {
-    // The fourth crossing of the colour boundary (0141): a claiming value blends the ink its
-    // caller resolved between the two the theme holds, so a yard can be cool where another is hot.
+  it("reads the picture's ink along a ramp of five, and none of the stops at rest", () => {
+    // The fourth crossing of the colour boundary (0141), read along the structure bench's ramp
+    // (0301): a claiming value carries the ink its caller resolved through the green channel to
+    // the cool token one way and through the red channel to the hot one the other, so a yard can
+    // be cool where another is hot and each passes through a stop between.
+    // Through an ink standing at `hue` and not through a claim of it: a claim is spent against the
+    // age and the orbit (`agedHue`), and this case is about where on the ramp a hue is read.
     const meanOf = (hue: number, channel: number): number => {
       vi.stubGlobal("devicePixelRatio", 2);
-      const { written } = paintedOn(200, 64, [row({ period: 3, hue })]);
+      const { written } = paintedOn(200, 64, [row({ period: 3, hue })], {
+        ...screenInkRest(),
+        hue,
+      });
       const pixels = written?.data ?? new Uint8ClampedArray();
       let total = 0;
       for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
@@ -665,8 +672,14 @@ describe("moireScreen", () => {
     // The theme's cool ink is blue where the resting one is amber, and its hot one is redder.
     expect(meanOf(0, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
     expect(meanOf(1, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
-    // At rest neither token is reached at all: the picture is the ink its caller resolved (0130).
+    // At rest no token is reached at all: the picture is the ink its caller resolved (0130).
     expect(meanOf(DRIFT_REST.hue, 0)).toBeGreaterThan(meanOf(0, 0));
+    // A quarter of the way along is the stop between, which is the green channel's token: greener
+    // than rest, than the cool end, and than the far side of the ramp, where the red channel's is.
+    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 1));
+    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(0, 1));
+    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(0.75, 1));
+    expect(meanOf(0.75, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
   });
 
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
@@ -689,8 +702,9 @@ describe("moireScreen", () => {
       0,
       0,
       0,
-      DRIFT_INK_SECS / 8,
-      DRIFT_INK_SECS,
+      0,
+      DRIFT_INK_SECS.value / 8,
+      DRIFT_INK_SECS.value,
     );
     const held = meanOf(screenInkRest(), 0);
     const onTheWay = meanOf(partway, 0);

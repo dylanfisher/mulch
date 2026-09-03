@@ -14,6 +14,7 @@ import type { Look, LookPass } from "@/lib/moireLook";
 import { weighed } from "@/lib/moireWeigh";
 import { clamp } from "@/lib/range";
 import { SEMITONES_PER_OCTAVE } from "@/lib/timeline";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * The narrowest and the widest a second picture is ever drawn at, as a share of the field's own
@@ -39,7 +40,7 @@ export const DOUBLE_ZOOM: readonly [number, number] = [1 / 4, 4];
  * double that has covered what it doubled. At the sharpen's own ceiling the two pictures stand
  * together and the strip reads 0.029.
  */
-export const DOUBLE_CEILING = 0.35;
+export const DOUBLE_CEILING = tunable("look.double", 0.35, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How far the second picture is zoomed from the first: the interval's own doubling, `2^(n/12)`,
@@ -72,7 +73,7 @@ export const doubleZoom = (semitones: number): number =>
  * is for, and what moved it out of the contract file at this third hand-copy (0289).
  */
 export const doubleAmount = (presence: number, amount: number): number =>
-  weighed(presence, amount, DOUBLE_CEILING);
+  weighed(presence, amount, DOUBLE_CEILING.value);
 
 /**
  * The double, drawn: the field itself, and the field again over it at the interval's ratio, scaled

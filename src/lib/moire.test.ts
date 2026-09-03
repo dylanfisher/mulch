@@ -194,12 +194,12 @@ describe("moire", () => {
     // the depth is solved for the floor, and the floor is what every count comes back to.
     for (const count of [2, 3, 5, 8, 12]) {
       const depth = gratingDepth(count);
-      expect((1 - depth / 2) ** count).toBeCloseTo(PICTURE_FLOOR, 9);
+      expect((1 - depth / 2) ** count).toBeCloseTo(PICTURE_FLOOR.value, 9);
       // A field of that many really does average to it, and not merely in the mean of one cosine.
       const pitches = Array.from({ length: count }, (_, at) => 9 + at);
       const field = fieldAcross(pitches, 5040, depth);
       const mean = field.reduce((sum, keep) => sum + keep, 0) / field.length;
-      expect(mean).toBeCloseTo(PICTURE_FLOOR, 1);
+      expect(mean).toBeCloseTo(PICTURE_FLOOR.value, 1);
     }
     // Never past one: a grating cannot cut deeper than its own trough, so one row is lighter than
     // the floor — which is right, because one grating has no beat in it to see.

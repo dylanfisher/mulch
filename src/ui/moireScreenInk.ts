@@ -21,8 +21,10 @@ import {
 } from "@/lib/moire";
 import { agedHue } from "@/lib/moireAge";
 import { arrived } from "@/lib/moireArrival";
+import { orbitHue } from "@/lib/moireColour";
 import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * The row that says the most about one thing a picture can only say once — the ink's three
@@ -97,6 +99,18 @@ export const screenHue = (rows: readonly MoireRow[]): number =>
 export const stepped = (value: number, reach: number): number =>
   snapToStep(value, 0, reach, reach / DRIFT_STEPS);
 
+/**
+ * How many steps of its reach the hue alone is rounded onto. Finer than `DRIFT_STEPS` because the
+ * hue is read along a ramp of five stops (0301) and eight steps across four spans is a visible jump
+ * at each; thirty-two is under what the eye reads a hue shift at, and the orbit at its resting
+ * seconds bakes a tile every few seconds rather than every frame. Bake-side, so a const (0299).
+ */
+export const HUE_STEPS = 32;
+
+/** The hue's own key, on its own ladder — `stepped` for the one term read along a ramp. */
+export const steppedHue = (value: number): number =>
+  snapToStep(value, 0, DRIFT_HUE_REACH, DRIFT_HUE_REACH / HUE_STEPS);
+
 /** Where a picture's ink stands before any row has claimed a thing about it. */
 export const screenInkRest = (): ScreenInk => ({
   fringe: DRIFT_REST.fringe,
@@ -131,7 +145,7 @@ export const SCREEN_SATURATE_REACH = 1;
  * below is sized against. Shorter spends the same bakes closer together; longer is a picture still
  * catching up with a knob the hand let go of.
  */
-export const DRIFT_INK_SECS = 2;
+export const DRIFT_INK_SECS = tunable("ink.secs", 2, { min: 0.2, max: 10, step: 0.1 });
 
 /**
  * One step of the picture's ink travel, from where it has got to toward what the rows claim now —
@@ -139,8 +153,9 @@ export const DRIFT_INK_SECS = 2;
  * plane is taken in (`fractalTravelInto`, src/lib/moireFractal.ts). Each in its own dimension's
  * units, so the four arrive together rather than `fringe` taking twice as long as `hue`.
  *
- * The whole reading and not the bare claim: how washed the field is carries `disperse` and how old
- * the performance is carries `hue`. The age crawls and the travel arrives on it every read; the
+ * The whole reading and not the bare claim: how washed the field is carries `disperse`, and how old
+ * the performance is and how far its rest has orbited the ramp carry `hue` (`orbitHue`,
+ * src/lib/moireColour.ts, 0301). The age and the orbit crawl and the travel arrives on them every read; the
  * wash does not — `washAmount` is gated at a floor, so a deck falling under it moves `disperse`
  * half a reach between two frames and the travel now walks that too, a second at its widest. That
  * is the same kind of jump as a retiring place and it is walked for the same reason, not an
@@ -160,6 +175,7 @@ export function inkTravelInto(
   rows: readonly MoireRow[],
   wash: number,
   age: number,
+  sounding: number,
   saturate: number,
   elapsed: number,
   over: number,
@@ -167,7 +183,7 @@ export function inkTravelInto(
   out.fringe = easedToward(out.fringe, screenFringe(rows), elapsed, over, DRIFT_FRINGE_REACH);
   const disperse = screenDisperse(rows, wash);
   out.disperse = easedToward(out.disperse, disperse, elapsed, over, DRIFT_DISPERSE_REACH);
-  const hue = agedHue(screenHue(rows), age);
+  const hue = agedHue(screenHue(rows), age, orbitHue(sounding));
   out.hue = easedToward(out.hue, hue, elapsed, over, DRIFT_HUE_REACH);
   // And how saturated the standing rack asks the whole of it to be drawn, which no row claims and
   // which travels here anyway: a look arriving already eases its own presence over the wind's

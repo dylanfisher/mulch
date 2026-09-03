@@ -1,6 +1,6 @@
 /**
  * @role How old a performance is, and the four things about the picture that widen with it: how far
- *   its ink may be carried between the two inks, how far the reference row's spacing may be
+ *   its ink may be carried from the rest its orbit has reached, how far the reference row's spacing may be
  *   drawn from rest, how much of the frame before it a standing run lays back in, and how far into
  *   its own structure the picture opens. One curve over
  *   one reach in seconds, and a named spend per band — an age
@@ -14,9 +14,10 @@
  *   src/ui/moireCanvas.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
  *   src/audio/deckPeek.ts.
  */
-import { DRIFT_REST, DRIFT_STEPS } from "./moire.ts";
+import { DRIFT_HUE_REACH, DRIFT_REST, DRIFT_STEPS } from "./moire.ts";
 import { FRACTAL_OPENING, fractalCut } from "./moireFractal.ts";
 import { clamp, denormalize, snapToStep } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * How long a deck has to sound before the picture is most of the way to as old as it gets, in
@@ -25,7 +26,11 @@ import { clamp, denormalize, snapToStep } from "./range.ts";
  * it, short enough that a performance which went somewhere has visibly gone there. The curve
  * saturates rather than stopping, so an hour is nearly there and nothing past it is anywhere new.
  */
-export const DRIFT_AGE_REACH_SECS = 20 * 60;
+export const DRIFT_AGE_REACH_SECS = tunable("age.reachSecs", 20 * 60, {
+  min: 30,
+  max: 3600,
+  step: 30,
+});
 
 /**
  * How old a picture is, on 0..1, from how long its deck has been sounding without a break
@@ -39,7 +44,7 @@ export const DRIFT_AGE_REACH_SECS = 20 * 60;
  * where the reading is taken (src/audio/deck.ts), not here.
  */
 export const driftAge = (secs: number): number =>
-  secs > 0 ? 1 - Math.exp(-secs / DRIFT_AGE_REACH_SECS) : 0;
+  secs > 0 ? 1 - Math.exp(-secs / DRIFT_AGE_REACH_SECS.value) : 0;
 
 /**
  * How much of each band a picture with nothing behind it is drawn in. **Half, and one number
@@ -48,18 +53,21 @@ export const driftAge = (secs: number): number =>
  * what it means — a fresh picture still says everything an old one says, over less of the room to
  * say it in.
  */
-export const DRIFT_AGE_FLOOR = 0.5;
+export const DRIFT_AGE_FLOOR = tunable("age.floor", 0.5, { min: 0, max: 1, step: 0.05 });
 
 /** How much of a band an age of `age` spends: the floor above at nothing, the whole of it at one. */
-const spent = (age: number): number => denormalize(clamp(age, 0, 1), DRIFT_AGE_FLOOR, 1);
+const spent = (age: number): number => denormalize(clamp(age, 0, 1), DRIFT_AGE_FLOOR.value, 1);
 
 /**
- * And how far the picture's own ink is carried between the cool token and the hot one: the claim a
- * row made, drawn back toward the ink the caller resolved by however fresh the picture is. At rest
- * it is rest at either age — an age may widen a claim and may not invent one (0141).
+ * And how far the picture's own ink is carried along its ramp: the claim a row made, read as how
+ * far off rest it stands and spent against the rest the orbit has reached, by however fresh the
+ * picture is (`orbitHue`, src/lib/moireColour.ts, 0301). A claim at rest is the orbit at either
+ * age — an age may widen a claim and may not invent one (0141); what moves the rest is the orbit
+ * and never the age. Clamped, because a bold claim over a rest already near one end of the ramp
+ * asks for a stop the ramp does not have.
  */
-export const agedHue = (hue: number, age: number): number =>
-  DRIFT_REST.hue + (hue - DRIFT_REST.hue) * spent(age);
+export const agedHue = (hue: number, age: number, orbit: number): number =>
+  clamp(orbit + (hue - DRIFT_REST.hue) * spent(age), 0, DRIFT_HUE_REACH);
 
 /**
  * And how far the reference row's spacing stands from the pitch its period sets. The band is a
@@ -79,7 +87,7 @@ export const agedPitch = (pitch: number, age: number): number =>
  * never a sum, so a rack holding a delay wound past halfway still wins outright and neither says
  * the other's number (0139).
  */
-export const DRIFT_RUN_FEEDBACK = 0.5;
+export const DRIFT_RUN_FEEDBACK = tunable("age.runFeedback", 0.5, { min: 0, max: 1, step: 0.05 });
 
 /**
  * And how far the whole finished field is laid back into itself, for the run a rack is standing and
@@ -97,7 +105,7 @@ export const DRIFT_RUN_FEEDBACK = 0.5;
  * — an age widens a claim and may not invent one (0141).
  */
 export const runFeedback = (standing: number, age: number): number =>
-  fractalCut(standing, DRIFT_RUN_FEEDBACK * spent(age));
+  fractalCut(standing, DRIFT_RUN_FEEDBACK.value * spent(age));
 
 /**
  * And how far into its own structure the picture may open: the scale a fractal row's breath reaches
@@ -121,7 +129,7 @@ export const runFeedback = (standing: number, age: number): number =>
  * `stepped` itself is the screen's (src/ui/moireScreen.ts) and a lib may not reach up for it.
  */
 export const agedOpening = (age: number): number =>
-  FRACTAL_OPENING ** spent(snapToStep(age, 0, 1, 1 / DRIFT_STEPS));
+  FRACTAL_OPENING.value ** spent(snapToStep(age, 0, 1, 1 / DRIFT_STEPS));
 
 /**
  * And how far a hit may throw the whole picture: the strike the output or the walk just made, over

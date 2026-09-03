@@ -8,6 +8,7 @@
  *   bakes once → `latticeTile` in src/lib/moireLattice.ts, which this is written after.
  */
 import { mulberry32 } from "@/lib/random";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * The noise tile: how wide it is baked, how wide one speck of it is, how much of it is left clear,
@@ -24,7 +25,7 @@ import { mulberry32 } from "@/lib/random";
 export const GRAIN_TILE = 512;
 export const GRAIN_SPECK = 3;
 export const GRAIN_FLOOR = 0.5;
-export const GRAIN_SWEEP = 24;
+export const GRAIN_SWEEP = tunable("look.grainSweep", 24, { min: 0, max: 120, step: 1 });
 
 /** The seed the specks are drawn from — one constant, so the grain is the same grain every run. */
 const GRAIN_SEED = 0x5f_37_59_df;

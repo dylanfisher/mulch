@@ -170,8 +170,8 @@ describe("moireOctaves", () => {
     expect(structure(many, span, 2)).toBeLessThan(structure(one, span, 2));
     // And the picture weighs what it always weighed. Counting each copy as a whole grating instead
     // of the share it cuts would lift the field well off the floor and wash it out (`octaveShare`).
-    expect(brightness(one)).toBeCloseTo(PICTURE_FLOOR, 2);
-    expect(brightness(many)).toBeCloseTo(PICTURE_FLOOR, 2);
+    expect(brightness(one)).toBeCloseTo(PICTURE_FLOOR.value, 2);
+    expect(brightness(many)).toBeCloseTo(PICTURE_FLOOR.value, 2);
     // A curved row keeps its one scale whatever the run is standing — a curved copy needs a
     // picture-sized tile of its own, which is the answer `grownOctaves` already gives (0142).
     const curved = [row({ geometry: "radial" }), row({ geometry: "spiral" }), row({})];

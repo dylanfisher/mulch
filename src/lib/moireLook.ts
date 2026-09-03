@@ -33,6 +33,7 @@ import { GRAIN_SWEEP, GRAIN_TILE, grainOf } from "@/lib/moireGrain";
 import { LENS_SLICES } from "@/lib/moireGeometry";
 import { clamp, denormalize } from "@/lib/range";
 import { weighed } from "@/lib/moireWeigh";
+import { tunable } from "@/lib/moireTuning";
 
 /** Every look the picture has maths for. One name per whole-field move, and no effect ids here. */
 export const LOOK_NAMES = [
@@ -191,7 +192,7 @@ export const bloomScale = (radius: number): number => denormalize(radius, ...BLO
  * the halo is the picture and the structure under it is gone, and what a bloom says is that the
  * room is there and not that the rows are not.
  */
-export const BLOOM_CEILING = 0.9;
+export const BLOOM_CEILING = tunable("look.bloom", 0.9, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How much of the blurred copy is laid back over the field: the amount its entry declared, weighted
@@ -200,7 +201,7 @@ export const BLOOM_CEILING = 0.9;
  * wet room bloom and a dry one leave the picture alone.
  */
 export const bloomAmount = (presence: number, amount: number): number =>
-  weighed(presence, amount, BLOOM_CEILING);
+  weighed(presence, amount, BLOOM_CEILING.value);
 
 /**
  * The bloom, drawn: the field small, that small copy back up over the whole surface at the amount,
@@ -260,7 +261,7 @@ export const blockSize = (presence: number, block: number): number => {
  * range can lose: past three the thin rows are simply gone, and a picture of a crush that has eaten
  * the picture says nothing about the crush.
  */
-export const BLOCK_HARDENINGS = 3;
+export const BLOCK_HARDENINGS = tunable("look.blockHardenings", 3, { min: 1, max: 6, step: 1 });
 
 /**
  * How many times the blocked field is composed with itself, off the levels term and the travelled
@@ -268,7 +269,7 @@ export const BLOCK_HARDENINGS = 3;
  * fraction of a composite is not a draw.
  */
 export const blockHarden = (presence: number, levels: number): number =>
-  Math.round(clamp(presence, 0, 1) * (1 - clamp(levels, 0, 1)) * BLOCK_HARDENINGS);
+  Math.round(clamp(presence, 0, 1) * (1 - clamp(levels, 0, 1)) * BLOCK_HARDENINGS.value);
 
 /**
  * The blocks, drawn: the field down onto its own block grid with smoothing off, that grid back up
@@ -315,7 +316,11 @@ const blocksPass: LookPass = (into, source, presence, terms) => {
  * A sixth of the field is about one cell of the lattice the picture is drawn on, which is the
  * distance an edge has to stand out against for the eye to read it as an edge.
  */
-export const SHARPEN_SCALE = 1 / 6;
+export const SHARPEN_SCALE = tunable("look.sharpenScale", 1 / 6, {
+  min: 0.05,
+  max: 0.5,
+  step: 0.01,
+});
 
 /**
  * How much of the mask is added back to the field at the most. Short of the whole of it for the
@@ -326,7 +331,7 @@ export const SHARPEN_SCALE = 1 / 6;
  * 4% lighter — sharper, and the one question the pass is asked at the crop is whether it is sharper
  * and not whether it is louder.
  */
-export const SHARPEN_CEILING = 0.35;
+export const SHARPEN_CEILING = tunable("look.sharpen", 0.35, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How hard the mask bites: the amount its entry declared — pop's own Mix, which is how much of the
@@ -335,7 +340,7 @@ export const SHARPEN_CEILING = 0.35;
  * the picture out of what it was rather than switching between two pictures.
  */
 export const sharpenAmount = (presence: number, amount: number): number =>
-  weighed(presence, amount, SHARPEN_CEILING);
+  weighed(presence, amount, SHARPEN_CEILING.value);
 
 /**
  * The sharpen, drawn: the field's own blurred copy, the field taken through it `source-out` — which
@@ -371,7 +376,7 @@ const sharpenPass: LookPass = (into, source, presence, terms) => {
   }
   // At the whole of itself, because what the amount weighs is how much of the mask is added back
   // and not how blurred the mask is.
-  blurred(into, source, SHARPEN_SCALE, 1);
+  blurred(into, source, SHARPEN_SCALE.value, 1);
   into.globalCompositeOperation = "source-out";
   into.globalAlpha = alpha;
   into.drawImage(source, 0, 0);
@@ -389,7 +394,7 @@ const sharpenPass: LookPass = (into, source, presence, terms) => {
  * own cell no longer stands beside its neighbour at all and the picture reads as torn rather than as
  * swimming.
  */
-export const WOBBLE_CEILING = 1 / 64;
+export const WOBBLE_CEILING = tunable("look.wobble", 1 / 64, { min: 0, max: 0.1, step: 0.001 });
 
 /**
  * How far one band of the field is slid at the most: the wobble term its entry declared — the tape's
@@ -399,7 +404,7 @@ export const WOBBLE_CEILING = 1 / 64;
  * out of the straight rather than switching between two pictures.
  */
 export const wobbleSwim = (presence: number, wobble: number): number =>
-  weighed(presence, wobble, WOBBLE_CEILING);
+  weighed(presence, wobble, WOBBLE_CEILING.value);
 
 /**
  * How fast the swim goes round, in cycles a second, and how many of those cycles stand down the
@@ -409,8 +414,8 @@ export const wobbleSwim = (presence: number, wobble: number): number =>
  * and slow enough to read as wow rather than as flutter. Under two waves down the field, because a
  * wave a band deep is noise and what this pass draws is one long swim the eye can follow.
  */
-export const WOBBLE_HZ = 0.75;
-export const WOBBLE_WAVES = 1.5;
+export const WOBBLE_HZ = tunable("look.wobbleHz", 0.75, { min: 0.1, max: 3, step: 0.05 });
+export const WOBBLE_WAVES = tunable("look.wobbleWaves", 1.5, { min: 0, max: 4, step: 0.1 });
 
 /**
  * Where one band stands in its own swim, on -1 to 1: a sine of the tape's own clock, offset down the
@@ -419,14 +424,14 @@ export const WOBBLE_WAVES = 1.5;
  * feedback turn's reason: the picture has one clock and it is the deck's (0126).
  */
 export const wobbleSlide = (clock: number, slice: number, slices: number): number =>
-  cosTurn(clock * WOBBLE_HZ + (slice / Math.max(1, slices)) * WOBBLE_WAVES);
+  cosTurn(clock * WOBBLE_HZ.value + (slice / Math.max(1, slices)) * WOBBLE_WAVES.value);
 
 /**
  * The most of the picture's ink the grain takes out. Well short of the whole of it: every speck is
  * ink the screen keeps (0281), so a grain at one would be a picture of the noise floor rather than a
  * picture with a noise floor under it.
  */
-export const GRAIN_CEILING = 0.5;
+export const GRAIN_CEILING = tunable("look.grain", 0.5, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How hard the grain bites: the grain term its entry declared — the tape's own Hiss — weighted by
@@ -434,7 +439,7 @@ export const GRAIN_CEILING = 0.5;
  * helper weighs, and the ceiling is this look's own (0283).
  */
 export const grainBite = (presence: number, grain: number): number =>
-  weighed(presence, grain, GRAIN_CEILING);
+  weighed(presence, grain, GRAIN_CEILING.value);
 
 /**
  * The wobble, drawn: the field back down in the slices the lens already cuts it in, each slid
@@ -500,7 +505,7 @@ const wobblePass: LookPass = (into, source, presence, terms, _veer, clock) => {
   // On whole pixels: the chain hands every pass a smoothing context (0281), so a tile placed on a
   // fraction is filtered against what lies outside its own rect and the column where two tiles meet
   // comes back under-grained — a hairline every tile across a surface wider than one.
-  const swept = Math.round(wrap(clock * GRAIN_SWEEP, GRAIN_TILE));
+  const swept = Math.round(wrap(clock * GRAIN_SWEEP.value, GRAIN_TILE));
   for (let down = -swept; down < height; down += GRAIN_TILE) {
     for (let over = -swept; over < width; over += GRAIN_TILE) into.drawImage(tile, over, down);
   }

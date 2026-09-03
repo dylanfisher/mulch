@@ -16,6 +16,7 @@ import { useEffect } from "react";
 import { type DriftGeometry } from "@/lib/moire";
 import { type DriftProfile } from "@/lib/moireProfiles";
 import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
+import { subscribeTuning } from "@/lib/moireTuning";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { driftOffThread, driftWorkerPort, type DriftPort } from "@/app/drift";
 
@@ -200,6 +201,10 @@ export function useDriftSurface(
   const surface = useCanvasSurface(paint, animate, everyMs);
   const { repaint } = surface;
   useEffect(() => onDriftBaked(repaint), [repaint]);
+  // And whenever a tuning moves: a halted picture would otherwise hold the old number until
+  // something else asked it to paint (src/lib/moireTuning.ts, 0299). The same ask as above, and
+  // a no-op inside a budget already standing.
+  useEffect(() => subscribeTuning(repaint), [repaint]);
   return surface;
 }
 

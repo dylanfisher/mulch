@@ -10,6 +10,7 @@
  *   in the picture until it has finished leaving → src/ui/moireCarry.ts.
  */
 import { easedToward } from "./moire.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * How long a row takes to join the picture, or to leave it, in seconds. **The same length the wind
@@ -23,7 +24,7 @@ import { easedToward } from "./moire.ts";
  * a run laying and retiring places draws one continuous population rather than a picture that
  * restacks at every turnover.
  */
-export const DRIFT_ARRIVAL_SECS = 6;
+export const DRIFT_ARRIVAL_SECS = tunable("arrival.secs", 6, { min: 0.5, max: 20, step: 0.5 });
 
 /**
  * The whole travel a share has: nothing to wholly. Named because `easedToward` is stated as a whole

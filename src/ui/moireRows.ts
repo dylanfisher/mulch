@@ -587,7 +587,7 @@ export function refillRows(
   // And how long a row has to join the picture or to leave it, resolved once beside the two travels
   // above and for their reason: nothing at all where nothing is sounding, a halted picture being
   // painted on a commit rather than on a frame (0144, `inkTravelInto`).
-  const arrivalSecs = peek.sounding > 0 ? DRIFT_ARRIVAL_SECS : 0;
+  const arrivalSecs = peek.sounding > 0 ? DRIFT_ARRIVAL_SECS.value : 0;
   // And one step of the jolt the whole field answers a hit with: the bolder of what the output just
   // struck at and how far the walk just jumped, snapped up outright and let fall (0271). In the
   // prologue and never inside the walk, because it is the field's and no row's — every row spends
@@ -600,7 +600,7 @@ export function refillRows(
     peek.player,
     age,
     elapsed,
-    peek.sounding > 0 ? DRIFT_JOLT_SECS : 0,
+    peek.sounding > 0 ? DRIFT_JOLT_SECS.value : 0,
   );
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
@@ -730,9 +730,10 @@ export function refillRows(
     rows,
     wash,
     age,
+    peek.sounding,
     looksSaturate(looks),
     elapsed,
-    peek.sounding > 0 ? DRIFT_INK_SECS : 0,
+    peek.sounding > 0 ? DRIFT_INK_SECS.value : 0,
   );
   return wash;
 }

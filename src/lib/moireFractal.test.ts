@@ -149,10 +149,10 @@ describe("the escape coordinate", () => {
   /** A zoom opens the picture into the structure: the same field read across a smaller plane. */
   it("opens into itself as the zoom carries it", () => {
     const wide = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, 1, 0);
-    const near = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, FRACTAL_OPENING, 0);
+    const near = escapeTurns(0.6, 0.4, SEED.cx, SEED.cy, FRACTAL_OPENING.value, 0);
     expect(near).not.toBeCloseTo(wide, 3);
     // And the point the picture opens about does not move, which is what makes it a zoom.
-    expect(escapeTurns(0, 0, SEED.cx, SEED.cy, FRACTAL_OPENING, 0)).toBeCloseTo(
+    expect(escapeTurns(0, 0, SEED.cx, SEED.cy, FRACTAL_OPENING.value, 0)).toBeCloseTo(
       escapeTurns(0, 0, SEED.cx, SEED.cy, 1, 0),
       12,
     );
@@ -303,7 +303,7 @@ describe("the opening", () => {
     expect(fractalZoom(0)).toBeCloseTo(fractalZoom(1), 12);
     expect(fractalZoom(0.25)).toBeCloseTo(fractalZoom(0.75), 12);
     expect(fractalZoom(0)).toBeCloseTo(1, 12);
-    expect(fractalZoom(0.5)).toBeCloseTo(FRACTAL_OPENING, 12);
+    expect(fractalZoom(0.5)).toBeCloseTo(FRACTAL_OPENING.value, 12);
   });
 
   /** And it is stepped, so a frame that has barely moved asks for no bake at all. */
@@ -321,8 +321,8 @@ describe("the opening", () => {
    * `4 ** (1 / 12)` and `8 ** (1 / 18)` are both `2 ** (1 / 6)`.
    */
   it("opens through a wider band on the rung it always had", () => {
-    expect(FRACTAL_OPENING).toBeGreaterThan(4);
-    expect(FRACTAL_OPENING ** (1 / FRACTAL_ZOOM_STEPS)).toBeCloseTo(2 ** (1 / 6), 12);
+    expect(FRACTAL_OPENING.value).toBeGreaterThan(4);
+    expect(FRACTAL_OPENING.value ** (1 / FRACTAL_ZOOM_STEPS.value)).toBeCloseTo(2 ** (1 / 6), 12);
   });
 
   /**
@@ -352,7 +352,7 @@ describe("the opening", () => {
 
 describe("the flight", () => {
   /** How long the picture takes to cross one whole level of its own structure. */
-  const LEVEL_SECS = FRACTAL_FLIGHT_SECS / FRACTAL_FLIGHT;
+  const LEVEL_SECS = FRACTAL_FLIGHT_SECS.value / FRACTAL_FLIGHT.value;
 
   /**
    * 0268: the flight is a travel through the row's own coordinate and no longer a second scale
@@ -427,11 +427,11 @@ describe("the flight", () => {
    * key: unstepped it would ask for a picture-sized bake at every frame of a whole performance.
    */
   it("moves one stop of the picture's own ladder at a time", () => {
-    const stop = 1 / FRACTAL_ZOOM_STEPS;
+    const stop = 1 / FRACTAL_ZOOM_STEPS.value;
     let last = fractalFlight(0);
     let moved = 0;
     for (let at = 1; at <= 4000; at += 1) {
-      const now = fractalFlight((2 * FRACTAL_FLIGHT_SECS * at) / 4000);
+      const now = fractalFlight((2 * FRACTAL_FLIGHT_SECS.value * at) / 4000);
       // Either one rung up, or the wrap — which is the same tile as the rung it wrapped from.
       const step = now >= last ? now - last : now + 1 - last;
       expect(step).toBeLessThanOrEqual(stop + 1e-9);
@@ -440,7 +440,7 @@ describe("the flight", () => {
     }
     // And it does fly: two whole flights climb every rung of six whole levels, and wrap once at
     // the top of each — the wrap being the one move that is not a move, since it is the same tile.
-    expect(moved).toBe(2 * FRACTAL_FLIGHT * (FRACTAL_ZOOM_STEPS + 1));
+    expect(moved).toBe(2 * FRACTAL_FLIGHT.value * (FRACTAL_ZOOM_STEPS.value + 1));
   });
 });
 
@@ -464,8 +464,8 @@ describe("the roam", () => {
     expect(out).toEqual(fractalStopsRest());
     // And a population that has travelled keeps its own half of the band, from the notch.
     fractalRoamInto(out, { cx: 1, cy: 0, ratio: 0.3, turn: 0.7 }, 0);
-    expect(out.cx).toBeCloseTo(0.5 + 0.5 * (1 - FRACTAL_ROAM), 12);
-    expect(out.cy).toBeCloseTo(0.5 - 0.5 * (1 - FRACTAL_ROAM), 12);
+    expect(out.cx).toBeCloseTo(0.5 + 0.5 * (1 - FRACTAL_ROAM.value), 12);
+    expect(out.cy).toBeCloseTo(0.5 - 0.5 * (1 - FRACTAL_ROAM.value), 12);
   });
 
   /** The band is the bound 0272 measured, and the roam widens it by nothing at either extreme. */
@@ -547,7 +547,7 @@ describe("the travel", () => {
 
   /** Half the window, off the length the picture already has, and nought where there is none. */
   it("is a fraction of the window and never a clock of its own", () => {
-    expect(fractalTravelSecs(20)).toBeCloseTo(20 * FRACTAL_TRAVEL, 12);
+    expect(fractalTravelSecs(20)).toBeCloseTo(20 * FRACTAL_TRAVEL.value, 12);
     expect(fractalTravelSecs(0)).toBe(0);
     expect(fractalTravelSecs(-4)).toBe(0);
   });

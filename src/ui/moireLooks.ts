@@ -24,6 +24,7 @@ import { rackScatter } from "@/lib/moireSound";
 import { clamp, normalize } from "@/lib/range";
 import type { DeckState } from "@/state/store";
 import type { GrownRun } from "@/ui/moireGrown";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * One look standing in one rack: which instance it belongs to, which look it is, how present that
@@ -247,7 +248,7 @@ export function looksShards(
  * every frame was the painting, 46.4 ms of it, with nothing between. That is the crossing, and this
  * is the last count below it.
  */
-export const LOOK_FULL_RATE = 2;
+export const LOOK_FULL_RATE = tunable("pace.fullRate", 2, { min: 0, max: 8, step: 1 });
 
 /**
  * And the slowest the picture may ever be painted, whatever a chain costs: a drift at half of
@@ -255,7 +256,7 @@ export const LOOK_FULL_RATE = 2;
  * stated rather than implied, so halving a cadence that was raised stays a halving and not a stall
  * (`DRIFT_PAINT_HZ`, src/lib/moire.ts).
  */
-export const LOOK_SLOW_HZ = 12;
+export const LOOK_SLOW_HZ = tunable("pace.slowHz", 12, { min: 4, max: 24, step: 1 });
 
 /**
  * The cadence a picture carrying these looks is painted at, in milliseconds between paintings: the
@@ -273,8 +274,8 @@ export function looksPaintMs(looks: readonly MoireLook[]): number {
   for (const look of looks) {
     if (LOOKS[look.look].at === "pass") passes += 1;
   }
-  return passes > LOOK_FULL_RATE
-    ? 1000 / Math.max(DRIFT_PAINT_HZ / 2, LOOK_SLOW_HZ)
+  return passes > LOOK_FULL_RATE.value
+    ? 1000 / Math.max(DRIFT_PAINT_HZ / 2, LOOK_SLOW_HZ.value)
     : DRIFT_PAINT_MS;
 }
 

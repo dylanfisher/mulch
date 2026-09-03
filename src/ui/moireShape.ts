@@ -6,7 +6,7 @@
  *   actually got to is travelled here, one step a frame, on the repo's one rate (`easedToward`,
  *   0266), and carried across a rebuilt set (`carryShape`).
  * @instead The cell itself → src/lib/moireLattice.ts, the size it stands at →
- *   `LATTICE_CELL_PX` in src/lib/moireGrating.ts, and where both are spent → `cutLattice` in
+ *   `latticeCellPx` in src/lib/moireGrating.ts, and where both are spent → `cutLattice` in
  *   src/ui/moireCanvas.ts. The bend and the shards, which are sway's and the automator's own
  *   declared looks rather than readings of the rack → src/lib/moireLook.ts and src/ui/moireLooks.ts
  *   (0279, 0296).
@@ -20,6 +20,7 @@ import { heardLevel } from "@/lib/moireSound";
 import { DRIFT_WIND_SECS } from "@/ui/moireWind";
 import type { MasterPeek } from "@/app/facade";
 import type { DeckState } from "@/state/store";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * What the standing rack asks the picture's shape to become: how much of it is standing at all,
@@ -41,7 +42,7 @@ export type MoireShaping = { standing: number };
  * says where it has got to (`looksWander`, src/ui/moireLooks.ts).
  */
 export type MoireShape = {
-  /** How far the cell is tightened off `LATTICE_CELL_PX`, one at rest. */
+  /** How far the cell is tightened off `latticeCellPx`, one at rest. */
   cells: number;
   sway: number;
   lean: number;
@@ -65,9 +66,10 @@ export const shapeRest = (): MoireShape => ({
  *
  * **A bypassed entry is in none of it**, which is the test the rows, the wind and the looks are all
  * built through: what nobody can hear is not in the picture. An entry holding a run is in none of it
- * either — the places it is standing reach the lattice through the run's own standing, per frame
- * (`shapeTravelInto`) — and an entry with no honest presence besides that one is skipped rather than
- * weighed at nothing (`rackWind`, principle 5).
+ * either, and neither are the places its run is standing: an automator is a tear and never a cell,
+ * and a run that tightened the lattice as it filled buried its own tear in a weave too fine to break
+ * (0300). An entry with no honest presence besides that one is skipped rather than weighed at
+ * nothing (`rackWind`, principle 5).
  */
 export function rackShape(effects: DeckState["effects"]): MoireShaping {
   let standing = 0;
@@ -97,7 +99,7 @@ export const SHAPE_SECS = DRIFT_WIND_SECS;
  * would answer a sound long gone. Half a second is the picture's own cadence a dozen times over,
  * so a hit thickens the gutter visibly and never in one frame.
  */
-export const SHAPE_HEARD_SECS = 0.5;
+export const SHAPE_HEARD_SECS = tunable("shape.heardSecs", 0.5, { min: 0.05, max: 3, step: 0.05 });
 
 /**
  * One step of the shape: the lattice one step nearer what the shaping says, the warp's wander walked
@@ -105,9 +107,10 @@ export const SHAPE_HEARD_SECS = 0.5;
  * Written in place, because it is read once a picture on the frame path and allocates nothing
  * (0070).
  *
- * `standing` is how much run the automators are holding this frame (`runStanding`), which tightens
- * the lattice exactly as a hand-added entry does — a place fading in is a presence arriving. The
- * wander is the integral and `wander` is the speed, handed in from the looks rather than read here
+ * The lattice reads the hand-added rack alone and never the run the automators are holding
+ * (`rackShape`, 0300): a full run tightened the cell fourfold and a tear through a fine weave is
+ * the same weave, so the tear held its reach and lost its look. The wander is the integral and
+ * `wander` is the speed, handed in from the looks rather than read here
  * for the wind's reason: a sway's knob moving moves how fast the bend goes round and never where it
  * has got to (`looksWander`, `windTravelInto`).
  *
@@ -119,17 +122,22 @@ export const SHAPE_HEARD_SECS = 0.5;
 export function shapeTravelInto(
   shape: MoireShape,
   toward: Readonly<MoireShaping>,
-  standing: number,
   master: Readonly<MasterPeek>,
   elapsed: number,
   running: boolean,
   wander: number,
 ): void {
-  const over = running ? SHAPE_SECS : 0;
-  const cells = latticeCells(toward.standing + standing);
+  const over = running ? SHAPE_SECS.value : 0;
+  const cells = latticeCells(toward.standing);
   shape.cells = easedToward(shape.cells, cells, elapsed, over, LATTICE_CELLS[1] - LATTICE_CELLS[0]);
-  const heard = running ? SHAPE_HEARD_SECS : 0;
-  shape.lean = easedToward(shape.lean, latticeLean(master.tilt), elapsed, heard, LATTICE_LEAN);
+  const heard = running ? SHAPE_HEARD_SECS.value : 0;
+  shape.lean = easedToward(
+    shape.lean,
+    latticeLean(master.tilt),
+    elapsed,
+    heard,
+    LATTICE_LEAN.value,
+  );
   shape.loud = easedToward(shape.loud, heardLevel(master.level), elapsed, heard, 1);
   if (!running) return;
   shape.sway = wrap(shape.sway + wander * Math.max(elapsed, 0), 1);

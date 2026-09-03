@@ -72,7 +72,7 @@ describe("the shards", () => {
     const one = layer(thrown([1]), 0);
     // Non-zero, bounded by one reach, and many different values: a tear, not a shift of the field.
     expect(across(one).some((slid) => slid !== 0)).toBe(true);
-    for (const slid of one) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH + 1e-12);
+    for (const slid of one) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH.value + 1e-12);
     expect(distinct(across(one))).toBeGreaterThan(8);
     // And the columns are thrown by the centre row and not by the centre column again.
     expect(down(one)).not.toEqual(across(one));
@@ -87,16 +87,16 @@ describe("the shards", () => {
     for (const throws of [across(layer(thrown([1]), 0)), down(layer(thrown([1]), 0))]) {
       const seams = throws.slice(1).map((slid, at) => Math.abs(slid - (throws[at] ?? 0)));
       expect(seams.some((seam) => seam === 0)).toBe(true);
-      expect(Math.max(...seams)).toBeGreaterThan(SHARD_REACH);
+      expect(Math.max(...seams)).toBeGreaterThan(SHARD_REACH.value);
     }
   });
 
   it("tears a young run into a few wide pieces and a full run into the step's fine break", () => {
     // Widest at one held and never wider, the step itself at a full run, and monotone between
     // (`shardWidth`, 0298).
-    expect(shardWidth(1)).toBeCloseTo(SHARD_STEP * SHARD_WIDEST, 12);
+    expect(shardWidth(1)).toBeCloseTo(SHARD_STEP.value * SHARD_WIDEST.value, 12);
     expect(shardWidth(0)).toBe(shardWidth(1));
-    expect(shardWidth(GROWTH_COUNT_MAX)).toBeCloseTo(SHARD_STEP, 12);
+    expect(shardWidth(GROWTH_COUNT_MAX)).toBeCloseTo(SHARD_STEP.value, 12);
     expect(shardWidth(GROWTH_COUNT_MAX + 3)).toBe(shardWidth(GROWTH_COUNT_MAX));
     for (let held = 1; held < GROWTH_COUNT_MAX; held++) {
       expect(shardWidth(held + 1)).toBeLessThan(shardWidth(held));
@@ -136,7 +136,7 @@ describe("the shards", () => {
 
   it("holds the cap's worth of automators, and refuses more", () => {
     const full = thrown(Array.from({ length: SHARD_CAP }, () => 1));
-    for (const slid of full) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH + 1e-12);
+    for (const slid of full) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH.value + 1e-12);
     expect(across(layer(full, SHARD_CAP - 1)).some((slid) => slid !== 0)).toBe(true);
     const out = new Float64Array(SHARD_CAP * SHARD_LAYER);
     const over = new Float64Array(SHARD_CAP + 1);

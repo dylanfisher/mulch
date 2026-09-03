@@ -17,10 +17,13 @@ import {
   DRIFT_REST,
   DRIFT_STEPS,
 } from "@/lib/moire";
+import { INK_ORBIT_SECS, INK_WANDER } from "@/lib/moireColour";
 import { moireRow as row } from "@/lib/moireRow";
 import {
   DRIFT_INK_SECS,
+  HUE_STEPS,
   inkTravelInto,
+  steppedHue,
   SCREEN_SATURATE_REACH,
   screenDisperse,
   screenFringe,
@@ -49,19 +52,19 @@ describe("the picture's ink", () => {
     // At an age of one, because how far a claim is spent is the performance's own age and this case
     // is about the travel rather than about that band (`agedHue`, src/lib/moireAge.ts).
     // One frame of a picture drawn at sixty a second: a hundred-and-twentieth of each reach.
-    inkTravelInto(ink, claim, 0, 1, 0, 1 / 60, DRIFT_INK_SECS);
-    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue + DRIFT_HUE_REACH / (60 * DRIFT_INK_SECS), 10);
+    inkTravelInto(ink, claim, 0, 1, 0, 0, 1 / 60, DRIFT_INK_SECS.value);
+    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue + DRIFT_HUE_REACH / (60 * DRIFT_INK_SECS.value), 10);
     expect(ink.fringe).toBeCloseTo(
-      DRIFT_REST.fringe + DRIFT_FRINGE_REACH / (60 * DRIFT_INK_SECS),
+      DRIFT_REST.fringe + DRIFT_FRINGE_REACH / (60 * DRIFT_INK_SECS.value),
       10,
     );
     // And it is nowhere near the claim on that frame, or on the next one either.
     expect(ink.hue).toBeLessThan(1);
-    inkTravelInto(ink, claim, 0, 1, 0, 1 / 60, DRIFT_INK_SECS);
+    inkTravelInto(ink, claim, 0, 1, 0, 0, 1 / 60, DRIFT_INK_SECS.value);
     expect(ink.hue).toBeLessThan(1);
     // A whole reach of travel arrives, and the three arrive together: each is rated in its own
     // dimension's units, so `fringe` reaching twice as far does not take twice as long.
-    inkTravelInto(ink, claim, 0, 1, 0, DRIFT_INK_SECS, DRIFT_INK_SECS);
+    inkTravelInto(ink, claim, 0, 1, 0, 0, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(ink).toEqual({
       hue: 1,
       fringe: DRIFT_FRINGE_REACH,
@@ -76,18 +79,18 @@ describe("the picture's ink", () => {
     const hot = [row({ period: 3, hue: 1 })];
     const cool = [row({ period: 3, hue: 0 })];
     const ink = screenInkRest();
-    inkTravelInto(ink, hot, 0, 1, 0, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
+    inkTravelInto(ink, hot, 0, 1, 0, 0, DRIFT_INK_SECS.value / 4, DRIFT_INK_SECS.value);
     const partway = ink.hue;
     expect(partway).toBeGreaterThan(DRIFT_REST.hue);
     expect(partway).toBeLessThan(1);
     // The claim moves again before the first travel is over: the picture turns round from where it
     // has got to rather than resuming from where it set off, and it never passes the new claim.
-    inkTravelInto(ink, cool, 0, 1, 0, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
+    inkTravelInto(ink, cool, 0, 1, 0, 0, DRIFT_INK_SECS.value / 4, DRIFT_INK_SECS.value);
     expect(ink.hue).toBeLessThan(partway);
     expect(ink.hue).toBeGreaterThan(0);
     // And a step longer than what is left lands on the claim exactly rather than beyond it, which
     // is the whole of why the travel arrives.
-    inkTravelInto(ink, cool, 0, 1, 0, 10 * DRIFT_INK_SECS, DRIFT_INK_SECS);
+    inkTravelInto(ink, cool, 0, 1, 0, 0, 10 * DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(ink.hue).toBe(0);
   });
 
@@ -99,14 +102,14 @@ describe("the picture's ink", () => {
     const resting = [row({ period: 3 })];
     const ink = screenInkRest();
     expect(ink.saturate).toBe(0);
-    inkTravelInto(ink, resting, 0, 0, 1, 1 / 60, DRIFT_INK_SECS);
-    expect(ink.saturate).toBeCloseTo(SCREEN_SATURATE_REACH / (60 * DRIFT_INK_SECS), 10);
+    inkTravelInto(ink, resting, 0, 0, 0, 1, 1 / 60, DRIFT_INK_SECS.value);
+    expect(ink.saturate).toBeCloseTo(SCREEN_SATURATE_REACH / (60 * DRIFT_INK_SECS.value), 10);
     // Nowhere near the claim on that frame, and arrived when a whole reach of travel has run.
     expect(ink.saturate).toBeLessThan(1);
-    inkTravelInto(ink, resting, 0, 0, 1, DRIFT_INK_SECS, DRIFT_INK_SECS);
+    inkTravelInto(ink, resting, 0, 0, 0, 1, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(ink.saturate).toBe(SCREEN_SATURATE_REACH);
     // And a pop leaving drains it back out at the same rate rather than between two frames.
-    inkTravelInto(ink, resting, 0, 0, 0, DRIFT_INK_SECS / 4, DRIFT_INK_SECS);
+    inkTravelInto(ink, resting, 0, 0, 0, 0, DRIFT_INK_SECS.value / 4, DRIFT_INK_SECS.value);
     expect(ink.saturate).toBeLessThan(1);
     expect(ink.saturate).toBeGreaterThan(0);
     // The ladder is the same eight stops the rest of the ink walks, so the travel visits them one
@@ -114,27 +117,58 @@ describe("the picture's ink", () => {
     const stops = new Set<number>();
     const walking = screenInkRest();
     for (let frame = 0; frame < 120; frame++) {
-      inkTravelInto(walking, resting, 0, 0, 1, 1 / 60, DRIFT_INK_SECS);
+      inkTravelInto(walking, resting, 0, 0, 0, 1, 1 / 60, DRIFT_INK_SECS.value);
       stops.add(stepped(walking.saturate, SCREEN_SATURATE_REACH));
     }
     expect(stops.size).toBe(DRIFT_STEPS + 1);
   });
 
-  it("leaves a resting yard's ink and the key it is filmed through exactly where they are", () => {
+  it("leaves a halted yard's ink and the key it is filmed through exactly where they are", () => {
     // The travelled value is what `stepped` rounds, and a key that moved would be a picture-sized
-    // bake (0129, 0142). A yard claiming nothing moves neither, however long it is left running.
+    // bake (0129, 0142). A yard claiming nothing and not sounding moves neither, however long it
+    // is left: the orbit its rest would run on is timed on seconds of sounding, and there are none.
     const resting = [row({ period: 3 })];
     const ink = screenInkRest();
     const keyed = (): number[] => [
       stepped(ink.fringe, DRIFT_FRINGE_REACH),
       stepped(ink.disperse, DRIFT_DISPERSE_REACH),
-      stepped(ink.hue, DRIFT_HUE_REACH),
+      steppedHue(ink.hue),
     ];
     const first = keyed();
     for (let frame = 0; frame < 120; frame++)
-      inkTravelInto(ink, resting, 0, 0, 0, 1 / 60, DRIFT_INK_SECS);
+      inkTravelInto(ink, resting, 0, 0, 0, 0, 1 / 60, DRIFT_INK_SECS.value);
     expect(ink).toEqual(screenInkRest());
     expect(keyed()).toEqual(first);
+  });
+
+  it("orbits a sounding yard's ink along the ramp with nothing in its rack claiming a colour", () => {
+    // What 0301 adds: time moves the *rest* and not a claim. A resting rack on a yard that has
+    // been sounding a quarter of an orbit is as far along the ramp as the wander reaches, and the
+    // travel walks there rather than cutting.
+    const resting = [row({ period: 3 })];
+    const ink = screenInkRest();
+    const quarter = INK_ORBIT_SECS.value / 4;
+    inkTravelInto(ink, resting, 0, 0, quarter, 0, 1 / 60, DRIFT_INK_SECS.value);
+    expect(ink.hue).toBeGreaterThan(DRIFT_REST.hue);
+    expect(ink.hue).toBeLessThan(DRIFT_REST.hue + INK_WANDER.value);
+    inkTravelInto(ink, resting, 0, 0, quarter, 0, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue + INK_WANDER.value, 9);
+    // And back through rest to the other side over the next half orbit.
+    inkTravelInto(ink, resting, 0, 0, 3 * quarter, 0, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    expect(ink.hue).toBeCloseTo(DRIFT_REST.hue - INK_WANDER.value, 9);
+    // The other three terms are not the orbit's and stay where they rest.
+    expect(ink.fringe).toBe(DRIFT_REST.fringe);
+    expect(ink.disperse).toBe(DRIFT_REST.disperse);
+    expect(ink.saturate).toBe(0);
+  });
+
+  it("keys the hue on a finer ladder than the other three, and only on stops of it", () => {
+    // Five stops along one reach: eight steps is a visible jump at each, so the hue has its own.
+    expect(HUE_STEPS).toBeGreaterThan(DRIFT_STEPS);
+    const stops = new Set<number>();
+    for (let at = 0; at <= 1; at += 1 / 1024) stops.add(steppedHue(at));
+    expect(stops.size).toBe(HUE_STEPS + 1);
+    expect(steppedHue(DRIFT_REST.hue)).toBe(DRIFT_REST.hue);
   });
 
   it("reads each thing a row says about colour off the row that says it loudest", () => {

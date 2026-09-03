@@ -10,6 +10,7 @@
  */
 import { TAU } from "./moire.ts";
 import { clamp } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * How far a whole warp bends the picture, as a fraction of its height. Bounded here and not where
@@ -17,14 +18,14 @@ import { clamp } from "./range.ts";
  * is spent through slices of the finished field, and a slice slid further than the lens's own
  * slide reads as a band rather than as a bend.
  */
-export const WARP_CEILING = 0.12;
+export const WARP_CEILING = tunable("warp.ceiling", 0.12, { min: 0, max: 0.5, step: 0.005 });
 
 /** How many cycles of the first sine there are down the height, and of the second across it. */
-export const WARP_DOWN = 1.3;
-export const WARP_ACROSS = 0.9;
+export const WARP_DOWN = tunable("warp.down", 1.3, { min: 0, max: 4, step: 0.05 });
+export const WARP_ACROSS = tunable("warp.across", 0.9, { min: 0, max: 4, step: 0.05 });
 
 /** How far a rack `amount` warped, on nought to one, actually bends the picture: never past the ceiling. */
-export const warpShare = (amount: number): number => WARP_CEILING * clamp(amount, 0, 1);
+export const warpShare = (amount: number): number => WARP_CEILING.value * clamp(amount, 0, 1);
 
 /**
  * How far a band of the picture standing `t` of the height down it is slid across, at a `share`
@@ -32,11 +33,11 @@ export const warpShare = (amount: number): number => WARP_CEILING * clamp(amount
  * which bends x by y.
  */
 export const warpSlideX = (share: number, phase: number, t: number): number =>
-  share * Math.sin(TAU * (WARP_DOWN * t + phase));
+  share * Math.sin(TAU * (WARP_DOWN.value * t + phase));
 
 /**
  * And how far a column standing `t` heights across is slid down — the second sine, which bends y
  * by x, on the opposite phase so the two never line up into one diagonal slide.
  */
 export const warpSlideY = (share: number, phase: number, t: number): number =>
-  share * Math.sin(TAU * (WARP_ACROSS * t - phase));
+  share * Math.sin(TAU * (WARP_ACROSS.value * t - phase));

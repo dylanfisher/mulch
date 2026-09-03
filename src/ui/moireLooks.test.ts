@@ -94,7 +94,7 @@ const scatters = (standing: number): SessionEffect[] =>
  */
 const arrived = (effects: SessionEffect[]): MoireLook[] => {
   const looks = rackLooks(effects);
-  looksTravelInto(looks, SHAPE_SECS, SHAPE_SECS, true);
+  looksTravelInto(looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
   return looks;
 };
 
@@ -201,26 +201,26 @@ describe("the looks a standing rack gives the picture", () => {
 
   it("travels each look's presence at the shape's own rate, and arrives outright on a halted yard", () => {
     const looks = rackLooks(scatters(1));
-    looksTravelInto(looks, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(looks, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(looks[0]?.at).toBeCloseTo(0.5);
-    looksTravelInto(looks, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(looks[0]?.at).toBe(1);
     // A yard that is not running has no clock to time a travel against, so everything arrives
     // outright — the answer the ink, the wind and the shape all give (0144).
     const halted = rackLooks(scatters(1));
-    looksTravelInto(halted, SHAPE_SECS, 0.001, false);
+    looksTravelInto(halted, SHAPE_SECS.value, 0.001, false);
     expect(halted[0]?.at).toBe(1);
     // And a look the rack has let go of drains out and is dropped on the frame it reaches nought,
     // rather than standing in the picture for as long as the yard stands unrebuilt.
     const leaving = rackLooks(scatters(1));
-    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(leaving, SHAPE_SECS.value, SHAPE_SECS.value, true);
     const going = leaving[0];
     if (going === undefined) throw new Error("the rack drew no look");
     going.presence = 0;
-    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(leaving, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(leaving).toHaveLength(1);
     expect(going.at).toBeCloseTo(0.5);
-    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(leaving, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(leaving).toEqual([]);
   });
 
@@ -293,9 +293,9 @@ describe("the looks a standing rack gives the picture", () => {
     // takes, which is the one thing the shared ceiling exists to prevent.
     const coming = rackLooks([delay("d"), delay("e")]);
     expect(looksCrowd(coming, "echoes")).toBe(0);
-    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(coming, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(looksCrowd(coming, "echoes")).toBeCloseTo(1, 10);
-    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(coming, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(looksCrowd(coming, "echoes")).toBe(2);
     // And a delay heard at half is half a delay's worth, for the same reason: what the ceiling is
     // shared between is the ink about to be laid. Half is a Mix of an eighth, because this entry
@@ -310,10 +310,10 @@ describe("the looks a standing rack gives the picture", () => {
     const going = leaving[1];
     if (going === undefined) throw new Error("the rack drew no second delay");
     going.presence = 0;
-    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(leaving, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(going.at).toBeGreaterThan(0);
     expect(looksCrowd(leaving, "echoes")).toBeCloseTo(1.5, 10);
-    looksTravelInto(leaving, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(leaving, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(looksCrowd(leaving, "echoes")).toBe(1);
   });
 
@@ -355,7 +355,7 @@ describe("the looks a standing rack gives the picture", () => {
     // And it is weighted by how much of the pop the picture has actually taken, not by what the
     // knob says: a pop halfway in saturates halfway (`looksTravelInto`, 0279).
     const coming = rackLooks([instance("p", { effect: "pop", params: bright })]);
-    looksTravelInto(coming, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(coming, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(looksSaturate(coming)).toBeCloseTo(0.5);
   });
 
@@ -471,7 +471,7 @@ describe("the looks a standing rack gives the picture", () => {
     // And it travels: a scatter halfway in weighs half of its own span, on the rate the rest of the
     // picture's shape travels at (0266).
     const arriving = rackLooks([instance("c", { params: long })]);
-    looksTravelInto(arriving, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(arriving, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(arriving[0]?.at ?? 0).toBeLessThan(1);
     expect(looksShatterSize(arriving)).toBeCloseTo(1, 12);
   });
@@ -540,7 +540,7 @@ describe("the looks a standing rack gives the picture", () => {
       NO_GROWN,
       null,
     );
-    looksTravelInto(built.looks, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(built.looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(built.ink.saturate).toBe(0);
     const read = (looks: MoireLook[]): number => {
       filledRows(
@@ -552,7 +552,7 @@ describe("the looks a standing rack gives the picture", () => {
         0,
         null,
         emptyMasterPeek(),
-        DRIFT_INK_SECS,
+        DRIFT_INK_SECS.value,
         0,
         built.seed,
         built.toward,

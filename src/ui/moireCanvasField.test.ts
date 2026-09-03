@@ -121,7 +121,7 @@ describe("cutField", () => {
     // picture moved sideways rather than a picture bent.
     expect(new Set([...bands.keys()].map((top) => bands.get(top)?.[0])).size).toBeGreaterThan(8);
     const first = [...bands.values()].map((slid) => Math.abs(slid[0] ?? 0));
-    expect(Math.max(...first)).toBeCloseTo(LENS_SPAN * 128, 6);
+    expect(Math.max(...first)).toBeCloseTo(LENS_SPAN.value * 128, 6);
   });
 
   it("bends the field through the sway's two sines in slices, and takes no second pass unbent", () => {
@@ -193,7 +193,7 @@ describe("cutField", () => {
     // pieces of eight drawn from elsewhere, whatever the reading asks for.
     const displaced = [...bands.values()].map((band) => band[0]?.slid ?? 0);
     const pieces = new Set(displaced.filter((slid) => slid !== 0));
-    expect(pieces.size).toBe(shatterBands(0) * SHATTER_CEILING);
+    expect(pieces.size).toBe(shatterBands(0) * SHATTER_CEILING.value);
     expect([...pieces].every((slid) => slid > 0 && slid < 128)).toBe(true);
     // Each piece is deep enough to see a straight row inside, and the broken ones are spread across
     // the picture rather than taken off one end of it.
@@ -210,7 +210,7 @@ describe("cutField", () => {
     // Half the reading is half of that: a yard turning up its scatters breaks further, in pieces.
     const half = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: shattering(0.5) });
     const halved = new Set(elsewhere(half));
-    expect(halved.size).toBe((shatterBands(0) * SHATTER_CEILING) / 2);
+    expect(halved.size).toBe((shatterBands(0) * SHATTER_CEILING.value) / 2);
     // And a reading too small to break a whole piece leaves the picture exactly as it was.
     expect(
       paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, { looks: shattering(0.1) }).slices,
@@ -278,7 +278,7 @@ describe("cutField", () => {
     // picture over, so its throw is the nearer of its two draws.
     const thrown = thrownOf(between);
     expect(thrown.size).toBe(LENS_SLICES);
-    expect(Math.max(...thrown.values())).toBeLessThanOrEqual(SHARD_REACH * 64 + 1e-9);
+    expect(Math.max(...thrown.values())).toBeLessThanOrEqual(SHARD_REACH.value * 64 + 1e-9);
     expect(Math.max(...thrown.values())).toBeGreaterThan(0);
     expect(
       new Set([...thrown.values()].map((near) => Math.round(near * 100))).size,

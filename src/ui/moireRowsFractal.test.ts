@@ -356,9 +356,9 @@ describe("the picture's own structure", () => {
     // of it once the performance is as old as it gets — which is still only half the dimension, so
     // a delay wound past halfway outbids any run there is (`delay.feedback` is the one parameter
     // that claims this one).
-    expect(rows[0]?.feedback).toBeLessThan(DRIFT_RUN_FEEDBACK);
+    expect(rows[0]?.feedback).toBeLessThan(DRIFT_RUN_FEEDBACK.value);
     readAt(set, peek, ARRIVED, SILENT_MASTER, 1);
-    expect(fractalRow(set.rows).feedback).toBeCloseTo(DRIFT_RUN_FEEDBACK, 9);
+    expect(fractalRow(set.rows).feedback).toBeCloseTo(DRIFT_RUN_FEEDBACK.value, 9);
 
     // A run standing nothing lays nothing back — the rows are held across the trough and a held row
     // keeps no ghost, the same answer the depth and the lens give one reading earlier.

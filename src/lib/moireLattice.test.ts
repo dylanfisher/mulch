@@ -90,17 +90,17 @@ describe("the cell the lattice repeats", () => {
   it("tightens with the rack standing, and every other reading stays on its band", () => {
     expect(latticeCells(0)).toBe(LATTICE_CELLS[0]);
     expect(latticeCells(1)).toBe(LATTICE_CELLS[0]);
-    expect(latticeCells(LATTICE_REACH)).toBe(LATTICE_CELLS[1]);
-    expect(latticeCells(LATTICE_REACH * 3)).toBe(LATTICE_CELLS[1]);
-    const half = latticeCells((1 + LATTICE_REACH) / 2);
+    expect(latticeCells(LATTICE_REACH.value)).toBe(LATTICE_CELLS[1]);
+    expect(latticeCells(LATTICE_REACH.value * 3)).toBe(LATTICE_CELLS[1]);
+    const half = latticeCells((1 + LATTICE_REACH.value) / 2);
     expect(half).toBeGreaterThan(LATTICE_CELLS[0]);
     expect(half).toBeLessThan(LATTICE_CELLS[1]);
     expect(latticeCut(0)).toBe(LATTICE_CUT[0]);
     expect(latticeCut(1)).toBe(LATTICE_CUT[1]);
     expect(latticeCut(7)).toBe(LATTICE_CUT[1]);
     expect(latticeLean(0.5)).toBe(0);
-    expect(latticeLean(1)).toBeCloseTo(LATTICE_LEAN / 2);
-    expect(latticeLean(0)).toBeCloseTo(-LATTICE_LEAN / 2);
+    expect(latticeLean(1)).toBeCloseTo(LATTICE_LEAN.value / 2);
+    expect(latticeLean(0)).toBeCloseTo(-LATTICE_LEAN.value / 2);
     expect(latticeRim(0)).toBe(LATTICE_RIM[0]);
     expect(latticeRim(DRIFT_DISPERSE_REACH)).toBe(LATTICE_RIM[1]);
     expect(latticeRim(DRIFT_DISPERSE_REACH * 2)).toBe(LATTICE_RIM[1]);

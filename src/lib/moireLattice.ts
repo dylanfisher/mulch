@@ -17,6 +17,7 @@ import { type DriftGeometry, DRIFT_DISPERSE_REACH } from "./moire.ts";
 import { FRACTAL_GEOMETRIES, isFractalGeometry } from "./moireFractal.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
 import { clamp } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /** The coordinate a lattice row is cut along: a cell, repeated. */
 export const LATTICE_GEOMETRY: DriftGeometry = "lattice";
@@ -119,11 +120,11 @@ export function latticeTile(
  * fading in tightens the lattice as it arrives and never in one step.
  */
 export const LATTICE_CELLS: readonly [number, number] = [1, 4];
-export const LATTICE_REACH = 6;
+export const LATTICE_REACH = tunable("lattice.reach", 6, { min: 2, max: 12, step: 1 });
 
 export const latticeCells = (standing: number): number =>
   LATTICE_CELLS[0] +
-  (LATTICE_CELLS[1] - LATTICE_CELLS[0]) * clamp((standing - 1) / (LATTICE_REACH - 1), 0, 1);
+  (LATTICE_CELLS[1] - LATTICE_CELLS[0]) * clamp((standing - 1) / (LATTICE_REACH.value - 1), 0, 1);
 
 /**
  * How hard the lattice cuts, off how loud the output is: a floor, so a lattice is there whenever a
@@ -141,16 +142,16 @@ export const latticeCut = (loud: number): number =>
  * How far the lattice leans off the axis with the output's own tilt, in turns: an eighth either
  * way, so a dark output leans one way and a bright one the other and neither is square.
  */
-export const LATTICE_LEAN = 0.125;
+export const LATTICE_LEAN = tunable("lattice.lean", 0.125, { min: 0, max: 0.5, step: 0.005 });
 
-export const latticeLean = (tilt: number): number => LATTICE_LEAN * (clamp(tilt, 0, 1) - 0.5);
+export const latticeLean = (tilt: number): number => LATTICE_LEAN.value * (clamp(tilt, 0, 1) - 0.5);
 
 /**
  * How many quarter turns the lattice turns in one period of its row. A whole number, because a
  * square lattice a quarter turn on is the same lattice, so the phase wrapping is a symmetry and
  * never a snap.
  */
-export const LATTICE_QUARTERS = 1;
+export const LATTICE_QUARTERS = tunable("lattice.quarters", 1, { min: 0, max: 4, step: 1 });
 
 /** How far the lattice breathes about its own scale over a period: a few percent, and back. */
-export const LATTICE_BREATH = 0.06;
+export const LATTICE_BREATH = tunable("lattice.breath", 0.06, { min: 0, max: 0.3, step: 0.005 });

@@ -24,6 +24,7 @@ import { escapeTurns, type FractalSeed } from "@/lib/moireFractal";
 import { LENS_SLICES } from "@/lib/moireGeometry";
 import type { Look } from "@/lib/moireLook";
 import { clamp } from "@/lib/range";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * How many tears the picture takes at most, whatever the rack holds — how much is torn being how
@@ -41,7 +42,7 @@ export const SHARD_CAP = 4;
  * width, because the strip is thirty-two pixels tall and thousands wide: a share of the width thrown
  * down it would wrap the strip several times.
  */
-export const SHARD_REACH = 0.15;
+export const SHARD_REACH = tunable("shards.reach", 0.15, { min: 0, max: 0.5, step: 0.005 });
 
 /**
  * The depth the k-th standing automator reads the count at, as a scale over the first's: the beat's
@@ -49,14 +50,14 @@ export const SHARD_REACH = 0.15;
  * everywhere rather than on the rungs their breaths happen to differ on, so the second tear is a
  * different tear and not the first one deeper.
  */
-export const SHARD_RATIO = 1.5;
+export const SHARD_RATIO = tunable("shards.ratio", 1.5, { min: 1, max: 3, step: 0.05 });
 
 /**
  * And a quarter turn per automator on the throw's cosine. The zoom alone leaves the slow middle
  * slices, where the count barely climbs, in the same piece — two tears that agree where the plane is
  * open and differ only in the filigree read as one tear with a frayed edge.
  */
-export const SHARD_PHASE = 0.25;
+export const SHARD_PHASE = tunable("shards.phase", 0.25, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How many cycles of the count one piece spans at a full run, which is the narrowest a piece gets.
@@ -68,7 +69,7 @@ export const SHARD_PHASE = 0.25;
  * neighbour moved wherever the count climbed slowly, which was the whole picture bent once by less
  * than a tenth — and a periodic weave bent smoothly is the same weave.
  */
-export const SHARD_STEP = 2;
+export const SHARD_STEP = tunable("shards.step", 2, { min: 1, max: 8, step: 1 });
 
 /**
  * How many times wider than the step a piece is for an automator holding one effect. The pieces
@@ -78,7 +79,7 @@ export const SHARD_STEP = 2;
  * two seams down an open column, which is torn and not merely slid, and a full run doubling that
  * is still pieces and not a texture.
  */
-export const SHARD_WIDEST = 2;
+export const SHARD_WIDEST = tunable("shards.widest", 2, { min: 1, max: 4, step: 0.1 });
 
 /**
  * How many cycles of the count one piece spans for an automator whose run holds `held` effects —
@@ -87,8 +88,9 @@ export const SHARD_WIDEST = 2;
  * run holding one, because an automator standing is a tear (0296).
  */
 export const shardWidth = (held: number): number =>
-  SHARD_STEP *
-  SHARD_WIDEST ** ((GROWTH_COUNT_MAX - clamp(held, 1, GROWTH_COUNT_MAX)) / (GROWTH_COUNT_MAX - 1));
+  SHARD_STEP.value *
+  SHARD_WIDEST.value **
+    ((GROWTH_COUNT_MAX - clamp(held, 1, GROWTH_COUNT_MAX)) / (GROWTH_COUNT_MAX - 1));
 
 /**
  * The turn each successive piece takes on the throw's cosine: the golden ratio's conjugate, so
@@ -99,7 +101,7 @@ export const shardWidth = (held: number): number =>
 export const SHARD_SCATTER = (Math.sqrt(5) - 1) / 2;
 
 /** The down throw's phase against the across: a quarter behind, as the bench threw it. */
-export const SHARD_DOWN = -0.25;
+export const SHARD_DOWN = tunable("shards.down", -0.25, { min: -1, max: 1, step: 0.05 });
 
 /**
  * One automator's throw of one slice: its presence times the reach, on a cosine of the piece the
@@ -115,8 +117,8 @@ const throwOf = (
   phase: number,
 ): number =>
   presence *
-  SHARD_REACH *
-  cosTurn(Math.floor(count / width) * SHARD_SCATTER + k * SHARD_PHASE + phase);
+  SHARD_REACH.value *
+  cosTurn(Math.floor(count / width) * SHARD_SCATTER + k * SHARD_PHASE.value + phase);
 
 /** How many doubles one automator's layer of the table is: every slice across, every column down. */
 export const SHARD_LAYER = 2 * LENS_SLICES;
@@ -170,7 +172,7 @@ export function shardsInto(
   for (let k = 0; k < standing; k++) {
     const presence = presences[k] ?? 0;
     if (presence <= 0) continue;
-    const zoom = seed.zoom * SHARD_RATIO ** k;
+    const zoom = seed.zoom * SHARD_RATIO.value ** k;
     const wide = shardWidth(helds[k] ?? 0);
     const layer = k * SHARD_LAYER;
     for (let slice = 0; slice < LENS_SLICES; slice++) {
@@ -183,7 +185,7 @@ export function shardsInto(
         escapeTurns(u, 0, cx, cy, zoom, fly),
         wide,
         k,
-        SHARD_DOWN,
+        SHARD_DOWN.value,
       );
     }
   }

@@ -12,6 +12,7 @@
 import type { Look, LookPass } from "@/lib/moireLook";
 import { weighed } from "@/lib/moireWeigh";
 import { clamp, denormalize } from "@/lib/range";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * **Which end of the mask is which, because everything below turns on it.** The field is the ground
@@ -28,7 +29,7 @@ import { clamp, denormalize } from "@/lib/range";
  * cut of this a floor of 0.4 against a ceiling of 0.5 left the strip at a swing of 0.008 against
  * `BASE`'s 0.032, which is a squash that has eaten what it squashed (0288).
  */
-export const SQUASH_FLOOR = 0.2;
+export const SQUASH_FLOOR = tunable("look.squashFloor", 0.2, { min: 0.05, max: 0.5, step: 0.01 });
 
 /**
  * Where the field's coverage is closed up *to*, as a share of full coverage: the band the ceiling
@@ -59,7 +60,7 @@ export const SQUASH_TOP: readonly [number, number] = [0.7, 1];
  * module every look reaches instead (principle 3).
  */
 export const squashFloor = (presence: number, floor: number): number =>
-  weighed(presence, floor, SQUASH_FLOOR);
+  weighed(presence, floor, SQUASH_FLOOR.value);
 
 /**
  * And the top of it — where the mask's covered pixels are brought down to, which is where the

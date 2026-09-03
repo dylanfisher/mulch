@@ -190,10 +190,10 @@ describe("what a look is", () => {
     // short of the whole picture, so the structure is never entirely lost under its own halo.
     expect(bloomAmount(0, 1)).toBe(0);
     expect(bloomAmount(1, 0)).toBe(0);
-    expect(bloomAmount(1, 1)).toBe(BLOOM_CEILING);
-    expect(BLOOM_CEILING).toBeLessThan(1);
-    expect(bloomAmount(0.5, 0.5)).toBeCloseTo(0.25 * BLOOM_CEILING, 10);
-    expect(bloomAmount(2, 2)).toBe(BLOOM_CEILING);
+    expect(bloomAmount(1, 1)).toBe(BLOOM_CEILING.value);
+    expect(BLOOM_CEILING.value).toBeLessThan(1);
+    expect(bloomAmount(0.5, 0.5)).toBeCloseTo(0.25 * BLOOM_CEILING.value, 10);
+    expect(bloomAmount(2, 2)).toBe(BLOOM_CEILING.value);
     expect(bloomAmount(-1, 1)).toBe(0);
     // At the defaults a room is present and readable and nothing like the whole picture. The two
     // numbers are reverb's own declared defaults and ranges (src/audio/effects/reverb.ts), spelt
@@ -238,14 +238,14 @@ describe("what a look is", () => {
     // And the hardening is a whole count of composites, none at a whole depth and the cap at one
     // bit, weighted by the same presence.
     expect(blockHarden(1, 1)).toBe(0);
-    expect(blockHarden(1, 0)).toBe(BLOCK_HARDENINGS);
+    expect(blockHarden(1, 0)).toBe(BLOCK_HARDENINGS.value);
     expect(blockHarden(0, 0)).toBe(0);
-    expect(blockHarden(2, -1)).toBe(BLOCK_HARDENINGS);
+    expect(blockHarden(2, -1)).toBe(BLOCK_HARDENINGS.value);
     for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
       const hard = blockHarden(0.6, turn);
       expect(Number.isInteger(hard)).toBe(true);
       expect(hard).toBeGreaterThanOrEqual(0);
-      expect(hard).toBeLessThanOrEqual(BLOCK_HARDENINGS);
+      expect(hard).toBeLessThanOrEqual(BLOCK_HARDENINGS.value);
     }
     // At crush's own declared defaults and ranges (src/audio/effects/crush.ts, spelt out here for
     // the reason the bloom's are) the picture is blocked and readable: cells the eye can see, and
@@ -256,7 +256,7 @@ describe("what a look is", () => {
     expect(blockSize(mix, rate)).toBeGreaterThan(1);
     expect(blockSize(mix, rate)).toBeLessThan(BLOCK_PIXELS[0]);
     expect(blockHarden(mix, bits)).toBeGreaterThan(0);
-    expect(blockHarden(mix, bits)).toBeLessThan(BLOCK_HARDENINGS);
+    expect(blockHarden(mix, bits)).toBeLessThan(BLOCK_HARDENINGS.value);
   });
 
   // P282: delay's, and the third look to take a slot in the chain.
@@ -270,13 +270,13 @@ describe("what a look is", () => {
       const count = echoCount(turn);
       expect(Number.isInteger(count)).toBe(true);
       expect(count).toBeGreaterThanOrEqual(1);
-      expect(count).toBeLessThanOrEqual(ECHO_CAP);
+      expect(count).toBeLessThanOrEqual(ECHO_CAP.value);
     }
     expect(echoCount(0)).toBe(1);
-    expect(echoCount(1)).toBe(ECHO_CAP);
+    expect(echoCount(1)).toBe(ECHO_CAP.value);
     // The band is closed at both ends, because a term is read off a number the picture eases.
     expect(echoCount(-1)).toBe(1);
-    expect(echoCount(2)).toBe(ECHO_CAP);
+    expect(echoCount(2)).toBe(ECHO_CAP.value);
     // The spacing runs one way down its whole length: a longer Time is a wider gap between repeats,
     // and a full ladder of them at the widest is still inside the field it is drawn from.
     expect(echoSpacing(0)).toBe(ECHO_SPACING[0]);
@@ -290,7 +290,7 @@ describe("what a look is", () => {
       expect(step).toBeLessThanOrEqual(ECHO_SPACING[1]);
       last = step;
     }
-    expect(ECHO_SPACING[1] * ECHO_CAP).toBeLessThan(1);
+    expect(ECHO_SPACING[1] * ECHO_CAP.value).toBeLessThan(1);
     // And the fade is how much of one repeat survives into the next: harder feedback is a longer
     // tail, and neither end of the band is a ladder of solid copies or no ladder at all.
     expect(echoFade(0, 0)).toBe(ECHO_FADE[0]);
@@ -302,12 +302,12 @@ describe("what a look is", () => {
     // half the band on its own, so a second of delay stands its ghosts further apart *and* holds
     // them longer, which is what the ear hears. Still the one band, whatever the two terms are.
     expect(echoFade(0, 1)).toBeCloseTo(
-      ECHO_FADE[0] + (ECHO_FADE[1] - ECHO_FADE[0]) * ECHO_TIME_FADE,
+      ECHO_FADE[0] + (ECHO_FADE[1] - ECHO_FADE[0]) * ECHO_TIME_FADE.value,
       12,
     );
     expect(echoFade(0.5, 1)).toBeGreaterThan(echoFade(0.5, 0));
-    expect(ECHO_TIME_FADE).toBeGreaterThan(0);
-    expect(ECHO_TIME_FADE).toBeLessThan(1);
+    expect(ECHO_TIME_FADE.value).toBeGreaterThan(0);
+    expect(ECHO_TIME_FADE.value).toBeLessThan(1);
     for (let turn = 0; turn <= 1.0001; turn += 1 / 32) {
       expect(echoFade(turn, 1)).toBeGreaterThanOrEqual(ECHO_FADE[0]);
       expect(echoFade(turn, 1)).toBeLessThanOrEqual(ECHO_FADE[1]);
@@ -317,23 +317,23 @@ describe("what a look is", () => {
     // it would pale the picture away before its second rung — the bloom's reason (0280), at a
     // number of the echoes' own, because a halo may take most of the picture where three ghosts
     // may not.
-    expect(ECHO_CEILING).toBeLessThan(0.5);
-    expect(echoAlpha(1, 1, 1)).toBe(ECHO_CEILING);
+    expect(ECHO_CEILING.value).toBeLessThan(0.5);
+    expect(echoAlpha(1, 1, 1)).toBe(ECHO_CEILING.value);
     expect(echoAlpha(0, 1, 1)).toBe(0);
-    expect(echoAlpha(0.5, 1, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(2, 1, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(0.5, 1, 1)).toBeCloseTo(ECHO_CEILING.value / 2, 10);
+    expect(echoAlpha(2, 1, 1)).toBe(ECHO_CEILING.value);
     expect(echoAlpha(-1, 1, 1)).toBe(0);
     // And the ceiling is one delay's however many stand: each of `crowd` ladders is drawn at the
     // share that leaves the same picture untouched when all of them have been laid over it, so two
     // delays are twice the repeats and never a whiter picture (0294).
-    expect(echoCeiling(1)).toBe(ECHO_CEILING);
-    expect(echoCeiling(0)).toBe(ECHO_CEILING);
-    expect(echoCeiling(-1)).toBe(ECHO_CEILING);
+    expect(echoCeiling(1)).toBe(ECHO_CEILING.value);
+    expect(echoCeiling(0)).toBe(ECHO_CEILING.value);
+    expect(echoCeiling(-1)).toBe(ECHO_CEILING.value);
     for (let crowd = 1; crowd <= 4; crowd++) {
       const share = echoCeiling(crowd);
-      expect(1 - (1 - share) ** crowd).toBeCloseTo(ECHO_CEILING, 12);
+      expect(1 - (1 - share) ** crowd).toBeCloseTo(ECHO_CEILING.value, 12);
       expect(share).toBeGreaterThan(0);
-      expect(share).toBeLessThanOrEqual(ECHO_CEILING);
+      expect(share).toBeLessThanOrEqual(ECHO_CEILING.value);
     }
     expect(echoCeiling(2)).toBeLessThan(echoCeiling(1));
     expect(echoCeiling(3)).toBeLessThan(echoCeiling(2));
@@ -344,11 +344,11 @@ describe("what a look is", () => {
     // window in the picture evenly instead of repeating it (0269). So a wind standing still draws
     // no ladder at all, a wind halfway round draws a faint one, and either direction draws the same.
     expect(echoAlpha(1, 0, 1)).toBe(0);
-    expect(echoAlpha(1, 0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(1, -0.5, 1)).toBeCloseTo(ECHO_CEILING / 2, 10);
-    expect(echoAlpha(1, -1, 1)).toBe(ECHO_CEILING);
-    expect(echoAlpha(1, 2, 1)).toBe(ECHO_CEILING);
-    expect(echoAlpha(1, -2, 1)).toBe(ECHO_CEILING);
+    expect(echoAlpha(1, 0.5, 1)).toBeCloseTo(ECHO_CEILING.value / 2, 10);
+    expect(echoAlpha(1, -0.5, 1)).toBeCloseTo(ECHO_CEILING.value / 2, 10);
+    expect(echoAlpha(1, -1, 1)).toBe(ECHO_CEILING.value);
+    expect(echoAlpha(1, 2, 1)).toBe(ECHO_CEILING.value);
+    expect(echoAlpha(1, -2, 1)).toBe(ECHO_CEILING.value);
     // At delay's own declared defaults and ranges (src/audio/effects/delay.ts, spelt out here for
     // the reason the bloom's are) the repeats are countable and the picture survives them: more
     // than the one every delay draws, fewer than the cap, and the last of the ladder well faded.
@@ -360,7 +360,7 @@ describe("what a look is", () => {
     const feedback = normalize(0.35, 0, 0.9, "linear");
     expect(time).toBeGreaterThan(0.5);
     expect(echoCount(feedback)).toBeGreaterThan(1);
-    expect(echoCount(feedback)).toBeLessThan(ECHO_CAP);
+    expect(echoCount(feedback)).toBeLessThan(ECHO_CAP.value);
     expect(echoSpacing(time)).toBeGreaterThan(ECHO_SPACING[0]);
     expect(echoSpacing(time)).toBeLessThan(ECHO_SPACING[1]);
     expect(echoFade(feedback, time) ** echoCount(feedback)).toBeLessThan(0.5);
@@ -371,28 +371,28 @@ describe("what a look is", () => {
     expect(LOOKS.sharpen.terms).toEqual({ amount: "turn", saturation: "turn" });
     // One number for both halves of the draw, and both ends of it closed: the amount is read off a
     // presence the picture eases toward and is asked for its value before it has arrived.
-    expect(sharpenAmount(1, 1)).toBe(SHARPEN_CEILING);
+    expect(sharpenAmount(1, 1)).toBe(SHARPEN_CEILING.value);
     expect(sharpenAmount(0, 1)).toBe(0);
     expect(sharpenAmount(1, 0)).toBe(0);
-    expect(sharpenAmount(0.5, 1)).toBeCloseTo(SHARPEN_CEILING / 2, 10);
-    expect(sharpenAmount(1, 0.5)).toBeCloseTo(SHARPEN_CEILING / 2, 10);
+    expect(sharpenAmount(0.5, 1)).toBeCloseTo(SHARPEN_CEILING.value / 2, 10);
+    expect(sharpenAmount(1, 0.5)).toBeCloseTo(SHARPEN_CEILING.value / 2, 10);
     expect(sharpenAmount(-1, 1)).toBe(0);
-    expect(sharpenAmount(2, 2)).toBe(SHARPEN_CEILING);
+    expect(sharpenAmount(2, 2)).toBe(SHARPEN_CEILING.value);
     // Short of the whole of it, for the bloom's reason at a number of pop's own: what the mask adds
     // is what stands above its own local mean, and a mask driven at the whole of it reads as a
     // picture turned up rather than as one brought into focus.
-    expect(SHARPEN_CEILING).toBeGreaterThan(0);
-    expect(SHARPEN_CEILING).toBeLessThan(1);
+    expect(SHARPEN_CEILING.value).toBeGreaterThan(0);
+    expect(SHARPEN_CEILING.value).toBeLessThan(1);
     // And the copy is blurred at a working size well inside the bloom's own band and nearer its
     // wide end, because a mask blurred as far as a halo stops being a local mean (0280).
-    expect(SHARPEN_SCALE).toBeLessThan(BLOOM_SCALE[0]);
-    expect(SHARPEN_SCALE).toBeGreaterThan(BLOOM_SCALE[1]);
+    expect(SHARPEN_SCALE.value).toBeLessThan(BLOOM_SCALE[0]);
+    expect(SHARPEN_SCALE.value).toBeGreaterThan(BLOOM_SCALE[1]);
     // The three passes that weigh a share under a ceiling weigh it the same way, which is the one
     // helper they share and not three copies of it (principle 3). Each keeps its own ceiling.
     expect(weighed(0.5, 0.5, 1)).toBeCloseTo(0.25, 10);
-    expect(bloomAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, BLOOM_CEILING), 12);
-    expect(echoAlpha(0.5, -0.5, 1)).toBeCloseTo(weighed(0.5, 0.5, ECHO_CEILING), 12);
-    expect(sharpenAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, SHARPEN_CEILING), 12);
+    expect(bloomAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, BLOOM_CEILING.value), 12);
+    expect(echoAlpha(0.5, -0.5, 1)).toBeCloseTo(weighed(0.5, 0.5, ECHO_CEILING.value), 12);
+    expect(sharpenAmount(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, SHARPEN_CEILING.value), 12);
     // At pop's own declared defaults and ranges (src/audio/effects/pop.ts, spelt out here for the
     // reason the bloom's are) the mask bites and neither term is at an end of its band: a pop
     // standing at its defaults is a picture visibly sharper and one still a long way off the most
@@ -400,7 +400,7 @@ describe("what a look is", () => {
     const mix = normalize(0.5, 0, 1, "linear");
     const sheen = normalize(0.2, 0, 1, "linear");
     expect(sharpenAmount(mix, mix)).toBeGreaterThan(0);
-    expect(sharpenAmount(mix, mix)).toBeLessThan(SHARPEN_CEILING);
+    expect(sharpenAmount(mix, mix)).toBeLessThan(SHARPEN_CEILING.value);
     expect(sheen).toBeGreaterThan(0);
     expect(sheen).toBeLessThan(1);
   });
@@ -411,21 +411,21 @@ describe("what a look is", () => {
     expect(LOOKS.wobble.terms).toEqual({ wobble: "turn", grain: "turn" });
     // Two more shares weighed the one way, each under a ceiling of its own (0283): what a swim may
     // take of the picture's width is not what a grain may take of its ink.
-    expect(wobbleSwim(1, 1)).toBe(WOBBLE_CEILING);
+    expect(wobbleSwim(1, 1)).toBe(WOBBLE_CEILING.value);
     expect(wobbleSwim(0, 1)).toBe(0);
     expect(wobbleSwim(1, 0)).toBe(0);
-    expect(wobbleSwim(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, WOBBLE_CEILING), 12);
-    expect(grainBite(1, 1)).toBe(GRAIN_CEILING);
+    expect(wobbleSwim(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, WOBBLE_CEILING.value), 12);
+    expect(grainBite(1, 1)).toBe(GRAIN_CEILING.value);
     expect(grainBite(1, 0)).toBe(0);
     expect(grainBite(0, 1)).toBe(0);
-    expect(grainBite(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, GRAIN_CEILING), 12);
-    expect(grainBite(2, 2)).toBe(GRAIN_CEILING);
+    expect(grainBite(0.5, 0.5)).toBeCloseTo(weighed(0.5, 0.5, GRAIN_CEILING.value), 12);
+    expect(grainBite(2, 2)).toBe(GRAIN_CEILING.value);
     // A band swims further than nothing and never as far as the echoes step, because the swim is
     // read against the row above it and a band slid past its neighbour is a tear (0282).
-    expect(WOBBLE_CEILING).toBeGreaterThan(0);
-    expect(WOBBLE_CEILING).toBeLessThan(ECHO_SPACING[0]);
-    expect(GRAIN_CEILING).toBeGreaterThan(0);
-    expect(GRAIN_CEILING).toBeLessThan(1);
+    expect(WOBBLE_CEILING.value).toBeGreaterThan(0);
+    expect(WOBBLE_CEILING.value).toBeLessThan(ECHO_SPACING[0]);
+    expect(GRAIN_CEILING.value).toBeGreaterThan(0);
+    expect(GRAIN_CEILING.value).toBeLessThan(1);
     // The slide is a sine of the deck's clock, bounded either side, and offset down the picture so
     // the bands are never all slid the same way at once — which is what makes it a swim.
     for (const clock of [0, 0.37, 12.5, 1000]) {
@@ -439,12 +439,12 @@ describe("what a look is", () => {
     expect(wobbleSlide(0, 32, 64)).not.toBeCloseTo(wobbleSlide(0, 0, 64), 2);
     // One whole turn of the clock is where the swim started, and a stopped clock stands still: a
     // halted yard hands the same second twice and the picture does not move (0144).
-    expect(wobbleSlide(1 / WOBBLE_HZ, 5, 64)).toBeCloseTo(wobbleSlide(0, 5, 64), 10);
+    expect(wobbleSlide(1 / WOBBLE_HZ.value, 5, 64)).toBeCloseTo(wobbleSlide(0, 5, 64), 10);
     // Slow enough to read as wow and not as flutter, and under two waves down the field.
-    expect(WOBBLE_HZ).toBeGreaterThan(0.3);
-    expect(WOBBLE_HZ).toBeLessThan(1.5);
-    expect(WOBBLE_WAVES).toBeGreaterThan(0.5);
-    expect(WOBBLE_WAVES).toBeLessThan(2);
+    expect(WOBBLE_HZ.value).toBeGreaterThan(0.3);
+    expect(WOBBLE_HZ.value).toBeLessThan(1.5);
+    expect(WOBBLE_WAVES.value).toBeGreaterThan(0.5);
+    expect(WOBBLE_WAVES.value).toBeLessThan(2);
     // At tape's own declared defaults and ranges (src/audio/effects/tape.ts, spelt out here for the
     // reason the bloom's are) the picture swims and grains, and neither term is at an end of its
     // band: a tape standing at its defaults is visibly a tape and a long way off the most this pass
@@ -452,9 +452,9 @@ describe("what a look is", () => {
     const wow = normalize(0.35, 0, 1, "linear");
     const hiss = normalize(0.25, 0, 1, "linear");
     expect(wobbleSwim(1, wow)).toBeGreaterThan(0);
-    expect(wobbleSwim(1, wow)).toBeLessThan(WOBBLE_CEILING);
+    expect(wobbleSwim(1, wow)).toBeLessThan(WOBBLE_CEILING.value);
     expect(grainBite(1, hiss)).toBeGreaterThan(0);
-    expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING);
+    expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING.value);
   });
   // P286: filter's, and the one pass that replaces the field rather than laying anything over it.
   it("softens the field on the cutoff's own turn, and stands open at the top of the knob", () => {
@@ -520,16 +520,16 @@ describe("what a look is", () => {
     // is drawn is the presence — read for a direction and never for a second share, so a cut is the
     // exact opposite of a lift and not a quieter one.
     expect([6, 0, -6].map((gain) => bandLifts(gainTurn(gain)))).toEqual([true, true, false]);
-    expect(BAND_CEILING).toBeGreaterThan(0);
-    expect(BAND_CEILING).toBeLessThan(1);
-    expect(bandAlpha(1)).toBe(BAND_CEILING);
-    expect(bandAlpha(2)).toBe(BAND_CEILING);
-    expect(bandAlpha(0.5)).toBeCloseTo(BAND_CEILING / 2, 12);
+    expect(BAND_CEILING.value).toBeGreaterThan(0);
+    expect(BAND_CEILING.value).toBeLessThan(1);
+    expect(bandAlpha(1)).toBe(BAND_CEILING.value);
+    expect(bandAlpha(2)).toBe(BAND_CEILING.value);
+    expect(bandAlpha(0.5)).toBeCloseTo(BAND_CEILING.value / 2, 12);
     // The taper is stepped and shallower every step, the outermost slice the band's whole depth and
     // the innermost a share of it — which is what softens an edge with draws of the field alone.
-    expect(BAND_EDGES).toBeGreaterThan(2);
+    expect(BAND_EDGES.value).toBeGreaterThan(2);
     expect(bandTaper(0)).toBe(1);
-    for (let edge = 1; edge < BAND_EDGES; edge++) {
+    for (let edge = 1; edge < BAND_EDGES.value; edge++) {
       expect(bandTaper(edge)).toBeLessThan(bandTaper(edge - 1));
       expect(bandTaper(edge)).toBeGreaterThan(0);
     }
@@ -540,7 +540,7 @@ describe("what a look is", () => {
     // a cut of six is drawn exactly as hard as a lift of six, the other way round.
     expect(bandAlpha(gainHeard(0))).toBe(0);
     expect(bandAlpha(gainHeard(6))).toBeGreaterThan(0);
-    expect(bandAlpha(gainHeard(6))).toBeLessThan(BAND_CEILING);
+    expect(bandAlpha(gainHeard(6))).toBeLessThan(BAND_CEILING.value);
     expect(bandAlpha(gainHeard(-6))).toBe(bandAlpha(gainHeard(6)));
     expect(bandLifts(gainTurn(-6))).not.toBe(bandLifts(gainTurn(6)));
   });
@@ -553,8 +553,8 @@ describe("what a look is", () => {
     // turn and one to one is no compression at all; the ceiling's band is stated open end last,
     // because the term is the Threshold's and a threshold nothing reaches is a wire. Neither reaches
     // the other, and neither closes the range to nothing.
-    expect(SQUASH_FLOOR).toBeGreaterThan(0);
-    expect(SQUASH_FLOOR).toBeLessThan(SQUASH_TOP[0]);
+    expect(SQUASH_FLOOR.value).toBeGreaterThan(0);
+    expect(SQUASH_FLOOR.value).toBeLessThan(SQUASH_TOP[0]);
     expect(SQUASH_TOP[1]).toBe(1);
     expect(SQUASH_TOP[0]).toBeGreaterThan(0);
     expect(SQUASH_TOP[0]).toBeLessThan(1);
@@ -585,7 +585,7 @@ describe("what a look is", () => {
     expect(squashFloor(ratioHeard(1), ratioTurn(1))).toBe(0);
     const standing = squashFloor(ratioHeard(4), ratioTurn(4));
     expect(standing).toBeGreaterThan(0);
-    expect(standing).toBeLessThan(SQUASH_FLOOR);
+    expect(standing).toBeLessThan(SQUASH_FLOOR.value);
     expect(squashCeiling(ratioHeard(4), thresholdTurn(-24))).toBeLessThan(1);
   });
 
@@ -615,15 +615,15 @@ describe("what a look is", () => {
     // The amount stays inside its own band at every input there is, and never reaches the whole of
     // itself: a second picture laid at one replaces the first everywhere it lands, which is a
     // transposition and not a doubling.
-    expect(DOUBLE_CEILING).toBeGreaterThan(0);
-    expect(DOUBLE_CEILING).toBeLessThan(1);
+    expect(DOUBLE_CEILING.value).toBeGreaterThan(0);
+    expect(DOUBLE_CEILING.value).toBeLessThan(1);
     for (const presence of [0, 0.25, 0.5, 1]) {
       for (const amount of [0, mixTurn(0.5), 1]) {
         expect(doubleAmount(presence, amount)).toBeGreaterThanOrEqual(0);
-        expect(doubleAmount(presence, amount)).toBeLessThanOrEqual(DOUBLE_CEILING);
+        expect(doubleAmount(presence, amount)).toBeLessThanOrEqual(DOUBLE_CEILING.value);
       }
     }
-    expect(doubleAmount(1, 1)).toBe(DOUBLE_CEILING);
+    expect(doubleAmount(1, 1)).toBe(DOUBLE_CEILING.value);
     // **The Mix is read twice and both readings stand at nought in the same place** (0202): a shift
     // heard as nothing lays no second picture whichever number is asked, and one the picture has
     // not travelled to yet lays none either.
@@ -633,7 +633,7 @@ describe("what a look is", () => {
     // wetter mix lays more of it.
     const standing = doubleAmount(mixHeard(0.5), mixTurn(0.5));
     expect(standing).toBeGreaterThan(0);
-    expect(standing).toBeLessThan(DOUBLE_CEILING);
+    expect(standing).toBeLessThan(DOUBLE_CEILING.value);
     expect(doubleAmount(mixHeard(1), mixTurn(1))).toBeGreaterThan(standing);
   });
 
@@ -669,7 +669,9 @@ describe("what a look is", () => {
     // However big the pieces are, never more than half of them are drawn from somewhere else: a
     // picture drawn entirely from elsewhere is a picture of nothing (0250, 0269).
     for (const size of [0, 0.5, 1]) {
-      expect(shatterPieces(1, size)).toBeLessThanOrEqual(SHATTER_CEILING * shatterBands(size));
+      expect(shatterPieces(1, size)).toBeLessThanOrEqual(
+        SHATTER_CEILING.value * shatterBands(size),
+      );
       expect(shatterPieces(1, size)).toBeGreaterThanOrEqual(1);
     }
     // And a coarse count cannot honour a fine share: at the open end the picture is two pieces, so

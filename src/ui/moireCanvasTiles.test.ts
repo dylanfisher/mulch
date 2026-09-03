@@ -516,7 +516,7 @@ describe("moireCanvas tiles", () => {
     // where it leaves them — at the bottom of the breath, where the opening is exactly one and the
     // only field of the key that moves below is the travel's own.
     standingOn(set, ONE_PLACE);
-    const whole = FRACTAL_FLIGHT_SECS;
+    const whole = FRACTAL_FLIGHT_SECS.value;
     const bakedAt = (sounding: number): number =>
       baked(
         paintedOn(100, 50, set.rows, 2, WINDOW, {
@@ -547,7 +547,7 @@ describe("moireCanvas tiles", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
     standingOn(set, ONE_PLACE);
-    const level = FRACTAL_FLIGHT_SECS / FRACTAL_FLIGHT;
+    const level = FRACTAL_FLIGHT_SECS.value / FRACTAL_FLIGHT.value;
     const bakedAt = (sounding: number): number =>
       baked(
         paintedOn(100, 50, set.rows, 2, WINDOW, {

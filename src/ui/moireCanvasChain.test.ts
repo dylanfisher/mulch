@@ -156,7 +156,7 @@ describe("the chain of passes", () => {
     expect(pass?.drew.map((each) => each.tile)).toEqual([field, bloomed.elements[at], field]);
     // And the halo carries the amount while the field under it is laid whole.
     expect(pass?.drew[0]?.alpha).toBe(1);
-    expect(pass?.drew[1]?.alpha).toBeCloseTo(BLOOM_CEILING, 10);
+    expect(pass?.drew[1]?.alpha).toBeCloseTo(BLOOM_CEILING.value, 10);
     expect(pass?.drew[2]?.alpha).toBe(1);
     // A room at no wet at all draws the field once and leaves the picture exactly where it was.
     vi.stubGlobal("devicePixelRatio", 2);
@@ -187,7 +187,7 @@ describe("the chain of passes", () => {
     expect(pass?.wrote).toEqual([]);
     // The field down onto its own grid, that grid back up over the whole surface, and the result
     // masked by itself once per lost bit — at one bit, the cap.
-    const hardenings = Array.from({ length: BLOCK_HARDENINGS }, () => "destination-in");
+    const hardenings = Array.from({ length: BLOCK_HARDENINGS.value }, () => "destination-in");
     expect(pass?.drew.map((each) => each.over)).toEqual(["source-over", "copy", ...hardenings]);
     expect(pass?.drew[0]?.tile).toBe(field);
     expect(pass?.drew[1]?.tile).toBe(blocked.elements[at]);
@@ -231,21 +231,24 @@ describe("the chain of passes", () => {
     expect(pass?.wrote).toEqual([]);
     // The field itself, and then the field again once per repeat — every one of them the field's
     // own surface and never the pass's, because a repeat of a repeat is a smear.
-    expect(pass?.drew).toHaveLength(1 + ECHO_CAP);
+    expect(pass?.drew).toHaveLength(1 + ECHO_CAP.value);
     expect(pass?.drew.every((each) => each.tile === field)).toBe(true);
     expect(pass?.drew.every((each) => each.over === "source-over")).toBe(true);
     // Spaced along the wind, one step further every repeat, and the whole ladder inside the field.
     const step = echoSpacing(1) * wide;
     expect(pass?.drew.map((each) => each.box)).toEqual([
       [0, 0],
-      ...Array.from({ length: ECHO_CAP }, (_each, echo) => [step * (echo + 1), 0]),
+      ...Array.from({ length: ECHO_CAP.value }, (_each, echo) => [step * (echo + 1), 0]),
     ]);
-    expect(step * ECHO_CAP).toBeLessThan(wide);
+    expect(step * ECHO_CAP.value).toBeLessThan(wide);
     // And fading geometrically behind it: the picture at the whole of itself, and every repeat the
     // last one's share of what stood in front of it.
     expect(pass?.drew[0]?.alpha).toBe(1);
-    for (let echo = 1; echo <= ECHO_CAP; echo++) {
-      expect(pass?.drew[echo]?.alpha).toBeCloseTo(ECHO_CEILING * ECHO_FADE[1] ** (echo - 1), 10);
+    for (let echo = 1; echo <= ECHO_CAP.value; echo++) {
+      expect(pass?.drew[echo]?.alpha).toBeCloseTo(
+        ECHO_CEILING.value * ECHO_FADE[1] ** (echo - 1),
+        10,
+      );
     }
     // The wind blowing the other way walks the same ladder the other way, which is one picture
     // turning round rather than two pictures.
@@ -270,7 +273,7 @@ describe("the chain of passes", () => {
       wind: { drift: 0, veer: 1 },
     });
     expect(one.surfaces[at]?.drew).toHaveLength(1 + echoCount(0));
-    expect(one.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING, 10);
+    expect(one.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING.value, 10);
     expect(one.surfaces[at]?.drew[1]?.box).toEqual([ECHO_SPACING[0] * wide, 0]);
     // And a wind standing still draws the field once and nothing behind it. The ladder is gathered
     // onto the field it came from at a veer of nought, and three copies of a hole mask laid exactly
@@ -293,7 +296,7 @@ describe("the chain of passes", () => {
       wind: { drift: 0, veer: 0.5 },
     });
     expect(turning.surfaces[at]?.drew[1]?.box).toEqual([step / 2, 0]);
-    expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING / 2, 10);
+    expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING.value / 2, 10);
     // P294: and two delays are two ladders in two slots, sharing one ceiling's worth of ink. Each
     // pass still draws its own repeats — 0279's rule, and what makes two of a kind twice as much of
     // the thing — but each first rung stands at the share that leaves the same picture untouched
@@ -311,11 +314,11 @@ describe("the chain of passes", () => {
       two.surfaces[at]?.drew[1]?.alpha ?? 0,
       two.surfaces[at + 1]?.drew[1]?.alpha ?? 0,
     ];
-    expect(two.surfaces[at]?.drew).toHaveLength(1 + ECHO_CAP);
-    expect(two.surfaces[at + 1]?.drew).toHaveLength(1 + ECHO_CAP);
+    expect(two.surfaces[at]?.drew).toHaveLength(1 + ECHO_CAP.value);
+    expect(two.surfaces[at + 1]?.drew).toHaveLength(1 + ECHO_CAP.value);
     for (const rung of rungs) expect(rung).toBeCloseTo(echoCeiling(2), 10);
-    expect(1 - (1 - rungs[0]!) * (1 - rungs[1]!)).toBeCloseTo(ECHO_CEILING, 10);
-    expect(rungs[0]).toBeLessThan(ECHO_CEILING);
+    expect(1 - (1 - rungs[0]!) * (1 - rungs[1]!)).toBeCloseTo(ECHO_CEILING.value, 10);
+    expect(rungs[0]).toBeLessThan(ECHO_CEILING.value);
     // And neither of them fills over the picture on the way: the bound is on a number the passes are
     // handed, not on a wash laid across what they drew (0129, 0269).
     expect(two.surfaces[at]?.fills).toEqual([]);
@@ -349,13 +352,13 @@ describe("the chain of passes", () => {
     ]);
     expect(pass?.drew.map((each) => each.tile)).toEqual([field, sharp.elements[at], field, field]);
     expect(pass?.drew[1]?.alpha).toBe(1);
-    expect(pass?.drew[2]?.alpha).toBeCloseTo(SHARPEN_CEILING, 10);
+    expect(pass?.drew[2]?.alpha).toBeCloseTo(SHARPEN_CEILING.value, 10);
     expect(pass?.drew[3]?.alpha).toBe(1);
     // The copy is taken at the mask's own working size, which is one number and not a term: pop
     // declares two terms and neither of them is a radius.
     const wide = field?.width ?? 0;
     expect(pass?.drew[1]?.box.slice(0, 2)).toEqual([0, 0]);
-    expect(pass?.drew[0]?.box[2]).toBe(Math.round(wide * SHARPEN_SCALE));
+    expect(pass?.drew[0]?.box[2]).toBe(Math.round(wide * SHARPEN_SCALE.value));
     // A pop at no mix at all draws the field once and leaves the picture exactly where it was —
     // and its saturation is nowhere in this pass either way, because colour is the tile's (0266).
     vi.stubGlobal("devicePixelRatio", 2);
@@ -391,7 +394,7 @@ describe("the chain of passes", () => {
     expect(bands).toHaveLength(2 * LENS_SLICES);
     expect(bands.every((each) => each.tile === field)).toBe(true);
     const wide = field?.width ?? 0;
-    const slid = WOBBLE_CEILING * wide * wobbleSlide(0, 0, LENS_SLICES);
+    const slid = WOBBLE_CEILING.value * wide * wobbleSlide(0, 0, LENS_SLICES);
     expect(bands[0]?.box).toEqual([0, 0, wide, deep, slid, 0, wide, deep]);
     expect(bands[1]?.box).toEqual([0, 0, wide, deep, slid - wide, 0, wide, deep]);
     // And the bands are not all slid the same way at once, which is what makes it a swim rather
@@ -405,7 +408,7 @@ describe("the chain of passes", () => {
     // would put back the ink the tile had just taken and the grain would be nowhere in the picture.
     expect(pass?.drew.findIndex((each) => each.over === "destination-out")).toBe(2 * LENS_SLICES);
     expect(grained.every((each) => each.tile !== field)).toBe(true);
-    expect(grained[0]?.alpha).toBeCloseTo(GRAIN_CEILING, 10);
+    expect(grained[0]?.alpha).toBeCloseTo(GRAIN_CEILING.value, 10);
     // Off a tile of its own, baked once and never on a later painting: this run bakes it or an
     // earlier one did, and neither draws a second — the count is a ceiling and not an order.
     expect(grained[0]?.tile).toEqual(expect.objectContaining({ width: GRAIN_TILE }));
@@ -501,15 +504,15 @@ describe("the chain of passes", () => {
     // The field itself, and then its own slice once per step of the taper — every draw off the
     // field and none off the surface being written, and every one of the taper's steps drawn.
     const drew = pass?.drew ?? [];
-    expect(drew).toHaveLength(1 + BAND_EDGES);
+    expect(drew).toHaveLength(1 + BAND_EDGES.value);
     expect(drew.map((each) => each.tile)).toEqual(Array.from(drew, () => field));
     expect(drew.map((each) => each.over)).toEqual([
       "source-over",
-      ...Array.from({ length: BAND_EDGES }, () => "destination-out"),
+      ...Array.from({ length: BAND_EDGES.value }, () => "destination-out"),
     ]);
     expect(drew[0]?.alpha).toBe(1);
     for (const step of drew.slice(1)) {
-      expect(step.alpha).toBeCloseTo(BAND_CEILING / BAND_EDGES, 10);
+      expect(step.alpha).toBeCloseTo(BAND_CEILING.value / BAND_EDGES.value, 10);
     }
     // Each slice is taken from exactly where it is laid, which is what makes the band the field's
     // own rows rather than a bar over them, and each is shallower than the one before it and never
@@ -542,7 +545,7 @@ describe("the chain of passes", () => {
       looks: [look("band", { ...terms, width: 1 })],
     });
     const steps = thin.surfaces[flat.elements.length]?.drew ?? [];
-    expect(steps).toHaveLength(1 + BAND_EDGES);
+    expect(steps).toHaveLength(1 + BAND_EDGES.value);
     for (const step of steps.slice(1)) expect(step.box[3]).toBe(1);
     // A band standing at flat, and one the picture has not travelled to yet, are both the field it
     // came from — and one draw is what says so.
@@ -627,7 +630,7 @@ describe("the chain of passes", () => {
     expect(drew.map((each) => each.over)).toEqual(["source-over", "source-over"]);
     expect(drew[0]?.alpha).toBe(1);
     expect(drew[1]?.alpha).toBeCloseTo(doubleAmount(1, terms.amount), 10);
-    expect(drew[1]?.alpha).toBeLessThanOrEqual(DOUBLE_CEILING);
+    expect(drew[1]?.alpha).toBeLessThanOrEqual(DOUBLE_CEILING.value);
     // At the ratio the interval states and **about the centre of the field**: a pass is handed the
     // finished picture and has no row's anchor to bake about (0278), so an octave up is twice the
     // size with a quarter of the picture hanging off each edge.
@@ -742,7 +745,7 @@ describe("the chain of passes", () => {
       ],
     });
     const shared = stacked.surfaces[at]?.drew ?? [];
-    expect(shared).toHaveLength(BLOCK_HARDENINGS + 5);
+    expect(shared).toHaveLength(BLOCK_HARDENINGS.value + 5);
     expect(shared.slice(-3).map((each) => each.smooth)).toEqual([true, true, true]);
   });
 });

@@ -85,7 +85,7 @@ describe("a row arriving in the picture", () => {
     // Two instances and then three, so the macro row is out of the picture either side of the add
     // and the count moves by exactly the row that arrived (`macroInto`, src/ui/moireRowsField.ts).
     const was = built([instance("fx1"), instance("fx2")]);
-    read(was, DRIFT_ARRIVAL_SECS);
+    read(was, DRIFT_ARRIVAL_SECS.value);
     const before = drawnGratings(was.rows, 0);
 
     const now = built([instance("fx1"), instance("fx2"), instance("fx3")]);
@@ -101,11 +101,11 @@ describe("a row arriving in the picture", () => {
 
     // A quarter of the way in it is a quarter of a row, and the count has moved a quarter of the
     // way — which is the motion, and it is the thing a flash is not.
-    read(now, DRIFT_ARRIVAL_SECS / 4);
+    read(now, DRIFT_ARRIVAL_SECS.value / 4);
     expect(shareOf(now, "rack:fx3")).toBeCloseTo(0.25, 9);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before + 0.25, 9);
 
-    read(now, DRIFT_ARRIVAL_SECS);
+    read(now, DRIFT_ARRIVAL_SECS.value);
     expect(shareOf(now, "rack:fx3")).toBe(1);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before + 1, 9);
   });
@@ -117,7 +117,7 @@ describe("a row arriving in the picture", () => {
    */
   it("holds a dropped row in the picture until it has finished leaving", () => {
     const was = built([instance("fx1"), instance("fx2"), instance("fx3")]);
-    read(was, DRIFT_ARRIVAL_SECS);
+    read(was, DRIFT_ARRIVAL_SECS.value);
     const before = drawnGratings(was.rows, 0);
 
     const now = built([instance("fx1"), instance("fx2")]);
@@ -127,10 +127,10 @@ describe("a row arriving in the picture", () => {
     read(now, 0);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before, 9);
 
-    read(now, DRIFT_ARRIVAL_SECS / 2);
+    read(now, DRIFT_ARRIVAL_SECS.value / 2);
     expect(shareOf(now, "rack:fx3")).toBeCloseTo(0.5, 9);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before - 0.5, 9);
-    read(now, DRIFT_ARRIVAL_SECS);
+    read(now, DRIFT_ARRIVAL_SECS.value);
     expect(shareOf(now, "rack:fx3")).toBe(0);
     expect(drawnGratings(now.rows, 0)).toBeCloseTo(before - 1, 9);
     // And the next rebuild is where a row wholly gone stops being carried at all.
@@ -178,12 +178,12 @@ describe("a row arriving in the picture", () => {
    */
   it("matches a row by its own name and not by where it stands", () => {
     const first = built([instance("fx1")]);
-    read(first, DRIFT_ARRIVAL_SECS);
+    read(first, DRIFT_ARRIVAL_SECS.value);
     // A second instance, a quarter admitted — so the two rows in the picture hold two shares and a
     // carry that took the wrong one would say so.
     const was = built([instance("fx1"), instance("fx2")]);
     carryArrivals(first, was);
-    read(was, DRIFT_ARRIVAL_SECS / 4);
+    read(was, DRIFT_ARRIVAL_SECS.value / 4);
     expect(shareOf(was, "rack:fx1")).toBe(1);
     expect(shareOf(was, "rack:fx2")).toBeCloseTo(0.25, 9);
 

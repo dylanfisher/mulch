@@ -127,36 +127,37 @@ describe("how that wind travels", () => {
     const wind = windRest();
     // A whole `DRIFT_WIND_SECS` lands the direction outright, and from there the field is blown at
     // the tail's own speed: one way, at a rate, without the crawl's own return (0267).
-    windTravelInto(wind, 1, 1, DRIFT_WIND_SECS, DRIFT_WIND_SECS);
+    windTravelInto(wind, 1, 1, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBe(1);
     const blown = wind.drift;
-    windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS);
-    expect(wind.drift).toBeCloseTo(blown + DRIFT_WIND_TURNS, 10);
+    windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS.value);
+    expect(wind.drift).toBeCloseTo(blown + DRIFT_WIND_TURNS.value, 10);
     // Wrapped into one turn of a cell, because the screen is a repeating pattern: a wrap there is
     // invisible, and it is what keeps a wind that has blown all day as exact as one a second old.
-    for (let step = 0; step < 40; step++) windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS);
+    for (let step = 0; step < 40; step++) windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS.value);
     expect(wind.drift).toBeGreaterThanOrEqual(0);
     expect(wind.drift).toBeLessThan(1);
     // And a dry rack blows the field nowhere: a short tail is no drift, which is the picture drawn
     // before there was a rack behind it.
     const still = windRest();
-    for (let step = 0; step < 60; step++) windTravelInto(still, 1, 0, 1 / 60, DRIFT_WIND_SECS);
+    for (let step = 0; step < 60; step++)
+      windTravelInto(still, 1, 0, 1 / 60, DRIFT_WIND_SECS.value);
     expect(still.veer).toBeGreaterThan(0);
     expect(still.drift).toBe(0);
   });
 
   it("turns at a rate rather than reversing between two frames, and arrives with no clock", () => {
     const wind = windRest();
-    windTravelInto(wind, 1, 1, DRIFT_WIND_SECS, DRIFT_WIND_SECS);
+    windTravelInto(wind, 1, 1, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     // A population that moves hands the field the other direction. Taken outright it would reverse
     // the whole picture between two frames, so it is travelled — a whole reversal in
     // `DRIFT_WIND_SECS`, through a moment of standing still (0266's rate, this reading's reach).
-    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS / 2, DRIFT_WIND_SECS);
+    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS.value / 2, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBeCloseTo(0, 10);
-    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS / 2, DRIFT_WIND_SECS);
+    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS.value / 2, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBeCloseTo(-1, 10);
     // Never past it: a travel that overshot would be a wind blowing harder for having turned.
-    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS, DRIFT_WIND_SECS);
+    windTravelInto(wind, -1, 1, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBe(-1);
     // And a yard with no clock behind it arrives outright and blows nowhere: a halted picture is
     // painted on a commit and never on a frame (0144), so a wind timed against a clock that is not
@@ -209,7 +210,7 @@ describe("how that wind travels", () => {
     expect(was.tail).toBeGreaterThan(0.9);
     expect(Math.abs(was.veering)).toBe(1);
     expect(was.wind).toEqual(windRest());
-    windTravelInto(was.wind, was.veering, was.tail, DRIFT_WIND_SECS, DRIFT_WIND_SECS);
+    windTravelInto(was.wind, was.veering, was.tail, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     expect(was.wind.drift).not.toBe(0);
     // A knob touch rebuilds the set, and a fresh one has been blown nowhere — so without the carry
     // the field would drop back to where no wind had ever reached it and set off again on every

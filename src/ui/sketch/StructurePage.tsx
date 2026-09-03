@@ -65,7 +65,7 @@ export const SKETCH_STRUCTURES: readonly StructureEntry[] = [
     label: "The Bite",
     thesis: `The structure cut at a depth of its own, the way the lattice already is, rather than at the share ${TODAY_ROWS} rows leave it. Today a fractal row gets ${TODAY} of the ink under a dull sound, and a grating at that depth is the weave gently bent; at its own depth the boundary's filigree is the picture.`,
     trades:
-      "the picture's constant weight. Every other row is counted so the field's mean holds at PICTURE_FLOOR whatever a yard holds (gratingDepth), and a row cut outside that count darkens the picture by exactly what it cuts — the automator would be the one effect that makes the drift heavier.",
+      "the picture's constant weight. Every other row is counted so the field's mean holds at PICTURE_FLOOR.value whatever a yard holds (gratingDepth), and a row cut outside that count darkens the picture by exactly what it cuts — the automator would be the one effect that makes the drift heavier.",
     built:
       "beside cutLattice in src/ui/moireCanvas.ts, which already draws one row at its own depth and never at the count's share: a fractal row takes the same branch, and drawnGratings stops counting it. Bake-side nothing changes — the tile is the tile — and the frame pays one globalAlpha it was already paying.",
     Content: SketchStructureBite,

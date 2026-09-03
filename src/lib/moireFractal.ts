@@ -19,6 +19,7 @@
 import { fold } from "./copy.ts";
 import { cosTurn, easedCentre, FOLD_SPENT, foldStop, wrap, type DriftGeometry } from "./moire.ts";
 import { clamp, denormalize, snapToStep } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * As much of a run as a fractal row reads: every place standing, its own id and how far in it is.
@@ -346,10 +347,10 @@ export const fractalKeyed = (geometry: DriftGeometry, seed: Readonly<FractalSeed
  * one is a half: the travel is well over before the next place lands, and there is still enough of
  * the window left for the eye to read the move as one motion.
  */
-export const FRACTAL_TRAVEL = 1 / 2;
+export const FRACTAL_TRAVEL = tunable("fractal.travel", 1 / 2, { min: 0.1, max: 2, step: 0.05 });
 
 export const fractalTravelSecs = (period: number): number =>
-  period > 0 ? period * FRACTAL_TRAVEL : 0;
+  period > 0 ? period * FRACTAL_TRAVEL.value : 0;
 
 /**
  * One step of the picture's travel, from where its structure has got to toward where the population
@@ -402,7 +403,7 @@ export function fractalTravelInto(
  * stepped where every other stop is (`placeCurved`, src/ui/moireCanvas.ts), so it costs a bake at
  * a stop crossing and nothing between two.
  */
-export const FRACTAL_ROAM = 0.5;
+export const FRACTAL_ROAM = tunable("fractal.roam", 0.5, { min: 0, max: 1, step: 0.05 });
 export const FRACTAL_ROAM_SECS: readonly [number, number] = [89, 131];
 
 /**
@@ -419,8 +420,8 @@ export function fractalRoamInto(
   sounding: number,
 ): void {
   const roam = (stop: number, secs: number): number =>
-    stop * (1 - FRACTAL_ROAM) +
-    FRACTAL_ROAM * (0.5 + 0.5 * cosTurn(Math.max(0, sounding) / secs - 0.25));
+    stop * (1 - FRACTAL_ROAM.value) +
+    FRACTAL_ROAM.value * (0.5 + 0.5 * cosTurn(Math.max(0, sounding) / secs - 0.25));
   out.cx = roam(stops.cx, FRACTAL_ROAM_SECS[0]);
   out.cy = roam(stops.cy, FRACTAL_ROAM_SECS[1]);
   out.ratio = stops.ratio;
@@ -527,10 +528,11 @@ export const fractalCut = (standing: number, bite = FRACTAL_BITE): number =>
  * not move at all. What it costs is six more stops a breath a row, which is six more picture-sized
  * bakes through the shop every row's phase comes round — the budget this ladder was opened against.
  */
-export const FRACTAL_OPENING = 8;
-export const FRACTAL_ZOOM_STEPS = 18;
-export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
-  opening ** (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS) / FRACTAL_ZOOM_STEPS);
+export const FRACTAL_OPENING = tunable("fractal.opening", 8, { min: 2, max: 16, step: 0.5 });
+export const FRACTAL_ZOOM_STEPS = tunable("fractal.zoomSteps", 18, { min: 6, max: 36, step: 1 });
+export const fractalZoom = (turns: number, opening = FRACTAL_OPENING.value): number =>
+  opening **
+  (Math.round((0.5 - 0.5 * cosTurn(turns)) * FRACTAL_ZOOM_STEPS.value) / FRACTAL_ZOOM_STEPS.value);
 
 /**
  * How far the picture has flown through its own structure while it plays — in *levels*, on 0..1
@@ -586,16 +588,20 @@ export const fractalZoom = (turns: number, opening = FRACTAL_OPENING): number =>
  * because a value rounded before it reaches a tile is rounded onto the one ladder (principle 1) —
  * so a flight is three levels through eighteen stops each.
  */
-export const FRACTAL_FLIGHT = 3;
-export const FRACTAL_FLIGHT_SECS = 90;
+export const FRACTAL_FLIGHT = tunable("fractal.flight", 3, { min: 1, max: 6, step: 1 });
+export const FRACTAL_FLIGHT_SECS = tunable("fractal.flightSecs", 90, {
+  min: 10,
+  max: 300,
+  step: 5,
+});
 
 export const fractalFlight = (sounding: number): number =>
   sounding > 0
     ? snapToStep(
-        wrap((FRACTAL_FLIGHT * sounding) / FRACTAL_FLIGHT_SECS, 1),
+        wrap((FRACTAL_FLIGHT.value * sounding) / FRACTAL_FLIGHT_SECS.value, 1),
         0,
         1,
-        1 / FRACTAL_ZOOM_STEPS,
+        1 / FRACTAL_ZOOM_STEPS.value,
       )
     : 0;
 

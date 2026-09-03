@@ -221,9 +221,9 @@ describe("moireGeometry", () => {
   it("slides one slice of the lens against the next, and none of them at rest", () => {
     // A lens is a bend of the finished field, so its whole travel is a fraction of the width and
     // its shape is one wave down the picture rather than a jump between two slices.
-    expect(Math.abs(slidBy(0))).toBeCloseTo(LENS_SPAN, 9);
-    expect(slidBy(LENS_SLICES / 2)).toBeCloseTo(-LENS_SPAN, 9);
-    expect(Math.abs(slidBy(1) - slidBy(0))).toBeLessThan(LENS_SPAN / 4);
+    expect(Math.abs(slidBy(0))).toBeCloseTo(LENS_SPAN.value, 9);
+    expect(slidBy(LENS_SLICES / 2)).toBeCloseTo(-LENS_SPAN.value, 9);
+    expect(Math.abs(slidBy(1) - slidBy(0))).toBeLessThan(LENS_SPAN.value / 4);
     // A row that asks for nothing bends nothing, at every slice and every phase.
     for (const slice of [0, 7, 63])
       expect(lensSlide(0, 0.4, slice, LENS_SLICES)).toBeCloseTo(0, 12);
@@ -235,7 +235,7 @@ describe("moireGeometry", () => {
     const eighths = shatterBands(0);
     expect(shatterPieces(0, 0)).toBe(0);
     expect(shatterPieces(0.1, 0)).toBe(0);
-    expect(shatterPieces(1, 0)).toBe(eighths * SHATTER_CEILING);
+    expect(shatterPieces(1, 0)).toBe(eighths * SHATTER_CEILING.value);
     // Never past the ceiling and never under nothing, either side of the reading's own band and at
     // every piece size there is — the bound is where the share is spent, and a picture drawn
     // entirely from somewhere else is a picture of nothing (0250). A reading that is not a number
@@ -244,7 +244,7 @@ describe("moireGeometry", () => {
     for (const amount of [-1, 2, Number.POSITIVE_INFINITY]) {
       for (const size of [0, 0.25, 0.5, 0.75, 1]) {
         const bands = shatterBands(size);
-        expect(shatterPieces(amount, size)).toBeLessThanOrEqual(bands * SHATTER_CEILING);
+        expect(shatterPieces(amount, size)).toBeLessThanOrEqual(bands * SHATTER_CEILING.value);
         expect(shatterPieces(amount, size)).toBeGreaterThanOrEqual(0);
       }
     }

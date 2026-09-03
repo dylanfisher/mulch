@@ -50,6 +50,20 @@ vi.mock("@/ui/driftTiles", async (importOriginal) => ({
 // so the reveal is read from here the way src/ui/ParameterKnob.test.tsx reads it.
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
 
+// The window, as the real hook holds it, except that a test may say it is open: a server render
+// opens no window, and the strip's tuning button is for a picture already in one.
+let apart = false;
+vi.mock("@/ui/popupWindow", async (importOriginal) => {
+  const real = await importOriginal<typeof PopupWindow>();
+  return {
+    ...real,
+    useSecondWindow: (...args: Parameters<typeof real.useSecondWindow>) => {
+      const window = real.useSecondWindow(...args);
+      return apart ? { ...window, showing: true } : window;
+    },
+  };
+});
+
 // The real window, and a note of the cycle count it was asked for: the whole claim of P76 is that
 // the two sizes ask for the same one.
 vi.mock("@/lib/moire", async (importOriginal) => {
@@ -67,7 +81,9 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
 import type * as DriftTiles from "@/ui/driftTiles";
+import type * as PopupWindow from "@/ui/popupWindow";
 import { MOIRE_OVERLAY, MOIRE_POP_OUT, RECURRENCE_UNBOUNDED } from "@/lib/copy";
+import { MOIRE_TUNE } from "@/lib/copyDrift";
 import { MOIRE_CYCLES } from "@/lib/moire";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
@@ -168,6 +184,17 @@ describe("MoireStrip", () => {
         <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
       ),
     ).not.toContain(MOIRE_POP_OUT);
+  });
+
+  it("tunes a picture in a window of its own from the strip it was popped out of", () => {
+    // The registry is shared across the seam, and the popover needs this document to portal into.
+    expect(render({ ...emptyDeck(), loop: { in: 0, out: 4 } })).not.toContain(`>${MOIRE_TUNE}<`);
+    apart = true;
+    try {
+      expect(render({ ...emptyDeck(), loop: { in: 0, out: 4 } })).toContain(`>${MOIRE_TUNE}<`);
+    } finally {
+      apart = false;
+    }
   });
 
   it("is the whole of a window of its own: no header, and not held to the shell's measure", () => {

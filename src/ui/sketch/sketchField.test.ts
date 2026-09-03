@@ -5,11 +5,9 @@
  */
 import { describe, expect, it } from "vitest";
 
-import type { Ink } from "@/ui/moireScreen";
 import {
   FIELD_ASPECT,
   lit,
-  ramp,
   smin,
   terrace,
   through,
@@ -80,21 +78,7 @@ describe("the smooth minimum and the terrace", () => {
   });
 });
 
-describe("the ramp and the tunnel", () => {
-  it("reads nought as the first ink and one as the last, and refuses a ramp of none", () => {
-    const stops: readonly Ink[] = [
-      [0, 0, 0, 255],
-      [100, 50, 0, 255],
-      [255, 255, 255, 255],
-    ];
-    expect(ramp(stops, 0)).toEqual([0, 0, 0, 255]);
-    expect(ramp(stops, 1)).toEqual([255, 255, 255, 255]);
-    expect(ramp(stops, 0.5)).toEqual([100, 50, 0, 255]);
-    expect(ramp(stops, 0.25)).toEqual([50, 25, 0, 255]);
-    expect(ramp(stops.slice(1, 2), 0.9)).toEqual([100, 50, 0, 255]);
-    expect(() => ramp([], 0)).toThrow("reads nothing");
-  });
-
+describe("the tunnel", () => {
   it("sums a flat picture to itself and refuses a zoom of nothing", () => {
     expect(tunnel(() => 0.4, 1, 0.5, [1.5, 0.5], 1.1, 0.8, 10)).toBeCloseTo(0.4);
     expect(() => tunnel(() => 0.4, 1, 0.5, [1.5, 0.5], 0, 0.8, 10)).toThrow("draws nothing");

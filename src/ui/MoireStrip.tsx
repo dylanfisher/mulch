@@ -66,7 +66,6 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
-import { runStanding } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import {
@@ -85,6 +84,7 @@ import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
+import { DriftTuning } from "@/ui/MoireTuning";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useAltHeld } from "@/ui/shortcuts";
@@ -298,20 +298,17 @@ function useMoireRows(
       set.veering,
       set.tail,
       elapsed,
-      peek.sounding > 0 ? DRIFT_WIND_SECS : 0,
+      peek.sounding > 0 ? DRIFT_WIND_SECS.value : 0,
     );
     // And one step of the shape the same rack gives the whole field — the lattice, the bend and
-    // the folds — beside the wind and for the wind's reason: it reads no row. How much run the
-    // automators are holding is walked here a third time this frame (`fractalHeard` walks it
-    // twice), which is a map of a few entries and cheaper than a field to carry it in (0070).
+    // the folds — beside the wind and for the wind's reason: it reads no row, and no run (0300).
     // And one step of every look the same rack gives the picture, before the shape that spends the
     // speed one of them names: a look that has left the rack is dropped on the frame it reaches
     // nought, so the wander below is weighted by what is actually standing (`looksTravelInto`, 0279).
-    looksTravelInto(set.looks, SHAPE_SECS, elapsed, peek.sounding > 0);
+    looksTravelInto(set.looks, SHAPE_SECS.value, elapsed, peek.sounding > 0);
     shapeTravelInto(
       set.shape,
       set.shaping,
-      runStanding(peek.grown),
       master,
       elapsed,
       peek.sounding > 0,
@@ -480,6 +477,10 @@ const DriftHeader = ({
       {/* The cheap gesture stops paying for a window: the click zooms in place and this is where
           the window is asked for, from the header of the picture already open (0139). A picture
           already in a window of its own is handed no pop-out and shows none. */}
+      {/* The tuning panel rides the same guard: its popover portals into this document and its
+          toast into this shell, neither of which a window of its own has (0138, 0299). A picture
+          in its own window is tuned from the strip it was popped out of, below. */}
+      {onPopOut === undefined ? null : <DriftTuning />}
       {onPopOut === undefined ? null : (
         <Says what={MOIRE_POP_OUT_TOOLTIP}>
           <Button size="sm" variant="ghost" onClick={onPopOut}>
@@ -571,6 +572,8 @@ function useZoomedDrift(
   draw: (doc: Document, close: () => void) => ReactNode,
 ): {
   covering: boolean;
+  /** True while the picture is in a window of its own — showing, and covering nothing here. */
+  apart: boolean;
   zoom: () => void;
   popOut: (() => void) | undefined;
   close: () => void;
@@ -586,6 +589,7 @@ function useZoomedDrift(
   }, [open]);
   return {
     covering: zoomed || drift.covering,
+    apart: showing && !drift.covering,
     // Nothing while the picture is already up somewhere: a strip clicked again behind its own
     // popped-out window would draw the same yard twice, on two frame loops, for one picture (0070).
     zoom: useCallback(() => {
@@ -640,7 +644,7 @@ export function MoireStrip({
   state,
   className,
 }: MoireProps & { className?: string }) {
-  const { covering, zoom, popOut, close } = useZoomedDrift(deck, (doc, shut) => (
+  const { covering, apart, zoom, popOut, close } = useZoomedDrift(deck, (doc, shut) => (
     <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={shut} doc={doc} />
   ));
   // Not while the overlay is over it: the same rows are painted large on top and the one underneath
@@ -671,6 +675,10 @@ export function MoireStrip({
         </div>
       </button>
       <Recurrence says={recurrence} />
+      {/* The registry the panel moves is one module in one realm, and the window's picture reads
+          it as this page's does — so a picture popped out is tuned from here, where the popover
+          has a document to portal into and the toast a shell to land in (0299). */}
+      {apart ? <DriftTuning /> : null}
       {covering ? (
         <MoireOverlay
           instrument={instrument}

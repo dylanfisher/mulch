@@ -12,6 +12,7 @@
  */
 import type { Look, LookPass } from "@/lib/moireLook";
 import { clamp, denormalize } from "@/lib/range";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * How deep one band is, as a share of the field's own height: the band the width term is stated
@@ -52,7 +53,7 @@ export const bandLifts = (lift: number): boolean => lift >= 0.5;
  * bar of nothing, and what an EQ says is that one piece of the picture is louder or quieter than
  * the rest of it — never that the rest of it is gone.
  */
-export const BAND_CEILING = 0.5;
+export const BAND_CEILING = tunable("look.band", 0.5, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How hard the band is drawn: how present the picture has travelled the instance to, under the
@@ -66,7 +67,7 @@ export const BAND_CEILING = 0.5;
  * soften's answer for the soften's reason (0286): the helper states a presence times a share, and a
  * share of one is a share the band has not got.
  */
-export const bandAlpha = (presence: number): number => clamp(presence, 0, 1) * BAND_CEILING;
+export const bandAlpha = (presence: number): number => clamp(presence, 0, 1) * BAND_CEILING.value;
 
 /**
  * How many nested slices the band is laid in. The edges are softened with draws of the field and
@@ -75,14 +76,14 @@ export const bandAlpha = (presence: number): number => clamp(presence, 0, 1) * B
  * of the band carrying all of them and its rim carrying one. Three, because two is an edge with a
  * step in it and four is a fourth whole draw of a slice for a rim nobody can see.
  */
-export const BAND_EDGES = 3;
+export const BAND_EDGES = tunable("look.bandEdges", 3, { min: 1, max: 8, step: 1 });
 
 /**
  * How deep the nested slice at one step of the taper is, as a share of the band's own depth: the
  * whole of it at the outermost step and a `BAND_EDGES`th of it at the innermost, so the steps stand
  * evenly across the band's half-depth.
  */
-export const bandTaper = (edge: number): number => 1 - edge / BAND_EDGES;
+export const bandTaper = (edge: number): number => 1 - edge / BAND_EDGES.value;
 
 /**
  * The band, drawn: the field itself, and then the slice of it the band stands on drawn again over
@@ -124,8 +125,8 @@ const bandPass: LookPass = (into, source, presence, terms) => {
   const middle = bandCentre(terms.position ?? 0) * height;
   const deep = bandDepth(terms.width ?? 0) * height;
   into.globalCompositeOperation = bandLifts(terms.lift ?? 0.5) ? "destination-out" : "source-over";
-  into.globalAlpha = alpha / BAND_EDGES;
-  for (let edge = 0; edge < BAND_EDGES; edge++) {
+  into.globalAlpha = alpha / BAND_EDGES.value;
+  for (let edge = 0; edge < BAND_EDGES.value; edge++) {
     const half = (deep / 2) * bandTaper(edge);
     const top = Math.min(height - 1, Math.max(0, Math.round(middle - half)));
     const foot = Math.max(top + 1, Math.min(height, Math.round(middle + half)));

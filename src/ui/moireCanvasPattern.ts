@@ -11,7 +11,7 @@
 import { halfCosine, TAU, turnedScale, type Aim, type MoireRow, type ScreenInk } from "@/lib/moire";
 import { fractalRest } from "@/lib/moireFractal";
 import { centreAcross } from "@/lib/moireGeometry";
-import { LATTICE_CELL_PX } from "@/lib/moireGrating";
+import { latticeCellPx } from "@/lib/moireGrating";
 import {
   LATTICE_BREATH,
   LATTICE_GEOMETRY,
@@ -139,7 +139,7 @@ export function cutLattice(
 /**
  * Point the lattice: one cell scaled to its own rest size in device pixels, tightened by the ratio
  * the shape says and breathing a few percent over the row's period — so the picture is folded into
- * `height / (LATTICE_CELL_PX · dpr)` cells at rest and that many times more as the rack fills, and
+ * `height / (latticeCellPx() · dpr)` cells at rest and that many times more as the rack fills, and
  * a cell is the same size on a thirty-two-pixel strip and a window fourteen hundred tall (0293).
  * Turned a whole number of quarter turns a period plus the lean
  * the output gives it; and slid one whole cell a period along its own axis, about the row's own
@@ -155,9 +155,9 @@ function aimLattice(
   height: number,
   aimed: Aim,
 ): void {
-  const cell = (LATTICE_CELL_PX * devicePx(dpr)) / Math.max(shape.cells, Number.EPSILON);
-  const scale = (cell / LATTICE_TILE_PX) * (1 + LATTICE_BREATH * halfCosine(turns));
-  const angle = TAU * ((LATTICE_QUARTERS * turns) / 4 + shape.lean);
+  const cell = (latticeCellPx() * devicePx(dpr)) / Math.max(shape.cells, Number.EPSILON);
+  const scale = (cell / LATTICE_TILE_PX) * (1 + LATTICE_BREATH.value * halfCosine(turns));
+  const angle = TAU * ((LATTICE_QUARTERS.value * turns) / 4 + shape.lean);
   turnedScale(aimed, scale, angle);
   // The cell point pinned at the anchor walks one whole cell along the pattern's own axis a
   // period, which is the slide; the anchor is the ground's, so a jump travels the point the

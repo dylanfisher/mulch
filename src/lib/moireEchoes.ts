@@ -13,6 +13,7 @@
 import type { Look, LookPass } from "@/lib/moireLook";
 import { weighed } from "@/lib/moireWeigh";
 import { clamp, denormalize } from "@/lib/range";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * How far one repeat stands from the one before it, as a share of the field's width: the band the
@@ -41,7 +42,7 @@ export const echoSpacing = (spacing: number): number => denormalize(spacing, ...
  * repeats the ghosts stand closer together than the picture's own diagonals do, which reads as one
  * smeared picture rather than as a picture repeated (shot before this landed).
  */
-export const ECHO_CAP = 3;
+export const ECHO_CAP = tunable("look.echoCap", 3, { min: 1, max: 6, step: 1 });
 
 /**
  * How many repeats stand behind the field, off the feedback term: **one at no feedback at all**,
@@ -54,7 +55,7 @@ export const ECHO_CAP = 3;
  * repeats fading up behind the picture, which is what a delay coming in sounds like.
  */
 export const echoCount = (count: number): number =>
-  1 + Math.round(clamp(count, 0, 1) * (ECHO_CAP - 1));
+  1 + Math.round(clamp(count, 0, 1) * (ECHO_CAP.value - 1));
 
 /**
  * How much of one repeat is left in the next: the band the fade term is stated across, quickest
@@ -72,7 +73,7 @@ export const ECHO_FADE: readonly [number, number] = [0.35, 0.75];
  * because the feedback is still the knob that decides the tail and a Time that could reach the top
  * of the band alone would say it was not.
  */
-export const ECHO_TIME_FADE = 0.5;
+export const ECHO_TIME_FADE = tunable("look.echoTimeFade", 0.5, { min: 0, max: 1, step: 0.01 });
 
 /**
  * How much of one repeat survives into the next: the fade term its entry declared, read across a
@@ -87,7 +88,7 @@ export const ECHO_TIME_FADE = 0.5;
 export const echoFade = (fade: number, spacing: number): number =>
   denormalize(
     clamp(fade, 0, 1),
-    ECHO_FADE[0] + clamp(spacing, 0, 1) * ECHO_TIME_FADE * (ECHO_FADE[1] - ECHO_FADE[0]),
+    ECHO_FADE[0] + clamp(spacing, 0, 1) * ECHO_TIME_FADE.value * (ECHO_FADE[1] - ECHO_FADE[0]),
     ECHO_FADE[1],
   );
 
@@ -98,7 +99,7 @@ export const echoFade = (fade: number, spacing: number): number =>
  * Under a half, so what stands in front is always the picture itself and what is behind it is always
  * a ghost of one.
  */
-export const ECHO_CEILING = 0.45;
+export const ECHO_CEILING = tunable("look.echo", 0.45, { min: 0, max: 0.9, step: 0.01 });
 
 /**
  * The ceiling one of `crowd` standing delays draws its first rung under, so that all of them
@@ -113,7 +114,7 @@ export const ECHO_CEILING = 0.45;
  * the ceiling by a fraction as well would brighten the ghosts of a delay that is leaving.
  */
 export const echoCeiling = (crowd: number): number =>
-  crowd <= 1 ? ECHO_CEILING : 1 - (1 - ECHO_CEILING) ** (1 / crowd);
+  crowd <= 1 ? ECHO_CEILING.value : 1 - (1 - ECHO_CEILING.value) ** (1 / crowd);
 
 /**
  * How much of the picture the first repeat is drawn at: the presence the look has travelled to and

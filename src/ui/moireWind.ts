@@ -14,6 +14,7 @@ import { fold } from "@/lib/copy";
 import { easedToward, foldStop, wrap, type MoireWind } from "@/lib/moire";
 import { rackTail, type RackHeard } from "@/lib/moireSound";
 import type { DeckState } from "@/state/store";
+import { tunable } from "@/lib/moireTuning";
 
 /** Where the wind stands before a rack has blown anything: still, and nowhere. */
 export const windRest = (): MoireWind => ({ drift: 0, veer: 0 });
@@ -71,7 +72,7 @@ export function rackWind(effects: DeckState["effects"]): { tail: number; veering
  * for and far outside a frame: the field slows, stands still for a moment and blows back the other
  * way, which is a wind turning rather than a picture snapping.
  */
-export const DRIFT_WIND_SECS = 6;
+export const DRIFT_WIND_SECS = tunable("wind.secs", 6, { min: 0.5, max: 30, step: 0.5 });
 
 /**
  * And how fast a fully blown field travels, in turns of one cell of the screen a second — the same
@@ -81,13 +82,13 @@ export const DRIFT_WIND_SECS = 6;
  * sliding under everything standing on it rather than as a scroll — slow, because the whole of what
  * the reading says is a long tail, and a long tail is a slow wide drift.
  */
-export const DRIFT_WIND_TURNS = 0.2;
+export const DRIFT_WIND_TURNS = tunable("wind.turns", 0.2, { min: 0, max: 1, step: 0.01 });
 
 /**
  * The whole travel a direction has: -1 to 1, a full reversal. Named because `easedToward` is stated
  * as a whole reach in `over` seconds and the reach is what makes that sentence mean anything (0266).
  */
-const WIND_VEER_REACH = 2;
+const WIND_VEER_REACH = tunable("wind.veer", 2, { min: 0.5, max: 4, step: 0.1 });
 
 /**
  * One step of the wind: the direction one step nearer what the population says, and the field blown
@@ -114,7 +115,10 @@ export function windTravelInto(
 ): void {
   // A whole reversal is one `DRIFT_WIND_SECS` and half of one is half of that, exactly as a whole
   // reach of an ink is one `DRIFT_INK_SECS`.
-  wind.veer = easedToward(wind.veer, veering, elapsed, over, WIND_VEER_REACH);
+  wind.veer = easedToward(wind.veer, veering, elapsed, over, WIND_VEER_REACH.value);
   if (!(over > 0)) return;
-  wind.drift = wrap(wind.drift + wind.veer * tail * DRIFT_WIND_TURNS * Math.max(elapsed, 0), 1);
+  wind.drift = wrap(
+    wind.drift + wind.veer * tail * DRIFT_WIND_TURNS.value * Math.max(elapsed, 0),
+    1,
+  );
 }

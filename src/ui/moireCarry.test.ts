@@ -32,7 +32,7 @@ const instance = (id: string, effect: SessionEffect["effect"] = "scatter"): Sess
 /** A set built on `effects`, with its looks travelled `secs` of the way in. */
 const set = (effects: SessionEffect[], secs = 0): MoireRowSet => {
   const built = moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null);
-  looksTravelInto(built.looks, SHAPE_SECS, secs, true);
+  looksTravelInto(built.looks, SHAPE_SECS.value, secs, true);
   return built;
 };
 
@@ -42,7 +42,7 @@ const at = (built: MoireRowSet, key: string): number | undefined =>
 
 describe("carrying a picture's looks onto the set that replaces it", () => {
   it("matches by the instance's own id and never by its place in the rack", () => {
-    const was = set([instance("a"), instance("b")], SHAPE_SECS / 2);
+    const was = set([instance("a"), instance("b")], SHAPE_SECS.value / 2);
     expect(at(was, "a")).toBeCloseTo(0.5);
     // The first instance is removed, so the second stands where the first used to. An index would
     // hand it the departing look's travel; the key leaves it exactly where it had got to.
@@ -58,7 +58,7 @@ describe("carrying a picture's looks onto the set that replaces it", () => {
   });
 
   it("keeps a leaving look until its presence reaches nought, and drops it on the frame it does", () => {
-    const was = set([instance("a")], SHAPE_SECS);
+    const was = set([instance("a")], SHAPE_SECS.value);
     expect(at(was, "a")).toBe(1);
     const now = set([]);
     carryLooks(was, now);
@@ -66,9 +66,9 @@ describe("carrying a picture's looks onto the set that replaces it", () => {
     // picture over the wind's seconds rather than between two frames.
     expect(now.looks).toHaveLength(1);
     expect(now.looks[0]?.presence).toBe(0);
-    looksTravelInto(now.looks, SHAPE_SECS, SHAPE_SECS / 2, true);
+    looksTravelInto(now.looks, SHAPE_SECS.value, SHAPE_SECS.value / 2, true);
     expect(at(now, "a")).toBeCloseTo(0.5);
-    looksTravelInto(now.looks, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(now.looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(now.looks).toEqual([]);
     // And one that had already finished leaving is not carried at all: it weighs nothing and draws
     // nothing, so keeping it would be a pass in the picture nobody asked for.
@@ -78,14 +78,14 @@ describe("carrying a picture's looks onto the set that replaces it", () => {
   });
 
   it("carries where each look had got to and never where it is going", () => {
-    const was = set([instance("a")], SHAPE_SECS / 4);
+    const was = set([instance("a")], SHAPE_SECS.value / 4);
     const now = set([instance("a")]);
     carryLooks(was, now);
     expect(at(now, "a")).toBeCloseTo(0.25);
     // Where it is going is the new set's own reading: that is what the standing rack says now.
     expect(now.looks[0]?.presence).toBe(1);
     // And the new set holds its own look: the old picture travelling on moves nothing in it.
-    looksTravelInto(was.looks, SHAPE_SECS, SHAPE_SECS, true);
+    looksTravelInto(was.looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(at(now, "a")).toBeCloseTo(0.25);
   });
 });

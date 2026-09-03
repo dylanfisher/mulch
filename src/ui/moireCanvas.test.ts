@@ -33,7 +33,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { runFeedback } from "@/lib/moireAge";
-import { gratingDepth, gratingTurns, LATTICE_CELL_PX } from "@/lib/moireGrating";
+import { gratingDepth, gratingTurns, latticeCellPx } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import {
@@ -684,7 +684,7 @@ describe("moireCanvas", () => {
     if (aim === undefined) throw new Error("the lattice was not aimed");
     expect(aim.b).not.toBeCloseTo(0, 9);
     expect(aim.c).not.toBeCloseTo(0, 9);
-    expect(Math.hypot(aim.a, aim.b)).toBeCloseTo(LATTICE_CELL_PX / 2 / LATTICE_TILE_PX, 9);
+    expect(Math.hypot(aim.a, aim.b)).toBeCloseTo(latticeCellPx() / 2 / LATTICE_TILE_PX, 9);
     // The same cell on a picture ten times as tall — a size in CSS pixels and never a share of the
     // height (0293) — and twice the cell at twice the device pixels, the one thing that scales it.
     const cellOn = (height: number, dpr: number): number => {
@@ -693,14 +693,14 @@ describe("moireCanvas", () => {
       return Math.hypot(at?.a ?? 0, at?.b ?? 0);
     };
     expect(cellOn(1400, 1)).toBeCloseTo(Math.hypot(aim.a, aim.b), 9);
-    expect(cellOn(128, 2)).toBeCloseTo((LATTICE_CELL_PX * 2) / 2 / LATTICE_TILE_PX, 9);
+    expect(cellOn(128, 2)).toBeCloseTo((latticeCellPx() * 2) / 2 / LATTICE_TILE_PX, 9);
     // Tighter is smaller, and nothing else about it moves.
     vi.stubGlobal("devicePixelRatio", 1);
     const tight = paintedOn(400, 128, rows, 3, WINDOW, { shape: { ...shape, cells: 4 } }).aims.at(
       -1,
     );
     expect(Math.hypot(tight?.a ?? 0, tight?.b ?? 0)).toBeCloseTo(
-      LATTICE_CELL_PX / 4 / LATTICE_TILE_PX,
+      latticeCellPx() / 4 / LATTICE_TILE_PX,
       9,
     );
     expect(Math.atan2(tight?.b ?? 0, tight?.a ?? 0)).toBeCloseTo(Math.atan2(aim.b, aim.a), 9);
@@ -720,16 +720,16 @@ describe("moireCanvas", () => {
     // how many of them the rack chains — read off the looks the set already holds and never off a
     // clock, which would answer differently on two windows of one yard (0284).
     const passes = (count: number): MoireLook[] => rackOf("reverb", count).looks;
-    expect(passes(LOOK_FULL_RATE)).toHaveLength(LOOK_FULL_RATE);
-    expect(looksPaintMs(passes(LOOK_FULL_RATE))).toBe(DRIFT_PAINT_MS);
+    expect(passes(LOOK_FULL_RATE.value)).toHaveLength(LOOK_FULL_RATE.value);
+    expect(looksPaintMs(passes(LOOK_FULL_RATE.value))).toBe(DRIFT_PAINT_MS);
     expect(looksPaintMs(passes(0))).toBe(DRIFT_PAINT_MS);
     // One pass past the rate is half of it, and every longer chain is the same half: the picture
     // slows once and never further, so ten passes are painted at the floor and not under it.
-    const slowed = looksPaintMs(passes(LOOK_FULL_RATE + 1));
+    const slowed = looksPaintMs(passes(LOOK_FULL_RATE.value + 1));
     expect(slowed).toBeCloseTo(DRIFT_PAINT_MS * 2, 9);
-    for (const count of [LOOK_FULL_RATE + 1, 6, 10]) {
+    for (const count of [LOOK_FULL_RATE.value + 1, 6, 10]) {
       expect(looksPaintMs(passes(count))).toBe(slowed);
-      expect(1000 / looksPaintMs(passes(count))).toBeGreaterThanOrEqual(LOOK_SLOW_HZ);
+      expect(1000 / looksPaintMs(passes(count))).toBeGreaterThanOrEqual(LOOK_SLOW_HZ.value);
     }
     // And a rack of looks that take no slot in the chain is not a chain: a sway is cut through the
     // slices the field is read back in either way, so ten of them paint at the whole rate.
@@ -739,14 +739,14 @@ describe("moireCanvas", () => {
     // set that replaced it and drawn until it reaches nought, so the cadence stays halved for as
     // long as the chain is long — off the set the painting walks and never off the commit that
     // built it (`carryLooks`, `looksTravelInto`).
-    const stood = rackOf("reverb", LOOK_FULL_RATE + 1);
-    looksTravelInto(stood.looks, SHAPE_SECS, ARRIVED, true);
+    const stood = rackOf("reverb", LOOK_FULL_RATE.value + 1);
+    looksTravelInto(stood.looks, SHAPE_SECS.value, ARRIVED, true);
     const leaving = rackOf("reverb", 1);
     carryLooks(stood, leaving);
-    expect(leaving.looks).toHaveLength(LOOK_FULL_RATE + 1);
+    expect(leaving.looks).toHaveLength(LOOK_FULL_RATE.value + 1);
     expect(looksPaintMs(leaving.looks)).toBe(slowed);
     // Until it has finished leaving, and then the picture is quick again on the frame it is dropped.
-    looksTravelInto(leaving.looks, SHAPE_SECS, ARRIVED, true);
+    looksTravelInto(leaving.looks, SHAPE_SECS.value, ARRIVED, true);
     expect(leaving.looks).toHaveLength(1);
     expect(looksPaintMs(leaving.looks)).toBe(DRIFT_PAINT_MS);
   });

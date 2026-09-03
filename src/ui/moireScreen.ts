@@ -30,7 +30,6 @@ import {
   cosTurn,
   DRIFT_DISPERSE_REACH,
   DRIFT_FRINGE_REACH,
-  DRIFT_HUE_REACH,
   DRIFT_REST,
   rowOffset,
   TAU,
@@ -40,10 +39,12 @@ import {
   type ScreenInk,
   type MoireRow,
 } from "@/lib/moire";
+import { type Ink, ramp } from "@/lib/moireColour";
 import { gratingKeep } from "@/lib/moireGrating";
 import { denormalize } from "@/lib/range";
-import { screenInkRest, SCREEN_SATURATE_REACH, stepped } from "@/ui/moireScreenInk";
+import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
 import { viewOf } from "@/ui/canvasSurface";
+import { tunable } from "@/lib/moireTuning";
 
 /**
  * How far apart the lit columns of the screen this picture is filmed off are, in CSS pixels. CSS
@@ -98,14 +99,25 @@ export const SCREEN_FLOOR = 0.6;
 const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as const;
 
 /**
- * The two inks the picture travels between, cool first. A second colour per scheme and the fourth
- * crossing of the colour boundary (docs/boundaries.md), taken deliberately and written down first
+ * The ramp the picture's ink is read along, cool end first, with the caller's own resolved ink at
+ * the stop `null` marks — the middle, so a picture at rest is still the `text-*` token it asked
+ * for. Two of these were the fourth crossing of the colour boundary (docs/boundaries.md), taken
+ * deliberately and written down first
  * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)): the picture was one
- * resolved `text-*` token and a fringe over it, so every yard read as the same hue whatever it was
- * playing. Token names and not colours, for the reason `CHANNEL_TOKENS` are, and registered as
- * `<color>` beside them.
+ * resolved token and a fringe over it, so every yard read as the same hue whatever it was playing.
+ * Five stops is the structure bench's ramp, with the ground left off because the alpha is the
+ * caller's ([0301](../../docs/decisions/0301-the-ink-orbits-a-ramp-of-five.md)): the two channel
+ * tokens that stand between the inks and the caller's own are tokens the file already reads, so
+ * the ramp crosses no boundary the two inks had not. Token names and not colours, for the reason
+ * `CHANNEL_TOKENS` are, and registered as `<color>` beside them.
  */
-const INK_TOKENS = ["--drift-cool", "--drift-hot"] as const;
+export const INK_RAMP_TOKENS = [
+  "--drift-cool",
+  "--screen-green",
+  null,
+  "--screen-red",
+  "--drift-hot",
+] as const;
 
 /**
  * How far a third of a cell is pushed onto its own channel. A subpixel neither tints the picture
@@ -165,8 +177,8 @@ export const CHANNEL_FRINGE = 0.55;
  * breathes, in device pixels. Both small, and both sweeping *through* rest rather than around it,
  * so what they do to the lattice passes through square instead of sitting at one offset.
  */
-const TURN_TURNS = 0.006;
-const BREATH_PX = 0.5;
+const TURN_TURNS = tunable("screen.turn", 0.006, { min: 0, max: 0.05, step: 0.001 });
+const BREATH_PX = tunable("screen.breath", 0.5, { min: 0, max: 3, step: 0.05 });
 
 /**
  * How far the lattice leans, in the same turns. Once over the whole tile rather than once per row
@@ -174,7 +186,7 @@ const BREATH_PX = 0.5;
  * (0128 amended). It costs the matrix write it was already making and no longer costs a
  * `setTransform` and a `fillStyle` per row.
  */
-const SHEAR_TURNS = 0.02;
+const SHEAR_TURNS = tunable("screen.shear", 0.02, { min: 0, max: 0.1, step: 0.001 });
 
 /** The screen's pitch in device pixels on a display of `dpr`: what a tile is measured in. */
 export const gridPitchPx = (dpr: number): number => Math.max(2, Math.round(GRID_PX * dpr));
@@ -406,14 +418,17 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * pixel loop on a frame, which is the one thing 0129 forbids. A tile is one beat wide, so the room
  * is a few kilobytes rather than a picture.
  *
- * **A fourth ladder walks it now, and the number is knowingly left where it is** (0283): a standing
- * pop saturates the ink, and pop's own Sheen is declared into `hue` as well, so one drag of it walks
- * two of these ladders at once. This room was never enough to hold a whole travel — three ladders
- * already asked more of it than it holds — and what a miss costs is the build above on a later
- * paint, which is the same eight-stop cost every colour move has paid since 0266. Raising it is a
- * number nobody has measured, and the measurement belongs to the step that prices a loaded rack.
+ * **A fourth ladder walks it now** (0283): a standing pop saturates the ink, and pop's own Sheen is
+ * declared into `hue` as well, so one drag of it walks two of these ladders at once. This room was
+ * never enough to hold a whole travel — three ladders already asked more of it than it holds — and
+ * what a miss costs is the build above on a later paint.
+ *
+ * **Doubled again for the orbit** (0301): the hue's ladder is `HUE_STEPS` rather than eight, and
+ * the picture's rest walks it both ways all the while the yard sounds, so a full swing is up to
+ * `2 · INK_WANDER · HUE_STEPS` stops visited twice an orbit — held, each is one build a session
+ * and never one a frame. Still a few kilobytes: a tile is one beat wide.
  */
-const TILE_CACHE = 24;
+const TILE_CACHE = 48;
 
 /**
  * What a screen is keyed by that is colour rather than shape: the travelled ink above, rounded onto
@@ -427,9 +442,6 @@ const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: st
 
 /** The tile's transform, one object refilled: a per-frame paint allocates nothing (0070). */
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-
-/** One colour the theme resolved, as the four channels a pixel is written in. */
-export type Ink = [number, number, number, number];
 
 /** What a third of a cell does to each of the row's own channels, when no token says otherwise. */
 const FLAT_GAIN: readonly [number, number, number] = [1, 1, 1];
@@ -487,25 +499,24 @@ export function inkOf(css: string): Ink {
   return [r, g, b, a];
 }
 
+/** The five stops, resolved: one list refilled on a build, so a build allocates a ramp and no more. */
+const stops: Ink[] = INK_RAMP_TOKENS.map(() => [0, 0, 0, 0]);
+
 /**
- * The ink the picture is actually laid down in: the one its caller resolved, carried toward the
- * cool token or the hot one by however far a row's own value claimed. At rest it is the caller's
- * ink and neither token is read; at either end of a claiming knob's travel it is that token. The
- * alpha stays the caller's, because how solid the picture is belongs to the surface it is on and
- * not to what colour it went (0141).
+ * The ink the picture is actually laid down in: the one its caller resolved, read along the ramp
+ * above by where the picture's own hue has got to. At the middle it is the caller's ink and no
+ * token is read; at either end it is that end's token, and between two stops it is the straight
+ * mix of them (`ramp`, src/lib/moireColour.ts). The alpha stays the caller's, because how solid
+ * the picture is belongs to the surface it is on and not to what colour it went (0141).
  */
-function towardInk(ink: Ink, style: CSSStyleDeclaration, hue: number): Ink {
-  const amount = Math.min(1, Math.abs(hue - DRIFT_REST.hue) / DRIFT_REST.hue);
-  if (amount <= 0) return ink;
-  const toward = inkOf(
-    style.getPropertyValue(hue > DRIFT_REST.hue ? INK_TOKENS[1] : INK_TOKENS[0]).trim(),
-  );
-  return [
-    mix(ink[0], toward[0], amount),
-    mix(ink[1], toward[1], amount),
-    mix(ink[2], toward[2], amount),
-    ink[3],
-  ];
+function rampInk(ink: Ink, style: CSSStyleDeclaration, hue: number): Ink {
+  if (hue === DRIFT_REST.hue) return ink;
+  INK_RAMP_TOKENS.forEach((token, at) => {
+    stops[at] = token === null ? ink : inkOf(style.getPropertyValue(token).trim());
+  });
+  const read = ramp(stops, hue);
+  read[3] = ink[3];
+  return read;
 }
 
 /**
@@ -562,7 +573,7 @@ function build(
   const ink = tile.getContext("2d");
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
-  const row = towardInk(inkOf(color), style, tint.hue);
+  const row = rampInk(inkOf(color), style, tint.hue);
   const gains = CHANNEL_TOKENS.map((token) =>
     channelGain(inkOf(style.getPropertyValue(token).trim()), tint.saturate),
   );
@@ -621,10 +632,11 @@ export function inkThrough(
   // Where the picture's ink has travelled to, rounded onto its own steps so a knob moves the tile
   // rather than rebuilding it a pixel at a time on every pointer move. The *travelled* value is
   // what is rounded, which is what makes a jump walk the ladder instead of cutting across it
-  // (`inkTravelInto`): the stops are the same eight, and they are visited one at a time.
+  // (`inkTravelInto`): the stops are the same eight — the hue's own finer ones — and they are
+  // visited one at a time.
   tinted.fringe = stepped(ink.fringe, DRIFT_FRINGE_REACH);
   tinted.disperse = stepped(ink.disperse, DRIFT_DISPERSE_REACH);
-  tinted.hue = stepped(ink.hue, DRIFT_HUE_REACH);
+  tinted.hue = steppedHue(ink.hue);
   tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;
@@ -638,12 +650,12 @@ export function inkThrough(
   rolled.e = (termTurns(rows, "crawl") + wind) * beatPx(pitch);
   turnedScale(
     rolled,
-    1 + (BREATH_PX / pitch) * Math.sin(TAU * termTurns(rows, "breath")),
-    TAU * TURN_TURNS * Math.sin(TAU * termTurns(rows, "turn")),
+    1 + (BREATH_PX.value / pitch) * Math.sin(TAU * termTurns(rows, "breath")),
+    TAU * TURN_TURNS.value * Math.sin(TAU * termTurns(rows, "turn")),
   );
   // The lean, added to the term the turn already wrote: a skew on the tile as a whole, sweeping
   // through rest like the other three rather than sitting at one offset.
-  rolled.c += TAU * SHEAR_TURNS * Math.sin(TAU * termTurns(rows, "shear"));
+  rolled.c += TAU * SHEAR_TURNS.value * Math.sin(TAU * termTurns(rows, "shear"));
   pattern.setTransform(rolled);
   context.fillStyle = pattern;
 }

@@ -21,6 +21,7 @@ import { escapeTurns, nestedTurns, type FractalSeed } from "./moireFractal.ts";
 import { LATTICE_GEOMETRY, latticeTile } from "./moireLattice.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize } from "./range.ts";
+import { tunable } from "./moireTuning.ts";
 
 /**
  * How far in from the edges a row's anchor may be carried, as a fraction of the picture. A knob at
@@ -269,11 +270,11 @@ export const geometryCover = (
  * of it.
  */
 export const LENS_SLICES = 64;
-export const LENS_SPAN = 0.05;
+export const LENS_SPAN = tunable("lens.span", 0.05, { min: 0, max: 0.25, step: 0.005 });
 
 /** How far one slice of the field slides, as a fraction of its width: one wave down the picture. */
 export const lensSlide = (amount: number, turns: number, slice: number, slices: number): number =>
-  amount * LENS_SPAN * cosTurn(turns + slice / Math.max(1, slices));
+  amount * LENS_SPAN.value * cosTurn(turns + slice / Math.max(1, slices));
 
 /**
  * The most of the picture that may be drawn from somewhere else in it. **A hard ceiling and not a
@@ -284,10 +285,10 @@ export const lensSlide = (amount: number, turns: number, slice: number, slices: 
  * pass deeper should not have to lay the last frame back in harder to get it. Under a half, most of
  * the picture is still where it belongs and the rest reads as the field breaking along its slices.
  */
-export const SHATTER_CEILING = 0.5;
+export const SHATTER_CEILING = tunable("shatter.ceiling", 0.5, { min: 0, max: 1, step: 0.05 });
 
 /** How much of the picture a field shattering `amount` draws from elsewhere. Never past it. */
-export const shatterShare = (amount: number): number => SHATTER_CEILING * clamp(amount, 0, 1);
+export const shatterShare = (amount: number): number => SHATTER_CEILING.value * clamp(amount, 0, 1);
 
 /**
  * How many pieces a shattered field comes apart into, at the shut end of the span and at the open
@@ -336,7 +337,10 @@ export const shatterBands = (size: number): number =>
  */
 export const shatterPieces = (amount: number, size: number): number => {
   const bands = shatterBands(size);
-  return Math.min(Math.round(shatterShare(amount) * bands), Math.floor(SHATTER_CEILING * bands));
+  return Math.min(
+    Math.round(shatterShare(amount) * bands),
+    Math.floor(SHATTER_CEILING.value * bands),
+  );
 };
 
 /** Which of those pieces one slice of the field belongs to. */
