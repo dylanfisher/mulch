@@ -45,6 +45,23 @@ export const BOUNDS_MENU = "Bounds";
  */
 export const WEIGHT_LABEL = "How Often";
 
+/**
+ * The name of the word inside one entry's card on the grid: whether that entry is drawn at all,
+ * reached without opening the popover its weight lives in. Off is the weight at none — the one
+ * setting under which an entry is never drawn — and on is the weight the entry ships at.
+ */
+export function drawsLabel(name: string): string {
+  return `Draw ${name}`;
+}
+
+/** What that word says in each of its two states — the whole of what the card shows for it. */
+export const DRAWS_ON = "Enabled";
+export const DRAWS_OFF = "Disabled";
+
+/** What pressing the word does, said once on hover for every entry on the grid. */
+export const DRAWS_TOOLTIP =
+  "Enabled is this effect in the pool. Disabled is How Often at none, and enabling it again is where it ships.";
+
 /** What one window says when it is the parameter's whole declared range — which is no window. */
 export const BOUNDS_ANY = "any";
 

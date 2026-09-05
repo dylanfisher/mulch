@@ -12,6 +12,7 @@
 // count tracks the pool's surface rather than this file's complexity, exactly as the rack's own
 // does. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+import { ArrowUpRightIcon } from "@phosphor-icons/react/ArrowUpRight";
 import { useCallback, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -25,7 +26,16 @@ import {
   type EffectParamId,
 } from "@/audio/effects/registry";
 import { PARAMS, paramIn, type EffectParamValues, type ParamId } from "@/audio/params";
-import { BOUNDS_ANY, BOUNDS_MENU, boundsLabel, WEIGHT_LABEL } from "@/lib/copyAuto";
+import {
+  BOUNDS_ANY,
+  BOUNDS_MENU,
+  boundsLabel,
+  DRAWS_OFF,
+  DRAWS_ON,
+  DRAWS_TOOLTIP,
+  drawsLabel,
+  WEIGHT_LABEL,
+} from "@/lib/copyAuto";
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
 import { denormalize, normalize } from "@/lib/range";
 import type { EffectBound, EffectBounds } from "@/state/session";
@@ -126,6 +136,52 @@ export function WeightRow({
         onValueCommitted={commit}
       />
     </div>
+  );
+}
+
+/**
+ * Whether this entry is drawn at all, as one word inside its card on the grid: the one thing a
+ * hand reaches for oftener than the slider, reached here without opening every card's popover to
+ * find it. Off is the weight at none, which is the one setting under which an entry is never
+ * drawn; on is the weight the entry ships at, because nothing remembers where it stood before — a
+ * second durable number for one dial is a value the boundaries forbid. A pressed toggle rather
+ * than a switch, because the word is the whole of the control and the card behind it is what
+ * shows the state (P25).
+ *
+ * Exported because its one command per press is what the rack's own suite presses.
+ */
+export function DrawsToggle({
+  instrument,
+  deck,
+  instance,
+  param,
+  value,
+  name,
+}: {
+  instrument: Instrument;
+  deck: DeckId;
+  instance: EffectInstanceId;
+  param: ParamId;
+  value: number;
+  name: string;
+}) {
+  const shipped = PARAMS[param].default;
+  const on = value > 0;
+  const press = useCallback(() => {
+    instrument.send({ t: "param.set", deck, instance, param, value: on ? 0 : shipped });
+  }, [instrument, deck, instance, param, on, shipped]);
+  return (
+    <Says what={DRAWS_TOOLTIP}>
+      <button
+        type="button"
+        aria-pressed={on}
+        aria-label={drawsLabel(name)}
+        className="shrink-0 cursor-pointer px-2 type-eyebrow text-muted-foreground hover:text-foreground"
+        onClick={press}
+      >
+        {on ? DRAWS_ON : DRAWS_OFF}
+      </button>
+    </Says>
   );
 }
 
@@ -257,16 +313,47 @@ export function PoolEntry({
   const label = `${name} ${plugin.label}`;
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          // The word beside the icon, because a grid of eight pictures is a rebus: the icon is what
-          // finds the entry at a glance and the word is what settles which one it is (0055).
-          <Button size="sm" variant="outline" className="w-full justify-start" aria-label={label}>
-            <Icon data-icon="inline-start" />
-            {plugin.label}
-          </Button>
-        }
-      />
+      {/* The card: the entry's button and, on its right and inside the same border, whether it is
+          drawn at all (`DrawsToggle`). The card is grey while it is — the word says the state and
+          the ground behind it says the same thing at a glance across the whole grid. */}
+      <div
+        data-slot="pool-card"
+        data-drawn={value > 0}
+        className="flex w-full min-w-0 cursor-pointer items-center border border-border data-[drawn=true]:bg-muted"
+      >
+        <PopoverTrigger
+          render={
+            // The word beside the icon, because a grid of eight pictures is a rebus: the icon is
+            // what finds the entry at a glance and the word is what settles which one it is (0055).
+            <Button
+              size="sm"
+              variant="ghost"
+              className="min-w-0 flex-1 cursor-pointer justify-start"
+              aria-label={label}
+            >
+              <Icon data-icon="inline-start" />
+              {plugin.label}
+              {/* And after the word, that pressing it opens something: the popover is the only
+                  way to the weight's own slider and the windows, and a card that looks like a
+                  label alone hides that there is a door in it. Decoration, so hidden from a
+                  reader the name already tells. */}
+              <ArrowUpRightIcon
+                data-icon="inline-end"
+                aria-hidden="true"
+                className="text-muted-foreground"
+              />
+            </Button>
+          }
+        />
+        <DrawsToggle
+          instrument={instrument}
+          deck={deck}
+          instance={instance}
+          param={weight}
+          value={value}
+          name={label}
+        />
+      </div>
       {/* Opens instantly, for the reason the effect picker's does: ./scripts/drive presses it. */}
       <PopoverContent side="bottom" align="start" className={`w-64 gap-3 ${INSTANT_POPUP}`}>
         <PopoverTitle>{plugin.label}</PopoverTitle>

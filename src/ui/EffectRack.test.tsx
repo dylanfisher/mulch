@@ -18,12 +18,19 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
 import { CLEAR_ALL_LABEL, effectsClearTitle, EFFECTS_LABEL } from "@/lib/copy";
 import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
-import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, WEIGHT_LABEL } from "@/lib/copyAuto";
+import {
+  AUTOMATOR_RUN_LABEL,
+  BOUNDS_MENU,
+  DRAWS_OFF,
+  DRAWS_ON,
+  drawsLabel,
+  WEIGHT_LABEL,
+} from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { drawnParamIds } from "@/audio/effects/automator";
 import { effectById, isBoundableParam, type EffectId } from "@/audio/effects/registry";
 import { effectParamIds, PARAMS, type ParamId } from "@/audio/params";
-import { PoolEntry, WeightRow } from "@/ui/PoolEntries";
+import { DrawsToggle, PoolEntry, WeightRow } from "@/ui/PoolEntries";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
@@ -602,15 +609,84 @@ describe("a card is its knobs", () => {
         name: "Automator 1",
       });
 
-      // The weight leads, then exactly the parameters that entry's arrivals are drawn at — read
-      // off the entry itself, so no button can open another's rows (0208).
+      // The switch on the grid speaks for the weight first, then the weight itself leads the
+      // popover, then exactly the parameters that entry's arrivals are drawn at — read off the
+      // entry itself, so no button can open another's rows (0208).
       expect(paramsOf(held)).toEqual([
+        weight,
         weight,
         ...drawnParamIds(plugin).filter((id) => isBoundableParam(id)),
       ]);
       // And the word for what those rows are is said once, over them.
       expect(textOf(held)).toContain(BOUNDS_MENU);
     }
+  });
+
+  /**
+   * Whether an entry is drawn at all is the thing a hand reaches for oftener than its slider, so
+   * it stands inside the entry's card on the grid rather than only inside the popover the card
+   * opens: one muted word saying which it is, and the card grey behind it while it is drawn. Off
+   * is the weight at none; on is the weight the entry ships at, because nothing remembers where
+   * it stood before.
+   */
+  it("enables and disables an entry from its card on the grid, without opening it", () => {
+    const instrument = createInstrument(manualClock());
+    const sent: (Command | Envelope)[] = [];
+    const sends = {
+      ...instrument,
+      send: (input: Command | Envelope) => {
+        sent.push(input);
+      },
+    };
+    const plugin = POOL[0]!;
+    const weight = WEIGHT_OF[plugin.id]!;
+    const label = `Automator 1 ${plugin.label}`;
+    const card = (value: number): string =>
+      renderToStaticMarkup(
+        PoolEntry({
+          instrument,
+          deck: "a",
+          instance: "one",
+          plugin,
+          weight,
+          value,
+          bounds: {},
+          name: "Automator 1",
+        }),
+      );
+    // The word is inside the card, and the card's ground says the same thing.
+    expect(card(0.5)).toMatch(/data-slot="pool-card"[^>]*data-drawn="true"/u);
+    expect(card(0.5)).toContain(`>${DRAWS_ON}<`);
+    expect(card(0)).toMatch(/data-slot="pool-card"[^>]*data-drawn="false"/u);
+    expect(card(0)).toContain(`>${DRAWS_OFF}<`);
+
+    const held = (value: number): Labelled => {
+      let word: ReactNode = null;
+      function Probe(): null {
+        word = DrawsToggle({
+          instrument: sends,
+          deck: "a",
+          instance: "one",
+          param: weight,
+          value,
+          name: label,
+        });
+        return null;
+      }
+      renderToStaticMarkup(<Probe />);
+      const found = findLabelled(word, drawsLabel(label));
+      if (found === null) throw new Error("the card rendered no word");
+      return found;
+    };
+
+    // One command per press, each way: to none, and back to where the entry ships.
+    held(0.5).onClick?.();
+    expect(sent).toEqual([{ t: "param.set", deck: "a", instance: "one", param: weight, value: 0 }]);
+    sent.length = 0;
+    held(0).onClick?.();
+    expect(sent).toEqual([
+      { t: "param.set", deck: "a", instance: "one", param: weight, value: PARAMS[weight].default },
+    ]);
   });
 
   /**
