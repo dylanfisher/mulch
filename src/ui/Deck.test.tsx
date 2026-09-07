@@ -23,6 +23,8 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
+    // The yard's heavy surfaces follow a transition (0307); outside a renderer there is none.
+    useDeferredValue: (value: unknown) => value,
     useMemo: (factory: () => unknown) => factory(),
     // The yard's own fold is the first `false` a render of it reaches — the import error above it
     // is seeded `null` — and it is the only one a test sets, so the seed is spent on it and every
@@ -567,7 +569,14 @@ function findLabelled(node: ReactNode, label: string): Labelled | null {
 function findOfType(node: ReactNode, type: unknown): Record<string, unknown> | null {
   for (const child of Children.toArray(node)) {
     if (!isValidElement<{ children?: ReactNode }>(child)) continue;
-    if (child.type === type) return child.props;
+    // The yard memoises the surfaces it hands its deferred state to (0307): the wrapper's own
+    // `type` is the function the case asked for.
+    if (
+      child.type === type ||
+      (typeof child.type === "object" && Reflect.get(child.type, "type") === type)
+    ) {
+      return child.props;
+    }
     const found = findOfType(child.props.children ?? null, type);
     if (found !== null) return found;
   }

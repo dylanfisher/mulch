@@ -672,6 +672,11 @@ export const playerRate = async ({ page }) => {
   // spec is no picture at all (0121, 0173).
   await toggle.click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player !== null);
+  // Waited on the commit and not on the session, as the removal above is: the card follows the
+  // store one transition behind (0307), and the walk's section is on the page from the loop alone
+  // — a press on it before the card has drawn the pattern reads a picture of nothing. The switch
+  // reading on is the same commit that hands the walk its spec.
+  await heading.locator('[aria-label="Enable Mulcher on Yard A"][aria-checked="true"]').waitFor();
   const walk = player.locator('[data-slot="player-scope"]');
   const walkBox = await walk.boundingBox();
   if (walkBox === null) fail("player scope smoke: the walk's picture was not laid out");

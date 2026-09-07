@@ -17,7 +17,16 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 
-import { useCallback, useState, useSyncExternalStore } from "react";
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
@@ -55,6 +64,26 @@ import { FoldCaret } from "@/ui/FoldCaret";
 function useDeck(instrument: Instrument, deck: DeckId): DeckState | undefined {
   const read = useCallback(() => instrument.state.getState().decks[deck], [instrument, deck]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
+}
+
+/**
+ * The three surfaces that follow the store one transition behind, memoised here at the one site
+ * that hands them the deferred deck: a deferred value only pays when the urgent render passes its
+ * readers by, and their own modules stay plain functions every test calls as one (0307).
+ */
+const RackFollowing = memo(EffectRack);
+const StripFollowing = memo(MoireStrip);
+const PlayerFollowing = memo(PlayerCard);
+
+/**
+ * A view preference the yard holds for a child that both reads and sets it, as a pair whose
+ * identity moves only when its value does. `useState` hands back a fresh array every render, and
+ * a memoised child handed that pair would re-render on every commit of the yard — which is the
+ * one thing the transition below exists to keep off the hand's path (0307).
+ */
+function useHeld<T>(initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const [value, set] = useState(initial);
+  return useMemo(() => [value, set], [value]);
 }
 
 /**
@@ -170,6 +199,15 @@ export function Deck({
   handle: DragHandleProps;
 }) {
   const state = useDeck(instrument, deck);
+  /**
+   * The yard as its heavy surfaces draw it — the knob row, the drift, the jumps card and the rack —
+   * one transition behind the store. A knob turned on this yard commits on every pointer move, and
+   * a yard of ten effects re-rendered inside each of those moves is what a hand feels as a dial
+   * that stutters. Deferred, React renders those surfaces in the gaps between moves and yields to
+   * the next one; the dial itself is already painted from the hand (src/ui/Knob.tsx, 0307). The
+   * transport, the header and the peaks keep reading `state`: a press there is answered at once.
+   */
+  const deferred = useDeferredValue(state);
   const [importError, setImportError] = useState<string | null>(null);
   /**
    * Folded shut or open — a view preference and nothing else: no command, nothing durable, no
@@ -179,47 +217,47 @@ export function Deck({
    */
   const [collapsed, setCollapsed] = useState(false);
   /** The rack's own fold, held above the fold that renders it so it survives one (P64). */
-  const rackFold = useState(false);
+  const rackFold = useHeld(false);
   /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
-  const playerFold = useState(false);
+  const playerFold = useHeld(false);
   /** And the fine tune inside that card, held here for the same reason again: it is drawn under
    *  the card's fold, so a fold of its own would be forgotten every time that one closed (0157).
    *  **Shut to begin with**, which is what all three folds of this card's body open (0200, 0217):
    *  what is above it is the whole of what a hand needs to make a pattern, and forty dials under an
    *  open eyebrow are what makes the front hard to find at all (0198). */
-  const fineFold = useState(true);
+  const fineFold = useHeld(true);
   /** And the ground beside it, held here for the same reason again — and shut to begin with on the
    *  fine tune's own argument: the picture, the strip and the kept grounds are a question a hand
    *  asks once it has a loop worth moving (0217). */
-  const groundFold = useState(true);
+  const groundFold = useHeld(true);
   /** And the arrangement beside it, held here for the same reason again — and shut to begin
    *  with on the fine tune's own argument: what stands open on the card is the front, and how the
    *  pattern is arranged is a question a hand asks after it has one worth arranging (0200). */
-  const arrangeFold = useState(true);
+  const arrangeFold = useHeld(true);
   /** And the song section inside that card, held here for the same reason again: it is drawn
    *  under the card's fold, so a fold of its own would be forgotten every time that one closed
    *  (0157). */
-  const songFold = useState(false);
+  const songFold = useHeld(false);
   /** And what of that song is picked for the row under the grid — the song, and the part the
    *  card's dials are pointed at — held here for the same reason again: a fold may put the
    *  section away, and a pick that went with it would be a hand's aim forgotten by a caret
    *  (0176). A view preference: no command, nothing durable, no history entry (plan §2). */
-  const songPick = useState<GridPick | null>(null);
+  const songPick = useHeld<GridPick | null>(null);
   /** And whether the picked part's own dials are open under its row, held here for the same
    *  reason a third time: a part unfolded and then folded away with the card would come back
    *  shut, which is the bug every one of these lines is written against (0176). */
-  const songDials = useState(false);
+  const songDials = useHeld(false);
   /** And which part of it the pass is playing on its own, held here for the reason the two above
    *  are: it outlives the section that asked for it, so it may not be held inside a fold. It
    *  outlives a stop too — the pass keeps its own solo and opens on it when the yard plays again,
    *  so the toggle and the transport say one thing at every moment (plan §2, 0190). */
-  const songSolo = useState<SongPartId | null>(null);
+  const songSolo = useHeld<SongPartId | null>(null);
   /** And whether a burst written on that card is held to the beat, held here for the reason every
    *  line above it is — and for one more: it is not a field of the spec. It writes no number of its
    *  own and the walk never hears about it, so a burst it rounded is an ordinary burst and the
    *  session stays the shape it is (P40, 0026, plan §2). Off to begin with: the burst is wall
    *  seconds and a grid is a thing a hand asks for (0119). */
-  const burstHeld = useState(false);
+  const burstHeld = useHeld(false);
 
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -314,6 +352,9 @@ export function Deck({
   // The deck this panel names has been removed and the parent list is one render behind. Saying
   // nothing is the truthful answer; inventing a default deck to draw would not be (0029).
   if (state === undefined) return null;
+  // A yard the store has only just put back has no deferred value behind it yet: it is drawn from
+  // the store's own until the transition catches up.
+  const shown = deferred ?? state;
 
   return (
     <section
@@ -398,10 +439,10 @@ export function Deck({
             and a shut yard still says what it is doing. Open, it is drawn full width down below
             where the thing it is about is. */}
         {collapsed && (
-          <MoireStrip
+          <StripFollowing
             instrument={instrument}
             deck={deck}
-            state={state}
+            state={shown}
             className="min-w-0 flex-1 self-center"
           />
         )}
@@ -456,9 +497,9 @@ export function Deck({
                   instrument={instrument}
                   deck={deck}
                   param={param}
-                  value={state.params[param]}
-                  lane={(isAutomationParam(param) ? state.automation[param] : undefined) ?? null}
-                  playing={state.playing}
+                  value={shown.params[param]}
+                  lane={(isAutomationParam(param) ? shown.automation[param] : undefined) ?? null}
+                  playing={shown.playing}
                 />
               ))}
             </div>
@@ -468,15 +509,15 @@ export function Deck({
 
           {/* Under the peaks and above the rack: the peaks say what one pass sounds like, and
               this says what the passes do to each other over time. */}
-          <MoireStrip instrument={instrument} deck={deck} state={state} />
+          <StripFollowing instrument={instrument} deck={deck} state={shown} />
 
           {/* Below the drift and above the rack, in the same language every other thing a yard
               holds is drawn in: what it moves is where inside the loop the deck is reading — the
               transport's, never an effect's (0089, P74). */}
-          <PlayerCard
+          <PlayerFollowing
             instrument={instrument}
             deck={deck}
-            state={state}
+            state={shown}
             fold={playerFold}
             fineFold={fineFold}
             groundFold={groundFold}
@@ -488,7 +529,7 @@ export function Deck({
             burstHeld={burstHeld}
           />
 
-          <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />
+          <RackFollowing instrument={instrument} deck={deck} state={shown} fold={rackFold} />
         </>
       )}
     </section>

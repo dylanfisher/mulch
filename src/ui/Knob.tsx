@@ -368,21 +368,32 @@ export function Knob({
     [curve, format, max, min, step],
   );
 
-  // The one surface that paints ahead of the store for exactly the length of its own gesture: a
-  // move turns the dial before its value is sent, so the hand never waits on what a commit costs
-  // downstream (0307). A gesture the browser ended is therefore told, and puts the store's angle
-  // back (0114).
-  const drag = usePointerGesture<Drag>(() => {
-    paint(value);
-  });
+  // A dial paints ahead of the store for exactly the length of its own gesture — a move turns it
+  // before its value is sent, so the hand never waits on what a commit costs downstream (0307) —
+  // and yet a gesture the browser ended has nothing to put back: every move committed the value it
+  // painted, so what is on the dial is what the store holds (0114).
+  const drag = usePointerGesture<Drag>(() => {});
+  /**
+   * The value this dial last reached — sent by its own hand, or handed to it by a render that
+   * moved `value` — and what a key, a reset and a press step from instead of the prop: the yard
+   * follows the store in a transition (0307), so the `value` a render carries can be one commit
+   * behind, and a key repeated inside that gap would step from where the dial had already left.
+   * `rendered` is what the last render carried, which is how a render that moved is told from one
+   * that did not.
+   */
+  const reached = useRef(value);
+  const rendered = useRef(value);
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
     (next: number) => {
       const snapped = snapToStep(next, min, max, step);
-      if (snapped !== value) onChange(snapped);
+      if (snapped === reached.current) return;
+      reached.current = snapped;
+      paint(snapped);
+      onChange(snapped);
     },
-    [max, min, onChange, step, value],
+    [max, min, onChange, paint, step],
   );
 
   const handlePointerDown = useCallback(
@@ -392,12 +403,12 @@ export function Knob({
         pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
-        fraction,
-        reached: value,
+        fraction: normalize(reached.current, min, max, curve),
+        reached: reached.current,
         axis: null,
       });
     },
-    [disabled, drag, fraction, value],
+    [curve, disabled, drag, max, min],
   );
 
   const handlePointerMove = useCallback(
@@ -422,6 +433,7 @@ export function Knob({
       const next = snapToStep(denormalize(state.fraction, min, max, curve), min, max, step);
       if (next === state.reached) return;
       state.reached = next;
+      reached.current = next;
       // Painted before it is sent: the dial is at the hand whatever the commit below costs.
       paint(next);
       onChange(next);
@@ -433,19 +445,11 @@ export function Knob({
     (event: PointerEvent<HTMLDivElement>) => {
       // The capture comes back with the record, in the skeleton: it is what took it, and it is
       // the only thing that knows the pointer is already gone on a `pointercancel` (0114). The
-      // hand's angle stands: every move committed the value it painted, and the render carrying
-      // it may still be on its way (0307).
+      // hand's angle stands on every ending: every move committed the value it painted, and the
+      // render carrying it may still be on its way (0307).
       drag.ended(event);
     },
     [drag],
-  );
-  const handlePointerCancel = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      // The browser saying the gesture never happened: nothing is committed, and what the drag
-      // painted ahead goes back to what the store holds (0114).
-      if (drag.ended(event) !== null) paint(value);
-    },
-    [drag, paint, value],
   );
 
   useOnFrame(
@@ -465,9 +469,15 @@ export function Knob({
     // what is on screen: forget it, or a frame reaching that same angle again would write nothing
     // and leave React's arc standing.
     painted.current = null;
-    // A render that lands mid-drag carries a `value` the hand has already left — the yard follows
-    // in a transition (0307) — so the dial is put back to where the hand is, never behind it.
-    if (!animate || live === undefined) paint(live?.() ?? drag.held()?.reached ?? value);
+    // A render that moved `value` is the store speaking — a commit landing, an undo, a lane handing
+    // the value back — and the dial follows it, unless a hand is on the dial, which outranks it.
+    // One that carried the same `value` as the last is the yard one transition behind (0307), and
+    // says nothing about where the dial is.
+    if (value !== rendered.current) {
+      rendered.current = value;
+      if (drag.held() === null) reached.current = value;
+    }
+    if (!animate || live === undefined) paint(live?.() ?? reached.current);
   }, [animate, drag, live, paint, value]);
 
   const handleDoubleClick = useCallback(() => {
@@ -482,13 +492,18 @@ export function Knob({
         delta === undefined
           ? jump(event.key, min, max, defaultValue)
           : curve === "log"
-            ? denormalize(fraction + delta * 0.01, min, max, curve)
-            : value + delta * step;
+            ? denormalize(
+                normalize(reached.current, min, max, curve) + delta * 0.01,
+                min,
+                max,
+                curve,
+              )
+            : reached.current + delta * step;
       if (next === undefined) return;
       event.preventDefault();
       commit(next);
     },
-    [commit, curve, defaultValue, disabled, fraction, max, min, step, value],
+    [commit, curve, defaultValue, disabled, max, min, step],
   );
 
   /**
@@ -518,7 +533,7 @@ export function Knob({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
+      onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
     >

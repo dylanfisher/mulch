@@ -318,25 +318,50 @@ describe("Knob paints ahead of the store", () => {
     expect(indicator.written.get("transform")).toBe(drawn(0.6).indicator);
   });
 
-  it("puts the store's angle back on a cancelled gesture", () => {
-    const { control, element, arc, indicator } = moved();
-    dispatch(control.onPointerCancel, element, 18, 0, 0);
-    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.5).arc);
-    expect(indicator.written.get("transform")).toBe(drawn(0.5).indicator);
+  it.each([
+    [
+      "the pointer comes up",
+      (m: ReturnType<typeof moved>) => {
+        dispatch(m.control.onPointerUp, m.element, 18, 0, 0);
+      },
+    ],
+    [
+      "the gesture is cancelled",
+      (m: ReturnType<typeof moved>) => {
+        dispatch(m.control.onPointerCancel, m.element, 18, 0, 0);
+      },
+    ],
+    [
+      "the capture is lost",
+      (m: ReturnType<typeof moved>) => {
+        m.element.lose();
+      },
+    ],
+  ])(
+    "leaves the hand's angle standing when %s, because every move was committed",
+    (_ending, end) => {
+      const m = moved();
+      end(m);
+      expect(m.arc.written.get("stroke-dashoffset")).toBe(drawn(0.6).arc);
+      expect(m.indicator.written.get("transform")).toBe(drawn(0.6).indicator);
+    },
+  );
+
+  it("steps a key from the value it last sent, not from a render one transition behind", () => {
+    const onChange = vi.fn();
+    const { control } = renderKnob(onChange);
+    const key = { key: "ArrowUp", preventDefault: () => {} };
+    control.onKeyDown(key);
+    control.onKeyDown(key);
+    expect(onChange).toHaveBeenNthCalledWith(1, 0.51);
+    expect(onChange).toHaveBeenNthCalledWith(2, 0.52);
   });
 
-  it("puts the store's angle back when the capture is lost outside the control", () => {
-    const { element, arc, indicator } = moved();
-    element.lose();
-    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.5).arc);
-    expect(indicator.written.get("transform")).toBe(drawn(0.5).indicator);
-  });
-
-  it("leaves the hand's angle standing when the pointer comes up", () => {
-    const { control, element, arc, indicator } = moved();
-    dispatch(control.onPointerUp, element, 18, 0, 0);
-    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.6).arc);
-    expect(indicator.written.get("transform")).toBe(drawn(0.6).indicator);
+  it("follows a render that moved the value, once no hand is on the dial", () => {
+    const onChange = vi.fn();
+    const { control } = renderKnob(onChange, { value: 0.2 });
+    control.onKeyDown({ key: "ArrowUp", preventDefault: () => {} });
+    expect(onChange).toHaveBeenLastCalledWith(0.21);
   });
 });
 

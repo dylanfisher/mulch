@@ -18,6 +18,7 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
+    useDeferredValue: (value: unknown) => value,
     useEffect: () => {},
     useMemo: (factory: () => unknown) => factory(),
     useRef: (initial: unknown) => ({ current: initial }),
