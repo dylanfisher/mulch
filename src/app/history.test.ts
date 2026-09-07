@@ -567,6 +567,54 @@ describe("the central history bound", () => {
     expect(sessions).toBe(moves);
   });
 
+  /**
+   * The checkpoint a commit hands in is history's own from that line (0304): a drag of twenty
+   * moves copies no session at all, where each move once cloned the whole of one.
+   */
+  it("copies nothing on any commit of a drag", () => {
+    const store = createSessionStore();
+    const history = new SessionHistory(sessionSnapshot(store.getState()));
+    const moves = 20;
+    const spy = vi.spyOn(globalThis, "structuredClone");
+    try {
+      for (let index = 1; index <= moves; index++) {
+        patchDeck(store, "a", (deck) => ({
+          params: { ...deck.params, "deck.gain": index / moves },
+        }));
+        history.record(sessionSnapshot(store.getState()), "a gain");
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /**
+   * What holds 0021 without the copy is that nothing else holds the tree: `sessionSnapshot` is
+   * built fresh for each call, so the store's later writes never reach it, and a drag's later
+   * moves are trees of their own. Undo after a drag lands on the hand's starting value even when
+   * every move's object is written through afterwards.
+   */
+  it("restores the value a drag started from whatever its moves' objects hold afterwards", () => {
+    const store = createSessionStore();
+    const history = new SessionHistory(sessionSnapshot(store.getState()));
+    patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.5 } }));
+    history.record(sessionSnapshot(store.getState()));
+    const moves: Session[] = [];
+    for (const value of [0.4, 0.3, 0.2]) {
+      patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": value } }));
+      const move = sessionSnapshot(store.getState());
+      moves.push(move);
+      history.record(move, "a gain");
+    }
+    for (const move of moves) move.decks.a!.params["deck.gain"] = 0.9;
+    store.getState().decks.a!.params["deck.gain"] = 0.1;
+
+    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(0.5);
+    history.commitUndo(sessionSnapshot(store.getState()));
+    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
+  });
+
   it("opens a new entry once an open gesture has gone quiet", () => {
     const store = createSessionStore();
     let wall = 0;

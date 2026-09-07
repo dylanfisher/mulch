@@ -62,6 +62,11 @@ export const groupGesture = (commands: readonly GroupedEditCommand[]): string | 
  */
 const checkpointJson = (session: Session): string => JSON.stringify(session);
 
+/**
+ * The copy a checkpoint gets on the way in or out of the ledger, where one is needed: what is
+ * handed out on undo goes into the graph, and what the constructor is handed may be the caller's
+ * own. What `record` is handed is not copied — see there (0304).
+ */
 const copyCheckpoint = (session: Session): Session => structuredClone(session);
 
 export class SessionHistory {
@@ -116,6 +121,12 @@ export class SessionHistory {
    * undo takes back the whole movement and lands on the value the hand started from. A commit with
    * no key, a different key, or one that arrives after the gesture has gone quiet opens a new
    * entry, and so does the first commit after any boundary — see `endGesture`.
+   *
+   * `next` is the ledger's own from this line, held as it arrived and never copied: the facade
+   * hands in `sessionSnapshot`, a tree built fresh for the call that nothing else holds, so the
+   * clone that stood between it and `#current` guarded against a mutation nothing could make and
+   * cost a whole session per pointer event of a drag (0304). A caller that keeps a reference must
+   * not write through it — that is the one thing 0021's snapshot rule now asks of it.
    */
   record(next: Session, gesture: string | null = null): void {
     const at = this.#now();
@@ -132,7 +143,7 @@ export class SessionHistory {
     if (sameGesture && this.#open) {
       // The open transaction's start checkpoint is already on the undo stack, and redo was
       // truncated when it opened: only where the gesture has reached moves.
-      this.#current = copyCheckpoint(next);
+      this.#current = next;
       this.#currentJson = nextJson;
       // Unless the gesture has come back to where it began, in which case there is nothing left
       // to take back: the entry goes rather than sitting on the stack as a press that does
@@ -149,7 +160,7 @@ export class SessionHistory {
     if (this.#undo.length > HISTORY_CAP) this.#undo.shift();
     this.#redo.length = 0;
     this.#open = true;
-    this.#current = copyCheckpoint(next);
+    this.#current = next;
     this.#currentJson = nextJson;
     this.#publish();
   }
