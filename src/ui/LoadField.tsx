@@ -6,8 +6,7 @@
  */
 import { type FocusEvent, type KeyboardEvent, useCallback } from "react";
 
-import { Field, FieldLabel } from "@/ui/components/field";
-import { Input } from "@/ui/components/input";
+import { InlineField } from "@/ui/InlineField";
 
 type LoadFieldProps = {
   id: string;
@@ -67,19 +66,17 @@ export function LoadField({ id, name, value, min, step, valid, onCommit }: LoadF
   );
 
   return (
-    <Field className="w-20">
-      <FieldLabel htmlFor={id}>{name}</FieldLabel>
-      <Input
-        key={value}
-        id={id}
-        type="number"
-        className="type-readout"
-        min={min}
-        step={step}
-        defaultValue={value}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-      />
-    </Field>
+    <InlineField
+      key={value}
+      id={id}
+      label={name}
+      type="number"
+      className="type-readout"
+      min={min}
+      step={step}
+      defaultValue={value}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+    />
   );
 }

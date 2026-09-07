@@ -10,6 +10,7 @@
  *   The pitch that load travels with → src/ui/LoadField.tsx. What an import does with the file →
  *   `importDeckFile` in src/ui/Deck.tsx.
  */
+import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { type ChangeEvent, useCallback, useRef } from "react";
 
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
@@ -106,7 +107,7 @@ export function SourcePicker({
             <Button
               size="sm"
               variant="outline"
-              className="max-w-52 min-w-24 shrink justify-start"
+              className="max-w-52 min-w-24 shrink justify-between"
               aria-label={`${yardLabel(deck)} ${SOURCE_LABEL}`}
             >
               {/* One line, however long the name is: the trigger gives up width before the
@@ -121,6 +122,14 @@ export function SourcePicker({
               >
                 {current ?? imported?.name ?? SOURCE_LABEL}
               </span>
+              {/* The caret that says this is a menu and not a name: once a source is loaded the
+                  trigger reads as a label, and a label with nothing pointing down from it is a
+                  control nobody knows to press. The same caret the select's trigger wears
+                  (src/ui/components/select.tsx), for the same reason. */}
+              <CaretDownIcon
+                aria-hidden="true"
+                className="pointer-events-none size-4 shrink-0 text-muted-foreground"
+              />
             </Button>
           }
         />

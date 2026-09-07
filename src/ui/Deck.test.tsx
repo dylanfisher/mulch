@@ -144,6 +144,16 @@ describe("Deck load fields", () => {
     expect(render({ gen: "click-train", hz: 8 })).toMatch(/id="a-hz"[^>]*value="8"/u);
   });
 
+  it("puts the frequency right of the source picker, in the header and not the transport row", () => {
+    const markup = render({ gen: "click-train", hz: 8 });
+    const picker = markup.indexOf(`aria-label="Yard A ${SOURCE_LABEL}"`);
+    const hz = markup.indexOf('id="a-hz"');
+    const play = markup.indexOf(">Play<");
+    expect(picker).toBeGreaterThan(-1);
+    expect(hz).toBeGreaterThan(picker);
+    expect(play).toBeGreaterThan(hz);
+  });
+
   it("offers no frequency for a generator that has none", () => {
     expect(render({ gen: "noise" })).not.toContain('id="a-hz"');
   });
@@ -180,6 +190,16 @@ describe("the source menu", () => {
     expect(render()).toMatch(
       new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>${SOURCE_LABEL}<`, "u"),
     );
+  });
+
+  // A loaded source names itself on the trigger, and a name alone reads as a label: the caret
+  // after it is what says the name can be changed, whether the yard holds a source or not.
+  it("wears a caret after the name, so a loaded source still reads as a menu", () => {
+    for (const markup of [render(), render({ gen: "sine" })]) {
+      expect(markup).toMatch(
+        new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>[^<]+</span><svg`, "u"),
+      );
+    }
   });
 
   /**
@@ -608,13 +628,13 @@ describe("Deck collapse", () => {
     expect(markup).toContain('aria-pressed="true"');
     // The words moved inside the control, so nothing is left labelling it from outside.
     expect(markup).not.toContain("Collapse Yard A");
-    // Everything below the header, gone: the peaks, the load fields and the transport.
+    // Everything below the header, gone: the peaks and the transport.
     expect(markup).not.toContain("Yard A Waveform");
-    expect(markup).not.toContain('id="a-secs"');
-    expect(markup).not.toContain('aria-label="Play Yard A"');
-    // The source is not below the header any more, so folding does not take it: a yard says what
-    // it is playing from its top, shut or open (P98).
+    expect(markup).not.toContain(">Play<");
+    // The source and its pitch are not below the header any more, so folding does not take
+    // them: a yard says what it is playing from its top, shut or open (P98).
     expect(markup).toContain(`aria-label="Yard A ${SOURCE_LABEL}"`);
+    expect(markup).toContain('id="a-hz"');
   });
 
   it("draws all of it when it is open, with the fold reporting open", () => {

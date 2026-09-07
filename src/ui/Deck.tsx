@@ -358,6 +358,24 @@ export function Deck({
           onPick={onSource}
           onImport={receiveFile}
         />
+        {/* Right of the picker, where the source is named: the pitch is the one thing a load
+            carries beyond its kind, so it reads as part of that choice rather than as a control
+            of the transport. A generator whose default frequency is zero has none at all
+            (src/lib/waveform.ts) — noise and silence ignore an hz, so the yard does not offer one,
+            and neither does a tone, whose pitch is the knob on the transport row (0110). Its
+            length is not asked for at all any more: every drawn source is one length its kind
+            declares (P127). */}
+        {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+          <LoadField
+            id={`${deck}-hz`}
+            name="Freq"
+            value={hz}
+            min={0}
+            step={GEN_HZ_STEP}
+            valid={isGenHz}
+            onCommit={onHz}
+          />
+        )}
         {/* Titled as well as truncated: a refusal that names the codec is a sentence longer than
             the header row, and the half that says why is the half that falls off it. */}
         {importError !== null && (
@@ -426,24 +444,6 @@ export function Deck({
 
       {collapsed ? null : (
         <>
-          {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
-          noise and silence ignore an hz, so the deck does not offer one — and neither does a
-          tone, whose pitch is the knob on the row below (0110). Its length is not asked for at
-          all any more: every drawn source is one length its kind declares (P127). */}
-          {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
-            <div className="flex flex-wrap items-end gap-4">
-              <LoadField
-                id={`${deck}-hz`}
-                name="Freq"
-                value={hz}
-                min={0}
-                step={GEN_HZ_STEP}
-                valid={isGenHz}
-                onCommit={onHz}
-              />
-            </div>
-          )}
-
           {/* Above the peaks, not below them: the transport and the knobs are what a hand reaches
           for, and a waveform that grows pushes them off the screen otherwise (P32). */}
           <div className="flex flex-wrap items-end gap-4">
