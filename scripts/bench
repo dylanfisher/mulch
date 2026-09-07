@@ -20,7 +20,8 @@
 import { analyzeBeats } from "../src/lib/analysis.ts";
 import { fingerprint } from "../src/lib/fingerprint.ts";
 import { impulseResponse } from "../src/lib/impulse.ts";
-import { DRIFT_GEOMETRIES, LINEAR_GEOMETRY } from "../src/lib/moire.ts";
+import { DRIFT_DISPERSE_REACH, DRIFT_GEOMETRIES, LINEAR_GEOMETRY } from "../src/lib/moire.ts";
+import { fractalRest } from "../src/lib/moireFractal.ts";
 import {
   centreAcross,
   curvedField,
@@ -30,6 +31,7 @@ import {
   gratingSpokes,
   steppedRings,
 } from "../src/lib/moireGeometry.ts";
+import { LATTICE_GEOMETRY, LATTICE_TILE_PX, latticeRim } from "../src/lib/moireLattice.ts";
 import { peakMagnitude, peaks } from "../src/lib/peaks.ts";
 import { GEN_KINDS, genSecs, renderGen } from "../src/lib/waveform.ts";
 import { encodeWav } from "../src/lib/wav.ts";
@@ -353,10 +355,13 @@ for (const { label, seconds } of SIZES) {
   // Middle of the band `gratingPitch` holds a row inside, in device pixels.
   const PITCH = 8;
   // A straight row is drawn from a sixty-four pixel strip and never reaches this loop (`cutGratings`
-  // in src/ui/moireCanvas.ts), so the curved three are the whole of what the kernel is ever asked
-  // for — taken off the one list rather than spelled out, so a fourth geometry is priced by adding
-  // it there.
-  const CURVED = DRIFT_GEOMETRIES.filter((geometry) => geometry !== LINEAR_GEOMETRY);
+  // in src/ui/moireCanvas.ts), and the lattice is a cell and not a place — one square tile the
+  // painter repeats, priced on its own below (0278) — so the curved rest are the whole of what the
+  // kernel is asked for a picture at a time. Taken off the one list rather than spelled out, so a
+  // geometry added there is priced by adding it there.
+  const CURVED = DRIFT_GEOMETRIES.filter(
+    (geometry) => geometry !== LINEAR_GEOMETRY && geometry !== LATTICE_GEOMETRY,
+  );
   for (const { label, width, height } of PICTURES) {
     const alpha = new Uint8ClampedArray(width * height * 4);
     const ref = geometryRef(width, height);
@@ -382,11 +387,37 @@ for (const { label, seconds } of SIZES) {
         rings,
         spokes: gratingSpokes(pitch, ref),
         cover: geometryCover(geometry, pitch, width, height),
+        rim: 0,
+        // The seed the fractal pair are cut from when nothing is standing, spread flat the way the
+        // shop's own order spreads it (`latticeOrder`, src/ui/moireCanvasPattern.ts).
+        ...fractalRest(),
       };
       measure(`curvedField ${geometry} · ${DEAREST_PROFILE}`, size, () => {
         curvedField(alpha, width, height, geometry, DEAREST_PROFILE, place, ref);
       });
     }
+  }
+  // The lattice's one bake: a cell `LATTICE_TILE_PX` square whatever the picture, anchored on its
+  // own middle, with nothing of the picture reaching it but the rim — priced at the broadest rim a
+  // fully dispersed ink asks for, exactly as the shop orders it (`cutLattice`,
+  // src/ui/moireCanvasPattern.ts, 0278). The rim's width moves no pixel's cost, so one row is the
+  // whole of it.
+  {
+    const size = LATTICE_TILE_PX;
+    const alpha = new Uint8ClampedArray(size * size * 4);
+    const place = {
+      x: size / 2,
+      y: size / 2,
+      pitch: 1,
+      cover: 1,
+      rings: 1,
+      spokes: 1,
+      rim: latticeRim(DRIFT_DISPERSE_REACH),
+      ...fractalRest(),
+    };
+    measure(`latticeTile · ${DEAREST_PROFILE}`, `cell ${size}×${size}`, () => {
+      curvedField(alpha, size, size, LATTICE_GEOMETRY, DEAREST_PROFILE, place, 1);
+    });
   }
 }
 
