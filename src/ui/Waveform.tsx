@@ -21,6 +21,7 @@
 import {
   type CSSProperties,
   type PointerEvent,
+  type RefObject,
   useCallback,
   useLayoutEffect,
   useRef,
@@ -29,6 +30,7 @@ import {
 
 import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
+import type { DeckPeek } from "@/audio/deckPeek";
 import { deckRate } from "@/audio/params";
 import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
@@ -67,6 +69,95 @@ type Sweep = Tracked & {
   pointerId: number;
   downSecs: number;
 };
+
+/**
+ * What the frame last wrote to each surface, compared before the next write: a style write
+ * replaces the property whether or not the string matches, so a frame that moved nothing writes
+ * nothing (0070). The string is still built — a surface cannot be known unmoved without its value
+ * being read — and never rounded, so what is compared is exactly what would have been drawn.
+ */
+type Worn = { playhead: string; spark: string; left: string; width: string; meter: string };
+
+/** The four surfaces the frame writes through, gathered once: an object built per frame is an
+ *  allocation (0070). */
+type Surfaces = Record<"playhead" | "spark" | "ground" | "meter", RefObject<HTMLDivElement | null>>;
+
+/**
+ * One frame of the transport off one read: the playhead, the spark's cursor, the ground the loop
+ * is being read on and the meter, each written through its ref and only where it moved. Outside
+ * the component so a frame can be run against stand-in surfaces — a server render fills no ref, so
+ * the callback the loop holds cannot be exercised through one.
+ *
+ * Over the line cap by the four compares: one frame's whole write set, and splitting it would hand
+ * each surface's ref and memory to a helper with one caller (0007).
+ */
+// oxlint-disable-next-line max-lines-per-function
+export function paintTransport(
+  at: Readonly<DeckPeek>,
+  duration: number,
+  loop: Loop | null,
+  width: number,
+  surfaces: Surfaces,
+  worn: Worn,
+): void {
+  const playhead = surfaces.playhead.current;
+  if (playhead !== null) {
+    const moved = `translateX(${secsToPx(at.position, duration, width)}px)`;
+    if (worn.playhead !== moved) {
+      playhead.style.transform = moved;
+      worn.playhead = moved;
+    }
+  }
+  const cursor = surfaces.spark.current;
+  const spark = at.player.sparkPosition;
+  if (cursor !== null) {
+    // Off the peaks entirely where there is none to show, rather than parked at zero: a cursor
+    // standing still at the left edge is a spark the instrument is claiming to play.
+    cursor.style.display = spark === null ? "none" : "";
+    if (spark !== null) {
+      const moved = `translateX(${secsToPx(spark, duration, width)}px)`;
+      if (worn.spark !== moved) {
+        cursor.style.transform = moved;
+        worn.spark = moved;
+      }
+    }
+  }
+  const ground = surfaces.ground.current;
+  if (ground !== null) {
+    // Hidden on bed zero as well as on a deck with no loop or no pattern: bed zero *is* the
+    // loop, and a second rectangle drawn exactly over the first says a move happened when none
+    // did (the argument the spark's cursor is hidden on).
+    const bed = at.player.step?.bed;
+    const span = loop === null ? 0 : loop.out - loop.in;
+    // Resolved off the one function the two surfaces outside the transport share: this picture
+    // and the plant on the jumps card read one arithmetic, so the rectangle cannot say a ground
+    // the press would not write (principle 1, `bedGround`, src/lib/playerBed.ts). The transport
+    // keeps its own, on a grid it folded once for the whole pass (`bedStart`, src/audio/player.ts).
+    const stood =
+      loop === null || bed === undefined ? null : bedGround(loop.in, span, duration, bed);
+    ground.style.display = stood === null || stood.on === 0 ? "none" : "";
+    if (stood !== null && stood.on !== 0) {
+      const left = `${(100 * stood.in) / duration}%`;
+      if (worn.left !== left) {
+        ground.style.left = left;
+        worn.left = left;
+      }
+      const wide = `${(100 * span) / duration}%`;
+      if (worn.width !== wide) {
+        ground.style.width = wide;
+        worn.width = wide;
+      }
+    }
+  }
+  const meter = surfaces.meter.current;
+  if (meter !== null) {
+    const level = `scaleX(${Math.min(1, at.meter)})`;
+    if (worn.meter !== level) {
+      meter.style.transform = level;
+      worn.meter = level;
+    }
+  }
+}
 
 /**
  * Over the line cap by design: one surface's whole drawing set — the canvas it repaints, the
@@ -289,44 +380,25 @@ export function Waveform({
     [endSweep],
   );
 
+  /** What each surface last wore, and the refs the frame writes it through — both held, never
+   *  rebuilt on a render or a frame (0070). */
+  const worn = useRef<Worn>({ playhead: "", spark: "", left: "", width: "", meter: "" });
+  const surfaces = useRef<Surfaces>({
+    playhead: playheadRef,
+    spark: sparkRef,
+    ground: bedRef,
+    meter: meterRef,
+  });
+
   const paintFrame = useCallback(() => {
-    const at = instrument.peek(deck);
-    const playhead = playheadRef.current;
-    if (playhead !== null) {
-      playhead.style.transform = `translateX(${secsToPx(at.position, state.duration, widthRef.current)}px)`;
-    }
-    const cursor = sparkRef.current;
-    const spark = at.player.sparkPosition;
-    if (cursor !== null) {
-      // Off the peaks entirely where there is none to show, rather than parked at zero: a cursor
-      // standing still at the left edge is a spark the instrument is claiming to play.
-      cursor.style.display = spark === null ? "none" : "";
-      if (spark !== null) {
-        cursor.style.transform = `translateX(${secsToPx(spark, state.duration, widthRef.current)}px)`;
-      }
-    }
-    const ground = bedRef.current;
-    if (ground !== null) {
-      // Hidden on bed zero as well as on a deck with no loop or no pattern: bed zero *is* the
-      // loop, and a second rectangle drawn exactly over the first says a move happened when none
-      // did (the argument the spark's cursor is hidden on).
-      const loop = state.loop;
-      const bed = at.player.step?.bed;
-      const span = loop === null ? 0 : loop.out - loop.in;
-      // Resolved off the one function the two surfaces outside the transport share: this picture
-      // and the plant on the jumps card read one arithmetic, so the rectangle cannot say a ground
-      // the press would not write (principle 1, `bedGround`, src/lib/playerBed.ts). The transport
-      // keeps its own, on a grid it folded once for the whole pass (`bedStart`, src/audio/player.ts).
-      const stood =
-        loop === null || bed === undefined ? null : bedGround(loop.in, span, state.duration, bed);
-      ground.style.display = stood === null || stood.on === 0 ? "none" : "";
-      if (stood !== null && stood.on !== 0) {
-        ground.style.left = `${(100 * stood.in) / state.duration}%`;
-        ground.style.width = `${(100 * span) / state.duration}%`;
-      }
-    }
-    const meter = meterRef.current;
-    if (meter !== null) meter.style.transform = `scaleX(${Math.min(1, at.meter)})`;
+    paintTransport(
+      instrument.peek(deck),
+      state.duration,
+      state.loop,
+      widthRef.current,
+      surfaces.current,
+      worn.current,
+    );
   }, [instrument, deck, state.duration, state.loop, widthRef]);
 
   useOnFrame(paintFrame, state.playing);
@@ -340,6 +412,9 @@ export function Waveform({
     if (state.playing || state.paused !== null) paintFrame();
     if (!state.playing && meterRef.current !== null) {
       meterRef.current.style.transform = "scaleX(0)";
+      // Through the frame's own memory of it, or the first sounding frame at that level would
+      // find its write already made and leave the meter parked at silence.
+      worn.current.meter = "scaleX(0)";
     }
   }, [state.playing, state.paused, paintFrame]);
 

@@ -17,6 +17,7 @@ import {
   markupOf,
   POOL,
 } from "@/ui/effectRackDouble";
+import { pourSand } from "@/ui/GrownRows";
 import { ROW_LEFT } from "@/ui/playerLit";
 
 // One case per thing a row is made of, which is what the suite is: a `describe` is not a function
@@ -164,5 +165,37 @@ describe("one row of the run", () => {
     expect(markup.split('data-slot="grown-icon" aria-hidden="true" hidden').length - 1).toBe(
       POOL.length * GROWTH_COUNT_MAX,
     );
+  });
+});
+
+/**
+ * The hourglass at the head of the run, painted per frame off what the hold has left: a style write
+ * replaces the property whether or not the string matches, so the sand compares against what it
+ * last wore and writes only what moved (0070) — the way the words beside it already do.
+ */
+describe("the hourglass", () => {
+  it("pours its sand once over two frames that emptied nothing, and again as it runs out", () => {
+    const wrote: string[] = [];
+    const style = new Proxy<Record<string, string>>(
+      {},
+      {
+        set(target, key, value: string) {
+          wrote.push(`${String(key)}: ${value}`);
+          target[String(key)] = value;
+          return true;
+        },
+      },
+    );
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const sand = { style } as unknown as HTMLElement;
+    const poured = { opacity: "", rotate: "" };
+    pourSand(sand, 0.5, poured);
+    pourSand(sand, 0.5, poured);
+    expect(wrote).toEqual(["opacity: 0.68", "rotate: 0deg"]);
+    // Half as much left dims it and turns nothing; none left turns the glass over.
+    pourSand(sand, 0.25, poured);
+    expect(wrote).toEqual(["opacity: 0.68", "rotate: 0deg", "opacity: 0.51"]);
+    pourSand(sand, 0, poured);
+    expect(wrote.slice(3)).toEqual(["opacity: 0.35", "rotate: 180deg"]);
   });
 });

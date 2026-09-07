@@ -43,7 +43,7 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreenInk";
 import { moireRows, refillRows } from "@/ui/moireRows";
-import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import { shapeRest } from "@/ui/moireShape";
 
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
@@ -695,5 +695,27 @@ describe("moireCanvas tiles", () => {
     });
     expect(cells()).toHaveLength(2);
     expect(cells()[0]?.key).not.toBe(cells()[1]?.key);
+  });
+
+  it("cuts a second painting's lattice through the pattern the first one made", () => {
+    // The pattern is filed under the key the cell was baked at, which on every painting but the
+    // ones a rim stop is still baking is the key the shop was asked with — so the second painting
+    // reuses the string it already built as well as the pattern it already holds (0070). Proved
+    // by the engine's cap: the two paintings share a budget of patterns the first spends whole,
+    // so a second that asked for one more would be refused it and lay no ink at all.
+    const worker = standInPort();
+    forgetDriftTiles(worker.make);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null);
+    standingOn(set, new Map());
+    paintedOn(100, 50, set.rows, 3, WINDOW, { frames: 1, shape: { ...shapeRest(), cells: 2 } });
+    worker.answer();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const twice = paintedOn(100, 50, set.rows, 3, WINDOW, {
+      frames: 2,
+      shape: { ...shapeRest(), cells: 2 },
+    });
+    expect(worker.asked.filter((one) => one.geometry === LATTICE_GEOMETRY)).toHaveLength(1);
+    expect(twice.laid.filter((one) => one.ink === PRODUCT)).toHaveLength(2);
   });
 });

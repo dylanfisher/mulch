@@ -121,10 +121,15 @@ export function cutLattice(
   order.slot = `${LATTICE_GEOMETRY}|${row.shape}|${row.profile}`;
   const held = curvedTileFor(order);
   if (held === null) return true;
+  // Keyed on the cell the shop handed back, which is the cell asked for on every painting but the
+  // ones a rim stop is still baking — so the key already built is reused wherever the rim held,
+  // and a second string is joined only on the frames a fallback cell stands in (0070).
   const grating = gratingOf(
     field,
     ink,
-    `${LATTICE_GEOMETRY}|${row.profile}|${held.place.rim}|${LATTICE_TILE_PX}`,
+    held.place.rim === order.place.rim
+      ? order.key
+      : `${LATTICE_GEOMETRY}|${row.profile}|${held.place.rim}|${LATTICE_TILE_PX}`,
     held.tile,
   );
   if (grating === null) return false;

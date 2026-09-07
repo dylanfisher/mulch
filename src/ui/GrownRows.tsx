@@ -83,6 +83,28 @@ function wearIcon(icons: readonly HTMLElement[], effect: string | null): void {
   }
 }
 
+/** What the hourglass last wore, so a frame that ran no sand out writes nothing (0070). */
+type Poured = { opacity: string; rotate: string };
+
+/**
+ * The hourglass's sand at `run` of the way through its hold — dimmed as it empties, and turned
+ * over once it has — written only where it moved: a style write replaces the property whether or
+ * not the string matches (0070). Outside the component so a frame of it can be run against a
+ * stand-in, which a server render fills no ref for.
+ */
+export function pourSand(sand: HTMLElement, run: number, poured: Poured): void {
+  const opacity = (0.35 + 0.65 * run).toFixed(2);
+  if (poured.opacity !== opacity) {
+    sand.style.opacity = opacity;
+    poured.opacity = opacity;
+  }
+  const rotate = run > 0 ? "0deg" : "180deg";
+  if (poured.rotate !== rotate) {
+    sand.style.rotate = rotate;
+    poured.rotate = rotate;
+  }
+}
+
 /** What one row is made of, found once off the box and kept — a query per frame is a query too many. */
 type Row = {
   row: HTMLElement;
@@ -194,6 +216,8 @@ export function GrownRows({
   const glass = useRef<{ sand: HTMLElement; says: HTMLElement } | null>(null);
   /** What it last said, so a frame that changes nothing writes nothing (0070). */
   const holding = useRef<string>("");
+  /** And what its sand last wore, for the same reason. */
+  const poured = useRef<Poured>({ opacity: "", rotate: "" });
   /** The rows, resolved on the first paint and reused by every one after it. */
   const found = useRef<Row[] | null>(null);
   /** What each row last said, so a frame that changes nothing writes nothing (0070). */
@@ -280,8 +304,7 @@ export function GrownRows({
       }
       const run =
         Number.isFinite(holdSecs) && wait > 0 ? Math.min(holdSecs / wait, 1) : Number(holdSecs > 0);
-      sand.style.opacity = (0.35 + 0.65 * run).toFixed(2);
-      sand.style.rotate = run > 0 ? "0deg" : "180deg";
+      pourSand(sand, run, poured.current);
     }
     for (const [at, each] of found.current.entries()) {
       const held = grown?.[at];

@@ -1,11 +1,14 @@
+import type { RefObject } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
+import { emptyDeckPeek } from "@/audio/deckPeek";
+import type { PlayerStep } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
-import { Waveform } from "@/ui/Waveform";
+import { paintTransport, Waveform } from "@/ui/Waveform";
 
 /** Nothing is dropped in a server render; the gesture itself is proved in fileDrop.test.ts. */
 const noFile = () => {};
@@ -103,5 +106,75 @@ describe("Waveform holding a tone", () => {
     expect(peaks).toContain("Yard A Waveform");
     expect(peaks).not.toContain("pointer-events-none absolute inset-0 text-primary");
     expect(peaks).toContain("Yard A Loop Handles");
+  });
+});
+
+/**
+ * A surface whose style counts what is written to it: a server render fills no ref, so the frame
+ * is run against these rather than through the loop. The `display` flags are constant strings and
+ * not counted — a flag is not the allocation this is about.
+ */
+const surface = (): { ref: RefObject<HTMLDivElement | null>; wrote: string[] } => {
+  const wrote: string[] = [];
+  const style = new Proxy<Record<string, string>>(
+    {},
+    {
+      set(target, key, value: string) {
+        if (key !== "display") wrote.push(`${String(key)}: ${value}`);
+        target[String(key)] = value;
+        return true;
+      },
+    },
+  );
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return { ref: { current: { style } as unknown as HTMLDivElement }, wrote };
+};
+
+/**
+ * A style write replaces the property whether or not the string matches, so the frame compares
+ * against what it last wrote and writes only what moved (0070) — and compares the exact string,
+ * never a rounded one, so what is skipped is exactly what would have been drawn again.
+ */
+describe("Waveform's frame", () => {
+  it("writes each surface once over two frames that moved nothing, and again where one moved", () => {
+    const playhead = surface();
+    const spark = surface();
+    const ground = surface();
+    const meter = surface();
+    const surfaces = {
+      playhead: playhead.ref,
+      spark: spark.ref,
+      ground: ground.ref,
+      meter: meter.ref,
+    };
+    const worn = { playhead: "", spark: "", left: "", width: "", meter: "" };
+    // A deck a bed into its loop, throwing a spark and sounding at half: every surface has a value.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const step = { slot: 0, bed: 1 } as PlayerStep;
+    const read = {
+      ...emptyDeckPeek(),
+      position: 1.5,
+      meter: 0.5,
+      player: { step, at: 0, sparkPosition: 2.5, armed: null },
+    };
+    const loop = { in: 1, out: 3 };
+    paintTransport(read, 10, loop, 200, surfaces, worn);
+    expect(playhead.wrote).toEqual(["transform: translateX(30px)"]);
+    expect(spark.wrote).toEqual(["transform: translateX(50px)"]);
+    expect(ground.wrote).toEqual(["left: 11.25%", "width: 20%"]);
+    expect(meter.wrote).toEqual(["transform: scaleX(0.5)"]);
+
+    paintTransport(read, 10, loop, 200, surfaces, worn);
+    expect(playhead.wrote).toHaveLength(1);
+    expect(spark.wrote).toHaveLength(1);
+    expect(ground.wrote).toHaveLength(2);
+    expect(meter.wrote).toHaveLength(1);
+
+    // The clock and the meter move; the spark and the ground stand where they were.
+    paintTransport({ ...read, position: 1.75, meter: 0.25 }, 10, loop, 200, surfaces, worn);
+    expect(playhead.wrote).toEqual(["transform: translateX(30px)", "transform: translateX(35px)"]);
+    expect(spark.wrote).toHaveLength(1);
+    expect(ground.wrote).toHaveLength(2);
+    expect(meter.wrote).toEqual(["transform: scaleX(0.5)", "transform: scaleX(0.25)"]);
   });
 });
