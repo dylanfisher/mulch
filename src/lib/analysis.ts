@@ -107,8 +107,9 @@ function loudestFrame(channels: readonly Float32Array[], from: number, to: numbe
   let loudest = -1;
   for (let i = from; i < to; i++) {
     let level = 0;
-    for (const data of channels) {
-      const sample = Math.abs(data[i] ?? 0);
+    // Indexed, not `for…of`: the iterator would be entered once a frame (see wav.ts).
+    for (let c = 0; c < channels.length; c++) {
+      const sample = Math.abs(channels[c]![i] ?? 0);
       if (sample > level) level = sample;
     }
     if (level > loudest) {

@@ -85,7 +85,26 @@ describe("silence spans", () => {
     expect(fingerprint([quiet, flat(0.5, RATE)], RATE).silence).toEqual([]);
     expect(fingerprint([quiet, quiet], RATE).silence).toEqual([[0, gap]]);
   });
+
+  it("reads the channels without entering the array iterator once per frame", () => {
+    const frames = 10_000;
+    // `for (const data of channels)` inside the frame loop enters the iterator once a frame,
+    // which is 28.8M entries for a ten-minute render (wav.test.ts counts the same for encodeWav).
+    const counting = new CountingChannels();
+    counting.push(flat(0.5, frames), flat(0.5, frames));
+    fingerprint(counting, RATE);
+    expect(counting.entered).toBeLessThan(frames / 100);
+  });
 });
+
+/** A channel list that counts every entry into the iterator protocol. */
+class CountingChannels extends Array<Float32Array> {
+  entered = 0;
+  override [Symbol.iterator](): ArrayIterator<Float32Array> {
+    this.entered++;
+    return super[Symbol.iterator]();
+  }
+}
 
 describe("compareFingerprints", () => {
   const golden = fingerprint([flat(0.5, RATE), flat(0.5, RATE)], RATE);
