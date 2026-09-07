@@ -31,3 +31,13 @@ readers by. The transport, the header and the peaks keep reading the store at on
 walk's section is on the page from the loop alone, so a press on it inside the transition read a
 picture of nothing; the card's own switch reading on is the same commit that hands the walk its
 spec. A person cannot press inside that window. A script can.
+
+**Measured**, on the session that raised it (one yard, ten effects, three lanes of ~900 points),
+playing, a 480-step drag across a delay's Mix at sixty moves a second driven by headed Playwright,
+base and head interleaved three times each. On the dev server, where a hand actually plays: base
+blocked the thread six or seven times per drag at up to 60ms and its longest gap between frames
+was 52ms; head blocked it never and its longest gap was 33ms. The dial itself painted 138
+positions on head against 92 on base. The preview build dropped no frames on either, which is
+why the number to watch is the dev server's. Step 5 of the plan — memoising each rack card so
+one move re-renders one card — is not taken: with no long task left on the hand's path there is
+nothing for it to measure against.

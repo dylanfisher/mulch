@@ -383,3 +383,15 @@ of the same shape, so the number is as well-founded as the one it replaces and n
 long delay reads as on a wide popout, or against a rack whose other looks have already displaced
 the field, is unshot. `ECHO_SPACING[1] * ECHO_CAP` is still under half the field, which is the
 property the cases pin.
+
+**knob-01 (0307, 0308) leaves the rack's cards re-rendering together, and names two stutters that
+are not the knob.** The plan's fifth step — memoising each rack card so one move re-renders one
+card — was held back for the measurement, and the measurement left it nothing to take: on the dev
+server, a 480-step drag over a ten-effect yard went from six or seven long tasks of up to 60ms to
+none, with the whole yard still re-rendering in the transition. What that drag does not touch:
+the automator builds effect graphs on a ten-second timer on the main thread, including a reverb
+whose impulse is generated synchronously (src/audio/effects/reverb.ts, src/lib/impulse.ts) — a
+stutter every ten seconds in a session like the one that raised this is that, not the hand — and
+a 900-point lane re-arms as ~900 AudioParam calls every four seconds (src/audio/ramp.ts) while
+its dial scans the lane linearly every frame (src/lib/automation.ts). A cursor per lane is a step
+of its own; neither is scheduled by being here.
