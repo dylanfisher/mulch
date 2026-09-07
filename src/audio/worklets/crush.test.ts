@@ -220,6 +220,85 @@ describe("the a-rate mix", () => {
   });
 });
 
+describe("the stage as it stood before the quantiser moved to the take", () => {
+  it("still draws exactly what it drew then, under a depth that moves mid-hold", () => {
+    // The loop as it was, kept here as the statement the shipped one is held to: the held pair
+    // rounded again on every sample. The rewrite rounds at the take and again when the depth
+    // changes, and nothing else moved — so this is equality, not a tolerance, and the depth is
+    // walked across the whole knob under a hold long enough that most changes land mid-hold.
+    const was = (
+      stage: { phase: number; heldLeft: number; heldRight: number },
+      inLeft: Float32Array,
+      inRight: Float32Array,
+      outLeft: Float32Array,
+      outRight: Float32Array,
+      bits: number,
+      hz: number,
+      mix: Float32Array,
+    ) => {
+      const levels = crush.levelsOf(bits);
+      const step = Math.min(hz / RATE, 1);
+      for (let i = 0; i < outLeft.length; i++) {
+        const left = inLeft[i] ?? 0;
+        const right = inRight[i] ?? 0;
+        stage.phase += step;
+        if (stage.phase >= 1) {
+          stage.phase -= 1;
+          stage.heldLeft = left;
+          stage.heldRight = right;
+        }
+        const blend = mix.length === 1 ? (mix[0] ?? 0) : (mix[i] ?? 0);
+        outLeft[i] = left + (crush.quantise(stage.heldLeft, levels) - left) * blend;
+        outRight[i] = right + (crush.quantise(stage.heldRight, levels) - right) * blend;
+      }
+    };
+    let seed = 12345;
+    const noise = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296 - 0.5;
+    };
+    const length = 8192;
+    const left = Float32Array.from({ length }, noise);
+    const right = Float32Array.from({ length }, noise);
+    const blend = Float32Array.from({ length }, (_, i) => i / (length - 1));
+    // A block of the render quantum with the depth stepped per block, and a block of one sample
+    // with the depth stepped per sample — the finest the processor could ever hand the stage.
+    for (const block of [128, 1]) {
+      const stage = new crush.CrushStage(RATE);
+      const then = { phase: 1, heldLeft: 0, heldRight: 0 };
+      const outLeft = new Float32Array(length);
+      const outRight = new Float32Array(length);
+      const wasLeft = new Float32Array(length);
+      const wasRight = new Float32Array(length);
+      for (let at = 0, take = 0; at < length; at += block, take++) {
+        const bits = 1 + ((take * 0.37) % 15);
+        const piece = (buffer: Float32Array) => buffer.subarray(at, at + block);
+        stage.run(
+          piece(left),
+          piece(right),
+          piece(outLeft),
+          piece(outRight),
+          bits,
+          100,
+          piece(blend),
+        );
+        was(
+          then,
+          piece(left),
+          piece(right),
+          piece(wasLeft),
+          piece(wasRight),
+          bits,
+          100,
+          piece(blend),
+        );
+      }
+      expect(outLeft, `left, blocks of ${block}`).toStrictEqual(wasLeft);
+      expect(outRight, `right, blocks of ${block}`).toStrictEqual(wasRight);
+    }
+  });
+});
+
 describe("the crush processor's parameter descriptors", () => {
   it("declares each of the plugin's parameters at the plugin's own range", () => {
     // Every bound is written twice — once as the declaration the knob, the automation lane and the

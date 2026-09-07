@@ -68,6 +68,15 @@ export class CrushStage {
     this.phase = 1;
     this.heldLeft = 0;
     this.heldRight = 0;
+    /**
+     * The held pair already rounded, and the levels it was rounded onto. A held sample only
+     * changes at a take, so the quantiser runs there rather than on every sample between — and
+     * runs again when a block arrives with a depth the pair was not rounded at, because `bits` is
+     * one number per block and a hold at the bottom of Rate outlasts many blocks.
+     */
+    this.wetLeft = 0;
+    this.wetRight = 0;
+    this.levels = levelsOf(1);
   }
 
   /**
@@ -80,6 +89,11 @@ export class CrushStage {
    */
   run(inLeft, inRight, outLeft, outRight, bits, hz, mix) {
     const levels = levelsOf(bits);
+    if (levels !== this.levels) {
+      this.levels = levels;
+      this.wetLeft = quantise(this.heldLeft, levels);
+      this.wetRight = quantise(this.heldRight, levels);
+    }
     // A hold asked for faster than the context runs is a hold of one sample, which is no hold at
     // all: the step is capped at a whole sample so the phase cannot skip a take.
     const step = Math.min(hz / this.rate, 1);
@@ -91,13 +105,15 @@ export class CrushStage {
         this.phase -= 1;
         this.heldLeft = left;
         this.heldRight = right;
+        this.wetLeft = quantise(left, levels);
+        this.wetRight = quantise(right, levels);
       }
       // The crossfade, in the kernel that already holds both samples. Linear rather than
       // equal-power, and for the reason ./pop.js gives: the wet is the dry rounded rather than a
       // decorrelated second signal, so the two sum in phase (0209).
       const blend = mix.length === 1 ? mix[0] : mix[i];
-      outLeft[i] = left + (quantise(this.heldLeft, levels) - left) * blend;
-      outRight[i] = right + (quantise(this.heldRight, levels) - right) * blend;
+      outLeft[i] = left + (this.wetLeft - left) * blend;
+      outRight[i] = right + (this.wetRight - right) * blend;
     }
   }
 }
