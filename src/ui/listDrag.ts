@@ -52,6 +52,15 @@ type Drag = {
   downTop: number;
   cards: HTMLElement[];
   slots: Slot[];
+  /**
+   * How wide the list was at the press, and the gap its layout puts between two cards on one row.
+   * Together they say whether the dragged card would stay on a row it is dropped at the end of, and
+   * where it would sit there (0305).
+   */
+  width: number;
+  gap: number;
+  /** Where the card is shown landing: a slot, or the room after a row's last card (0305). */
+  landing: Slot;
   /** The landing placeholder, or null when the list rendered without one. */
   placeholder: HTMLElement | null;
 };
@@ -136,7 +145,7 @@ const paint = (active: Drag, dx: number, dy: number): void => {
   if (placeholder === null) return;
   // The slot the card would land in, filled while the gesture is live: the cards have moved off
   // it, so without this the drop reads as a gap rather than as a destination.
-  const landing = active.slots[active.to]!;
+  const { landing } = active;
   placeholder.style.left = `${landing.left}px`;
   placeholder.style.top = `${landing.top}px`;
   placeholder.style.width = `${landing.width}px`;
@@ -180,6 +189,19 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
       // Nothing to reorder past, so nothing to drag — and no ruler to measure against either.
       if (cards.length < 2) return;
       const bounds = list.getBoundingClientRect();
+      const slots = cards.map((card) => {
+        const rect = card.getBoundingClientRect();
+        return {
+          left: rect.left - bounds.left,
+          top: rect.top - bounds.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      });
+      // The gap the list lays its rows out with, asked of the list rather than assumed by this
+      // gesture: `normal` is what a flex row reads with no gap declared, and it is nothing.
+      const { columnGap } = list.ownerDocument.defaultView!.getComputedStyle(list);
+      const gap = columnGap === "normal" ? 0 : Number.parseFloat(columnGap);
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
       drag.begin(list, event, {
         pointerId: event.pointerId,
@@ -192,15 +214,10 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
         downLeft: bounds.left,
         downTop: bounds.top,
         cards,
-        slots: cards.map((card) => {
-          const rect = card.getBoundingClientRect();
-          return {
-            left: rect.left - bounds.left,
-            top: rect.top - bounds.top,
-            width: rect.width,
-            height: rect.height,
-          };
-        }),
+        slots,
+        width: bounds.width,
+        gap,
+        landing: slots[from]!,
         placeholder: slotRef.current,
       });
       cards[from]!.dataset["dragging"] = "true";
@@ -230,19 +247,57 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
       // across a row, downwards onto the next, and diagonally between them (P48). What it costs
       // in a column of unequal heights — a folded yard beside an open one — is one threshold, and
       // 0155 says which and why the alternative was refused.
+      //
+      // Nearest is read by row and then along it, not as one straight-line distance: the row whose
+      // top the corner is nearest, and within that row the seam it is nearest across. A rack is
+      // half a rack wide, so a half-width card standing at the right of its row has a corner half
+      // a rack from every full-width seam, and against a straight line the seam of a *half* slot
+      // two rows away — under its own corner, and only two card-heights off — outscored the
+      // full-width seam the hand had put it on. That drop refused every full-width seam a right-hand
+      // half card was dragged straight up or down onto (0305). A column reads identically: one
+      // slot per row, so the row is the drop.
       const from = active.slots[active.from]!;
       const x = from.left + dx;
       const y = from.top + dy;
-      let to = active.from;
-      let nearest = Infinity;
-      for (const [index, slot] of active.slots.entries()) {
-        const distance = (slot.left - x) ** 2 + (slot.top - y) ** 2;
-        if (distance < nearest) {
-          nearest = distance;
-          to = index;
+      let rowTop = from.top;
+      let nearestRow = Infinity;
+      for (const slot of active.slots) {
+        const row = Math.abs(slot.top - y);
+        if (row < nearestRow) {
+          nearestRow = row;
+          rowTop = slot.top;
         }
       }
+      let to = active.from;
+      let landing = from;
+      let nearestSeam = Infinity;
+      let last = -1;
+      for (const [index, slot] of active.slots.entries()) {
+        if (slot.top !== rowTop) continue;
+        last = index;
+        const seam = Math.abs(slot.left - x);
+        if (seam < nearestSeam) {
+          nearestSeam = seam;
+          to = index;
+          landing = slot;
+        }
+      }
+      // The room after a row's last card is a seam too, when the dragged card would stay on that
+      // row: a half card alone between two wide ones leaves half a rack beside it, and a hand
+      // that puts a card there has asked for *after* the lone one, which no card's own corner
+      // says. Backwards that is the index past the row's last card; forwards, and from within the
+      // row, the cards ahead close up and it is the last card's own index — the same reading a
+      // forward drop onto a corner already has (0305). A card that would not fit — a wide one, or
+      // any card at the end of a full row — has no such seam, so a column is untouched.
+      const end = active.slots[last]!;
+      const trailing = { ...from, left: end.left + end.width + active.gap, top: rowTop };
+      const fits = trailing.left + from.width <= active.width;
+      if (last !== active.from && fits && Math.abs(trailing.left - x) < nearestSeam) {
+        to = active.from > last ? last + 1 : last;
+        landing = trailing;
+      }
       active.to = to;
+      active.landing = landing;
       paint(active, dx, dy);
     },
     [drag],

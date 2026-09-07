@@ -124,7 +124,8 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
   });
   Reflect.set(drag.listRef, "current", {
     querySelectorAll: () => cards,
-    getBoundingClientRect: () => ({ left: 0, top: corner.top }),
+    getBoundingClientRect: () => ({ left: 0, top: corner.top, width: FULL }),
+    ownerDocument: { defaultView: { getComputedStyle: () => ({ columnGap: `${GAP}px` }) } },
     // The list is the element the capture is taken on, so it is the one the skeleton listens on
     // and the one it gives the capture back to (0114).
     setPointerCapture: vi.fn(),
@@ -394,6 +395,18 @@ const FULL = COLUMN + WIDTH;
 const cardMixed = (): Card[] => [cardAt(0, 0, HEIGHT, FULL), cardAt(0, STEP)];
 /** One pixel past the seam between the two rows, which is half a row rather than half a card. */
 const SEAM = STEP / 2 + 1;
+/** `count` full-width cards in a column, the rows a wide entry lays out as. */
+const cardWide = (count: number, from = 0): Card[] =>
+  Array.from({ length: count }, (_, index) => cardAt(0, (from + index) * STEP, HEIGHT, FULL));
+/** Two wide cards, then two halves abreast under them: the rack a right-hand half card is dragged
+ *  straight up out of. */
+const cardStacked = (): Card[] => [
+  ...cardWide(2),
+  ...cardGrid(2).map((card) => {
+    const rect = card.getBoundingClientRect();
+    return cardAt(rect.left, rect.top + 2 * STEP);
+  }),
+];
 
 // A rack of mixed widths is what any entry declaring `width: "full"` beside a half is — the tape
 // was the one that did until P128 took its drawing away (0171), and the vocabulary is still the
@@ -433,6 +446,90 @@ describe("the rack's drag across cards of different widths", () => {
     at(list.onPointerUp, STEP + 20 - (STEP / 2 - 1));
 
     expect(sent).toEqual([]);
+  });
+
+  // The defect 0305 replaced: the right-hand half card's corner is half a rack from every
+  // full-width seam, so against a straight line its own seam two rows down outscored the one the
+  // hand had put it on, and a drag straight up between the two wide cards landed nowhere.
+  it("takes a right-hand half card straight up between two full-width ones", () => {
+    const { sent, handle, list } = useRack(4, cardStacked);
+
+    down(handle(3).onPointerDown, 2 * STEP + 20, COLUMN + 100);
+    at(list.onPointerMove, 2 * STEP + 20 - (STEP + 1), COLUMN + 100);
+    at(list.onPointerUp, 2 * STEP + 20 - (STEP + 1), COLUMN + 100);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e3", index: 1 }]);
+  });
+
+  // And down, past a wide card, onto the seam after it: forward, the seam a corner reads is the
+  // slot the card lands after.
+  it("takes a right-hand half card straight down past a full-width one", () => {
+    const { sent, handle, list } = useRack(4, () => [...cardGrid(2), ...cardWide(2, 1)]);
+
+    down(handle(1).onPointerDown, 20, COLUMN + 100);
+    at(list.onPointerMove, 20 + STEP + 1, COLUMN + 100);
+    at(list.onPointerUp, 20 + STEP + 1, COLUMN + 100);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e1", index: 2 }]);
+  });
+});
+
+/** A half card alone between two wide ones, and another lone half under them (0305). */
+const cardLone = (): Card[] => [
+  ...cardWide(1),
+  cardAt(0, STEP),
+  ...cardWide(1, 2),
+  cardAt(0, 3 * STEP),
+];
+
+// The room beside a lone half card is a seam of its own: no card's corner stands there, and a
+// hand that puts a card there has asked for *after* the lone one (0305).
+// oxlint-disable-next-line max-lines-per-function
+describe("the rack's drag onto the room beside a lone half card", () => {
+  it("lands a half card after the lone one, and shows it landing there", () => {
+    const { sent, placeholder, handle, list } = useRack(4, cardLone);
+
+    down(handle(3).onPointerDown, 3 * STEP + 20, 20);
+    at(list.onPointerMove, STEP + 20, COLUMN + 20);
+
+    expect(placeholder.style).toEqual({
+      left: `${COLUMN}px`,
+      top: `${STEP}px`,
+      width: `${WIDTH}px`,
+      height: `${HEIGHT}px`,
+    });
+
+    at(list.onPointerUp, STEP + 20, COLUMN + 20);
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e3", index: 2 }]);
+  });
+
+  it("lands a half card dragged down from above it after it too", () => {
+    const { sent, handle, list } = useRack(4, () => [
+      cardAt(0, 0),
+      ...cardWide(1, 1),
+      cardAt(0, 2 * STEP),
+      ...cardWide(1, 3),
+    ]);
+
+    down(handle(0).onPointerDown, 20, 20);
+    at(list.onPointerMove, 2 * STEP + 20, COLUMN + 20);
+    at(list.onPointerUp, 2 * STEP + 20, COLUMN + 20);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 2 }]);
+  });
+
+  it("gives a wide card, which would not fit beside it, the seam before it", () => {
+    const { sent, handle, list } = useRack(3, () => [
+      ...cardWide(1),
+      cardAt(0, STEP),
+      ...cardWide(1, 2),
+    ]);
+
+    down(handle(2).onPointerDown, 2 * STEP + 20, 20);
+    at(list.onPointerMove, STEP + 20, COLUMN + 20);
+    at(list.onPointerUp, STEP + 20, COLUMN + 20);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e2", index: 1 }]);
   });
 });
 
