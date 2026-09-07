@@ -22,7 +22,6 @@ import {
   createSessionStore,
   deckIdsOf,
   type DeckId,
-  deckIn,
   fromDecks,
   holdsDeck,
   replaceSession,
@@ -38,6 +37,7 @@ import { execute, type RenderHost } from "./execute";
 import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
 import { restoreInto, restoredSessionState } from "./restore";
+import { playingPositions as playingPositionsOf } from "./restorePositions";
 import { assertGroupedEdits, expandsIntoGroup, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
@@ -387,32 +387,11 @@ export function createInstrument(
     saveTail = operation.catch(() => {});
     return operation;
   };
-  /** One object, refilled, for the one read a restore takes of each voice's playhead. */
+  /** Where each playing deck has read to, for the decks the checkpoint still gives something to
+   *  play — asked of the graph through one refilled scratch (src/app/restorePositions.ts). */
   const restoreScratch: DeckPeek = emptyDeckPeek();
-  /**
-   * Where each deck that is playing right now has read to, for the decks the checkpoint about to
-   * be restored still gives something to play. Rebuilding a voice that was playing is a restart
-   * and a restart is not a stop (0052): an undo changes what the instrument sounds like, never
-   * whether it is sounding. A deck the checkpoint holds no source for has nothing to resume, and
-   * one it does not hold at all is leaving with the voice. A deck whose source the checkpoint
-   * changes is not resumed either: a playhead belongs to the buffer it was read from, and
-   * carrying it onto different audio would land wherever that buffer happened to end.
-   */
-  const playingPositions = (target: Session): Map<DeckId, number> => {
-    const carried = new Map<DeckId, number>();
-    if (engine === null) return carried;
-    for (const { id: deck } of target.deckList) {
-      if (!holdsDeck(store.getState().deckList, deck)) continue;
-      const restored = deckIn(target.decks, deck).source;
-      if (restored === null) continue;
-      const held = deckIn(store.getState().decks, deck).source;
-      if (JSON.stringify(held) !== JSON.stringify(restored)) continue;
-      if (!engine.planned(deck)) continue;
-      engine.peek(deck, restoreScratch);
-      carried.set(deck, restoreScratch.position);
-    }
-    return carried;
-  };
+  const playingPositions = (target: Session): Map<DeckId, number> =>
+    playingPositionsOf(engine, store, target, restoreScratch);
   const restoreCheckpoint = (target: Session): Promise<boolean> => {
     const token = invalidateLoads();
     const earlier = saveTail;
@@ -544,7 +523,7 @@ export function createInstrument(
     }
     rollback?.discard();
     // A group about a single value opens a gesture the rest of that drag's plain sets then join.
-    history.record(sessionSnapshot(store.getState()), groupGesture(commands));
+    history.record(() => sessionSnapshot(store.getState()), groupGesture(commands));
     observeDurable();
     for (const event of buffered) bus.emit(event.body, event.at);
   };
@@ -604,15 +583,24 @@ export function createInstrument(
     if (!isDurableEdit(cmd)) return execute(cmd, runtime);
     historyIntent++;
     const gesture = gestureOf(cmd);
+    // What the ledger is handed is the call, not the tree: a drag's moves are held and the one
+    // that matters is taken when the hand lets go (0308). The store is written only by this
+    // function and by the completions it returns, so a held call reads the drag's own end — a
+    // completion of a command sent *before* the drag that lands inside it is the one write it
+    // would also see, and that lands in the drag's end checkpoint rather than an entry of its own.
+    const take = (): Session => sessionSnapshot(store.getState());
+    // Before the write, because the held call reads the store when it is spent: a command under
+    // another key settles the drag before it, and a move of the same drag settles nothing.
+    history.settleFor(gesture);
     const completion = execute(cmd, runtime);
     if (completion === undefined) {
-      history.record(sessionSnapshot(store.getState()), gesture);
+      history.record(take, gesture);
       return;
     }
     // The callback commits by side effect and resolves void.
     // oxlint-disable-next-line promise/always-return
     return completion.then(() => {
-      history.record(sessionSnapshot(store.getState()), gesture);
+      history.record(take, gesture);
     });
   };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {

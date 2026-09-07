@@ -90,6 +90,12 @@ export class SessionHistory {
   #gestureAt = 0;
   /** Whether that transaction still has its opening checkpoint on the undo stack. */
   #open = false;
+  /**
+   * The call that would take the open gesture's latest checkpoint, held rather than spent: a drag
+   * commits per pointer event and the one checkpoint of it that matters is its end (0067), so the
+   * copy and the serialisation are paid once, at `settle`, and not per move (0308).
+   */
+  #pending: (() => Session) | null = null;
 
   constructor(initial: Session, now: () => number = () => performance.now()) {
     this.#current = copyCheckpoint(initial);
@@ -128,33 +134,30 @@ export class SessionHistory {
    * cost a whole session per pointer event of a drag (0304). A caller that keeps a reference must
    * not write through it — that is the one thing 0021's snapshot rule now asks of it.
    */
-  record(next: Session, gesture: string | null = null): void {
+  record(take: () => Session, gesture: string | null = null): void {
     const at = this.#now();
-    const nextJson = checkpointJson(next);
     const sameGesture =
       gesture !== null && gesture === this.#gesture && at - this.#gestureAt <= GESTURE_IDLE_MS;
     // Kept alive by every commit under the open key, not only the ones that change something: a
     // knob dragged inside one step re-sends the value it already holds, and a hand that has not
     // moved the value has not let go of the control.
     if (sameGesture) this.#gestureAt = at;
+    if (sameGesture && this.#open) {
+      // The open transaction's start checkpoint is already on the undo stack, and redo was
+      // truncated when it opened: only where the gesture has reached moves, and where it has
+      // reached is read once, when something needs it (`settle`).
+      this.#pending = take;
+      return;
+    }
+    // Any other commit closed the gesture before it wrote the store (`settleFor`), so what is
+    // held here, if anything, is a drag the caller let fall through — spent now, late, rather
+    // than dropped.
+    this.settle();
+    const next = take();
+    const nextJson = checkpointJson(next);
     if (nextJson === this.#currentJson) return;
     this.#gesture = gesture;
     this.#gestureAt = at;
-    if (sameGesture && this.#open) {
-      // The open transaction's start checkpoint is already on the undo stack, and redo was
-      // truncated when it opened: only where the gesture has reached moves.
-      this.#current = next;
-      this.#currentJson = nextJson;
-      // Unless the gesture has come back to where it began, in which case there is nothing left
-      // to take back: the entry goes rather than sitting on the stack as a press that does
-      // nothing. Moving further on turns it into an entry again, through the push below.
-      if (this.#undo.length > 0 && this.#openStartJson === nextJson) {
-        this.#undo.pop();
-        this.#open = false;
-        this.#publish();
-      }
-      return;
-    }
     this.#undo.push(this.#current);
     this.#openStartJson = this.#currentJson;
     if (this.#undo.length > HISTORY_CAP) this.#undo.shift();
@@ -171,11 +174,53 @@ export class SessionHistory {
    * moved the ledger out from under whatever hand was on a knob.
    */
   endGesture = (): void => {
+    this.settle();
     this.#gesture = null;
   };
 
+  /**
+   * Settle the held checkpoint before a commit under `gesture` writes the store, unless that
+   * commit continues the open drag. The held call reads the store when it is spent, so it has to
+   * be spent before the next command's write and not after — which is why the facade asks this
+   * before it executes, and why `record` settling for itself would already be too late.
+   */
+  settleFor(gesture: string | null): void {
+    const continues =
+      gesture !== null &&
+      gesture === this.#gesture &&
+      this.#now() - this.#gestureAt <= GESTURE_IDLE_MS;
+    if (!continues) this.settle();
+  }
+
+  /**
+   * Spend the held checkpoint of the open gesture, if there is one: where the drag has reached
+   * becomes the transaction's end. Called by every boundary and every reader of `#current` — a
+   * gesture ending, an undo, the blobs a save keeps reachable — so nothing reads a ledger a drag
+   * has moved past.
+   */
+  settle(): void {
+    const take = this.#pending;
+    if (take === null) return;
+    this.#pending = null;
+    const next = take();
+    const nextJson = checkpointJson(next);
+    if (nextJson === this.#currentJson) return;
+    this.#current = next;
+    this.#currentJson = nextJson;
+    // Unless the gesture has come back to where it began, in which case there is nothing left to
+    // take back: the entry goes rather than sitting on the stack as a press that does nothing.
+    // Moving further on turns it into an entry again, through the push in `record`.
+    if (this.#undo.length > 0 && this.#openStartJson === nextJson) {
+      this.#undo.pop();
+      this.#open = false;
+      this.#publish();
+    }
+  }
+
   /** Startup hydration establishes the first checkpoint; persisted history is deliberately absent. */
   reset(current: Session): void {
+    // Dropped, not spent: a reset is a new root, and a drag held against the old one is nothing.
+    this.#pending = null;
     this.#undo.length = 0;
     this.#redo.length = 0;
     this.#current = copyCheckpoint(current);
@@ -185,16 +230,19 @@ export class SessionHistory {
   }
 
   undoTarget(): Session | null {
+    this.settle();
     const target = this.#undo.at(-1);
     return target === undefined ? null : copyCheckpoint(target);
   }
 
   redoTarget(): Session | null {
+    this.settle();
     const target = this.#redo.at(-1);
     return target === undefined ? null : copyCheckpoint(target);
   }
 
   commitUndo(current: Session): void {
+    this.settle();
     const target = this.#undo.pop();
     if (target === undefined) throw new Error("undo history is empty");
     this.#redo.push(copyCheckpoint(current));
@@ -205,6 +253,7 @@ export class SessionHistory {
   }
 
   commitRedo(current: Session): void {
+    this.settle();
     const target = this.#redo.pop();
     if (target === undefined) throw new Error("redo history is empty");
     this.#undo.push(copyCheckpoint(current));
@@ -216,6 +265,7 @@ export class SessionHistory {
 
   /** Blob reachability extends through every live checkpoint, but never into persistence JSON. */
   blobIds(): Set<BlobId> {
+    this.settle();
     const ids = sessionBlobIds(this.#current);
     for (const checkpoint of this.#undo) {
       for (const id of sessionBlobIds(checkpoint)) ids.add(id);

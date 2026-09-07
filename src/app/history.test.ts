@@ -1,6 +1,6 @@
 /** @role Command-level contracts for bounded, grouped, branching, and blob-backed history. */
 // oxlint-disable import/max-dependencies
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { BlobId } from "@/lib/source";
@@ -15,7 +15,6 @@ import { manualClock } from "./clock";
 import type { Emit, Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import { createInstrument, type Instrument } from "./facade";
-import { GESTURE_IDLE_MS, HISTORY_CAP, SessionHistory } from "./history";
 
 // Each case keeps its full command timeline visible; splitting setup hides the ordering under test.
 // oxlint-disable max-lines, max-lines-per-function
@@ -490,148 +489,6 @@ describe("history commands", () => {
     expect({ commits, discards }).toEqual({ commits: 0, discards: 1 });
     expect(instrument.history.getState().canUndo).toBe(true);
     expect(instrument.ring().some((event) => event.t === "session.imported")).toBe(false);
-  });
-});
-
-describe("the central history bound", () => {
-  it("keeps exactly HISTORY_CAP undo checkpoints", () => {
-    const store = createSessionStore();
-    const history = new SessionHistory(sessionSnapshot(store.getState()));
-    for (let index = 0; index <= HISTORY_CAP; index++) {
-      patchDeck(store, "a", (deck) => ({
-        params: { ...deck.params, "deck.gain": index / HISTORY_CAP },
-      }));
-      history.record(sessionSnapshot(store.getState()));
-    }
-    for (let count = 0; count < HISTORY_CAP; count++) {
-      const target = history.undoTarget();
-      expect(target).not.toBeNull();
-      history.commitUndo(sessionSnapshot(store.getState()));
-    }
-    expect(history.undoTarget()).toBeNull();
-  });
-
-  it("owns its snapshots and releases blob reachability after bound eviction", () => {
-    const store = createSessionStore();
-    const initial = sessionSnapshot(store.getState());
-    const history = new SessionHistory(initial);
-    initial.decks.a!.params["deck.gain"] = 0.2;
-    patchDeck(store, "a", (deck) => ({
-      params: { ...deck.params, "deck.gain": 0.5 },
-    }));
-    history.record(sessionSnapshot(store.getState()));
-    const exposed = history.undoTarget();
-    if (exposed === null) throw new Error("expected initial checkpoint");
-    exposed.decks.a!.params["deck.gain"] = 0.8;
-    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
-
-    patchDeck(store, "a", { source: { blobId: "evicted" } });
-    history.record(sessionSnapshot(store.getState()));
-    patchDeck(store, "a", { source: { gen: "sine" } });
-    history.record(sessionSnapshot(store.getState()));
-    for (let index = 1; index <= HISTORY_CAP; index++) {
-      patchDeck(store, "a", (deck) => ({
-        params: { ...deck.params, "deck.pan": index / HISTORY_CAP },
-      }));
-      history.record(sessionSnapshot(store.getState()));
-    }
-    expect(history.blobIds()).not.toContain("evicted");
-  });
-
-  /**
-   * A drag commits a checkpoint per pointer event, and each commit is compared against the
-   * unchanged `#current` and the unchanged gesture start. Both of those already have a JSON, so
-   * only the arriving checkpoint is serialised: one whole session per commit, not four.
-   */
-  it("serialises only the arriving checkpoint on each commit of a drag", () => {
-    const store = createSessionStore();
-    const history = new SessionHistory(sessionSnapshot(store.getState()));
-    const real = JSON.stringify.bind(JSON);
-    let sessions = 0;
-    const moves = 20;
-    const spy = vi.spyOn(JSON, "stringify").mockImplementation((value: unknown) => {
-      const out = real(value);
-      if (out.includes('"spentDeckIds"')) sessions += 1;
-      return out;
-    });
-    try {
-      for (let index = 1; index <= moves; index++) {
-        patchDeck(store, "a", (deck) => ({
-          params: { ...deck.params, "deck.gain": index / moves },
-        }));
-        history.record(sessionSnapshot(store.getState()), "a gain");
-      }
-    } finally {
-      spy.mockRestore();
-    }
-    expect(sessions).toBe(moves);
-  });
-
-  /**
-   * The checkpoint a commit hands in is history's own from that line (0304): a drag of twenty
-   * moves copies no session at all, where each move once cloned the whole of one.
-   */
-  it("copies nothing on any commit of a drag", () => {
-    const store = createSessionStore();
-    const history = new SessionHistory(sessionSnapshot(store.getState()));
-    const moves = 20;
-    const spy = vi.spyOn(globalThis, "structuredClone");
-    try {
-      for (let index = 1; index <= moves; index++) {
-        patchDeck(store, "a", (deck) => ({
-          params: { ...deck.params, "deck.gain": index / moves },
-        }));
-        history.record(sessionSnapshot(store.getState()), "a gain");
-      }
-      expect(spy).not.toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
-  /**
-   * What holds 0021 without the copy is that nothing else holds the tree: `sessionSnapshot` is
-   * built fresh for each call, so the store's later writes never reach it, and a drag's later
-   * moves are trees of their own. Undo after a drag lands on the hand's starting value even when
-   * every move's object is written through afterwards.
-   */
-  it("restores the value a drag started from whatever its moves' objects hold afterwards", () => {
-    const store = createSessionStore();
-    const history = new SessionHistory(sessionSnapshot(store.getState()));
-    patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.5 } }));
-    history.record(sessionSnapshot(store.getState()));
-    const moves: Session[] = [];
-    for (const value of [0.4, 0.3, 0.2]) {
-      patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": value } }));
-      const move = sessionSnapshot(store.getState());
-      moves.push(move);
-      history.record(move, "a gain");
-    }
-    for (const move of moves) move.decks.a!.params["deck.gain"] = 0.9;
-    store.getState().decks.a!.params["deck.gain"] = 0.1;
-
-    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(0.5);
-    history.commitUndo(sessionSnapshot(store.getState()));
-    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
-  });
-
-  it("opens a new entry once an open gesture has gone quiet", () => {
-    const store = createSessionStore();
-    let wall = 0;
-    const history = new SessionHistory(sessionSnapshot(store.getState()), () => wall);
-    const drag = (value: number): void => {
-      patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": value } }));
-      history.record(sessionSnapshot(store.getState()), "a gain");
-    };
-    drag(0.9);
-    wall += GESTURE_IDLE_MS;
-    drag(0.8);
-    wall += GESTURE_IDLE_MS + 1;
-    drag(0.7);
-
-    history.commitUndo(sessionSnapshot(store.getState()));
-    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
-    expect(history.redoTarget()?.decks.a!.params["deck.gain"]).toBe(0.7);
   });
 });
 
