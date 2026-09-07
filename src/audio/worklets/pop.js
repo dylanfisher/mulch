@@ -106,17 +106,40 @@ export function expandGain(levelDb, pivotDb, lift) {
   return 10 ** (bounded / 20);
 }
 
+/** The clamp above, as the two linear multipliers it bounds `expandRatio` between. */
+const LIFT_CEILING = 10 ** (MAX_LIFT_DB / 20);
+const LIFT_FLOOR = 10 ** (-MAX_LIFT_DB / 20);
+
+/**
+ * `expandGain` again, from the two amplitudes the followers hold rather than from their decibels:
+ * `10 ** (lift * 20 * log10(level / pivot) / 20)` is `(level / pivot) ** lift`, and a clamp on
+ * the decibels is the same clamp on the multiplier because the exponential is monotonic. One
+ * divide and one power in place of two logs and a power, in the loop that is the dearest in the
+ * bench; ./pop.test.ts holds it to within 1e-9 of the decibel form it restates (0303).
+ * @param {number} level @param {number} pivot @param {number} lift @returns {number}
+ */
+export function expandRatio(level, pivot, lift) {
+  const ratio = Math.max(Math.abs(level), DB_FLOOR) / Math.max(Math.abs(pivot), DB_FLOOR);
+  return Math.min(Math.max(ratio ** lift, LIFT_FLOOR), LIFT_CEILING);
+}
+
 /**
  * A left/right pair from a mid and a side split in two: the part of the side below the cut, which
  * width never touches, and the part above it, which is all width scales. Identity at a width of
  * one, mono above the cut at nought, and the low half survives either way — which is the whole
  * reason the side is split rather than scaled whole.
+ * Written into `into` when one is given, so the stage can hand it the same pair every sample
+ * rather than allocate one per sample on the audio thread.
  * @param {number} mid @param {number} low @param {number} high @param {number} width
+ * @param {{ left: number, right: number }} [into]
  * @returns {{ left: number, right: number }}
  */
-export function widthPair(mid, low, high, width) {
+export function widthPair(mid, low, high, width, into) {
+  const pair = into ?? { left: 0, right: 0 };
   const side = low + high * width;
-  return { left: mid + side, right: mid - side };
+  pair.left = mid + side;
+  pair.right = mid - side;
+  return pair;
 }
 
 /**
@@ -167,6 +190,8 @@ export class PopStage {
     this.sideLow = 0;
     this.toneLeft = 0;
     this.toneRight = 0;
+    /** The one left/right pair `widthPair` writes into, so the loop allocates nothing. */
+    this.pair = { left: 0, right: 0 };
   }
 
   /**
@@ -180,6 +205,8 @@ export class PopStage {
    */
   run(inLeft, inRight, outLeft, outRight, lift, snap, width, sheen, mix) {
     const envCoefficient = smoothingCoefficient(snap, this.rate);
+    const perSample = mix.length > 1;
+    const pair = this.pair;
     for (let i = 0; i < outLeft.length; i++) {
       const left = inLeft[i];
       const right = inRight[i];
@@ -195,11 +222,12 @@ export class PopStage {
       const warm = this.heard === 0 ? 0 : 1 / this.heard;
       this.env = onePole(this.env, magnitude, Math.max(envCoefficient, warm));
       this.pivot = onePole(this.pivot, magnitude, Math.max(this.pivotCoefficient, warm));
-      const gain = expandGain(ampToDb(this.env), ampToDb(this.pivot), lift);
+      const gain = expandRatio(this.env, this.pivot, lift);
 
       // The gain is one number over the pair, so the image does not move as it works.
-      this.sideLow = onePole(this.sideLow, side * gain, this.sideCut);
-      const pair = widthPair(mid * gain, this.sideLow, side * gain - this.sideLow, width);
+      const wideSide = side * gain;
+      this.sideLow = onePole(this.sideLow, wideSide, this.sideCut);
+      widthPair(mid * gain, this.sideLow, wideSide - this.sideLow, width, pair);
 
       this.toneLeft = onePole(this.toneLeft, pair.left, this.sheenCut);
       this.toneRight = onePole(this.toneRight, pair.right, this.sheenCut);
@@ -209,7 +237,7 @@ export class PopStage {
       // The crossfade, in the kernel that already holds both samples. Linear rather than
       // equal-power, and that is not an oversight: nothing in this file looks ahead, so the wet is
       // the dry moved rather than a decorrelated second signal, and the two sum in phase (0209).
-      const blend = mix.length === 1 ? mix[0] : mix[i];
+      const blend = perSample ? mix[i] : mix[0];
       outLeft[i] = left + (wetLeft - left) * blend;
       outRight[i] = right + (wetRight - right) * blend;
     }

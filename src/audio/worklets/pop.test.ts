@@ -73,7 +73,38 @@ describe("expandGain", () => {
   });
 });
 
+describe("expandRatio", () => {
+  it("is the decibel form to within 1e-9, at the floor and at both clamps", () => {
+    // The bar, stated before the rewrite the way 0211 states it (0303): the loop computes the gain
+    // as one divide and one power, and this is the log-and-exp statement it has to keep agreeing
+    // with, held here rather than trusted. The grid puts both followers under, at and over
+    // DB_FLOOR, and the lifts reach both clamps.
+    const reference = (level: number, pivot: number, lift: number) =>
+      pop.expandGain(pop.ampToDb(level), pop.ampToDb(pivot), lift);
+    const levels = [0, 1e-7, 1e-6, 2e-6, 1e-4, 1e-2, 0.1, 0.5, 1, 4];
+    for (const level of levels) {
+      for (const pivot of levels) {
+        for (const lift of [0, 0.1, 0.35, 0.5, 1]) {
+          const want = reference(level, pivot, lift);
+          const got = pop.expandRatio(level, pivot, lift);
+          expect(Math.abs(got - want) / want, `${level} / ${pivot} ^ ${lift}`).toBeLessThan(1e-9);
+        }
+      }
+    }
+    // And the clamps are the same two numbers from either side.
+    expect(pop.expandRatio(1, 1e-6, 1)).toBe(reference(1, 1e-6, 1));
+    expect(pop.expandRatio(1e-6, 1, 1)).toBe(reference(1e-6, 1, 1));
+  });
+});
+
 describe("widthPair", () => {
+  it("writes into the pair it is handed, so the stage allocates none per sample", () => {
+    const into = { left: 0, right: 0 };
+    expect(pop.widthPair(0.3, 0.2, 0.9, 0, into)).toBe(into);
+    expect(into.left).toBeCloseTo(0.5, 12);
+    expect(into.right).toBeCloseTo(0.1, 12);
+  });
+
   it("is identity at a width of one", () => {
     for (const [left, right] of [
       [0.4, -0.2],
@@ -190,6 +221,55 @@ describe("the stage", () => {
     // Well under the 250Hz cut, and well over it.
     expect(spread(40)).toBeGreaterThan(0.8);
     expect(spread(6000)).toBeLessThan(0.1);
+  });
+});
+
+describe("the stage as it stood before the gain became one power", () => {
+  it("still draws what it drew then", () => {
+    // Samples of the stage's output on a fixed noise, taken from the file as it stood when the
+    // gain was two logs and an exponential (0303). The rewrite is not bit-exact in doubles, so the
+    // pin is a tolerance and not equality — and it is a tolerance under a float's own step, so
+    // anything that moves a sample the ear could tell is refused here.
+    let seed = 12345;
+    const noise = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296 - 0.5;
+    };
+    const length = 4096;
+    const left = Float32Array.from({ length }, noise);
+    const right = Float32Array.from({ length }, noise);
+    const outLeft = new Float32Array(length);
+    const outRight = new Float32Array(length);
+    const stage = new pop.PopStage(RATE);
+    const mix = Float32Array.from([0.5]);
+    for (let at = 0; at < length; at += 128) {
+      const block = (buffer: Float32Array) => buffer.subarray(at, at + 128);
+      stage.run(
+        block(left),
+        block(right),
+        block(outLeft),
+        block(outRight),
+        0.35,
+        0.03,
+        1.4,
+        0.2,
+        mix,
+      );
+    }
+    const pinned: [number, number, number][] = [
+      [0, -0.5215727686882019, -0.4312579035758972],
+      [1, -0.5375127792358398, -0.19948875904083252],
+      [127, 0.4938199818134308, 0.03754904866218567],
+      [128, 0.42841267585754395, 0.2998317778110504],
+      [1000, -0.028294341638684273, -0.4243786633014679],
+      [2047, 0.276321142911911, -0.2331455498933792],
+      [3333, -0.5779456496238708, 0.4550338685512543],
+      [4095, -0.37338361144065857, -0.3121861517429352],
+    ];
+    for (const [i, wasLeft, wasRight] of pinned) {
+      expect(Math.abs((outLeft[i] ?? 0) - wasLeft), `left ${i}`).toBeLessThan(1e-6);
+      expect(Math.abs((outRight[i] ?? 0) - wasRight), `right ${i}`).toBeLessThan(1e-6);
+    }
   });
 });
 
