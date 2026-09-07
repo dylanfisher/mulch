@@ -472,6 +472,50 @@ describe("restoration and autosave", () => {
     ]);
   });
 
+  /**
+   * The store is written on every pointer move of a drag, and deciding whether that write is
+   * worth a save used to serialise the whole session on each of them. The question is asked
+   * once, when the autosave timer fires, against what was last saved (0308).
+   */
+  it("serialises the session once across a burst of moves, not once per move", async () => {
+    vi.useFakeTimers();
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repositoryDouble());
+    await instrument.ready;
+    const real = JSON.stringify.bind(JSON);
+    let sessions = 0;
+    const spy = vi.spyOn(JSON, "stringify").mockImplementation((value: unknown) => {
+      const out = real(value);
+      if (out.includes('"spentDeckIds"')) sessions += 1;
+      return out;
+    });
+    try {
+      for (let move = 1; move <= 20; move++) {
+        instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: move / 40 });
+      }
+    } finally {
+      spy.mockRestore();
+    }
+    // The one is the ledger opening the drag's entry (0308); the observer adds none.
+    expect(sessions).toBe(1);
+  });
+
+  it("saves nothing for a burst of moves that nets to nothing", async () => {
+    vi.useFakeTimers();
+    const repository = repositoryDouble();
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+    await instrument.ready;
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 1 });
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
+    await turns();
+    expect(repository.saves).toEqual([]);
+    expect(events.some((event) => event.t === "session.saved")).toBe(false);
+  });
+
   it("manual save flushes the current snapshot and replaces a pending autosave", async () => {
     vi.useFakeTimers();
     const repository = repositoryDouble();

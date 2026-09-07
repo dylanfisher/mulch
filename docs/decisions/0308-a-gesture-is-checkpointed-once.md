@@ -16,3 +16,9 @@ itself would already be reading the next command's state. The residual is a comp
 command sent before the drag that lands inside it: its write is folded into the drag's end
 checkpoint and gets no entry of its own. Undo of the drag still lands on the drag's start, which
 is what 0067 promises.
+
+The same rule for the autosave. Whether a store write moved anything durable was answered by
+serialising the whole session on every write, which was the second of the two serialisations a
+pointer move paid. It is asked once, when the autosave timer fires after a burst has gone quiet,
+against what was last saved — so a burst that nets to nothing saves nothing, and a move costs the
+observer a timer reset.

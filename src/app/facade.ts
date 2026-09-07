@@ -260,7 +260,10 @@ export function createInstrument(
       // Sample when this serialized write actually begins, not when it was queued behind an
       // earlier write: loads started during that wait must also settle before this GC runs.
       await waitForLoads();
-      return repository.save(sessionSnapshot(store.getState()), history.blobIds());
+      const session = sessionSnapshot(store.getState());
+      // What was last saved is what the next autosave is measured against.
+      durable = JSON.stringify(session);
+      return repository.save(session, history.blobIds());
     });
     // One failed write reports its own failure but does not poison every later save.
     saveTail = operation.catch(() => {});
@@ -275,15 +278,17 @@ export function createInstrument(
     cancelAutosave();
     autosaveTimer = setTimeout(() => {
       autosaveTimer = null;
+      // Whether anything durable moved is asked here, once a burst has gone quiet, and not on
+      // every store write: a drag writes the store on every pointer move, and a whole session
+      // serialised per move to answer a question the timer can answer once was the second of
+      // the two serialisations a move paid (0308). A burst that nets to nothing saves nothing.
+      if (fingerprint() === durable) return;
       save("autosave");
     }, AUTOSAVE_DELAY_MS);
   };
 
   const observeDurable = (): void => {
-    const next = fingerprint();
-    if (next === durable) return;
     if (grouping) return;
-    durable = next;
     scheduleAutosave();
   };
   store.subscribe(observeDurable);
