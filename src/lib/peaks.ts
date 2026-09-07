@@ -82,13 +82,19 @@ export function spectralTilt(samples: Float32Array, rms = rmsMagnitude(samples))
  * `BeatAnalysis.crest` uses for "measured nothing" (src/lib/analysis.ts), and not a ratio a window
  * with sound in it can produce: the least a real crest can be is 1, where every sample is as loud
  * as the loudest.
+ *
+ * `loudest` and `rms` are the window's own where the caller already has them, the way
+ * `spectralTilt` takes its power: the deck's meter answers its level off the same window a frame
+ * earlier, and a second pass over it for the same two numbers is the duplicate this was rid of.
  */
-export function crestFactor(samples: Float32Array): number {
+export function crestFactor(
+  samples: Float32Array,
+  loudest = peakMagnitude(samples),
+  rms = rmsMagnitude(samples),
+): number {
   // Both halves are somebody else's answer and never a second scan of their own: one loudest
   // sample and one power under it, one author each (principle 1).
-  const loudest = peakMagnitude(samples);
   if (loudest <= 0) return 0;
-  const rms = rmsMagnitude(samples);
   return rms > 0 ? loudest / rms : 0;
 }
 

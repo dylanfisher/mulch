@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildDeckChain } from "./chain";
+import { destination, fakeContext } from "./deckDouble";
 import {
   bindParam,
   SAME_GESTURE_GAP_SECS,
@@ -225,5 +227,32 @@ describe("a bound parameter under a live gesture", () => {
     expect(ramps[2]?.[2]).toBeCloseTo(3 + CADENCE + CADENCE, 9);
     expect(ramps[3]?.[2]).toBeCloseTo(9 + PARAM_RAMP_SECS, 9);
     expect(CADENCE).toBeLessThan(SAME_GESTURE_GAP_SECS);
+  });
+});
+
+describe("deck meter", () => {
+  // The level and the crest are two numbers off one window: a second fetch inside the same tick
+  // of the clock is the same 2048 floats copied again and the same loudest sample found again.
+  it("copies the meter window once a tick for the level and the crest it reads off it", () => {
+    const { analysers, context, now } = fakeContext();
+    const chain = buildDeckChain(context, destination());
+    const meter = analysers[0];
+    if (meter === undefined) throw new Error("the chain built no meter");
+    // Four samples at full scale and nothing after: the peak is 1, the power is the root of four
+    // over the window, and the crest is the one over the other (src/lib/peaks.test.ts).
+    meter.window = (at) => (at < 4 ? 1 : 0);
+    now(1);
+    expect(chain.level()).toBe(1);
+    expect(chain.crest()).toBeCloseTo(Math.sqrt(meter.fftSize / 4), 6);
+    expect(meter.fetches).toBe(1);
+    // Either read again on the same tick copies nothing; move the clock and one window is copied,
+    // whichever of the two asks first.
+    chain.level();
+    chain.crest();
+    expect(meter.fetches).toBe(1);
+    now(2);
+    expect(chain.crest()).toBeCloseTo(Math.sqrt(meter.fftSize / 4), 6);
+    expect(meter.fetches).toBe(2);
+    chain.dispose();
   });
 });

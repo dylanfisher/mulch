@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 
 import { METER_WINDOW } from "./chain";
-import { SPECTRUM_FLOOR_DB } from "@/lib/peaks";
+import { SPECTRUM_FLOOR_DB, spectralTilt } from "@/lib/peaks";
 
 import { createMasterBus, emptyMasterPeek, type MasterPeek, SOFT_CLIP_CEILING } from "./context";
 
@@ -180,6 +180,11 @@ describe("the master bus", () => {
     createMasterBus(loudAndBright.context).peek(lit);
     expect(lit.level).toBeCloseTo(0.5, 6);
     expect(lit.tilt).toBeCloseTo(1, 6);
+    // And it is that window's own tilt exactly, scanned on the one channel: the quiet one's
+    // differs as far as a tilt can and never enters the answer.
+    const loud = Float32Array.from({ length: METER_WINDOW }, (_, at) => 0.5 * bright(at));
+    expect(lit.tilt).toBe(spectralTilt(loud));
+    expect(dark.tilt).toBe(spectralTilt(new Float32Array(METER_WINDOW).fill(0.5)));
   });
 
   /**

@@ -9,7 +9,7 @@ import type { EffectInstanceId, GrownEffect } from "./effects/contract";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
-import { crestFactor, peakMagnitude } from "@/lib/peaks";
+import { crestFactor, peakMagnitude, rmsMagnitude } from "@/lib/peaks";
 import { fromIds } from "@/lib/records";
 import { CENTS_PER_SEMITONE, toneCents } from "@/lib/timeline";
 import {
@@ -108,9 +108,10 @@ export type DeckChain = {
    * The crest of a window of this deck's own end: its peak over its RMS, which falls as reverb,
    * delay and saturation fill the gaps between the transients — how *washed* the yard sounds, in
    * the raw unit the reading is taken in, exactly as `level` above is raw (0213). Higher is drier,
-   * and a window with nothing in it reads 0, the way a crest says it measured nothing. Its own read
-   * of the same analyser rather than a second look at `level`'s window: two dead-end reads of one
-   * node, each allocation-free, and neither depends on the other having been called.
+   * and a window with nothing in it reads 0, the way a crest says it measured nothing. Off the
+   * same window `level` read at this instant of the clock, fetched once for the pair: two numbers
+   * off one dead-end read of one node, allocation-free, and neither depends on the other having
+   * been called.
    * The deck's end rather than the master's because what rests on it is a yard's own picture.
    */
   crest(): number;
@@ -148,6 +149,23 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   meter.fftSize = METER_WINDOW;
   pan.connect(meter);
   const scratch = new Float32Array(meter.fftSize);
+  /**
+   * The clock the meter window was last fetched at, and the two scans of that window. `level` and
+   * `crest` are read one after the other on every deck's per-frame peek, and an analyser at one
+   * `currentTime` hands back one window, so a second fetch inside the same tick is the same 2048
+   * floats copied again and the same loudest sample found again: one fetch and two scans a frame,
+   * and neither read depends on the other having been called (0218).
+   */
+  let fetchedAt = -1;
+  let peak = 0;
+  let rms = 0;
+  const fetchWindow = (): void => {
+    if (fetchedAt === ctx.currentTime) return;
+    fetchedAt = ctx.currentTime;
+    meter.getFloatTimeDomainData(scratch);
+    peak = peakMagnitude(scratch);
+    rms = rmsMagnitude(scratch);
+  };
 
   /** The source the transport is playing, or null between a stop and the next play. */
   let source: AudioBufferSourceNode | null = null;
@@ -259,12 +277,12 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       effects.reorder(order);
     },
     level: () => {
-      meter.getFloatTimeDomainData(scratch);
-      return peakMagnitude(scratch);
+      fetchWindow();
+      return peak;
     },
     crest: () => {
-      meter.getFloatTimeDomainData(scratch);
-      return crestFactor(scratch);
+      fetchWindow();
+      return crestFactor(scratch, peak, rms);
     },
     pumpEffects: (now, horizon) => {
       effects.pump(now, horizon);

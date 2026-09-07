@@ -83,11 +83,12 @@ export type MasterPeek = {
 };
 
 /**
- * One channel's window, reduced — the three numbers a tap answers off the window it fetched,
- * refilled in place, and the spectrum of that same window fetched only if this is the channel the
- * peek goes on to ask.
+ * One channel's window, reduced — the two numbers a tap answers off the window it fetched,
+ * refilled in place, and the tilt and the spectrum of that same window scanned only if this is
+ * the channel the peek goes on to ask: the louder one answers for both, so the quieter's tilt
+ * would be a differencing scan of the whole window thrown away every frame (0228).
  */
-type ChannelRead = { peak: number; rms: number; tilt: number; bins: () => Float32Array };
+type ChannelRead = { peak: number; rms: number; tilt: () => number; bins: () => Float32Array };
 
 /**
  * A read of an output with nothing in it, and the same fact written once — the pair
@@ -175,14 +176,16 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
       analyser.getFloatFrequencyData(spectrum);
       return spectrum;
     };
-    // One read object per tap, filled in place: three numbers off one fetched window, and no
+    // The brightness off the window already fetched, on the power already scanned off it — a
+    // thunk like `bins` above, so only the channel the peek chooses pays for it.
+    const tilt = (): number => spectralTilt(scratch, read.rms);
+    // One read object per tap, filled in place: two numbers off one fetched window, and no
     // allocation after construction — the contract the peek above states (0070).
-    const read: ChannelRead = { peak: 0, rms: 0, tilt: 0, bins };
+    const read: ChannelRead = { peak: 0, rms: 0, tilt, bins };
     return (): ChannelRead => {
       analyser.getFloatTimeDomainData(scratch);
       read.peak = peakMagnitude(scratch);
       read.rms = rmsMagnitude(scratch);
-      read.tilt = spectralTilt(scratch, read.rms);
       return read;
     };
   };
@@ -201,7 +204,7 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
       // the power rather than being averaged across two spectra that need not agree.
       const louder = left.rms >= right.rms ? left : right;
       out.level = louder.rms;
-      out.tilt = louder.tilt;
+      out.tilt = louder.tilt();
       // And the one read that is a spectrum, on that same channel and on no other: what the fold
       // is cut by is how the energy is distributed, which no scan of the time domain answers, and
       // the bill is paid once a frame rather than once a channel (P178).

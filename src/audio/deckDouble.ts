@@ -111,6 +111,9 @@ export function fakeContext() {
   /** Every compressor the rack built, newest last — where a meter's reading is written from. */
   const compressors: { reduction: number }[] = [];
 
+  /** Every analyser the chain built — the deck's meter, which `level` and `crest` read off. */
+  const analysers: { fftSize: number; fetches: number; window: (at: number) => number }[] = [];
+
   /** Every buffer the transport minted, newest last: the reversed copy a reversed landing reads is
    *  the only thing that ever asks this context for one, so the length of this list is how many
    *  copies a pass made (P121). */
@@ -148,8 +151,22 @@ export function fakeContext() {
       compressors.push(node);
       return node;
     },
-    createAnalyser: () =>
-      Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
+    // The deck's own meter, newest last. `window` is what a fetch fills the scratch from and
+    // `fetches` how many times it was asked, so a test can say what the meter read and that it
+    // copied the window once for the two numbers off it.
+    createAnalyser: () => {
+      const node = Object.assign(fakeNode(), {
+        fftSize: 0,
+        fetches: 0,
+        window: (_at: number): number => 0,
+        getFloatTimeDomainData: (out: Float32Array) => {
+          node.fetches += 1;
+          for (let at = 0; at < out.length; at++) out[at] = node.window(at);
+        },
+      });
+      analysers.push(node);
+      return node;
+    },
     createBufferSource: () => {
       const started: [when: number, offset: number][] = [];
       const stopped: (number | undefined)[] = [];
@@ -185,6 +202,7 @@ export function fakeContext() {
   return {
     // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
     context: context as unknown as BaseAudioContext,
+    analysers,
     buffers,
     compressors,
     gainCalls,

@@ -120,10 +120,13 @@ function light(indicator: HTMLSpanElement | null, clipped: boolean): void {
  * follows what is actually making noise.
  */
 function useAnyDeckPlaying(instrument: Instrument): boolean {
-  const read = useCallback(
-    () => Object.values(instrument.state.getState().decks).some((deck) => deck.playing),
-    [instrument],
-  );
+  // A loop over the keys rather than `Object.values(...).some(...)`: this runs on every store
+  // notification, and the values array is an allocation each time for a yes-or-no (0070).
+  const read = useCallback(() => {
+    const decks = instrument.state.getState().decks;
+    for (const id in decks) if (decks[id]?.playing === true) return true;
+    return false;
+  }, [instrument]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
