@@ -337,8 +337,10 @@ export function PlayerGrid({
                       song={song.id}
                       part={part}
                       picked={picked?.part === part.id}
+                      soloed={soloed === part.id}
                       disabled={part.skip || song.plays <= PLAYER_PLAYS_MIN}
                       onArm={onArm}
+                      onAudition={onAudition}
                       onPick={setPick}
                     />
                   );

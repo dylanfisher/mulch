@@ -1,9 +1,9 @@
 /**
  * @role One cell of the launch grid, and the head of the column over it. A cell is one part of one
- *   song: the press that arms it for the next boundary, the badge that picks it for the row under
- *   the grid and points the card's dials at it, and the two marks the frame lights — playing, and
- *   coming (0275). The head is the song: its name, how many times it goes round, and the press
- *   that picks it alone.
+ *   song: the press that arms it for the next boundary, the toggle that hears it on its own right
+ *   now (0190), the badge that picks it for the row under the grid and points the card's dials at
+ *   it, and the two marks the frame lights — playing, and coming (0275). The head is the song: its
+ *   name, how many times it goes round, and the press that picks it alone.
  * @instead The grid that lays these out and lights them → src/ui/PlayerGrid.tsx. The row under it
  *   that edits what is picked → src/ui/PlayerGridPick.tsx. What a part and a song are →
  *   src/lib/playerSong.ts and src/lib/playerSongs.ts.
@@ -64,8 +64,10 @@ export function GridCell({
   song,
   part,
   picked,
+  soloed,
   disabled,
   onArm,
+  onAudition,
   onPick,
 }: {
   /** What the controls here are named by: the yard, the song and the part, positionally — a name
@@ -74,15 +76,26 @@ export function GridCell({
   song: PlayerSongId;
   part: SongPart;
   picked: boolean;
-  /** Whether the arm is refused: a part passed over, a song that plays no times, or a pattern
-   *  drawing its own arrangement — each a press the pass would refuse, said here instead (0121). */
+  /** Whether this is the part being heard on its own (0190). */
+  soloed: boolean;
+  /** Whether the arm and the audition are refused: a part passed over, a song that plays no times,
+   *  or a pattern drawing its own arrangement — each a press the pass would refuse, said here
+   *  instead (0121). One flag for both, because the pass refuses both on the same terms: neither
+   *  has a first jump to wind to. */
   disabled: boolean;
   onArm: (part: SongPartId) => void;
+  onAudition: (part: SongPartId, soloed: boolean) => void;
   onPick: (pick: GridPick | null) => void;
 }) {
   const arm = useCallback(() => {
     onArm(part.id);
   }, [onArm, part.id]);
+  const audition = useCallback(
+    (next: boolean) => {
+      onAudition(part.id, next);
+    },
+    [onAudition, part.id],
+  );
   const pick = useCallback(
     (next: boolean) => {
       onPick(next ? { song, part: part.id } : null);
@@ -109,6 +122,22 @@ export function GridCell({
           <span aria-hidden="true" className={COMING_MARK} />
           <span className="truncate">{part.name}</span>
         </Button>
+      </Says>
+      {/* Hearing it now rather than next: the arm waits for the boundary, and the solo does not.
+          On the cell itself, because a part a hand wants to hear is a part it has not necessarily
+          picked, and the row under the grid holds only the picked one (0190). */}
+      <Says what={ACTION_TOOLTIPS.audition}>
+        <Toggle
+          size="sm"
+          variant="outline"
+          className="h-6 min-w-6 px-1"
+          pressed={soloed}
+          disabled={disabled}
+          aria-label={`Solo ${named}`}
+          onPressedChange={audition}
+        >
+          <ACTION_ICONS.audition />
+        </Toggle>
       </Says>
       {/* What this part is, as against where it is — and the press that points the card's dials
           at it and fills the row under the grid with it (0076, 0157, 0176). */}

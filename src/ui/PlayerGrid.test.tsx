@@ -214,6 +214,24 @@ describe("the launch grid", () => {
     expect(labelled(quiet.element, "Arm Yard A Song 2 Part 1").disabled).toBe(true);
   });
 
+  // Heard now rather than next: the cell's own solo sends the one transport command the row under
+  // the grid sends, without the part having to be picked first (0190).
+  it("solos a cell straight away with one transport command and patches nothing", () => {
+    const held = part();
+    const one = song([held]);
+    const { element, patch, setSolo, sent } = grid([one]);
+    labelled(element, "Solo Yard A Song 1 Part 1").onPressedChange?.(true);
+    expect(sent).toHaveBeenLastCalledWith({ t: "deck.playerSolo", deck: "a", part: held.id });
+    expect(setSolo).toHaveBeenLastCalledWith(held.id);
+    labelled(element, "Solo Yard A Song 1 Part 1").onPressedChange?.(false);
+    expect(sent).toHaveBeenLastCalledWith({ t: "deck.playerSolo", deck: "a", part: null });
+    expect(patch).not.toHaveBeenCalled();
+    // Refused on the same terms as the arm: the pass has no first jump to wind to (0121, 0190).
+    const quiet = grid([song([part({ skip: true })]), song([part()], { plays: 0 })]);
+    expect(labelled(quiet.element, "Solo Yard A Song 1 Part 1").disabled).toBe(true);
+    expect(labelled(quiet.element, "Solo Yard A Song 2 Part 1").disabled).toBe(true);
+  });
+
   it("picks a cell or a column head for the row under the grid, and lets go of either", () => {
     const held = part();
     const one = song([held]);
