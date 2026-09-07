@@ -331,9 +331,50 @@ export function Knob({
   animate = true,
   marksDefault = false,
 }: KnobProps) {
-  // A dial paints nothing ahead of the store — every move it made already committed the value it
-  // reached — so a gesture the browser ended has nothing left to put back (0114).
-  const drag = usePointerGesture<Drag>(() => {});
+  /** The three parts a live value moves: the arc, the indicator and the readout under it. */
+  const travelled = useRef<SVGPathElement>(null);
+  const indicator = useRef<SVGLineElement>(null);
+  const readout = useRef<HTMLOutputElement>(null);
+  /** What the last paint left on the dial, so a frame that would repeat it writes nothing at all
+   * (0070). A dial holding one value — a halted lane (0040), a span dial nobody has hold of — is
+   * what would otherwise hand the CSSOM its own two attributes sixty times a second. */
+  const painted = useRef<{ reached: number } | null>(null);
+
+  const paint = useCallback(
+    (read: number) => {
+      // A live read lands anywhere between a lane's points, so it is snapped to the same step a
+      // gesture commits on: an automated knob reads at the precision a resting one does, rather
+      // than spelling out the interpolation.
+      const next = snapToStep(read, min, max, step);
+      const reached = normalize(next, min, max, curve);
+      const last = painted.current;
+      if (last === null || last.reached !== reached) {
+        // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
+        // the indicator is one static line turned about the dial's centre.
+        travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
+        indicator.current?.setAttribute("transform", spin(reached));
+      }
+      // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
+      // set and can set again, and sixty announcements a second is not an accessible control.
+      // Compared against the text that is actually on it rather than against a remembered one:
+      // the readout is torn down and rebuilt every time a hand types into it (0201), and a frame
+      // trusting what it wrote to the element before that would leave React's text standing.
+      const text = format(next);
+      if (readout.current !== null && readout.current.textContent !== text) {
+        readout.current.textContent = text;
+      }
+      painted.current = { reached };
+    },
+    [curve, format, max, min, step],
+  );
+
+  // The one surface that paints ahead of the store for exactly the length of its own gesture: a
+  // move turns the dial before its value is sent, so the hand never waits on what a commit costs
+  // downstream (0307). A gesture the browser ended is therefore told, and puts the store's angle
+  // back (0114).
+  const drag = usePointerGesture<Drag>(() => {
+    paint(value);
+  });
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
@@ -381,55 +422,30 @@ export function Knob({
       const next = snapToStep(denormalize(state.fraction, min, max, curve), min, max, step);
       if (next === state.reached) return;
       state.reached = next;
+      // Painted before it is sent: the dial is at the hand whatever the commit below costs.
+      paint(next);
       onChange(next);
     },
-    [curve, drag, max, min, onChange, step, travelPx],
+    [curve, drag, max, min, onChange, paint, step, travelPx],
   );
 
   const handlePointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       // The capture comes back with the record, in the skeleton: it is what took it, and it is
-      // the only thing that knows the pointer is already gone on a `pointercancel` (0114).
+      // the only thing that knows the pointer is already gone on a `pointercancel` (0114). The
+      // hand's angle stands: every move committed the value it painted, and the render carrying
+      // it may still be on its way (0307).
       drag.ended(event);
     },
     [drag],
   );
-
-  /** The three parts a live value moves: the arc, the indicator and the readout under it. */
-  const travelled = useRef<SVGPathElement>(null);
-  const indicator = useRef<SVGLineElement>(null);
-  const readout = useRef<HTMLOutputElement>(null);
-  /** What the last paint left on the dial, so a frame that would repeat it writes nothing at all
-   * (0070). A dial holding one value — a halted lane (0040), a span dial nobody has hold of — is
-   * what would otherwise hand the CSSOM its own two attributes sixty times a second. */
-  const painted = useRef<{ reached: number } | null>(null);
-
-  const paint = useCallback(
-    (read: number) => {
-      // A live read lands anywhere between a lane's points, so it is snapped to the same step a
-      // gesture commits on: an automated knob reads at the precision a resting one does, rather
-      // than spelling out the interpolation.
-      const next = snapToStep(read, min, max, step);
-      const reached = normalize(next, min, max, curve);
-      const last = painted.current;
-      if (last === null || last.reached !== reached) {
-        // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
-        // the indicator is one static line turned about the dial's centre.
-        travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
-        indicator.current?.setAttribute("transform", spin(reached));
-      }
-      // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
-      // set and can set again, and sixty announcements a second is not an accessible control.
-      // Compared against the text that is actually on it rather than against a remembered one:
-      // the readout is torn down and rebuilt every time a hand types into it (0201), and a frame
-      // trusting what it wrote to the element before that would leave React's text standing.
-      const text = format(next);
-      if (readout.current !== null && readout.current.textContent !== text) {
-        readout.current.textContent = text;
-      }
-      painted.current = { reached };
+  const handlePointerCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      // The browser saying the gesture never happened: nothing is committed, and what the drag
+      // painted ahead goes back to what the store holds (0114).
+      if (drag.ended(event) !== null) paint(value);
     },
-    [curve, format, max, min, step],
+    [drag, paint, value],
   );
 
   useOnFrame(
@@ -449,8 +465,10 @@ export function Knob({
     // what is on screen: forget it, or a frame reaching that same angle again would write nothing
     // and leave React's arc standing.
     painted.current = null;
-    if (!animate || live === undefined) paint(live?.() ?? value);
-  }, [animate, live, paint, value]);
+    // A render that lands mid-drag carries a `value` the hand has already left — the yard follows
+    // in a transition (0307) — so the dial is put back to where the hand is, never behind it.
+    if (!animate || live === undefined) paint(live?.() ?? drag.held()?.reached ?? value);
+  }, [animate, drag, live, paint, value]);
 
   const handleDoubleClick = useCallback(() => {
     commit(defaultValue);
@@ -500,7 +518,7 @@ export function Knob({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
     >

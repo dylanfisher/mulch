@@ -47,6 +47,8 @@ type ControlProps = {
   children: ReactNode;
   onPointerDown: PointerHandler;
   onPointerMove: PointerHandler;
+  onPointerUp: PointerHandler;
+  onPointerCancel: PointerHandler;
   onKeyDown: (event: { key: string; preventDefault: () => void }) => void;
 };
 type DialProps = {
@@ -277,6 +279,64 @@ describe("Knob dial paints", () => {
     driven().frame();
     driven().frame();
     expect(writes).toBe(2);
+  });
+});
+
+/** The dial's two attributes at a fraction, as the frame and the hand both write them. */
+const drawn = (fraction: number) => ({
+  arc: String(1 - fraction),
+  indicator: `rotate(${-135 + fraction * 270} 20 20)`,
+});
+
+describe("Knob paints ahead of the store", () => {
+  /** A dial pressed at rest and moved 18px right: the hand is at 0.6 while `value` is still 0.5. */
+  function moved(onChange: (value: number) => void = () => {}) {
+    const { control, dial } = renderKnob(onChange);
+    const arc = attributes();
+    const indicator = attributes();
+    dial.props.travelled.current = arc;
+    dial.props.indicator.current = indicator;
+    const element = target();
+    dispatch(control.onPointerDown, element, 0, 0);
+    dispatch(control.onPointerMove, element, 18, 0);
+    return { control, element, arc, indicator };
+  }
+
+  it("turns the dial on the move itself, before any commit lands", () => {
+    const { arc, indicator } = moved();
+    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.6).arc);
+    expect(indicator.written.get("transform")).toBe(drawn(0.6).indicator);
+  });
+
+  it("keeps the hand's angle across a commit that is one move behind", () => {
+    const { arc, indicator } = moved();
+    // React re-rendered from a `value` the store has not caught up to yet, and its layout effect
+    // is what would otherwise paint the dial back to it.
+    if (commit === null) throw new Error("Knob registered no layout effect.");
+    commit();
+    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.6).arc);
+    expect(indicator.written.get("transform")).toBe(drawn(0.6).indicator);
+  });
+
+  it("puts the store's angle back on a cancelled gesture", () => {
+    const { control, element, arc, indicator } = moved();
+    dispatch(control.onPointerCancel, element, 18, 0, 0);
+    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.5).arc);
+    expect(indicator.written.get("transform")).toBe(drawn(0.5).indicator);
+  });
+
+  it("puts the store's angle back when the capture is lost outside the control", () => {
+    const { element, arc, indicator } = moved();
+    element.lose();
+    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.5).arc);
+    expect(indicator.written.get("transform")).toBe(drawn(0.5).indicator);
+  });
+
+  it("leaves the hand's angle standing when the pointer comes up", () => {
+    const { control, element, arc, indicator } = moved();
+    dispatch(control.onPointerUp, element, 18, 0, 0);
+    expect(arc.written.get("stroke-dashoffset")).toBe(drawn(0.6).arc);
+    expect(indicator.written.get("transform")).toBe(drawn(0.6).indicator);
   });
 });
 
