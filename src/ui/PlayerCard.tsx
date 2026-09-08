@@ -21,14 +21,9 @@ import { useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 
 import type { Instrument } from "@/app/facade";
-import {
-  partVoice,
-  PLAYER_PART_KNOBS,
-  PLAYER_SEED_MAX,
-  playerSounding,
-  type PlayerSpec,
-} from "@/lib/player";
+import { partVoice, PLAYER_PART_KNOBS, playerSounding, type PlayerSpec } from "@/lib/player";
 import { deckRate } from "@/audio/params";
+import { mintSeed } from "@/lib/random";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { songsArePlayed, withSongsPart } from "@/lib/playerSongs";
@@ -68,14 +63,6 @@ import { PlayerStanding } from "@/ui/PlayerStanding";
 import { Says } from "@/ui/Says";
 import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
-
-/**
- * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
- * exactly wrong a layer down: this runs on a click and its result travels in the command, so the
- * session that was recorded is the session that replays. Nothing on a play-time or render path
- * draws anything (0089, 0068).
- */
-const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1));
 
 /**
  * What the card's body is drawn from while the switch is off, and the whole of what "off" costs

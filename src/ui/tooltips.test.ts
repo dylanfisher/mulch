@@ -28,6 +28,8 @@ import {
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { PLAYER_KNOBS } from "@/lib/player";
 import { PLAYER_CHARACTERS } from "@/lib/playerCast";
+import { MOTION_CHARACTER_LABELS, MOTION_CHARACTER_TOOLTIPS, MOTION_LABEL } from "@/lib/copyMotion";
+import { MOTION_CHARACTERS } from "@/lib/motion";
 import {
   PLAYER_RUN_KNOBS,
   PLAYER_RATE_KNOBS,
@@ -85,6 +87,12 @@ describe("the words every control says", () => {
    * (0152). The amount under them is neither a parameter nor a character, so it is asked for on
    * its own.
    */
+  it("names and explains every character a knob's motion can be", () => {
+    agrees(MOTION_CHARACTER_LABELS, MOTION_CHARACTERS);
+    agrees(MOTION_CHARACTER_TOOLTIPS, MOTION_CHARACTERS);
+    expect(MOTION_LABEL.trim().length).toBeGreaterThan(0);
+  });
+
   it("names and explains every character a pattern can be drawn as", () => {
     agrees(PLAYER_CHARACTER_LABELS, PLAYER_CHARACTERS);
     agrees(PLAYER_CHARACTER_TOOLTIPS, PLAYER_CHARACTERS);

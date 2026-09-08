@@ -40,6 +40,7 @@ vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
 import { manualClock } from "@/app/clock";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
+import type { MotionSpec } from "@/lib/motion";
 import { createInstrument } from "@/app/facade";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 
@@ -58,9 +59,15 @@ type WrapperProps = {
   children: unknown[];
   className: string;
   "data-automation": string;
+  "data-motion": string;
 };
 
-function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4, playing = false) {
+function renderKnob(
+  lane: readonly AutomationPoint[] | null,
+  startAt = 4,
+  playing = false,
+  motion: MotionSpec | null = null,
+) {
   const clock = manualClock(startAt);
   const instrument = createInstrument(clock);
   refs = [];
@@ -73,6 +80,7 @@ function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4, playin
       param: "deck.gain",
       value: 1,
       lane,
+      motion,
       playing,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -210,10 +218,13 @@ describe("ParameterKnob automation gestures", () => {
         { at: 2, value: 1.25 },
       ]);
       if (!isValidElement<{ children: unknown }>(shown)) throw new Error("no lane marker");
-      // A knob with no lane has nothing to mark, and the mark is a reveal: Option is what asks.
-      expect(marker(null)).toBeNull();
+      // A knob with no lane is marked too — in the motion's colour, as the door to one — and the
+      // mark is a reveal either way: Option is what asks (0309).
+      const offered = marker(null);
+      if (!isValidElement<{ children: unknown }>(offered)) throw new Error("no motion marker");
       held = false;
       expect(marker([{ at: 0, value: 0.25 }])).toBeNull();
+      expect(marker(null)).toBeNull();
     } finally {
       held = false;
     }
@@ -408,6 +419,7 @@ describe("ParameterKnob automation gestures", () => {
       param: "filter.cutoff",
       value: 1_234.567_890_123,
       lane: null,
+      motion: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -427,6 +439,7 @@ describe("ParameterKnob automation gestures", () => {
       param: "deck.pan",
       value: 0,
       lane: null,
+      motion: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -449,6 +462,7 @@ describe("ParameterKnob automation gestures", () => {
         param: "deck.speed",
         value: 1,
         lane: null,
+        motion: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -564,6 +578,94 @@ describe("ParameterKnob lane marker", () => {
 // The stretch's other half: the preview decides one length per drag, and this is what the knob
 // does with it — one command, on the pair the knob rides (0065, 0079).
 // oxlint-disable-next-line max-lines-per-function
+/** The motion marker's two halves: the corner trigger and the popover content behind it. */
+const triggerOf = (wrapper: WrapperProps) => {
+  const marker = wrapper.children[1];
+  if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no marker");
+  const [trigger, content] = marker.props.children;
+  if (
+    !isValidElement<{ className: string; "aria-label": string; "data-automated"?: string }>(trigger)
+  )
+    throw new Error("no marker trigger");
+  if (!isValidElement<{ children: unknown[] }>(content)) throw new Error("no marker content");
+  return { trigger: trigger.props, content: content.props };
+};
+// The same corner in its second state: hollow over a knob that could hold a motion, filled over
+// one that does, and a menu rather than a preview behind it (0309).
+// oxlint-disable-next-line max-lines-per-function
+describe("ParameterKnob motion", () => {
+  const smooth = { character: "smooth", seed: 4 } as const;
+
+  it("offers a motion on an armed knob with no lane, and shows the one it holds", () => {
+    expect(renderKnob(null).wrapper["data-motion"]).toBe("off");
+    expect(renderKnob(null, 4, false, smooth).wrapper["data-motion"]).toBe("held");
+    held = true;
+    try {
+      const offered = renderKnob(null);
+      expect(offered.wrapper["data-motion"]).toBe("offered");
+      const { trigger, content } = triggerOf(offered.wrapper);
+      expect(trigger.className).toContain("border-motion");
+      expect(trigger["aria-label"]).toBe("Yard A Gain Motion");
+      // Only a lane's marker is a lane's marker: the smoke counts those (scripts/smoke.d).
+      expect(trigger["data-automated"]).toBeUndefined();
+      const [, menu] = content.children;
+      if (!isValidElement<{ held: unknown }>(menu)) throw new Error("no motion menu");
+      expect(menu.props.held).toBeNull();
+
+      const holding = renderKnob(null, 4, false, smooth);
+      expect(triggerOf(holding.wrapper).trigger.className).toContain("bg-motion");
+      // A lane outranks it: the corner is the lane's, and the menu is not drawn.
+      expect(triggerOf(renderKnob(points).wrapper).trigger.className).toContain("bg-primary");
+    } finally {
+      held = false;
+    }
+  });
+
+  it("sends the menu's press as one motion command, and a normal move clears it in one transaction", async () => {
+    held = true;
+    try {
+      const { instrument, wrapper, render } = renderKnob(null, 4, false, smooth);
+      const [, menu] = triggerOf(wrapper).content.children;
+      if (!isValidElement<{ onSet: (motion: unknown) => void }>(menu)) throw new Error("no menu");
+      menu.props.onSet({ character: "pulse", seed: 8 });
+      expect(instrument.probe().decks.a!.motion).toEqual({
+        "deck.gain": { character: "pulse", seed: 8 },
+      });
+      menu.props.onSet(null);
+      expect(instrument.probe().decks.a!.motion).toEqual({});
+
+      instrument.send({ t: "motion.set", deck: "a", param: "deck.gain", motion: smooth });
+      held = false;
+      const changed = () => instrument.ring().filter(({ t }) => t === "motion.changed").length;
+      const before = changed();
+      const { knob: moved, wrapper: pressed } = render();
+      pressed.onPointerDown();
+      moved.onChange(0.3);
+      // The next move of the same drag arrives before the store has re-rendered the knob without
+      // its motion, and sends a plain set rather than a second group.
+      moved.onChange(0.35);
+      pressed.onPointerUp();
+      for (let remaining = 8; remaining > 0; remaining--) {
+        // The facade serializes checkpoint preparation through a finite promise chain.
+        // oxlint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+      expect(instrument.probe().decks.a!.motion).toEqual({});
+      expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.35);
+      expect(changed() - before).toBe(1);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("hands the dial a live read for the motion it holds, which reads nothing until the voice files a time", () => {
+    const holding = renderKnob(null, 4, true, smooth);
+    expect(holding.knob.live).toBeTypeOf("function");
+    expect(holding.knob.animate).toBe(true);
+    expect(holding.knob.live?.()).toBeNull();
+  });
+});
+
 describe("ParameterKnob span gesture", () => {
   it("sends one span command for the length one drag decided", () => {
     held = true;
@@ -611,6 +713,7 @@ describe("ParameterKnob span gesture", () => {
         param: "delay.mix",
         value: 0.5,
         lane: points,
+        motion: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");

@@ -338,6 +338,7 @@ describe("restoration and autosave", () => {
           bypassed: false,
           params: effectParamDefaults("filter", "flt"),
           automation: {},
+          motion: {},
           bounds: {},
         },
       ],

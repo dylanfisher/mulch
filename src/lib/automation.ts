@@ -4,7 +4,7 @@
  */
 
 import { finite, objectAt } from "./guards.ts";
-import { clamp, snapToStep } from "./range.ts";
+import { clamp, snapToStep, type RangeCurve } from "./range.ts";
 
 /**
  * One point of a lane. `at` is seconds from the start of the gesture that recorded it, never a
@@ -95,6 +95,8 @@ export type AutomationRange = {
   min: number;
   max: number;
   step?: number;
+  /** The curve the dial is drawn on, which a motion walks along; a lane's values ignore it. */
+  curve?: RangeCurve;
 };
 
 const normalizeValue = (value: number, range: AutomationRange): number => {

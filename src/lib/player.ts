@@ -30,6 +30,7 @@ import type { ReverseSpec } from "./playerReverse.ts";
 import type { CastSpec } from "./playerCast.ts";
 import type { SparkSpec } from "./playerSpark.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
+import { SEED_MAX } from "./random.ts";
 import type { RestSpec } from "./playerRest.ts";
 import type { RateSpec } from "./playerRungs.ts";
 import type { PlayerSong } from "./playerSongs.ts";
@@ -186,8 +187,8 @@ export const PLAYER_GATE_MAX = 1;
 /** The shortest a gated repeat may be drawn, as a fraction of the slot. Below this it is a click. */
 export const PLAYER_GATE_FLOOR = 0.05;
 
-/** The seed's range: the 32 bits `mulberry32` has state for, as a whole number. */
-export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
+/** The seed's range: the one every seed has, said under this spec's name (src/lib/random.ts). */
+export const PLAYER_SEED_MAX = SEED_MAX;
 
 /**
  * What a deck durably holds once its player has ever been on. Null on the deck is a yard that has

@@ -13,6 +13,17 @@
  * A seeded generator of numbers in [0, 1). mulberry32 — uniform enough for a noise source and for
  * drawing a position out of a pattern, and nothing else: it is not a cryptographic anything.
  */
+/** A seed's range: the 32 bits `mulberry32` has state for, as a whole number. */
+export const SEED_MAX = 0xff_ff_ff_ff;
+
+/**
+ * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
+ * exactly wrong a layer down: this runs on a click and its result travels in the command, so the
+ * session that was recorded is the session that replays. Nothing on a play-time or render path
+ * draws anything (0089, 0068).
+ */
+export const mintSeed = (): number => Math.floor(Math.random() * (SEED_MAX + 1));
+
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
   return () => {

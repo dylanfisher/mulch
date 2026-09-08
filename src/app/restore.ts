@@ -107,6 +107,22 @@ const STAGES: readonly Stage[] = [
           : [{ t: "automation.set", deck, instance: entry.id, param, points: lane }];
       }),
     ),
+  // Motions after lanes, for the reason lanes follow values: a motion set takes the key's lane
+  // away, and a preset holds at most one of the two on any key (0309).
+  (deck, preset) =>
+    DECK_AUTOMATION_PARAM_IDS.flatMap((param) => {
+      const motion = preset.motion[param];
+      return motion === undefined ? [] : [{ t: "motion.set", deck, param, motion }];
+    }),
+  (deck, preset) =>
+    preset.effects.flatMap((entry) =>
+      effectAutomationParamIds(entry.effect).flatMap((param) => {
+        const motion = entry.motion[param];
+        return motion === undefined
+          ? []
+          : [{ t: "motion.set", deck, instance: entry.id, param, motion }];
+      }),
+    ),
   (deck, preset) =>
     preset.loop === null
       ? []
@@ -155,6 +171,11 @@ function clearedLanes(
     if (preset.automation[param] !== undefined) continue;
     commands.push({ t: "automation.set", deck, param, points: [] });
   }
+  for (const param of DECK_AUTOMATION_PARAM_IDS) {
+    if (current.motion[param] === undefined) continue;
+    if (preset.motion[param] !== undefined) continue;
+    commands.push({ t: "motion.set", deck, param, motion: null });
+  }
   for (const entry of current.effects) {
     const kept = preset.effects.find((candidate) => candidate.id === entry.id);
     if (kept === undefined) continue;
@@ -162,6 +183,11 @@ function clearedLanes(
       if (entry.automation[param] === undefined) continue;
       if (kept.automation[param] !== undefined) continue;
       commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
+    }
+    for (const param of effectAutomationParamIds(entry.effect)) {
+      if (entry.motion[param] === undefined) continue;
+      if (kept.motion[param] !== undefined) continue;
+      commands.push({ t: "motion.set", deck, instance: entry.id, param, motion: null });
     }
     for (const param of BOUNDABLE_PARAM_IDS) {
       if (entry.bounds[param] === undefined) continue;
@@ -339,12 +365,14 @@ export function restoredSessionState(
       return {
         params: { ...stored.params },
         automation: structuredClone(stored.automation),
+        motion: structuredClone(stored.motion),
         effects: stored.effects.map((entry): SessionEffect => ({
           id: entry.id,
           effect: entry.effect,
           bypassed: entry.bypassed,
           params: { ...entry.params },
           automation: structuredClone(entry.automation),
+          motion: structuredClone(entry.motion),
           bounds: structuredClone(entry.bounds),
         })),
         source: stored.source === null ? null : { ...stored.source },

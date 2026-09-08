@@ -32,6 +32,7 @@ import {
   deckIn,
   holdsDeck,
   laneIn,
+  motionIn,
   type DeckId,
   type DeckState,
   patchDeck,
@@ -44,6 +45,7 @@ import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
 import { armPlayer, setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
+import { setMotion } from "./motion";
 import {
   addEffect,
   boundEffect,
@@ -87,7 +89,7 @@ type ParamTarget = { deck: DeckState } & (
   | { instance: EffectInstanceId; entry: SessionEffect; param: EffectParamId }
 );
 
-function targetOf(
+export function targetOf(
   cmd: { t: string; deck: DeckId; instance?: EffectInstanceId; param: ParamId },
   rt: Runtime,
 ): ParamTarget | null {
@@ -143,6 +145,9 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
   if (isAutomationParam(target.param)) {
     const lane = laneIn(deck, instance, target.param);
     if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, instance, target.param, lane, value);
+    // And a motion re-bases the same way: the same spec keeps its place in the voice (0309).
+    const motion = motionIn(deck, instance, target.param);
+    if (motion !== undefined) rt.engine?.setMotion(cmd.deck, instance, target.param, motion, value);
   }
   rt.bus.emit({
     t: "param.changed",
@@ -164,11 +169,16 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
   const { deck, instance } = target;
   // A lane is held where its value is: beside the deck's own parameters, or on the one instance
   // that declares it. Clearing removes the key either way, so one rack state has one JSON (0030).
+  // A lane recorded takes the key's motion away with it: a key holds one or the other (0309).
   if (target.instance === null) {
     const automation = { ...deck.automation };
+    const motion = { ...deck.motion };
     if (lane.length === 0) delete automation[target.param];
-    else automation[target.param] = lane;
-    patchDeck(rt.store, cmd.deck, { automation });
+    else {
+      automation[target.param] = lane;
+      delete motion[target.param];
+    }
+    patchDeck(rt.store, cmd.deck, { automation, motion });
     rt.engine?.setAutomation(cmd.deck, null, target.param, lane, deck.params[target.param]);
   } else {
     const held = target.instance;
@@ -176,9 +186,13 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
     patchDeck(rt.store, cmd.deck, {
       effects: patchInstance(deck, held, (current) => {
         const automation = { ...current.automation };
+        const motion = { ...current.motion };
         if (lane.length === 0) delete automation[param];
-        else automation[param] = lane;
-        return { ...current, automation };
+        else {
+          automation[param] = lane;
+          delete motion[param];
+        }
+        return { ...current, automation, motion };
       }),
     });
     rt.engine?.setAutomation(cmd.deck, held, param, lane, paramIn(target.entry.params, param));
@@ -469,6 +483,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "automation.set":
       setAutomation(cmd, rt);
+      return;
+    case "motion.set":
+      setMotion(cmd, rt);
       return;
     // The lane already held, scaled onto the length one gesture asked for, through the one
     // command that writes a lane (0079).

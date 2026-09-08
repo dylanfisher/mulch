@@ -17,6 +17,7 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { BeatAnalysis } from "@/lib/analysis";
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
+import type { MotionSpec } from "@/lib/motion";
 import { assertDurableText } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import type { SourceRef } from "@/lib/source";
@@ -98,10 +99,32 @@ export function laneIn(
   return held[param];
 }
 
+/**
+ * The motion a (deck, instance, parameter) is holding, or undefined — the lane lookup said for
+ * the other thing a key may hold, with the same loud answer for an instance the rack has not got.
+ * A key holds a lane or a motion and never both (0309).
+ */
+export function motionIn(
+  deck: DeckState,
+  instance: EffectInstanceId | null,
+  param: ParamId,
+): MotionSpec | undefined {
+  if (instance === null) {
+    const own: Partial<Record<string, MotionSpec>> = deck.motion;
+    return own[param];
+  }
+  const entry = deck.effects.find((current) => current.id === instance);
+  if (entry === undefined) throw new TypeError(`rack holds no instance ${instance}`);
+  const held: Partial<Record<string, MotionSpec>> = entry.motion;
+  return held[param];
+}
+
 export type DeckState = {
   /** The deck's own parameters. An effect's values live on its rack instance (0030). */
   params: Record<DeckParamId, number>;
   automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
+  /** A motion per parameter that holds one; never on a key that holds a lane (0309). */
+  motion: Partial<Record<DeckAutomationParamId, MotionSpec>>;
   /**
    * The rack in signal order: any number of instances of any registered effect, each with its
    * own id, values, lanes and bypass flag (0030).
@@ -163,6 +186,7 @@ const defaultDeck = (): DeckState => ({
   // Spread, not shared: each deck owns its values from the moment it exists.
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
+  motion: {},
   effects: [],
   source: null,
   duration: 0,

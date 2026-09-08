@@ -59,7 +59,15 @@ export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtim
   patchDeck(rt.store, cmd.deck, {
     effects: [
       ...deck.effects,
-      { id: cmd.id, effect: cmd.effect, bypassed: false, params, automation: {}, bounds: {} },
+      {
+        id: cmd.id,
+        effect: cmd.effect,
+        bypassed: false,
+        params,
+        automation: {},
+        motion: {},
+        bounds: {},
+      },
     ],
   });
   rt.bus.emit({
@@ -123,6 +131,13 @@ export async function duplicateEffect(
       return lane === undefined
         ? []
         : [{ t: "automation.set", deck: cmd.deck, instance: cmd.id, param, points: lane }];
+    }),
+    // With the same seed: the copy is the same performance, the way a copied lane is (0309).
+    ...effectAutomationParamIds(copied.effect).flatMap((param): GroupedEditCommand[] => {
+      const motion = copied.motion[param];
+      return motion === undefined
+        ? []
+        : [{ t: "motion.set", deck: cmd.deck, instance: cmd.id, param, motion }];
     }),
   ]);
   rt.bus.emit({

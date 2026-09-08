@@ -9,6 +9,7 @@
  */
 import type { PlayerSpec } from "@/lib/player";
 import type { AutomationPoint } from "@/lib/automation";
+import type { MotionSpec } from "@/lib/motion";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import type { Loop } from "@/lib/timeline";
 import type { DeckPeek } from "./deckPeek";
@@ -68,6 +69,17 @@ export type DeckVoice = {
     instance: EffectInstanceId | null,
     param: AutomationParamId,
     lane: readonly AutomationPoint[],
+    base: number,
+  ): void;
+  /**
+   * The motion one parameter holds, or null for none: a lane whose every cycle is drawn from the
+   * spec rather than replayed, kept under the same key a lane would be, so a key holds one or the
+   * other (0309). `base` is the knob's own value, which the first stretch begins at.
+   */
+  setMotion(
+    instance: EffectInstanceId | null,
+    param: AutomationParamId,
+    motion: MotionSpec | null,
     base: number,
   ): void;
   addEffect(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;

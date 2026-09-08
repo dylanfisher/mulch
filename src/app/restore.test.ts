@@ -28,6 +28,7 @@ const instance = (
   bypassed: false,
   params: effectParamDefaults(effect, id),
   automation: {},
+  motion: {},
   bounds: {},
   ...rest,
 });

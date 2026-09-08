@@ -66,6 +66,10 @@
      colour an edge is. */
   --loop: var(--primary);
   --loop-foreground: var(--primary-foreground);
+  /* A motion, wherever one is marked: the corner of a knob that holds one, and the corner of a
+     knob that could (0309). Its own hue rather than the primary's, because a lane and a motion
+     are the two things a knob's corner can say, and one colour would say them both alike. */
+  --motion: light-dark(oklch(0.58 0.2 300), oklch(0.75 0.17 300));
   /* The scrim behind a dialog. Black in both schemes — a light wash over a dark page
      lifts it instead of dimming it — but heavier in the dark, where 10% is invisible. */
   --overlay: light-dark(oklch(0 0 0 / 10%), oklch(0 0 0 / 50%));
@@ -227,6 +231,7 @@
   --color-destructive: var(--destructive);
   --color-loop: var(--loop);
   --color-loop-foreground: var(--loop-foreground);
+  --color-motion: var(--motion);
   --color-overlay: var(--overlay);
   --color-border: var(--border);
   --color-input: var(--input);

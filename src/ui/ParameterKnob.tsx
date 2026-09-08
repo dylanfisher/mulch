@@ -2,25 +2,34 @@
  * @role A registry-bound parameter knob that sends the generic param.set command, and — while
  *   Option is held — records the whole press, from the press to the release, into one whole-lane
  *   automation command, marking the lane it owns and previewing it on hover — or, once the marker
- *   is pressed, until it is pressed again (0028, 0125, 0154). While a lane plays, the dial follows.
+ *   is pressed, until it is pressed again (0028, 0125, 0154). A knob holding no lane is marked
+ *   too, in the motion's colour, and its hover is the menu that gives it one (0309). While a lane
+ *   or a motion plays, the dial follows.
  */
 // One import over the cap, and it is the noun the labels say (0057). The recording's point buffer
 // is written and never rendered, and clearing the latch when the marker goes is arming's own reset.
-// oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect
+// Over the line cap by the motion's half of the marker, which is the same corner in a second
+// state and has nowhere else to be (0007).
+// oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect, max-lines
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { yardLabel } from "@/lib/copy";
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
+import type { GroupedEditCommand } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
 import { PARAM_RAMP_SECS, SAME_GESTURE_GAP_SECS } from "@/audio/ramp";
 import { automationValueAt, type AutomationPoint } from "@/lib/automation";
+import { MOTION_LABEL } from "@/lib/copyMotion";
+import type { MotionSpec } from "@/lib/motion";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import type { PopoverOpenChange } from "@/ui/components/popover";
 import { Knob } from "@/ui/Knob";
+import { MotionMenu } from "@/ui/MotionMenu";
+import { useMotionLive } from "@/ui/motionLive";
 import { INSTANT_POPUP } from "@/ui/shell";
 import { useAltHeld } from "@/ui/shortcuts";
 // oxlint-enable import/max-dependencies
@@ -61,6 +70,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   param,
   value,
   lane,
+  motion,
   playing,
 }: {
   instrument: Instrument;
@@ -73,6 +83,8 @@ export const ParameterKnob = memo(function ParameterKnob({
   value: number;
   /** The lane this value holds, or null. A normal move is what clears it. */
   lane: readonly AutomationPoint[] | null;
+  /** The motion this value holds, or null; never beside a lane (0309). A normal move clears it too. */
+  motion: MotionSpec | null;
   /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
 }) {
@@ -89,6 +101,13 @@ export const ParameterKnob = memo(function ParameterKnob({
   const recording = useRef<Recording | typeof DONE | null>(null);
   /** Whether a pointer is down on this knob — which keyups belong to that drag and end nothing. */
   const dragging = useRef(false);
+  /**
+   * Whether this drag has already sent the group that clears what the knob held. The next move
+   * arrives before the store has said so — a group is applied after its rollback is prepared —
+   * and a second group would close the first's history entry and begin its own, so one undo took
+   * back half the drag (0024, 0067, 0309).
+   */
+  const cleared = useRef(false);
   /**
    * Where an armed press landed: the clock it landed on and the value that was under the hand,
    * until the first move of that press turns it into the recording above. Held apart from the
@@ -116,10 +135,12 @@ export const ParameterKnob = memo(function ParameterKnob({
     return instrument.peek(deck).automation.get(key) ?? null;
   }, [deck, instrument, key, lane]);
 
+  const motionLive = useMotionLive(instrument, deck, key, param, motion, value);
   const live = useCallback((): number | null => {
+    if (lane === null) return recording.current === null ? motionLive() : null;
     const at = phase();
-    return at === null || lane === null ? null : automationValueAt(lane, at, value);
-  }, [lane, phase, value]);
+    return at === null ? null : automationValueAt(lane, at, value);
+  }, [lane, motionLive, phase, value]);
 
   const onChange = useCallback(
     (next: number) => {
@@ -154,18 +175,35 @@ export const ParameterKnob = memo(function ParameterKnob({
       }
       // A knob moved with no recording in flight is an ordinary move.
       recording.current = null;
-      if (lane !== null) {
-        // Moving an automated knob normally clears its lane, and the value that replaced it
-        // travels in the same transaction so one undo takes both back (0024).
-        instrument.send({
-          t: "history.group",
-          commands: [{ t: "automation.set", deck, ...owner, param, points: [] }, set],
-        });
+      if (!cleared.current && (motion !== null || lane !== null)) {
+        // Moving an automated knob normally clears its lane — or the motion it holds instead —
+        // and the value that replaced it travels in the same transaction so one undo takes both
+        // back (0024, 0309). Once per drag: the rest of the drag is plain sets that join it.
+        cleared.current = true;
+        const clear: GroupedEditCommand =
+          motion === null
+            ? { t: "automation.set", deck, ...owner, param, points: [] }
+            : { t: "motion.set", deck, ...owner, param, motion: null };
+        instrument.send({ t: "history.group", commands: [clear, set] });
         return;
       }
       instrument.send(set);
     },
-    [armed, lane, instrument, deck, instance, param],
+    [armed, lane, motion, instrument, deck, instance, param],
+  );
+
+  /**
+   * The menu's one command: the spec pressed, or null for Off (0309). A press is a gesture of its
+   * own and ends there, so a drag on the knob a moment later is the next entry rather than a
+   * continuation of the press — history keys a motion with the value it rides (0067).
+   */
+  const onMotion = useCallback(
+    (next: MotionSpec | null) => {
+      const owner = instanceHalf(instance);
+      instrument.send({ t: "motion.set", deck, ...owner, param, motion: next });
+      instrument.send({ t: "gesture.end" });
+    },
+    [instrument, deck, instance, param],
   );
 
   /**
@@ -219,6 +257,7 @@ export const ParameterKnob = memo(function ParameterKnob({
       recording.current = null;
       pressed.current = null;
       dragging.current = false;
+      cleared.current = false;
       // The hand let go, which is the only place that knows it: history takes back a whole drag
       // rather than its last value, and this is the boundary that says which drag it was (0067).
       instrument.send({ t: "gesture.end" });
@@ -243,7 +282,9 @@ export const ParameterKnob = memo(function ParameterKnob({
    * two history entries (0067). The pointer's own three endings are the boundary for that drag.
    */
   const onKeyUp = useCallback(() => {
-    if (!dragging.current) instrument.send({ t: "gesture.end" });
+    if (dragging.current) return;
+    cleared.current = false;
+    instrument.send({ t: "gesture.end" });
   }, [instrument]);
 
   /**
@@ -262,6 +303,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     recording.current = null;
     pressed.current = armed ? { start: instrument.probe().at, value } : null;
     dragging.current = true;
+    cleared.current = false;
   }, [armed, instrument, value]);
 
   /**
@@ -304,9 +346,10 @@ export const ParameterKnob = memo(function ParameterKnob({
     }
   }, []);
 
-  // Whether a marker is drawn at all — the reveal, over a lane. The latch belongs to that and goes
-  // with it, so arming again starts closed rather than where the last reveal was left (0154).
-  const marked = armed && lane !== null;
+  // Whether a marker is drawn at all — the reveal, over a lane or over the motion a knob holds or
+  // could. The latch belongs to that and goes with it, so arming again starts closed rather than
+  // where the last reveal was left (0154).
+  const marked = armed;
   useEffect(() => {
     if (!marked) {
       setLatched(false);
@@ -325,6 +368,8 @@ export const ParameterKnob = memo(function ParameterKnob({
       // The reveal: every automatable knob is visibly armed while Option is down, and the flag is
       // readable by ./scripts/smoke without depending on a colour.
       data-automation={armed ? "armed" : "off"}
+      // The motion's own flag, beside it: held, offered while armed with no lane, or off.
+      data-motion={motion === null ? (armed && lane === null ? "offered" : "off") : "held"}
       onPointerDown={onGestureStart}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
@@ -351,39 +396,51 @@ export const ParameterKnob = memo(function ParameterKnob({
         // callback (0035). One that has a lane always hands it over — a halted deck holds its
         // gesture where it stopped, and the dial holds with it — but only a playing deck is
         // reading a value that moves, so only that one is painted per frame (0040).
-        {...(lane === null ? {} : { live })}
+        {...(lane === null && motion === null ? {} : { live })}
         animate={playing}
       />
       {marked ? (
         // Only while Option is held: the marker belongs to the gesture that made the lane, and a
         // dot on every automated knob all the time is one more thing between a performer and the
-        // sound (0028). Its shape is edited by riding the knob again; only its length is reached
-        // from here, by a drag on the preview's time axis (0079) — which is why a press on the
-        // marker latches the preview open rather than leaving it to the pointer (0154). It is a
-        // popup ./scripts/drive presses, so it opens instantly like every other one (0056).
+        // sound (0028). Over a lane its shape is edited by riding the knob again; only its length
+        // is reached from here, by a drag on the preview's time axis (0079) — which is why a press
+        // on the marker latches the preview open rather than leaving it to the pointer (0154).
+        // Over no lane it is the motion's corner, in the motion's colour: hollow for a knob that
+        // could hold one and filled for a knob that does, and the popover is the menu (0309). It
+        // is a popup ./scripts/drive presses, so it opens instantly like every other one (0056).
         <Popover open={latched || peeking} onOpenChange={onOpenChange}>
           <PopoverTrigger
             openOnHover
             delay={0}
             onClick={onMarkerPress}
-            aria-label={`${where} ${spec.label} Automation`}
-            data-automated="true"
+            aria-label={`${where} ${spec.label} ${lane === null ? MOTION_LABEL : "Automation"}`}
+            {...(lane === null ? {} : { "data-automated": "true" })}
             // Square, at the ring's own radius: the marker sits in the corner of that ring, and
             // one corner shape reads as one armed control rather than a dot stuck to a box.
-            className="absolute top-0 right-0 size-2 rounded-md bg-primary"
+            className={`absolute top-0 right-0 size-2 rounded-md ${
+              lane === null
+                ? motion === null
+                  ? "border border-motion"
+                  : "bg-motion"
+                : "bg-primary"
+            }`}
           />
           <PopoverContent side="top" align="end" className={`w-48 ${INSTANT_POPUP}`}>
             <PopoverTitle>{spec.label}</PopoverTitle>
-            <AutomationPreview
-              lane={lane}
-              min={spec.min}
-              max={spec.max}
-              base={value}
-              title={`${where} ${spec.label} Lane, ${lane.length} points`}
-              phase={phase}
-              playing={playing}
-              onSpan={onSpan}
-            />
+            {lane === null ? (
+              <MotionMenu named={`${where} ${spec.label}`} held={motion} onSet={onMotion} />
+            ) : (
+              <AutomationPreview
+                lane={lane}
+                min={spec.min}
+                max={spec.max}
+                base={value}
+                title={`${where} ${spec.label} Lane, ${lane.length} points`}
+                phase={phase}
+                playing={playing}
+                onSpan={onSpan}
+              />
+            )}
           </PopoverContent>
         </Popover>
       ) : null}

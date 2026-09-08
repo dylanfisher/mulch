@@ -33,6 +33,7 @@ const instance = (id: string): DeckState["effects"][number] => ({
   bypassed: false,
   params: Object.fromEntries(effectById("delay").params.map((param) => [param.id, param.default])),
   automation: {},
+  motion: {},
   bounds: {},
 });
 

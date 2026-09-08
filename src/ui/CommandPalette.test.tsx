@@ -136,6 +136,7 @@ function press(props: Props): void {
 const DECK_STATE: DeckState = {
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
+  motion: {},
   effects: [],
   source: null,
   duration: 1,
