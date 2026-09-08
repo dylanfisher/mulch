@@ -3,93 +3,42 @@
 // the length tracks how many gestures there are, not how much setup each needs (0007).
 // oxlint-disable max-lines
 import { isValidElement } from "react";
-import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
 let held = false;
-/** One mount's refs, in hook order, so a re-render sees the same ref a real mount would. */
-let refs: { current: unknown }[] = [];
-let refIndex = 0;
-
-vi.mock("react", async (importOriginal) => {
-  const react = await importOriginal<typeof ReactTypes>();
-  return {
-    ...react,
-    memo: (component: unknown) => component,
-    useCallback: (callback: unknown) => callback,
-    useRef: (initial: unknown) => (refs[refIndex++] ??= { current: initial }),
-    // The same one mount's cells, in the same hook order: a setter writes the cell and the next
-    // hand-called render reads it, which is the sequence React would flush.
-    useState: (initial: unknown) => {
-      const cell = (refs[refIndex++] ??= { current: initial });
-      const set = (next: unknown) => {
-        cell.current = next;
-      };
-      return [cell.current, set];
-    },
-    // Called rather than scheduled: these renders are plain function calls, and what the effect
-    // does — commit a recording once Option is up — is idempotent, so running it per render is
-    // the same sequence React would flush after one.
-    useEffect: (effect: () => void) => {
-      effect();
-    },
-  };
-});
+vi.mock("react", async (importOriginal) =>
+  (await import("@/ui/parameterKnobHooks")).mockReact(await importOriginal()),
+);
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
 
 import { manualClock } from "@/app/clock";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
-import { MOTION_SPAN_SECS } from "@/lib/motion";
 import { createInstrument } from "@/app/facade";
 import { ParameterKnob } from "@/ui/ParameterKnob";
+import {
+  markerOf,
+  points,
+  renderKnob,
+  type KnobHandlers,
+  type WrapperProps,
+} from "@/ui/parameterKnobDouble";
 
-type KnobHandlers = {
-  onChange: (value: number) => void;
-  format?: (value: number) => string;
-  live?: () => number | null;
-  animate?: boolean;
+/** One recorded ride on a knob mounted at `startAt` on the clock, as the lane it left. */
+const ride = (startAt: number) => {
+  const { clock, instrument, wrapper, knob } = renderKnob(null, startAt);
+  wrapper.onPointerDown();
+  knob.onChange(0.25);
+  clock.set(startAt + 0.5);
+  knob.onChange(0.9);
+  clock.set(startAt + 1.5);
+  knob.onChange(1.25);
+  wrapper.onPointerUp();
+  return instrument.probe().decks.a!.automation["deck.gain"];
 };
-type WrapperProps = {
-  onPointerDown: () => void;
-  onPointerUp: () => void;
-  onPointerCancel: () => void;
-  onLostPointerCapture: () => void;
-  onKeyUp: () => void;
-  children: unknown[];
-  className: string;
-  "data-automation": string;
-};
 
-function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4, playing = false) {
-  const clock = manualClock(startAt);
-  const instrument = createInstrument(clock);
-  refs = [];
-  /** A re-render of the same mount — with the lane the store has since given it, where one is. */
-  const render = (holding = lane) => {
-    refIndex = 0;
-    // The component is memo-wrapped in production and identity-mocked here, so it is callable.
-    const rendered = ParameterKnob({
-      instrument,
-      deck: "a",
-      param: "deck.gain",
-      value: 1,
-      lane: holding,
-      playing,
-    });
-    if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
-    const [knob] = rendered.props.children;
-    if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
-    return { wrapper: rendered.props, knob: knob.props };
-  };
-  return { clock, instrument, render, ...render() };
-}
-
-/** A lane with somewhere to go: enough to draw a marker over, and enough to stretch. */
-const points = [
-  { at: 0, value: 0.25 },
-  { at: 2, value: 1.25 },
-];
+/** What the knob draws in its corner over `lane`. */
+const marker = (lane: readonly AutomationPoint[] | null) => renderKnob(lane).wrapper.children[1];
 
 // One control's two automation gestures stay visible together: recording and clearing are the
 // same knob, and separating them hides the exclusivity. See 0007.
@@ -125,18 +74,6 @@ describe("ParameterKnob automation gestures", () => {
   it("records the same lane wherever on the clock the gesture happened", () => {
     held = true;
     try {
-      const ride = (startAt: number) => {
-        const { clock, instrument, wrapper, knob } = renderKnob(null, startAt);
-        wrapper.onPointerDown();
-        knob.onChange(0.25);
-        clock.set(startAt + 0.5);
-        knob.onChange(0.9);
-        clock.set(startAt + 1.5);
-        knob.onChange(1.25);
-        wrapper.onPointerUp();
-        return instrument.probe().decks.a!.automation["deck.gain"];
-      };
-
       // The recorder knows the playhead and throws it away: a gesture 1.25s into a pass and the
       // same gesture 37.5s in are one lane, so a recording is repeatable (0028).
       expect(ride(1.25)).toEqual([
@@ -202,9 +139,6 @@ describe("ParameterKnob automation gestures", () => {
   });
 
   it("marks the knob holding a lane only while Option is held, and only that knob", () => {
-    const marker = (lane: readonly AutomationPoint[] | null) =>
-      renderKnob(lane).wrapper.children[1];
-
     held = true;
     try {
       const shown = marker([
@@ -390,9 +324,9 @@ describe("ParameterKnob automation gestures", () => {
     held = true;
     try {
       const { wrapper } = renderKnob([{ at: 0, value: 0.25 }]);
-      const marker = wrapper.children[1];
-      if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no lane marker");
-      const [trigger] = marker.props.children;
+      const corner = wrapper.children[1];
+      if (!isValidElement<{ children: unknown[] }>(corner)) throw new Error("no lane marker");
+      const [trigger] = corner.props.children;
       if (!isValidElement<{ className: string }>(trigger)) throw new Error("no marker trigger");
       // The marker and the ring around the armed control are the same corner: a circle inside a
       // rounded square reads as two shapes rather than one control that is armed.
@@ -464,36 +398,6 @@ describe("ParameterKnob automation gestures", () => {
   });
 });
 
-/** The preview inside the open popover, which is where the time axis lives. */
-const previewOf = (wrapper: WrapperProps) => {
-  const marker = wrapper.children[1];
-  if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no lane marker");
-  const [, content] = marker.props.children;
-  if (!isValidElement<{ children: unknown[] }>(content)) throw new Error("no popover content");
-  const [, preview] = content.props.children;
-  if (!isValidElement<{ onSpan: (span: number) => void }>(preview)) {
-    throw new Error("no automation preview");
-  }
-  return preview.props;
-};
-
-/** The marker's popover and the dot that opens it, which is the control a press latches (0154). */
-const markerOf = (wrapper: WrapperProps) => {
-  const marker = wrapper.children[1];
-  if (
-    !isValidElement<{
-      open: boolean;
-      onOpenChange: (open: boolean, details: { reason: string }) => void;
-      children: unknown[];
-    }>(marker)
-  ) {
-    throw new Error("no lane marker");
-  }
-  const [trigger] = marker.props.children;
-  if (!isValidElement<{ onClick: () => void }>(trigger)) throw new Error("no marker trigger");
-  return { popover: marker.props, trigger: trigger.props };
-};
-
 // One control's open state, which is a latch over a peek: the four ways it opens and closes stay
 // in one case each, because each is a different report arriving at the same pair of flags (0154).
 // oxlint-disable-next-line max-lines-per-function
@@ -548,154 +452,33 @@ describe("ParameterKnob lane marker", () => {
     }
   });
 
-  it("does not carry a latched preview across Option coming up", () => {
+  it("keeps a latched preview across Option coming up, until a press lands outside", () => {
     held = true;
     try {
       const { render, wrapper } = renderKnob(points);
       markerOf(wrapper).trigger.onClick();
       expect(markerOf(render().wrapper).popover.open).toBe(true);
-      // The marker exists only while Option is held, and the latch is the reveal's, not the
-      // session's: arming again starts closed rather than where the last reveal was left (0154).
+      // The preview outlives the reveal: the hand that pressed the marker lets the modifier go,
+      // and what it opened stays until it is dismissed (0310). The ring goes with Option.
       held = false;
+      expect(render().wrapper["data-automation"]).toBe("off");
+      expect(markerOf(render().wrapper).popover.open).toBe(true);
+      markerOf(render().wrapper).popover.onOpenChange(false, { reason: "outside-press" });
       expect(render().wrapper.children[1]).toBeNull();
-      held = true;
-      expect(markerOf(render().wrapper).popover.open).toBe(false);
-    } finally {
-      held = false;
-    }
-  });
-});
-
-/** The corner trigger, and the menu under the preview that draws a lane (0309). */
-const menuOf = (wrapper: WrapperProps) => {
-  const marker = wrapper.children[1];
-  if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no marker");
-  const [trigger, content] = marker.props.children;
-  if (!isValidElement<{ className: string; "data-automated"?: string }>(trigger)) {
-    throw new Error("no marker trigger");
-  }
-  if (!isValidElement<{ children: unknown[] }>(content)) throw new Error("no popover content");
-  const menu = content.props.children.at(-1);
-  if (!isValidElement<{ onDraw: (character: string) => void }>(menu)) throw new Error("no menu");
-  return { trigger: trigger.props, menu: menu.props };
-};
-
-// One gesture's two halves stay together: the press that draws, and the span it is drawn at,
-// which is whatever the dial's last drag chose (0007, 0309).
-// oxlint-disable-next-line max-lines-per-function
-describe("ParameterKnob drawn lane", () => {
-  it("marks a knob with no lane hollow, and draws one from its value at a dealt span", () => {
-    held = true;
-    try {
-      const { instrument, wrapper } = renderKnob(null);
-      const { trigger, menu } = menuOf(wrapper);
-      expect(trigger.className).toContain("border-primary");
-      // Only a lane's marker is a lane's marker: the smoke counts those (scripts/smoke.d).
-      expect(trigger["data-automated"]).toBeUndefined();
-      const changed = () => instrument.ring().filter(({ t }) => t === "automation.changed").length;
-      const before = changed();
-
-      menu.onDraw("pulse");
-
-      const lane = instrument.probe().decks.a!.automation["deck.gain"]!;
-      expect(lane[0]).toEqual({ at: 0, value: 1 });
-      expect(lane.at(-1)!.value).toBe(1);
-      expect(laneSpan(lane)).toBeGreaterThanOrEqual(MOTION_SPAN_SECS.min);
-      expect(laneSpan(lane)).toBeLessThanOrEqual(MOTION_SPAN_SECS.max);
-      expect(lane.length).toBeGreaterThan(2);
-      // One lane, as one command — the way a recorded one arrives.
-      expect(changed() - before).toBe(1);
-      expect(menuOf(renderKnob(points).wrapper).trigger.className).toContain("bg-primary");
     } finally {
       held = false;
     }
   });
 
-  it("draws at the span the dial chose, until the lane is cleared and a press deals afresh", () => {
+  it("keeps a peeked preview across Option coming up, until the pointer leaves it", () => {
     held = true;
     try {
-      const { instrument, wrapper, render } = renderKnob(points);
-      instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
-      previewOf(wrapper).onSpan(3);
-      const lane = () => instrument.probe().decks.a!.automation["deck.gain"]!;
-      expect(laneSpan(lane())).toBe(3);
-
-      menuOf(render(lane()).wrapper).menu.onDraw("smooth");
-      expect(laneSpan(lane())).toBe(3);
-      menuOf(render(lane()).wrapper).menu.onDraw("sporadic");
-      expect(laneSpan(lane())).toBe(3);
-
-      // A normal move clears the lane, and the chosen span goes with it: the next press is a
-      // first press again.
-      instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: [] });
-      menuOf(render(null).wrapper).menu.onDraw("smooth");
-      expect(laneSpan(lane())).not.toBe(3);
-      expect(laneSpan(lane())).toBeGreaterThanOrEqual(MOTION_SPAN_SECS.min);
-    } finally {
+      const { render, wrapper } = renderKnob(points);
+      markerOf(wrapper).popover.onOpenChange(true, { reason: "trigger-hover" });
       held = false;
-    }
-  });
-});
-
-// The stretch's other half: the preview decides one length per drag, and this is what the knob
-// does with it — one command, on the pair the knob rides (0065, 0079).
-// oxlint-disable-next-line max-lines-per-function
-describe("ParameterKnob span gesture", () => {
-  it("sends one span command for the length one drag decided", () => {
-    held = true;
-    try {
-      const { instrument, wrapper } = renderKnob(points);
-      instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
-      const sent: unknown[] = [];
-      instrument.on((event) => {
-        if (event.t === "automation.changed") sent.push(event.points);
-      });
-
-      previewOf(wrapper).onSpan(0.5);
-
-      // One command, and the gesture it recorded now repeats four times as fast.
-      expect(sent).toEqual([
-        [
-          { at: 0, value: 0.25 },
-          { at: 0.5, value: 1.25 },
-        ],
-      ]);
-      expect(instrument.probe().decks.a!.automation["deck.gain"]!.at(-1)!.at).toBe(0.5);
-    } finally {
-      held = false;
-    }
-  });
-
-  it("stretches the lane on the instance the knob rides, never the deck's own", () => {
-    held = true;
-    try {
-      const instrument = createInstrument(manualClock(4));
-      instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
-      instrument.send({
-        t: "automation.set",
-        deck: "a",
-        instance: "one",
-        param: "delay.mix",
-        points,
-      });
-      refs = [];
-      refIndex = 0;
-      const rendered = ParameterKnob({
-        instrument,
-        deck: "a",
-        instance: "one",
-        param: "delay.mix",
-        value: 0.5,
-        lane: points,
-        playing: false,
-      });
-      if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
-
-      previewOf(rendered.props).onSpan(4);
-
-      const entry = instrument.probe().decks.a!.effects[0]!;
-      expect(entry.automation["delay.mix"]!.at(-1)!.at).toBe(4);
-      expect(instrument.probe().decks.a!.automation).toEqual({});
+      expect(markerOf(render().wrapper).popover.open).toBe(true);
+      markerOf(render().wrapper).popover.onOpenChange(false, { reason: "trigger-hover" });
+      expect(render().wrapper.children[1]).toBeNull();
     } finally {
       held = false;
     }

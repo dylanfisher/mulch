@@ -26,6 +26,14 @@ export type MotionCharacter = (typeof MOTION_CHARACTERS)[number];
 export const MOTION_SPAN_SECS = { min: 4, max: 24 } as const;
 
 /**
+ * How many passes a drawn lane may play before it is drawn again in its place, in the same
+ * character at the same length — the counts the menu offers, besides off (0311).
+ */
+export const MOTION_REDRAW_PASSES = [1, 2, 4, 8] as const;
+/** What a knob's redraw is set to: one of those counts, or 0 for a lane that stands as drawn. */
+export type MotionRedraw = 0 | (typeof MOTION_REDRAW_PASSES)[number];
+
+/**
  * How far apart the two points of a step are. Equal times collapse to one point last-write-wins
  * (`normalizeAutomationLane`), so a step is a hold and then a ramp this long — the same length
  * the graph ramps any set value over (`PARAM_RAMP_SECS`, held equal in src/audio/deck.test.ts,

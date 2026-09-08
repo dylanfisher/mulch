@@ -1,5 +1,8 @@
 # 0154 — A latched preview does not outlive the reveal
 
+- **Status:** the second paragraph is superseded by [0310](0310-a-preview-outlives-the-reveal.md): a
+  preview now outlives Option coming up. The rest stands.
+
 The lane marker is a control: a press latches its preview open, a second press, Escape, a press
 outside or focus leaving closes it, and hovering still peeks the way it always did. The latch is a
 view preference (plan §2) — no command, nothing durable, no history entry — and it is what

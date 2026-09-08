@@ -1,6 +1,7 @@
 /**
  * @role The words a motion says: what the row of names under a knob's lane preview is called,
- *   and what each character draws. Out of src/lib/copy.ts because that file is at its cap (0045).
+ *   what each character draws, and what the row under it that draws a lane again says. Out of
+ *   src/lib/copy.ts because that file is at its cap (0045).
  * @instead Every other word the interface says → src/lib/copy.ts. What each character *is*, and
  *   the region a press draws inside → src/lib/motion.ts.
  */
@@ -20,6 +21,19 @@ export const MOTION_CHARACTER_LABELS: Record<MotionCharacter, string> = {
 
 /** What every press has in common, said once at the end of each sentence. */
 const AGAIN = "Each press draws a new one, at the span the dial holds.";
+
+/** The eyebrow over the counts: how many passes a drawn lane plays before it is drawn again. */
+export const MOTION_REDRAW_OFFER = "Redraw every";
+
+/** The count that is no count: the lane stays as it was drawn. */
+export const MOTION_REDRAW_OFF = "Off";
+
+export const MOTION_REDRAW_SAYS =
+  "How many passes the drawn lane plays before a new one is drawn in its place, in the same character at the same length. Off keeps the lane as it was drawn. A lane you rode by hand is not redrawn.";
+
+/** The count as a press's name, so "Redraw every 1 pass" and "Redraw every 4 passes" both read. */
+export const redrawPassesLabel = (passes: number): string =>
+  `${MOTION_REDRAW_OFFER} ${passes} ${passes === 1 ? "pass" : "passes"}`;
 
 export const MOTION_CHARACTER_TOOLTIPS: Record<MotionCharacter, string> = {
   sporadic: `Quick jumps anywhere in the range, never on a beat. ${AGAIN}`,

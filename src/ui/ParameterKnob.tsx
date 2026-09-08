@@ -2,13 +2,15 @@
  * @role A registry-bound parameter knob that sends the generic param.set command, and — while
  *   Option is held — records the whole press, from the press to the release, into one whole-lane
  *   automation command, marking the lane it owns and previewing it on hover — or, once the marker
- *   is pressed, until it is pressed again (0028, 0125, 0154). Every armed knob is marked, and the
- *   popover behind the mark also draws a lane as if a hand had ridden one, at the span the last
- *   drag on its dial chose or a dealt one (0309). While a lane plays, the dial follows.
+ *   is pressed, until it is pressed again — a preview once open outlives Option coming up, until
+ *   the pointer leaves it or a press lands outside (0028, 0125, 0154, 0310). Every armed knob is
+ *   marked, and the popover behind the mark also draws a lane as if a hand had ridden one, at the
+ *   span the last drag on its dial chose or a dealt one (0309), and draws it again every so many
+ *   passes if asked (0311). While a lane plays, the dial follows.
  */
-// One import over the cap, and it is the noun the labels say (0057). The recording's point buffer
-// is written and never rendered, and clearing the latch when the marker goes is arming's own reset.
-// oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect
+// Two imports over the cap: the noun the labels say (0057), and the one frame loop the redraw
+// counts passes on. The recording's point buffer is written and never rendered.
+// oxlint-disable import/max-dependencies, react/immutability
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { yardLabel } from "@/lib/copy";
@@ -17,13 +19,19 @@ import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
 import { PARAM_RAMP_SECS, SAME_GESTURE_GAP_SECS } from "@/audio/ramp";
-import { automationValueAt, type AutomationPoint } from "@/lib/automation";
-import { dealMotionSpan, drawMotionLane, type MotionCharacter } from "@/lib/motion";
+import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
+import {
+  dealMotionSpan,
+  drawMotionLane,
+  type MotionCharacter,
+  type MotionRedraw,
+} from "@/lib/motion";
 import { mintSeed } from "@/lib/random";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import type { PopoverOpenChange } from "@/ui/components/popover";
+import { useOnFrame } from "@/ui/frame";
 import { Knob } from "@/ui/Knob";
 import { MotionMenu } from "@/ui/MotionMenu";
 import { INSTANT_POPUP } from "@/ui/shell";
@@ -107,8 +115,17 @@ export const ParameterKnob = memo(function ParameterKnob({
    * given a lane again starts from a dealt span, the way it started the first time (0309).
    */
   const chosenSpan = useRef<number | null>(null);
+  /**
+   * The character the lane the knob holds was drawn as, or null for one a hand recorded or none at
+   * all: what a redraw draws in, so only a drawn lane is ever drawn again (0311). Let go with the
+   * lane, and at a recording committing over it.
+   */
+  const drawn = useRef<MotionCharacter | null>(null);
   useEffect(() => {
-    if (lane === null) chosenSpan.current = null;
+    if (lane === null) {
+      chosenSpan.current = null;
+      drawn.current = null;
+    }
   }, [lane]);
   /**
    * Where an armed press landed: the clock it landed on and the value that was under the hand,
@@ -193,23 +210,46 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
 
   /**
-   * The menu's press: a lane drawn as if this hand had recorded it, from the knob's own value,
-   * over the span the dial last chose or one the press deals (0309). The seed is dealt here and
-   * the points travel in the command, so the session recorded is the session replayed (0089). A
-   * press is a gesture of its own and ends there, so a drag on the knob a moment later is the
-   * next history entry rather than a continuation of it (0067).
+   * A lane drawn as if this hand had recorded it, from the knob's own value, over `span` — or one
+   * the draw deals where none is given (0309). The seed is dealt here and the points travel in the
+   * command, so the session recorded is the session replayed (0089). A draw is a gesture of its
+   * own and ends there, so a drag on the knob a moment later is the next history entry rather than
+   * a continuation of it (0067).
    */
-  const onDraw = useCallback(
-    (character: MotionCharacter) => {
+  const draw = useCallback(
+    (character: MotionCharacter, span: number | null) => {
       const owner = instanceHalf(instance);
       const seed = mintSeed();
-      const span = chosenSpan.current ?? dealMotionSpan(seed);
-      const points = drawMotionLane(character, seed, spec, value, span);
+      const points = drawMotionLane(character, seed, spec, value, span ?? dealMotionSpan(seed));
+      drawn.current = character;
       instrument.send({ t: "automation.set", deck, ...owner, param, points });
       instrument.send({ t: "gesture.end" });
     },
     [instrument, deck, instance, param, spec, value],
   );
+
+  /** The menu's press: drawn at the span the dial last chose, or one the press deals. */
+  const onDraw = useCallback(
+    (character: MotionCharacter) => {
+      draw(character, chosenSpan.current);
+    },
+    [draw],
+  );
+
+  /**
+   * How many passes a drawn lane plays before it is drawn again in its place, or 0 for never — the
+   * knob's own, like the latch: no command, nothing durable (0311). It outlives the lane, so a
+   * knob cleared and drawn again is drawn again at the count it was set to.
+   */
+  const [every, setEvery] = useState<MotionRedraw>(0);
+  /**
+   * The lane the passes are counted for, how many have played since it arrived, and the phase the
+   * last frame read. A frame that finds another lane starts the count over — a redraw's own lane
+   * arriving, or a press's.
+   */
+  const counted = useRef<readonly AutomationPoint[] | null>(null);
+  const passes = useRef(0);
+  const lastPhase = useRef<number | null>(null);
 
   /**
    * The end of a recording: whatever it captured becomes one lane, and the drag it belongs to is
@@ -239,6 +279,8 @@ export const ParameterKnob = memo(function ParameterKnob({
       recorded.points.push({ at: end, value: last.value });
     }
     const owner = instanceHalf(instance);
+    // A hand's lane, whatever the menu drew before it: nothing redraws it (0311).
+    drawn.current = null;
     instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
   }, [instrument, deck, instance, param]);
 
@@ -312,6 +354,35 @@ export const ParameterKnob = memo(function ParameterKnob({
   }, [armed, instrument, value]);
 
   /**
+   * The redraw: while a lane the menu drew plays with a count set, every frame reads the phase
+   * `peek()` files, counts a pass where it wraps, and at the count draws the lane again in its own
+   * character at its own length — the next pass a new performance of the same kind (0311). A read
+   * off the one frame loop, never React state (docs/plan.md §4). The count starts over with every
+   * lane, drawn or redrawn, and a hand on the dial holds no phase to count.
+   */
+  const redrawing = every > 0 && lane !== null && playing;
+  useOnFrame(() => {
+    if (counted.current !== lane) {
+      counted.current = lane;
+      passes.current = 0;
+      lastPhase.current = null;
+    }
+    // Before the peek, not after it: a lane a hand recorded is never redrawn, and asking the
+    // engine where it is only to throw the answer away is a peek a frame for nothing.
+    const character = drawn.current;
+    if (character === null || lane === null) return;
+    const at = phase();
+    if (at === null) return;
+    const last = lastPhase.current;
+    lastPhase.current = at;
+    if (last === null || at >= last) return;
+    passes.current += 1;
+    if (passes.current < every) return;
+    passes.current = 0;
+    draw(character, laneSpan(lane));
+  }, redrawing);
+
+  /**
    * The end of a stretch: the whole drag on the preview's span dial arrives here as one length,
    * and leaves as one command — never one per pointer event (0065, 0079).
    */
@@ -328,6 +399,8 @@ export const ParameterKnob = memo(function ParameterKnob({
    * Whether the preview is held open by a press, and whether the pointer rests on the marker. It is
    * drawn for either, and only the latch survives the pointer leaving — the marker's whole job as a
    * control, because the gesture it exists for starts by taking the pointer off it (0079, 0154).
+   * Either survives Option coming up: a preview once open stays until the pointer leaves it or a
+   * press lands outside, so the hand that opened it can let the modifier go (0310).
    */
   const [latched, setLatched] = useState(false);
   const [peeking, setPeeking] = useState(false);
@@ -352,16 +425,10 @@ export const ParameterKnob = memo(function ParameterKnob({
     }
   }, []);
 
-  // Whether a marker is drawn at all — the reveal, over every knob that could hold a lane. The
-  // latch belongs to that and goes with it, so arming again starts closed rather than where the
-  // last reveal was left (0154).
-  const marked = armed;
-  useEffect(() => {
-    if (!marked) {
-      setLatched(false);
-      setPeeking(false);
-    }
-  }, [marked]);
+  // Whether a marker is drawn at all — the reveal, over every knob that could hold a lane, and
+  // for as long as a preview it anchors is open (0310). The ring and the armed flag below are the
+  // reveal's alone: a knob under an open preview with Option up is an ordinary knob.
+  const marked = armed || latched || peeking;
 
   return (
     // The wrapper is not the control: every one of these handlers observes an event bubbling out
@@ -404,11 +471,12 @@ export const ParameterKnob = memo(function ParameterKnob({
         animate={playing}
       />
       {marked ? (
-        // Only while Option is held: the marker belongs to the gesture that made the lane, and a
-        // dot on every automated knob all the time is one more thing between a performer and the
-        // sound (0028). A lane's shape is edited by riding the knob again; only its length is
-        // reached from here, by a drag on the preview's time axis (0079) — which is why a press
-        // on the marker latches the preview open rather than leaving it to the pointer (0154).
+        // While Option is held, or a preview is open: the marker belongs to the gesture that made
+        // the lane, and a dot on every automated knob all the time is one more thing between a
+        // performer and the sound (0028). A lane's shape is edited by riding the knob again; only
+        // its length is reached from here, by a drag on the preview's time axis (0079) — which is
+        // why a press on the marker latches the preview open rather than leaving it to the
+        // pointer (0154), and why the preview stays once Option is up (0310).
         // The corner is hollow over a knob holding no lane and filled over one that does, and the
         // menu under the preview draws one either way (0309). It is a popup ./scripts/drive
         // presses, so it opens instantly like every other one (0056).
@@ -439,7 +507,12 @@ export const ParameterKnob = memo(function ParameterKnob({
                 onSpan={onSpan}
               />
             )}
-            <MotionMenu named={`${where} ${spec.label}`} onDraw={onDraw} />
+            <MotionMenu
+              named={`${where} ${spec.label}`}
+              onDraw={onDraw}
+              every={every}
+              onEvery={setEvery}
+            />
           </PopoverContent>
         </Popover>
       ) : null}
