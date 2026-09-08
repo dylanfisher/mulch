@@ -1,12 +1,13 @@
 /**
  * @role One deck's mulcher as a full-width card of the rack: a heading that folds it, carrying the
- *   seed it draws from and — at its right-hand end — the switch that holds the pattern, and under
- *   the fold the front, then the fine tune's own fold of bordered boxes and the ground's and the
- *   arrangement's folds beside it, all of the amounts it walks and clocks itself with drawn whether or
- *   not the switch is on — one `deck.player` command per gesture, carrying the whole spec (0089,
- *   0107, 0173).
- * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
- *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
+ *   field its seed is read and typed in and — at its right-hand end — the switch that holds the
+ *   pattern, and under the fold the front, then the fine tune's own fold of bordered boxes and the
+ *   ground's and the arrangement's folds beside it, all of the amounts it walks and clocks itself
+ *   with drawn whether or not the switch is on — one `deck.player` command per gesture, carrying
+ *   the whole spec (0089, 0107, 0173).
+ * @instead What a step becomes in sound → src/audio/deck.ts. The seed's own field →
+ *   src/ui/PlayerSeed.tsx. What a seed unfolds into → src/lib/player.ts. Nothing here draws a
+ *   pattern; it only says which one the deck holds.
  */
 // Over the cap, and everything over it is either a word this card says or a control it says it
 // with: the card's own primitives and the registry-free knobs, plus the runs its dials stand in
@@ -36,7 +37,6 @@ import {
   PLANT_LABEL,
   PLAYER_TOOLTIP,
   RESEED_LABEL,
-  SEED_LABEL,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
@@ -48,6 +48,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
+import { PlayerSeed } from "@/ui/PlayerSeed";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
 import { usePlayerBurst } from "@/ui/playerBurstControls";
@@ -326,6 +327,13 @@ export function PlayerCard({
   const onReseed = useCallback(() => {
     patch({ seed: mintSeed() });
   }, [patch]);
+  /** The same edit the die makes, from a hand that already knows which number it wants (0312). */
+  const onSeed = useCallback(
+    (seed: number) => {
+      patch({ seed });
+    },
+    [patch],
+  );
   /**
    * Plant: the bed the walk is standing on, written back as the deck's loop. An ordinary
    * `deck.loop` and nothing else — the same command the handles and the sweep send, so it undoes,
@@ -456,10 +464,10 @@ export function PlayerCard({
         </Says>
         {/* The one number the whole pattern unfolds from, beside the word it belongs to and
             outside the fold: a performance is reproducible by that number, so reading it may not
-            cost opening anything (0089, P98). */}
-        {live !== null && (
-          <span className="type-readout text-muted-foreground">{`${SEED_LABEL} ${live.seed}`}</span>
-        )}
+            cost opening anything (0089, P98) — and typing one in is the other half of that
+            reproducibility, so it is a field and not a readout (0312). The die that draws one
+            stays on the card's front, where it stands beside the other draw (0259). */}
+        {live !== null && <PlayerSeed id={`${deck}-seed`} seed={live.seed} onCommit={onSeed} />}
         {/* And what it is arranged as, beside that number and on the same terms: a song is parts
             in an order, so the order is the thing to read, and it is legible without opening the
             menu that edits it (0153, P98). */}

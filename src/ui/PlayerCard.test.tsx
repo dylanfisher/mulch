@@ -58,6 +58,7 @@ import {
   SEED_LABEL,
 } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
+import { PlayerSeed } from "@/ui/PlayerSeed";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerBeds } from "@/ui/PlayerBeds";
 import { PlayerBlend } from "@/ui/PlayerBlend";
@@ -335,8 +336,9 @@ describe("the jumps card", () => {
     const markup = renderToStaticMarkup(folded.element);
     expect(markup).toContain(PLAYER_LABEL);
     // The seed the pattern unfolds from stands above the fold: a folded card still says which
-    // pattern it is holding (P98).
-    expect(markup).toContain(`${SEED_LABEL} ${PLAYER.seed}`);
+    // pattern it is holding, and still takes another (P98, 0312).
+    expect(markup).toContain(SEED_LABEL);
+    expect(markup).toContain(`value="${PLAYER.seed}"`);
     // P130: a module put away is its heading and nothing else — no frame, no header, none of the
     // corner's actions (0173). So the fold and the switch are the whole of it, and the reseed goes
     // with the body it belongs to.
@@ -347,21 +349,19 @@ describe("the jumps card", () => {
   });
 
   /**
-   * P98: the seed is the one number that makes a pattern reproducible, so it reads out beside the
-   * heading — outside the fold and outside the card. The control that draws a new one no longer
-   * stands in a corner behind an icon: it is on the card's front, beside the six names that fill
-   * every dial at once, because those are the two gestures a hand reaching for "make this sound
-   * different" wants and they belong in one place (0089, 0107, 0152, 0197).
+   * P98: the seed is the one number that makes a pattern reproducible, so it stands beside the
+   * heading — outside the fold and outside the card — as a field rather than a readout, because
+   * recalling a pattern by its number is the other half of what reproducible means (0312). The
+   * control that draws a new one no longer stands in a corner behind an icon: it is on the card's
+   * front, beside the six names that fill every dial at once, because those are the two gestures a
+   * hand reaching for "make this sound different" wants and they belong in one place (0089, 0107,
+   * 0152, 0197).
    */
   it("reads its seed beside the heading and puts reseed on the card's front", () => {
     const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
 
-    expect(markup).toMatch(
-      new RegExp(
-        `<span class="type-readout text-muted-foreground">${SEED_LABEL} ${PLAYER.seed}<`,
-        "u",
-      ),
-    );
+    expect(markup).toContain(`id="a-seed"`);
+    expect(markup).toContain(`value="${PLAYER.seed}"`);
     // The corner is gone entirely: there is nothing left in the card's header for it to hold, and
     // a header with an empty action is a shape kept for a control that moved (0197).
     expect(markup).not.toContain('data-slot="card-action"');
@@ -507,6 +507,21 @@ describe("the jumps card", () => {
     walk(strip({ player: PLAYER }).element);
     expect(drawn.has(PlayerBlend)).toBe(true);
     expect(drawn.has(ACTION_ICONS.duplicate)).toBe(false);
+  });
+
+  /**
+   * 0312: the other half of reproducible. The field patches the spec it is standing over — one
+   * `deck.player` carrying the whole of it, exactly as the die beside it does (0089) — so a seed
+   * read off another machine dials that pattern up rather than only naming it.
+   */
+  it("patches the pattern with a seed a hand typed in", () => {
+    const { element, sent } = strip({ player: PLAYER });
+    propsOf(element, PlayerSeed)?.onCommit?.(4321);
+    expect(sent).toHaveBeenCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, seed: 4321 },
+    });
   });
 
   /**

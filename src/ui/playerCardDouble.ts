@@ -173,6 +173,9 @@ export type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
   defaults?: unknown;
   /** The ground the window is on, which the kept row is handed rather than reading (P165). */
   bed?: unknown;
+  /** What the seed's own field hands back, which no other control on this card offers: it is a
+   *  number and not an event, so it is not one of `HANDLER_KEYS` (0312, src/ui/PlayerSeed.tsx). */
+  onCommit?: Press;
 };
 
 export const HANDLER_KEYS = [

@@ -191,6 +191,15 @@ export const PLAYER_GATE_FLOOR = 0.05;
 export const PLAYER_SEED_MAX = SEED_MAX;
 
 /**
+ * Whether a number is a seed — the rule a typed one is refused by, said beside the range it is
+ * refused against rather than at the field that asks (0312). A seed is `mulberry32`'s whole 32
+ * bits: `whole` in src/lib/playerWire.ts is this same rule as a throw, for a number off a wire
+ * that has no box to put back.
+ */
+export const isPlayerSeed = (seed: number): boolean =>
+  Number.isInteger(seed) && seed >= 0 && seed <= PLAYER_SEED_MAX;
+
+/**
  * What a deck durably holds once its player has ever been on. Null on the deck is a yard that has
  * never held a pattern — the same shape `loop` has — and `bypassed` is the switch standing off
  * over one that is still there (P164).
