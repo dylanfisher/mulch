@@ -22,186 +22,486 @@ consecutive steps.
 
 ## Context
 
-One thing a hand found on the structure bench (`#/structure`, uncommitted,
-[0295](decisions/0295-the-structure-bench-is-its-own-route.md)): of the seven ways to make the
-automator's mark on the picture plain, **The Shards** is the one that reads. Its picture is the
-Bite torn along the escape count's own cross-section — every horizontal slice slid across by a
-cosine of the count read at the picture's centre column at that slice's height, every column slid
-down by the same read along the centre row a quarter turn off. Shot off the running dev server
-(canvas 4, 480×160): where the filigree is dense the throws are unrelated slice to slice and the
-picture reads as torn; where the plane is open the throw is one slow wave and the weave reads as
-bent. The tear reaches every straight row without a bake, and its shape is the structure's own.
+Six things a hand found while performing, gathered on 2026-09-08. They touch six surfaces and
+share no code, and they are one step because each is a handful of lines against a shape that is
+already right — except the two automation ones, which are one shape change that both of them
+wait on, and which is what makes this step expensive.
 
-What the research found, and what the step stands on:
+What the reading found, and what the step stands on:
 
-- **The automator's look is the fold, and a look has one landing.** `look: "fold"` at
-  src/audio/effects/automator.ts:186, `LOOKS.fold = { at: "bake", terms: {} }` at
-  src/lib/moireLook.ts:578; `Look` is a union keyed on `at` (src/lib/moireLook.ts:143), and the
-  registry refuses a look two entries share (src/audio/effects/registry.ts:116-141). 0295's own
-  review found the fold reads as a faint bend in two curved rows under an unmirrored weave. Its
-  whole footprint: `looksFolds` (src/ui/moireLooks.ts:196), `foldsOf`/`steppedFolds`
-  (src/lib/moireFold.ts), `DriftPlace.folds` and the fold branch of `curvedField`
-  (src/lib/moireGeometry.ts:148-153, 190-240), the `folds` param and `|${place.folds}` key
-  segment of `placeCurved` (src/ui/moireCanvasCurved.ts:89,113,125), `folds` through
-  `cutGratings` (src/ui/moireCanvas.ts:299,371,576,590), `folds: 0` at
-  src/ui/moireCanvasPattern.ts:89. `foldPlane`, `kaleido` and `FOLD_CAP` are also the bench's
-  Kaleidoscope's, and stay until `src/ui/sketch/structure/` goes.
-- **The cut already reads the field back in slices, and takes a column pass only when warped.**
-  `cutField(context, field, rows, looks, shape, veer, clock)` (src/ui/moireCanvasField.ts:143)
-  slides each of `LENS_SLICES` bands by the lens, the warp's first sine and the shatter's
-  whole-piece offset, wrapped into one width; `between` is made only when `bent > 0` and the
-  column pass slides by `warpSlideY(...) * height`. `cutAcross`/`cutDown` cover any offset inside
-  one width or height with the copy either side of the edge.
-- **The seed the tear reads is already resolved once a painting.** `roamed` is a module-level
-  `FractalStops` (src/ui/moireCanvas.ts:144) filled by `fractalRoamInto` inside `cutGratings`
-  (line 310) and never handed to the cut; `fractalSeedInto(out, stops, zoom, fly)`
-  (src/lib/moireFractal.ts:299) denormalises it; `escapeTurns(u, v, cx, cy, zoom, fly)`
-  (src/lib/moireFractal.ts:619) is 120 iterations a read; `geometryRef(width, height)` is the
-  radius the bench reads against too (`FIELD_REF`, src/ui/sketch/structure/sketchStructure.ts:40).
-- **Whole looks live in files of their own.** src/lib/moireLook.ts is at 679 lines and
-  `moireBand.ts`, `moireSquash.ts`, `moireDouble.ts` and `moireEchoes.ts` each hold one look's
-  terms, constants, maths and declaration together (0287-0289, 0294).
-- **Every reduction of the rack is allocation-free and travelled.** `looksShatter` fills a kept
-  list in place (src/ui/moireLooks.ts:251-270); an automator's presence is `none` and so stands at
-  one (src/ui/moireLooks.ts:57-67), travelled into `at` over `SHAPE_SECS` and drained through
-  `carryLooks`.
-- **The scatter's own shatter is a separate reduction** (`looksShatter`, `shatterSlide`), and 0279
-  forbids one dial on two hands; 0269 says every band is drawn once at one alpha, from where it
-  belongs or from elsewhere, never a blend.
+- **A knob's redraw and the character it drew in are not durable, and that is why a copy loses
+  them.** `const [every, setEvery] = useState<MotionRedraw>(0)` at src/ui/ParameterKnob.tsx:244
+  and `const drawn = useRef<MotionCharacter | null>(null)` at line 123 —
+  [0311](decisions/0311-a-drawn-lane-is-drawn-again.md) says so in as many words: "the knob's,
+  like the latch: no command, nothing durable". `duplicateEffect` (src/app/effects.ts:88-134)
+  copies exactly what is durable — params, bypass, bounds, then the lanes — so what a knob holds
+  in React cannot ride along, and there is nowhere for it to be read from. The same absence is
+  why the character row (src/ui/MotionMenu.tsx:36-62) is five plain Buttons: nothing outside the
+  knob can say which one is standing, and the ref that knows is not a render input.
+- **A lane is durable per (instance, param) already, and it has a sibling to sit beside.**
+  `automation: Partial<Record<EffectAutomationParamId, AutomationLane>>` on an effect entry
+  (src/state/session.ts:68) and the same on the deck for player params (line 93), validated by
+  `validateLanes` (lines 356, 372) and expanded in restoration order at the end of the duplicate
+  group. `AutomationLane` is points and only points, which is what the audio host schedules.
+- **Where an export begins is one number, and the dialog collects it.** `ExportSpec.backSecs`
+  (src/app/exportAudio.ts:69-84): nought is from the ear, positive is that many seconds ago, and
+  longer than the run has been going is its beginning. `exportTake(at, spec, settleSecs)`
+  (line 195) reads `instrument.stats().at` for `at`, and the settle only shortens a take begun at
+  the ear or past it (line 203-211).
+- **A stop forgets a playhead and nothing else.** src/audio/deck.ts:86-87 — "a stop forgets it, a
+  pause writes it" — is about one deck's position in its buffer. The session's own elapsed run,
+  `probe().at`, is the audio clock and has never gone back to nought, so a performance stopped and
+  begun again exports as one long take with silence in the middle of it.
+- **Failure is said in the header, and success is already said in a toast.** `fileError` state at
+  src/ui/App.tsx:162, drawn as a `<span role="alert">` at line 225 that clears only when something
+  sets it null; `ReportError` (src/ui/shell.ts:61) is the prop chain that fills it, through
+  src/ui/FileMenu.tsx, src/ui/CommandPalette.tsx and src/ui/ExportAudioDialog.tsx — which already
+  imports `toast` from src/ui/components/toast.tsx for the render's own progress. Two ways to say
+  one kind of thing, and the older one never goes away.
+- **Every fold of a card is shut to begin with except this one.** src/ui/Deck.tsx:230-244:
+  `fineFold`, `groundFold` and `arrangeFold` are `useHeld(true)` on
+  [0217](decisions/0217-the-ground-is-not-a-fine-tune-either.md)'s argument — what stands open is the front —
+  and `songFold` alone is `useHeld(false)`.
+- **The name pools are twelve by twelve and twenty-four by twenty-four, and one of the two files
+  is full.** `EFFECT_NAMES` over twelve effect kinds (src/lib/copyNames.ts:32-161) and
+  `TIER_NAMES` over song and part (line 163); `YARD_ADJECTIVES` and `YARD_PLANTS`
+  (src/lib/copy.ts:174-180) with `mintYardName` at line 204. src/lib/copy.ts is at 776 lines
+  against a hard cap of 800, which it reached once before ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md));
+  the yard's banks do not fit in it and must not be shaved into it.
 
-**Decided before planning** (2026-09-02): one step. The fold is replaced and not kept beside the
-shards — a look has one landing, and pre-release deletes are free. No bench step first: the bench
-already made the one-automator argument, and several automators are proved by the shot on a real
-yard holding two. structure-01 landed as
-[0296](decisions/0296-the-automator-shards-the-picture.md) on 2026-09-03; the zoomed picture went
-unphotographed (the headless smoke starves on the run's ghosts and no real browser was reachable),
-and the strip's crops carried the proof. The next free decision number today is 0297.
+**Decided before planning** (2026-09-08): one step, six items, in the order below — the shape
+change first, because two of the items are unreadable without it, and the vocabulary last, because
+it is the only one that is only words. The redraw and the character become durable per (instance,
+param), amending 0311. The export's checkbox sits above the seconds field rather than replacing
+it. The global Stop returns the session's elapsed run to nought; a yard's own Stop does not. Every
+report becomes a toast and the header span goes. Yard names are drawn from five banks, two of them
+optional. Pools double. The next free decision number today is 0314.
 
-1.  **The automator shards the picture, and every automator standing is a tear of its own.**
-    _(structure-01)_ **Durable shape moved: none.** A new look, declared whole in
-    `src/lib/moireShards.ts` beside src/lib/moireBand.ts: `shardsLook = { at: "cut", terms: {} }`
-    — no terms, for the fold's reason, how much is torn being how many automators stand. Its
-    numbers, each its own (0279): `SHARD_CAP = 4` tears summed at most; `SHARD_REACH = 0.08`, one
-    automator's throw as a share of the **height** both ways, as the bench (`SHARDS_DIAL.rest`) —
-    height and not the wobble's width, because the strip is 32 px tall and thousands wide and a
-    width share thrown down it would wrap the strip several times; `SHARD_CEILING = 0.25`, the
-    most any slice is thrown summed, three whole reaches, bounded for 0250's reason and not
-    derived from `SHATTER_CEILING`; `SHARD_RATIO = 1.5`, the k-th standing automator reading the
-    count at zoom `SHARD_RATIO ** k` (the Beat's `BEAT_DIAL.rest`) so two cross-sections' contours
-    cross everywhere and the second tear is a different tear rather than the first one deeper;
-    `SHARD_PHASE = 0.25`, a quarter turn per automator on the throw's cosine, because zoom alone
-    leaves the slow middle slices nearly in step; `SHARD_TURN = 16`, moved here from the bench's
-    `STRUCTURE_TURN`, which the bench's `wave` then imports; `SHARD_DOWN = -0.25`, the down throw a
-    quarter behind the across. `shardsInto(out: Float64Array, seed, ref, width, height, presences,
-standing)` fills `out[0..LENS_SLICES)` with each slice's across throw and
-    `out[LENS_SLICES..2·LENS_SLICES)` with each column's down throw: per automator, per slice, the
-    count at the slice's middle on the centre column (or the centre row) in reference radii,
-    `presences[i] · SHARD_REACH · cosTurn(count / SHARD_TURN + i · SHARD_PHASE [+ SHARD_DOWN])`,
-    summed and then **clamped** to ±`SHARD_CEILING` — clamped and never normalised, so a second
-    automator adds to the first and only the peaks flatten. `fly` is nought: the roam is
-    continuous and is the plane the picture already stands on, so the tear moving with it is the
-    field moving under it and no motion of its own (0126); the breath is the rows' baked ladder,
-    and a frame-side read of it would be a second scale (0261). At most 4 × 128 kernel reads a
-    painting, no allocation (0070), no read-back (0129).
-    The reading is `looksShards(looks, into: Float64Array): number` in src/ui/moireLooks.ts,
-    replacing `looksFolds`: every `shards` look's travelled `at` in rack order, stopping at the
-    cap. The cut (src/ui/moireCanvasField.ts) takes an eighth argument, the painter's `roamed`
-    stops, keeps one `Float64Array(2 · LENS_SLICES)`, one `Float64Array(SHARD_CAP)` and one
-    `fractalRest()` as module scratch, and where anything stands seeds them with
-    `fractalSeedInto(thrown, stops, 1, 0)` and fills the table; its early-out gains `standing <= 0`,
-    `between` is taken when `bent > 0 || standing > 0`, the across slide gains
-    `throws[slice] · height` before the shatter's wrap (taken whenever `off > 0 || standing > 0`),
-    and the column pass adds `throws[LENS_SLICES + slice] · height` to the warp's sine. Every band
-    is still cut once at one alpha (0269). src/ui/moireCanvas.ts passes `roamed` at the cut and
-    drops `folds`. src/lib/moireLook.ts: `LOOK_NAMES` gains `"shards"` and loses `"fold"`,
-    `LOOKS.shards = shardsLook`, `LookAt` loses `"bake"`, and every comment that counts "three of
-    the four kinds" is rewritten (moireLook.ts, moireLooks.ts `looksPaintMs`, moireCanvasField.ts,
-    moireShape.ts). src/audio/effects/automator.ts declares `look: "shards"`. The fold is deleted
-    across the footprint listed above; src/lib/moireFold.ts keeps `kaleido`, `foldPlane` and
-    `FOLD_CAP` for the bench and says so in its `@role`. The bench loses the entry whose argument
-    won (0247): `SketchStructureShards.tsx`, `shardsField`, `SHARDS_DIAL`, `SHARD_SLICES`, the
-    `shards` entry in src/ui/sketch/StructurePage.tsx and its test block; the route's uncommitted
-    files land with this step. Decision
-    `docs/decisions/0296-the-automator-shards-the-picture.md`, amending 0278 and 0279 inside
-    0269's rule and standing on 0295: one cross-section per automator, the sum clamped in shares
-    of the height, one automator visible where one scatter is nought and why (an automator's
-    presence is `none` — it is in the rack or it is not), fly held at nought, the table filled once
-    a painting off the roamed stops, the column pass taken for the shards as for the warp, the
-    fold's bake ladder gone, and the shot's numbers.
+1.  **A drawn lane says what drew it, an export says where it begins, and a report says itself
+    once.** _(bench-01)_ **Durable shape moved: a lane gains a sibling.** Six items, one gate.
 
-**The outcome wanted:** a yard holding one automator whose straight rows visibly break across a
-tear the shape of the structure's own cross-section, and a yard holding two whose picture reads as
-two tears at different pitches crossing — never one tear drawn twice as far — with nothing baked
-for it and the fold's ladder of bakes gone.
+    **The drawn fact becomes durable** (0314, amending 0311). Beside `automation` on both the
+    effect entry and the deck (src/state/session.ts:68,93) sits `drawn: Partial<Record<param,
+MotionDrawn>>`, where `MotionDrawn = { character: MotionCharacter; redraw: MotionRedraw }` is
+    declared in src/lib/motion.ts beside `MOTION_REDRAW_PASSES`. One value per (instance, param),
+    which is the rule a param value already obeys ([0030](decisions/0030-effects-are-instances.md)).
+    One new command, `{ t: "automation.drawn"; deck; instance?; param; drawn: MotionDrawn | null }`,
+    because the count is set without redrawing and the character is set only by a draw: they are
+    two writers of one fact and the command carries the whole of it. `automation.set` with empty
+    points clears the sibling in the same reducer, and a recording committing over a drawn lane
+    sends `drawn: null` — 0311's rule that a hand's lane is never redrawn, now written where the
+    fact lives rather than in a ref. Validated by name in `validateLanes`' neighbour and in
+    `exactKeys` (session.ts:344,366). src/ui/ParameterKnob.tsx loses `every` and `drawn.current`
+    and reads the store instead; the redraw's frame read (line 357-383) reads the same. It is
+    durable, so it is in history, in the archive, and in a restore — and a knob that was redrawing
+    when the tab closed is redrawing when it opens.
 
-## The two things every step turns on
+    **Duplicating an effect carries it.** `duplicateEffect` (src/app/effects.ts:88-134) gains one
+    more mapped expansion after the lanes, in restoration order for
+    [0027](decisions/0027-clips-are-borrowed-deck-presets.md)'s reason: an `automation.drawn` per
+    param the original holds one for. Nothing else about the function moves — this is the fact it
+    was already trying to copy.
 
-1.  **A fact is derived once, and the step moves it where it is derived.** The throw table is filled
-    once a painting inside the cut off the stops the painter already roams; `SHARD_TURN` is the one
-    turn the bench's remaining entries read; the cap, the reach, the ceiling, the ratio and the
-    phase are each one constant in src/lib/moireShards.ts and nowhere else.
-2.  **A whole-field move is a declaration on the entry and a draw of the field, never a fill over
-    it** (0279, 0269). The shards are the automator's declared look at the cut, drawn as slices of
-    the finished field slid by a table, and every band lands once at one alpha.
+    **The character row shows which character is standing.** src/ui/MotionMenu.tsx's five Buttons
+    become a `ToggleGroup` of `ToggleGroupItem`s, the way the redraw row beneath them already is
+    (line 28), pressed on the stored character and pressing again to redraw in the same one. One
+    control, one shape, on the one surface.
+
+    **A double-click on a knob puts the drawing away.** `handleDoubleClick`
+    (src/ui/Knob.tsx:483-485) commits the default value, and the move that follows already clears
+    the lane (src/ui/ParameterKnob.tsx:200-210). What it does not do is turn the redraw off, so a
+    knob reset while redrawing is a knob that draws itself a new lane on the next pass. The reset
+    sends `automation.drawn: null` in the same history group as the clear and the set — one
+    gesture, one entry ([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
+
+    **An export begins at the start or where the ear is** (0315). `ExportSpec` gains
+    `fromStart: boolean`; the dialog draws a `Checkbox` above the length fields, and while it is
+    checked the seconds field is disabled and `backSecs` is not read. `exportTake` takes the whole
+    run when it is set — `backSecs` at `at`, which is the beginning the field's own doc already
+    describes — so there is one arithmetic and the checkbox is a way of saying a number, not a
+    second path through the take. Unchecked is exactly today.
+
+    **Stop returns the run to nought** (0315). `transportAllCommands` (src/ui/actions.ts) for the
+    stop gesture gains a session-level `{ t: "session.rewind" }` after the per-deck stops, which
+    returns the elapsed run `probe().at` reads to nought. The global press only: one yard stopping
+    is not the session ending, and the per-deck row is unchanged (P66 — the global press is the
+    per-deck ones a hand would have sent, plus the one thing that is the session's).
+
+    **Every report is a toast** (0316). `ReportError` (src/ui/shell.ts:61), the `fileError` state
+    and its header span (src/ui/App.tsx:162,225) and the `onError` prop through FileMenu,
+    CommandPalette and ExportAudioDialog all go; each site calls the `toast` manager
+    src/ui/ExportAudioDialog.tsx already imports, at the failure's own type, timing out the way
+    the render's progress does. One way to say something did not go, and it goes away by itself.
+
+    **The songs section opens shut.** src/ui/Deck.tsx:240 `useHeld(false)` becomes `useHeld(true)`
+    with the comment its three siblings carry: what stands open on a card is the front (0217).
+
+    **The pools double, and a yard's name is a small scene** (0317). Every pool in
+    src/lib/copyNames.ts goes from twelve to twenty-four — twelve kinds of effect and two tiers,
+    both halves each — with the nouns still disjoint across every pool in the file, which is what
+    `registry.test.ts` already checks and what makes a name say which kind of thing it names. A
+    yard's name moves to **src/lib/copyYard.ts**, because src/lib/copy.ts is 24 lines from the
+    hard cap and this is a split rather than a shave (0045): five banks —
+    `YARD_ADJECTIVES` and `YARD_PLANTS` at forty-eight each, `YARD_PLACES` ("by the Old Wall",
+    "beneath the Stairs", "beside the Stone Path"), and two **optional** banks, `YARD_AIRS` (time,
+    weather, light: "at Dusk", "in Soft Rain", "in Moonlight") and `YARD_DETAILS` (small animals
+    and quiet objects: "with Moths", "with a Bell"). `mintYardName` draws the first three always
+    and each optional bank on its own coin, so names run from "Gentle Moss beneath the Stairs" to
+    "Gentle Moss beneath the Old Stairs at Dusk with Moths" and a rack of yards reads as a set of
+    tiny scenes rather than a list of usernames. `twoPartName` (src/lib/copy.ts:195) stays what it
+    is — the effect and tier draw still join two halves — and the yard's join is its own.
+
+**The outcome wanted:** a knob set to redraw that is still redrawing after a reload, whose
+character button is visibly the one standing, that a duplicate of its effect redraws the same way,
+and that a double-click puts back to plain; an export that begins at the top of a performance on
+one press; a Stop that means the next performance starts at nought; a failed import that says so
+and then stops saying so; a card whose front is what is open; and a session of yards named
+"Pale Ivy near the Open Window in Soft Rain".
+
+## The two things this step turns on
+
+1.  **A fact the interface can copy is a fact the session holds.** The redraw and the character
+    were knob-local because 0311 could not see past one knob; a duplicate, a reload and a visibly
+    pressed button are three readers, and three readers of a ref is the shape that has to move.
+    The command carries the whole of it, one value per (instance, param).
+2.  **One kind of thing is said one way.** A failure is a toast, not a toast and a header span; an
+    export's beginning is `backSecs`, not `backSecs` and a second path; a knob's redraw is durable
+    state, not durable state and a ref.
 
 ## Tests that must fail first
 
-- **src/lib/moireShards.test.ts** (new): nought standing fills nought; one automator's across table
-  is non-zero, bounded by `SHARD_REACH` and has many distinct values (a tear, not a shift); the
-  down table differs from the across; index 1 alone differs from index 0 alone; two together are
-  the elementwise sum where under the ceiling; `SHARD_CAP` automators never pass `SHARD_CEILING`;
-  half a presence halves its term; the same inputs fill the same table.
-- **src/ui/moireLooks.test.ts**: `looksShards` fills one per automator in rack order, a bypassed one
-  in none, stops at the cap, 0.5 half-way through `SHAPE_SECS`; the rack at line 117 reads
-  `"shards"`.
-- **src/ui/moireCanvasField.test.ts** (harness at 145-217): one `look("shards")` with no lens, warp
-  or shatter takes the column pass, slides 64 bands by distinct amounts all under
-  `SHARD_CEILING × height`, cuts every band once at alpha 1 with `fills` equal to plain; two shards
-  keys throw differently from one and at least one band further; no shards look draws the field
-  once, whole. Line 226's `look("fold")` leaves the "steps over" rack — the shards are a cut.
-- **src/lib/moireLook.test.ts** / **src/audio/effects/registry.test.ts**: `LOOKS.shards.at ===
-"cut"` with no terms; the automator declares it; `"fold"` and `"bake"` are gone (fixture at
-  registry.test.ts:42, the claimed set at 392).
-- **src/ui/moireCanvasTiles.test.ts**: the fold's bake case (686-720) and `folding` helper go; a
-  curved key carries no fold field. **src/lib/moireGeometry.test.ts** "curvedField folded"
-  (552-610) and `folds:` fields go; **src/lib/moireFold.test.ts** `foldsOf`/`steppedFolds` (82-92)
-  go; **src/ui/driftTiles.test.ts:61** `folds: 0` goes.
-- **src/ui/sketch/structure/sketchStructure.test.ts**: the shards block goes with the entry.
+- **src/app/automation.test.ts**: `automation.drawn` writes and clears the sibling; an
+  `automation.set` with empty points clears it; a set with points leaves it; it survives a
+  round-trip through the archive and a restore; an undo puts it back.
+- **src/app/effectDuplicate.test.ts**: a copy of an instance holding a drawn, redrawing lane holds
+  the same character and count, expanded after the lanes.
+- **src/ui/ParameterKnob.test.tsx**: the knob reads the count off the store, not its own state; a
+  double-click on a redrawing knob sends the clear, the default and `drawn: null` as one history
+  entry; the character row's stored character is the pressed item (**src/ui/MotionMenu.test.tsx**).
+- **src/app/exportAudio.test.ts**: `fromStart` takes the whole run whatever `backSecs` says, and
+  agrees exactly with `backSecs` set to the run's length; unchecked is unchanged.
+  **src/ui/ExportAudioDialog.test.tsx**: the checkbox disables the seconds field.
+- **src/app/clock.test.ts** (or bus): the global stop returns `probe().at` to nought and a yard's
+  own stop does not.
+- **src/ui/App.test.tsx** / **src/ui/FileMenu.test.tsx**: a failed import raises a toast and leaves
+  no header span; nothing imports `ReportError`.
+- **src/ui/PlayerCardFolds.test.tsx**: the song section is shut on a fresh yard.
+- **src/lib/copyNames.test.ts** / **src/lib/copyYard.test.ts** (new): twenty-four in every pool,
+  nouns disjoint across all of them, `mintYardName` draws all five banks over enough runs and
+  never fewer than three, every reading Titlecase and one line.
 
 ## Verification
 
 - `./scripts/fix`, `git diff --stat` for collateral, then `./scripts/check` read whole.
-- Browser proof: a JSONL like fixtures/deck-smoke.jsonl (`deck.load` click-train, `deck.loop`,
-  `deck.play`, wait) through `./scripts/drive --shot DIR` with no automator, one (`effect.add …
-automator`, as scripts/smoke.d/narrow.js:40 does) and two, interleaved; read each `{"shot":…}`
-  mean and swing and the 1:1 crop, and the zoomed drift via scripts/smoke.d/drift.js. What must be
-  seen: at one automator the straight rows break across the tear; at two, two tears at different
-  pitches crossing. Written up in 0296 as 0290 did, saying what the shot cannot isolate — an
-  automator also grows effects, so the yard's rows change with it; the count's own effect is
-  proved at the cut.
-- `./scripts/profile` at the end: frame p95 stays in the 9–11 ms band.
+- Browser proof in the existing smoke: draw a lane, set a count, duplicate the effect, and read
+  both knobs redrawing through `probe()`; press the global stop and read the run at nought.
+- A shot of a rack of six yards, to see that the long names do not break the card headings. That
+  is the one thing in this step a test cannot answer.
 
 ## Refused
 
-**Keeping the fold beside the shards.** A look has one landing and one draw (src/lib/moireLook.ts:137-145);
-two draws off one declaration is the dishonest declaration 0279 was written to refuse, for a fold
-0295 already found illegible.
+**Making the count a view preference.** It changes what is heard — a lane replaced every four
+passes is a different performance from one that stands — and §2's line is about snap, theme and
+whether a console is open. A thing you can hear is not a view preference.
 
-**Normalising the sum to the ceiling.** It would shrink the first tear as a second automator
-arrives — the picture _less_ torn for a moment by more automators, the opposite of the step.
+**Putting the character and the count inside `AutomationLane`.** The lane is what the audio host
+schedules, and every reader of it would grow a field it never reads. A sibling map keyed the same
+way costs one validation and no reader.
 
-**Reading the flight or the breath into the tear.** Both are stepped ladders on the tiles; a tear
-that stepped with them would snap where the rows crossfade (0126, 0261). The roam is continuous
-and is enough.
+**A per-yard stop resetting the run.** The elapsed run is the session's, and one yard is not the
+session (P66). A hand that wants nought presses the one on the bar.
 
-**A bench step with a count dial.** The two numbers it would pick by eye (`SHARD_RATIO`,
-`SHARD_PHASE`) are picked by the shot on a real yard instead, which is the proof the step needs
-anyway.
+**Keeping the header span for failures only.** Two surfaces for one kind of thing is what the item
+is about; a failure that never goes away is a header that is wrong for the rest of the session.
 
-**Shares of the width for the throw.** The wobble's unit, and right for a sideways swim; a down
-throw in it wraps the thirty-two-pixel strip several times over.
+**Writing yard names as whole phrases in one pool.** Charming, and finite: a hundred hand-written
+scenes run out where five banks multiplied do not, and the banks are the shape every other name in
+the instrument already has.
 
----
+## Context: the six a hand asked for
+
+Six things asked for on 2026-09-08, after the six above. They fall into four steps, because two
+pairs are one shape each: the master rack and the move between racks are both "an effect's address
+is a rack and not a yard", and the EQ's shape and the panner are both the registry's own list of
+what an effect is. The other two stand alone — the ground's zone, which is one field and one fold,
+and the motion clipboard, which is nothing durable at all and waits on bench-01's `drawn`.
+
+What the reading found, and what these stand on:
+
+- **There is exactly one place a ground is bounded, and one place an offset is folded onto it.**
+  `bedBounds(loopIn, span, duration)` (src/lib/playerBed.ts:282) answers the lowest and highest
+  offset in the loop's own sixteenths, and `bedWrap` (line 309) folds any raw offset onto that
+  range. Everything that lands a ground on a buffer goes through the pair: `bedGround` (line 331)
+  for every picture and gesture, and `gridOf` (src/audio/playerGrid.ts:84) for the sounding
+  transport. A crawl, a planted bed and the session ground a yard reads with Together on are three
+  authors of an offset and one resolver of where it lands — which is what makes a bound cost one
+  field and not three rules.
+- **`bedBounds` claims offset zero is always reachable, and the shared ground rests on it.**
+  Its own doc says so ("the loop is inside the buffer by construction"), and
+  src/lib/sessionGround.ts:36 spends the claim: a shared ground has no bed to come home to, so
+  staying put comes home to zero, "the one ground every yard has, whatever it loaded".
+- **An effect's address is a deck id, in every tier.** `{ t: "effect.add"; deck: DeckId; … }` and
+  its eight siblings (src/app/commands.ts:83-106,178), the reducers that read them
+  (src/app/effects.ts), the engine's rack calls (src/app/engine.ts:155-172), the voice contract
+  under them (src/audio/deckVoice.ts:77-84), and `SessionDeck.effects` itself
+  (src/state/session.ts:91). A rack is built by `createEffectRack` (src/audio/effects/rack.ts) and
+  the deck chain is where the one call sits (src/audio/chain.ts:7).
+- **The output side is already a graph nothing owns.** src/audio/context.ts is the master bus every
+  deck lands in — limiter then soft clip — with no deck id anywhere in the file, which is where a
+  rack every yard runs through would sit.
+- **The picture already has rows that are the field's rather than a yard's.**
+  src/ui/moireRowsField.ts is "the rows that belong to the whole field rather than to anything on
+  the yard", and src/ui/moireLooks.ts opens "the looks a standing rack gives the whole picture".
+- **A discrete choice is a number with a step, and a presence is one parameter at one value.**
+  `step?: number` on `ParamDeclaration` — "discrete choices remain numbers, quantized to this
+  interval from `min`" (src/audio/effects/contract.ts:25). `eqEffect` declares
+  `presence: { param: "eq.gain", silent: 0, full: 12 }` (src/audio/effects/eq.ts:59) and
+  `filterEffect` declares `{ param: "filter.cutoff", silent: 20_000 }` — the pair an automator
+  fades an entry in and out on, and the one thing that keeps an entry in the growable pool
+  (src/audio/effects/registry.ts:37-49).
+- **Two entries answer one question.** `filterEffect` is a lone low-pass cutoff
+  (src/audio/effects/filter.ts) and `eqEffect` is one peaking band over the same
+  `BiquadFilterNode`, whose `type` neither of them sets from a parameter.
+- **A lane's points carry values in the parameter's own units.** `AutomationPoint = { at, value }`
+  (src/lib/automation.ts:14), normalized against the target's declared range by
+  `normalizeAutomationLane` (line 113) — so a lane is meaningful only beside the range it was drawn
+  in, which is what a paste onto another parameter has to answer for.
+- **Nothing in the interface holds runtime state above a component except the toast manager.**
+  src/ui/components/toast.tsx is the one module-level manager surfaces subscribe to; folds are
+  `useHeld` in src/ui/Deck.tsx:84 and the session store (src/state/store.ts) is written only by
+  `send()`.
+
+**Decided before planning** (2026-09-08): four steps, in the order below — the ground's zone first
+because it is one field, one fold and no new tier; the motion clipboard second because bench-01
+makes it possible and it is the smallest of the four; the rack address third because it is the
+expensive one and every later effect step is cheaper once an effect's address is a rack; the
+registry's own list last. A zone is **one span, two edges, the yard's own**, in that yard's own
+sixteenths, and it narrows `bedBounds` — so the crawl, the planted beds and the session ground all
+fold inside it with no second rule. The master rack is **a rack the session holds**, addressed by
+`deck: null`. A panner splits by band, with time and slice as toggles that stack over it, and
+declares a look of its own. The EQ gains a shape, that shape steers the band it draws, and the
+filter entry goes — taking the `soften` look with it, because nothing else declares one. The
+clipboard is runtime and dies with the tab. The next free decision number after bench-01's is 0318.
+
+2.  **A ground is bounded by a zone the hand marked.** _(bench-02)_ **Durable shape moved: a
+    yard's ground gains a zone.** One item, one gate.
+
+    **The zone is one span in the loop's own sixteenths** (0318). `BedSpec`
+    (src/lib/playerBed.ts:221) gains `zone: { from: number; to: number } | null` beside `beds` —
+    the song's, like every other field of that spec (0184) — bounded by
+    `PLAYER_BED_MIN * PLAYER_SLOTS`…`PLAYER_BED_MAX * PLAYER_SLOTS`, which is the unit `bedBounds`
+    already answers in, with `from <= to`, both whole. **Null is no zone**, which is this module
+    exactly as it stands, and is the whole of "unbounded" — no second flag beside it (principle 1,
+    the shape `bedEvery: 0` already has). Validated beside `bedsOf` (line 189) and named in
+    `PLAYER_FIELDS`' `exactKeys` (src/lib/player.ts).
+
+    **It narrows the bounds, and nothing else changes.** `bedBounds` intersects the zone with the
+    room the buffer answers for and never widens it: a zone reaching past the file is the file.
+    Because the one fold (`bedWrap`) reads what that returns, a drawn crawl, a planted bed and the
+    session ground a yard reads with Together on all land inside the zone through the same
+    arithmetic — one place changed, no rule stated twice, and no reader of a ground that has to
+    ask whether a zone exists.
+
+    **Zero is no longer promised** (0318, amending `bedBounds`' own claim). A zone marked at the
+    far end of a file does not contain the loop's own ground, so `bedWrap` folds a home roll — a
+    yard's own `bed`, or the shared ground's zero (src/lib/sessionGround.ts:36) — onto the zone the
+    way it folds anything else. That is the honest reading of a hand that said "only here": coming
+    home means the nearest home inside the zone, and the doc that promised otherwise is amended
+    rather than worked around.
+
+    **A hand marks it by dragging on the ground strip.** src/ui/PlayerGround.tsx grows two edges
+    dragged the way the loop's own are (src/ui/LoopHandles.tsx) and one press that clears them,
+    with its words in src/lib/copyGround.ts. Not a dial: two edges are a place and not an amount,
+    so there is no `PLAYER_SONG_KNOBS` row (src/lib/playerKnobs.ts:339) and no `copyKnobs` caption.
+
+    **The outcome wanted:** a hand drags a region of the strip and the ground stays inside it —
+    crawling, arriving at planted beds and following the session ground alike — and clears it back
+    to the whole file with one press.
+
+    **Tests that must fail first.** src/lib/playerBed.test.ts: a zone narrows what `bedBounds`
+    answers and never widens it; `bedGround` inside a zone folds every offset into it, including a
+    planted bed outside it and a home roll of zero. src/audio/playerGrid.test.ts: a sounding pass
+    reads the narrowed grid. src/lib/player.test.ts: a spec with `from > to`, a fractional edge or
+    an out-of-range one is refused; `null` round-trips. src/ui/PlayerGround.test.tsx: a drag writes
+    the two edges as one history entry (0067) and the press clears them.
+
+    **Refused.** _Several zones._ A list is a second arrangement beside the planted beds, which are
+    already the list of places a ground returns to; one span is the bound, and the beds are the
+    itinerary. _The session's zones._ Asked for and answered the other way once the units were
+    read: a zone is counted in a yard's own sixteenths, and a yard's loop is its own — so a shared
+    zone would mean a different region of every file, which is not what "only here" says.
+
+3.  **A drawn motion is copied off one knob and pasted onto another.** _(bench-03)_ **Durable shape
+    moved: none — the clipboard dies with the tab.** One item, one gate. **Waits on bench-01**,
+    whose `drawn` sibling (0314) is the half of a motion that is not the lane.
+
+    **The clipboard is a module-level manager, the way a toast is** (0319). One in
+    src/ui/motionClipboard.ts holding at most one `{ lane: AutomationLane; range:
+AutomationRange; drawn: MotionDrawn | null }`, subscribed to with `useSyncExternalStore` — not
+    in the session store, which src/app's `send()` alone writes, and not durable: a clipboard is a
+    gesture half-finished, like a selection or a drag, and nothing half-finished is in history, in
+    the archive or in a restore.
+
+    **Copy takes the whole motion, paste rescales it.** Two presses in src/ui/MotionMenu.tsx, under
+    the character row: Copy stores the lane, the range it was drawn in and the `drawn` beside it;
+    Paste, shown only while the clipboard holds something, sends one `automation.set` and one
+    `automation.drawn` as one history entry (0067). A lane pasted onto another parameter is
+    rescaled from the source's declared range onto the target's by `rescaleLane` — a new pure
+    function beside `stretchLane` (src/lib/automation.ts:44), because a lane means one thing only
+    beside the range it was drawn in and clamping it into the new one would flatten every point
+    past the edge (principle 5).
+
+    **The outcome wanted:** a knob redrawing a jagged lane every four passes, copied, and pasted
+    onto a knob in another yard — where it redraws jaggedly every four passes, in that knob's own
+    range.
+
+    **Tests that must fail first.** src/lib/automation.test.ts: `rescaleLane` maps both ends of the
+    source range onto both ends of the target's and holds a point's fraction exactly; an empty lane
+    stays empty. src/ui/motionClipboard.test.ts: a copy replaces what was held, and a subscriber is
+    told once. src/ui/MotionMenu.test.tsx: Paste is absent on an empty clipboard; a paste sends the
+    set and the drawn as one history entry; a copy of a hand-recorded lane pastes with no `drawn`.
+
+    **Refused.** _A durable clipboard._ It would ride the archive and the history ledger for a fact
+    a hand holds for two seconds. _Copying only the character and the count._ A hand that pressed
+    Copy on a lane it likes means the lane.
+
+4.  **An effect's address is a rack, not a yard.** _(bench-04)_ **Durable shape moved: the session
+    holds a rack of its own, and every effect command names a rack.** Two items, one gate. The
+    expensive step of the four.
+
+    **`deck: null` names the rack that is no yard's** (0320). Every `effect.*` command
+    (src/app/commands.ts:83-106,178) takes `deck: DeckId | null`, and null is the master. A
+    reserved id string cannot do it: a `DeckId` is opaque and caller-supplied and the session
+    spends its own (`spentDeckIds`, 0029), so any literal is one a hand could be handed. Null is
+    not an id at all, and the narrowing is one guard at each reducer's top rather than a check at
+    every reader.
+
+    **The session holds `master: { effects: SessionEffect[] }`** (0321), beside `decks`
+    (src/state/session.ts:119-147). It is exactly a rack and nothing else — an instance already
+    carries its own params, lanes, bounds and bypass (0030), and `SessionDeck`'s other fields are a
+    yard's: a source, a loop, a pattern and the deck parameters. So there is no automation map
+    here, because there is no parameter here that is not an instance's.
+
+    **It is built where the master bus is.** `createEffectRack` is called once inside
+    `createMasterBus` (src/audio/context.ts:144), between the sum of the decks and the limiter, so
+    nothing downstream of a deck is written against an unbounded output and nothing in that file
+    learns what a deck is. The engine's rack calls (src/app/engine.ts:155-172) take the same
+    `DeckId | null` and dispatch to that rack instead of `voice(deck)`; `deckVoice.ts`'s contract is
+    untouched, because a voice still holds exactly one rack. **The offline render gets it for
+    free** — `createMasterBus` is the one call both hosts make, through `createAudioEngine`
+    (src/app/engine.ts:361, reached from src/app/render.ts:27) — and a take that skipped the master
+    rack would be the second signal path the chain boundary forbids.
+
+    **Its rows are the field's.** A master instance is running over everything, so its row is built
+    in src/ui/moireRowsField.ts beside the loop's own and the session's, not in src/ui/moireRows.ts
+    where a yard's rack is read — and its look already applies to the whole picture, which is what
+    src/ui/moireLooks.ts has always said a standing rack's look does.
+
+    **The box sits under all the yards.** One `EffectRack` in src/ui/App.tsx addressed with null,
+    below the rack of yards, folded shut like every other card fold but the front (0217).
+    src/ui/EffectRack.tsx and src/ui/EffectPicker.tsx take a rack address rather than a deck id.
+
+    **An instance moves between racks** (0320). One command,
+    `{ t: "effect.move"; from: DeckId | null; to: DeckId | null; instance; index }`, which removes
+    from one rack and inserts into the other at an index, carrying the instance whole — its id, its
+    params, its lanes, its bounds and its bypass. It is a move and not a copy, so
+    `duplicateEffect` (src/app/effects.ts:88-134) is untouched; a move to the rack it is already in
+    is `effect.reorder` and is refused here, so there are not two commands that reorder
+    (principle 1). **Two gestures, one command**: the drag that already reorders inside a rack
+    (src/ui/listDrag.ts, src/ui/EffectRack.tsx) carries an entry across into another rack and drops
+    it at an index, and a "Move to" item on the effect's own menu lists the other yards by their
+    emoji and name (0057) and the master under them, landing at the end of that rack.
+
+    **The outcome wanted:** a tape and a compressor under all the yards, heard on everything and
+    riding lanes of their own; and a delay dragged out of one yard's rack into another's, still
+    bypassed, still automated, still the same instance.
+
+    **Tests that must fail first.** src/state/session.test.ts: a session validates with a master
+    rack, and one holding a master instance of an unregistered entry is discarded (0026).
+    src/app/effects.test.ts: every effect command reaches the master with `deck: null`; a move
+    carries params, lanes, bounds and bypass and lands at the index asked for; a move to the same
+    rack throws; a move naming a yard the session does not hold throws (0029). src/app/render.test.ts
+    and src/app/exportAudio.test.ts: a take through a master rack differs from one without it, and
+    a fingerprint of the live path and the offline path agree. src/ui/EffectRack.test.tsx: a drag
+    across racks sends one `effect.move`; the menu item sends the same command.
+    src/ui/moireRowsField.test.ts: a master instance makes a field row and no yard's row.
+
+    **Refused.** _A yard with no source._ It would make the master a deck everywhere and pay for it
+    with a guard at every place a deck is assumed to hold a buffer, a loop and a pattern — and it
+    would put the master in `deckList`, which is the list of yards a hand made (0029). _A master
+    rack with no automation._ An effect that cannot be automated is a different effect from the one
+    in a yard's rack, and there is one registry.
+
+5.  **The registry gains a shape and a panner, and loses the filter.** _(bench-05)_ **Durable shape
+    moved: an entry leaves the registry and one arrives.** Two items, one gate. A stored session
+    holding a filter instance no longer validates and is discarded (0026) — which is free, and is
+    why this is one step and not a migration.
+
+    **The EQ's band has a shape** (0322). `eq.shape` is a fourth parameter on
+    src/audio/effects/eq.ts — a discrete choice, which on this instrument is a number with a
+    `step` of one (src/audio/effects/contract.ts:25) — over peaking, low-pass, high-pass and
+    band-pass, written straight onto the `BiquadFilterNode.type` the entry already builds. `eq.gain`
+    is read only by the peaking shape, which the node itself already does; the knob's own sentence
+    says so (src/lib/copyParams.ts:29, beside the new one the shape takes) rather than a second rule
+    hiding it. **`presence` is unchanged** — `eq.gain` at nought, `full` at twelve — and `eq.shape`
+    declares no `automation`, so an automator-grown EQ grows in the one shape whose silence that
+    pair describes, and the entry stays in the growable pool it is in today
+    (src/audio/effects/registry.ts:37-49).
+
+    **The shape steers the band it draws** (0322). The entry keeps its one look, `band`
+    (src/audio/effects/eq.ts:75), and `eq.shape` joins its `lookFrom` terms: peaking is the band as
+    it is drawn today, lifted or cut at the frequency by the gain that is also its presence (0286,
+    src/lib/moireBand.ts), and a pass shape is the band drawn as everything past its edge taken
+    out. Without this a low-pass EQ would draw a lift off a gain knob that is not being heard,
+    which is a picture saying something the sound is not (0128).
+
+    **The filter entry goes, and `soften` goes with it** (0322). src/audio/effects/filter.ts is
+    deleted, out of the growable pool, out of `EFFECTS`, out of the registry's imports, and its name
+    pool leaves src/lib/copyNames.ts — a low-pass EQ is exactly what it was, and two entries
+    answering one question is the duplication principle 1 exists to refuse. Its look is its own and
+    nothing else declares it, so the `soften` name, its radius term and its draw leave
+    src/lib/moireLook.ts with it: a look no entry names is maths nothing can reach, and the registry
+    is where that is refused (0148). The arrival its 0202 note describes is now the EQ's.
+
+    **A panner moves a sound across the field in pieces** (0323). A new entry,
+    src/audio/effects/panner.ts, whose face is Position, Spread and Rate over three toggles that
+    stack: **Band** splits the signal at crossovers and sits each band at its own point in the
+    field, so the lows arrive on one side while the highs are still on the other; **Time** gives
+    the two sides their own short delay and gain, so a move is heard arriving rather than
+    switching; **Slice** lands successive short slices at their own positions, so the sound crosses
+    in grains. All three off is a plain pan, which is the entry's silence. It sits in the rack,
+    before the deck's own `StereoPanner` (src/audio/chain.ts:142), and declares
+    `channelCount: 2, channelCountMode: "explicit"` for the reason src/audio/effects/tape.ts does.
+    Its presence is Spread at nought — no spread is no field, whatever the toggles say — which is
+    what puts it in the growable pool. **Its look is a new one**, declared whole — terms and draw
+    together — in a file of its own the way the last five were (0287-0296): the picture's rows
+    displaced across the field in bands, by the spread, at the position. A look and a drift profile
+    are what an entry is (0148), and a new entry means new maths rather than a name borrowed off
+    another's. It takes a pool of twenty-four names in src/lib/copyNames.ts, disjoint from every
+    other pool there, which `registry.test.ts` already checks.
+
+    **The outcome wanted:** one EQ entry that sweeps, cuts and passes; and a panner that takes a
+    loop apart and walks it across the field a band at a time rather than sliding the whole of it.
+
+    **Tests that must fail first.** src/audio/effects/registry.test.ts: no filter entry, no
+    `soften` in `LOOKS`, a panner entry with its own look, a profile, a presence and a full name
+    pool, nouns still disjoint. src/audio/effects/eq.test.ts (new): each shape sets the node's
+    `type`; `eq.shape` quantizes to whole numbers and refuses one out of range; `eq.shape` is not an
+    automation target. src/lib/moireBand.test.ts (new): a pass shape draws the band past its edge
+    and a peaking one draws it at the frequency, off the same gain.
+    src/state/session.test.ts: a stored session holding a `filter` instance is discarded with
+    `session.discarded`. src/audio/effects/panner.test.ts (new): each toggle builds the nodes it
+    names and takes them away again; all three off passes the signal at the position asked for;
+    Spread at nought is silence. src/lib/biquad.test.ts: the maths says what each new shape does
+    to a spectrum, to the precision the browser smoke cannot reach.
+
+    **Refused.** _Keeping the filter as the quick one-dial low-pass._ Two ways to say low-pass is
+    the thing the shape parameter removes. _Keeping `soften` for a later entry to claim._ A look
+    with no declarer is maths no rack can reach, held against a use nobody has asked for; git
+    remembers it (principle 6). _One mode of three on the panner._ A hand asked for the
+    three to stack, and a band split whose grains also move is the sound the effect is for. _An
+    LFO on the panner._ `deck.pan` takes a lane already, and a rate that is not a lane is a second
+    kind of motion on an instrument that has one (0128).
 
 ---
 
@@ -296,102 +596,3 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
-
-**picture-01 leaves a long unlooped file's rack rows on the pitch floor, and hands the number to
-picture-02.** The reference row is now the file, so `moireWindowSecs` multiplies the file's own
-length by `MOIRE_CYCLES` and the window a rack row is measured across grows with it. At a 2208
-device-pixel strip, rack rows at 0.75s, 3s and 12s are drawn at 12.4, 17.5 and 24.8 px on a 4s file
-and at 7.0, 7.0 and 9.6 px on a three-minute one — the two short ones pinned to the same
-`gratingFloor`, where two rows on one pitch do not beat (0131). It is not a regression: a _looped_
-three-minute yard already read exactly those numbers, and an unlooped one drew no rows at all, so
-the state that got worse does not exist. It is the band's own behaviour at a long reference, which
-is 0278's and picture-02's, and no picture-sized number was added here to bend it.
-
-**picture-02 proved its two sizes by eye, and left the popout unmeasured by the smoke.** The claim
-is about the _size_ of the structure the picture draws, and the two numbers a browser reading gives
-— the mean and the swing across wide blocks — cannot see it: `gratingDepth` solves the picture's
-weight for the count of rows, so the mean is the same by construction, and the coarse swing read
-0.049 at 720×480 and 0.049 at 1280×1400 on base and on head alike. A metric that could see the cell
-would be the lattice's own maths written a second time in scripts/smoke.d/, which is what principle 1
-refuses. So the proof is the photograph: the popped-out window shot at both sizes, base and head
-interleaved, hand-looked at 1:1. The other half of the reason is cost — the same reading taken on
-the _shaped_ rack (a sway and two automators ghosting feedback rows) starved headless SwiftShader at
-1280×1400 and had to be killed after fourteen minutes, which is the ghost-free rule in the harness
-notes. What the smoke still asserts about that window is what it asserted before.
-
-**picture-02 left the bake queue at 1280×1400 argued rather than timed.** The step asked for the
-queue to be measured at that size. What there is: `./scripts/profile` inside this gate reads a
-frame p95 of 10.3ms against the ~10.4ms band with nothing regressed, at the profiler's own window;
-and the reasoning, which the state lens checked independently — the lattice's order carries no
-picture size (its key is `geometry|profile|rim|LATTICE_TILE_PX`), so a cell of a new size costs a
-matrix and no bake, and the curved key already carried `WxH` and so was invalidated by a resize
-either way. What there is not is a stopwatch on a 1280×1400 window: the reading that would have
-taken one starved, above.
-
-**picture-02 normalised the width and not the window, so a long file still pins its short rows to
-the floor.** picture-01 handed over a three-minute unlooped file whose 0.75s and 3s rack rows are
-drawn at `gratingFloor`, and that is the window's number: `moireWindowSecs` multiplies the reference
-by `MOIRE_CYCLES`, and no reference width changes what a period is a share of. The rows are off the
-_ceiling_ everywhere now, which is the half of the band this step was about; the floor at a long
-reference stands where 0292 left it.
-
-**picture-03 left the quarter thin on the three entries that read their wet knob twice.** Reverb,
-pop and shift each declare `presence.param` on their mix and then map that same knob into the
-look's share (`reverb.wet → amount`, `pop.mix → amount`, `shift.mix → amount`), so what reaches the
-ceiling is the knob squared: a quarter mix draws a sixteenth of the pass's own ceiling. The shot
-says it is thin and not absent — at a quarter, reverb's rows carry a visible halo the dry yard has
-not, shift's crop carries a second faint diagonal family and pop's is measurably crisper — and the
-crush, the sway and the delay, whose share is a knob of its own, fade evenly across the three
-settings. So the step's own condition was not met and `weighed` was not reshaped: bending the
-travel there would have driven the five passes whose share is a separate knob as well, on evidence
-that only three entries have, and the step's own text refuses the other repair (adding or removing
-`mix → amount` squares or un-squares a knob 0287 and 0288 already argued). What is owed, if the
-quarter ever reads as nothing, is one entry's declaration and not the shared share.
-
-**songs-01 landed the clear as a file of its own, and paid for it twice.** The heading's row put
-src/ui/PlayerGrid.tsx at 402 lines against a 400-line warning, so the control and the press it
-sends are src/ui/PlayerSongsClear.tsx, and the foot line's `partNamed` moved out of PlayerGrid into
-src/lib/copySongs.ts beside `standingSaid` and `playsSaid` — its two siblings — which is what put
-the file back under. The step also promoted `EFFECTS_CLEAR_LABEL` to `CLEAR_ALL_LABEL`: two
-headings saying "Clear All" is one word, not two declarations (principle 1), and the rack's own
-sentence and confirm stay effects-specific. No decision was owed for the gesture key on its own —
-`gesture.end` before a clear is what the rack already does — but the neighbour's pick and the
-focus that follows it constrain every list after this one, so 0291 says all three.
-
-**A shared confirm popover is owed and was not taken.** src/ui/PlayerSongsClear.tsx is the third
-`Popover` → trigger with no command → `PopoverTitle` counting what goes → `variant="destructive"`
-confirm, after src/ui/DeckRemove.tsx and src/ui/EffectRack.tsx, and the `Confirm ${label}` name is
-spelled in all three. songs-01 copied it because its own step text said to copy it; the next
-destructive question is the one that should land a shared component instead, and the three call
-sites are already the same five values.
-
-**picture-04 shared the ceiling on a weighted crowd, and the whole count it was written with was
-wrong.** The step's first cut counted the standing looks of a kind whole, and the review named the
-failing frame: `looksCrowd` sees a look the frame its instance enters the set, when its own ladder
-draws nothing, so the delay already standing was dimmed to two delays' share for the whole six
-seconds the newcomer took to travel in — whiter than one delay, in the one direction the step
-forbids, and invisible to a shot of the settled state. `looksCrowd` now weighs each look by `at`,
-which is `looksWarp`'s own shape, and neither end of a travel steps. What is left unshot is the
-travel itself: every reading in this block is of a settled yard, and the claim that the union holds
-_through_ an add or a remove is argued from the arithmetic and pinned by
-src/ui/moireLooks.test.ts, not photographed.
-
-**picture-04 opened the spacing band and left the top of it argued from one fixture.** The top went
-from a twelfth of the width to a sixth on a short-against-long shot of one yard at one size (a swing
-of 0.094 against 0.14, the diagonals countable at the crop). 0282 narrowed the same band on a shot
-of the same shape, so the number is as well-founded as the one it replaces and no better: what a
-long delay reads as on a wide popout, or against a rack whose other looks have already displaced
-the field, is unshot. `ECHO_SPACING[1] * ECHO_CAP` is still under half the field, which is the
-property the cases pin.
-
-**knob-01 (0307, 0308) leaves the rack's cards re-rendering together, and names two stutters that
-are not the knob.** The plan's fifth step — memoising each rack card so one move re-renders one
-card — was held back for the measurement, and the measurement left it nothing to take: on the dev
-server, a 480-step drag over a ten-effect yard went from six or seven long tasks of up to 60ms to
-none, with the whole yard still re-rendering in the transition. What that drag does not touch:
-the automator builds effect graphs on a ten-second timer on the main thread, including a reverb
-whose impulse is generated synchronously (src/audio/effects/reverb.ts, src/lib/impulse.ts) — a
-stutter every ten seconds in a session like the one that raised this is that, not the hand — and
-a 900-point lane re-arms as ~900 AudioParam calls every four seconds (src/audio/ramp.ts) while
-its dial scans the lane linearly every frame (src/lib/automation.ts). A cursor per lane is a step
-of its own; neither is scheduled by being here.
