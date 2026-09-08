@@ -25,8 +25,7 @@ import { createDeckPlayer } from "./player";
 import type { EffectInstanceId } from "./effects/contract";
 import type { DeckVoice } from "./deckVoice";
 import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
-import { drawMotionStretch, MOTION_STRETCH_SECS, sameMotion, type MotionSpec } from "@/lib/motion";
-import { paramKey, PARAMS, type AutomationParamId } from "./params";
+import { paramKey, type AutomationParamId } from "./params";
 import {
   AUTOMATION_HORIZON_SECS,
   AUTOMATION_REARM_SECS,
@@ -56,28 +55,6 @@ export type { DeckVoice } from "./deckVoice";
  * `playing` and the reporter's plan move together gets broken. See
  * docs/decisions/0007-reviewed-oversized-functions.md.
  */
-/** One lane a voice holds, with the manual value it falls back to (0035). */
-type HeldLane = {
-  instance: EffectInstanceId | null;
-  param: AutomationParamId;
-  points: readonly AutomationPoint[];
-  base: number;
-  /** Its own period: the gesture's length. Zero for a lane that never moved. */
-  span: number;
-  /** When its counting began, on the lane clock — the instant it was recorded (0035). */
-  anchor: number;
-  /** The next cycle of this lane to schedule, counted from `anchor`. */
-  armed: number;
-  /** The spec every cycle is drawn from, for a lane that is a motion; `points` is unread (0309). */
-  motion?: MotionSpec;
-};
-
-/** What one cycle of a lane schedules: its recorded points, or the stretch a motion draws. */
-const cyclePoints = (lane: HeldLane, cycle: number): readonly AutomationPoint[] =>
-  lane.motion === undefined
-    ? lane.points
-    : drawMotionStretch(lane.motion, cycle, PARAMS[lane.param], lane.base);
-
 // oxlint-disable-next-line max-lines-per-function
 export function createDeckVoice(
   ctx: BaseAudioContext,
@@ -143,7 +120,21 @@ export function createDeckVoice(
    * than scheduled on arrival: a lane has a period and a phase of its own, and only a playing
    * deck has a clock to lay them against (0035).
    */
-  const lanes = new Map<string, HeldLane>();
+  const lanes = new Map<
+    string,
+    {
+      instance: EffectInstanceId | null;
+      param: AutomationParamId;
+      points: readonly AutomationPoint[];
+      base: number;
+      /** Its own period: the gesture's length. Zero for a lane that never moved. */
+      span: number;
+      /** When its counting began, on the lane clock below — the instant it was recorded (0035). */
+      anchor: number;
+      /** The next cycle of this lane to schedule, counted from `anchor`. */
+      armed: number;
+    }
+  >();
   /** The tick that keeps the lanes armed ahead of the clock, running only while they sound. */
   let rearm: ReturnType<typeof setInterval> | null = null;
   /**
@@ -285,13 +276,7 @@ export function createDeckVoice(
       // the next one never disturbs the one currently sounding.
       for (; lane.armed < wanted; lane.armed++) {
         const origin = lane.anchor + lane.armed * lane.span;
-        chain.setAutomation(
-          lane.instance,
-          lane.param,
-          cyclePoints(lane, lane.armed),
-          lane.base,
-          origin,
-        );
+        chain.setAutomation(lane.instance, lane.param, lane.points, lane.base, origin);
       }
     }
   }
@@ -676,33 +661,6 @@ export function createDeckVoice(
       retick();
     },
 
-    setMotion: (instance, param, motion, base) => {
-      const key = paramKey(instance, param);
-      if (motion === null) {
-        // The release, exactly as an empty lane is: back to the knob's value, heard now.
-        lanes.delete(key);
-        chain.setParam(instance, param, base, ctx.currentTime);
-        retick();
-        return;
-      }
-      // The same spec arriving again is this motion re-based onto a new manual value: it keeps
-      // the place it has reached, the way a re-based lane does (0079, 0309).
-      const held = lanes.get(key);
-      const rebase = held?.motion !== undefined && sameMotion(held.motion, motion);
-      lanes.set(key, {
-        instance,
-        param,
-        points: [],
-        base,
-        span: MOTION_STRETCH_SECS,
-        anchor: rebase ? held.anchor : laneNow(),
-        armed: 0,
-        motion,
-      });
-      armLanes();
-      retick();
-    },
-
     addEffect: (instance, effect, values) => {
       const at = chain.addEffect(instance, effect, values);
       // The rack it joined may grow, and this one may be the first that does.
@@ -759,14 +717,8 @@ export function createDeckVoice(
       // fresh one — 28 bytes a call, measured, on the one read every surface makes every frame
       // (0070). Overwriting a key that is already there allocates nothing, so the only frame
       // that pays is the one where a lane actually went away.
-      // A motion files the whole of its elapsed time rather than a phase: its reader needs which
-      // stretch it is inside as well as how far, and one number carries both (0309).
       for (const [key, lane] of lanes) {
-        const elapsed = at - lane.anchor;
-        out.automation.set(
-          key,
-          lane.motion === undefined ? (lane.span <= 0 ? 0 : elapsed % lane.span) : elapsed,
-        );
+        out.automation.set(key, lane.span <= 0 ? 0 : (at - lane.anchor) % lane.span);
       }
       // Every live lane is now in `out`, so `out` holds the lanes and possibly some departed
       // ones — which is exactly what a bigger size means, and the only case worth walking.

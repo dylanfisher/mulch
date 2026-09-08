@@ -37,7 +37,6 @@ import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
 import { encodeWav } from "@/lib/wav";
 import type { AutomationPoint } from "@/lib/automation";
-import type { MotionSpec } from "@/lib/motion";
 import { isGenSource, type BlobId, type GenSource, type SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
 import {
@@ -143,13 +142,6 @@ export type Engine = {
     instance: EffectInstanceId | null,
     param: AutomationParamId,
     lane: readonly AutomationPoint[],
-    base: number,
-  ): void;
-  setMotion(
-    deck: DeckId,
-    instance: EffectInstanceId | null,
-    param: AutomationParamId,
-    motion: MotionSpec | null,
     base: number,
   ): void;
   addEffect(
@@ -314,10 +306,6 @@ function armInstanceLanes(voice: DeckVoice, entry: SessionEffect): void {
     const lane = entry.automation[param];
     if (lane !== undefined)
       voice.setAutomation(entry.id, param, lane, paramIn(entry.params, param));
-    // A motion is the other thing a key may hold, armed the same way (0309).
-    const motion = entry.motion[param];
-    if (motion !== undefined)
-      voice.setMotion(entry.id, param, motion, paramIn(entry.params, param));
   }
 }
 
@@ -541,9 +529,6 @@ export function createAudioEngine(
     setAutomation: (deck, instance, param, lane, base) => {
       voice(deck).setAutomation(instance, param, lane, base);
     },
-    setMotion: (deck, instance, param, motion, base) => {
-      voice(deck).setMotion(instance, param, motion, base);
-    },
     addEffect: (deck, instance, effect, values) => voice(deck).addEffect(instance, effect, values),
     setEffectBypass: (deck, instance, bypassed) => {
       voice(deck).setEffectBypass(instance, bypassed);
@@ -665,8 +650,6 @@ export function createAudioEngine(
           for (const param of DECK_AUTOMATION_PARAM_IDS) {
             const lane = stored.automation[param];
             if (lane !== undefined) prepared.setAutomation(null, param, lane, stored.params[param]);
-            const motion = stored.motion[param];
-            if (motion !== undefined) prepared.setMotion(null, param, motion, stored.params[param]);
           }
           for (const entry of stored.effects) armInstanceLanes(prepared, entry);
         }

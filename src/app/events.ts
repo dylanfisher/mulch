@@ -8,7 +8,6 @@ import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
-import type { MotionSpec } from "@/lib/motion";
 import type { BlobId } from "@/lib/source";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
@@ -62,13 +61,6 @@ export type EventBody =
       instance?: EffectInstanceId;
       param: ParamId;
       points: AutomationPoint[];
-    }
-  | {
-      t: "motion.changed";
-      deck: DeckId;
-      instance?: EffectInstanceId;
-      param: ParamId;
-      motion: MotionSpec | null;
     }
   // One instance copied into the slot immediately after the one it copies (0155). The
   // `effect.added`, the `effect.reordered` that put it there, the values and the bypass the copy

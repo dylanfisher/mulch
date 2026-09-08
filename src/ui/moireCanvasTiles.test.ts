@@ -122,7 +122,6 @@ const RUNNING: SessionEffect[] = [
     bypassed: false,
     params: effectParamDefaults("automator", "an automator"),
     automation: {},
-    motion: {},
     bounds: {},
   },
 ];
@@ -330,7 +329,6 @@ describe("moireCanvas tiles", () => {
           bypassed: false,
           params: effectParamDefaults("reverb", "one"),
           automation: {},
-          motion: {},
           bounds: {},
         },
       ],

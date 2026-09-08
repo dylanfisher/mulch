@@ -38,7 +38,6 @@ import {
   type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
-import { assertMotion, type MotionSpec } from "@/lib/motion";
 import type { GrowthBound } from "@/lib/effectGrowth";
 import { assertDurableText, exactKeys, finite, flag, isRecord, objectAt } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
@@ -66,8 +65,6 @@ export type SessionEffect = {
   /** Exactly the parameters this instance's plugin declares. Read through `paramIn`. */
   params: EffectParamValues;
   automation: Partial<Record<EffectAutomationParamId, AutomationLane>>;
-  /** A motion per parameter that holds one; never on a key that holds a lane (0309). */
-  motion: Partial<Record<EffectAutomationParamId, MotionSpec>>;
   /**
    * A window per pool parameter on what this instance's run may draw, and `{}` on every entry
    * that draws nothing at all — which is every entry but the one that declared `grows`. The keys
@@ -93,7 +90,6 @@ export type SessionDeck = {
   /** The deck's own parameters. An effect's value lives on its instance (0030). */
   params: Record<DeckParamId, number>;
   automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
-  motion: Partial<Record<DeckAutomationParamId, MotionSpec>>;
   /** The rack, in signal order: any number of instances of any registry entry. */
   effects: SessionEffect[];
   source: SourceRef | null;
@@ -225,21 +221,8 @@ const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
       return lane === undefined || lane.length === 0 ? [] : [[id, laneProjection(lane)]];
     }),
   ),
-  motion: motionProjection(entry.motion, effectAutomationParamIds(entry.effect)),
   bounds: boundsProjection(entry.bounds),
 });
-
-/** The motions one owner holds, keyed by its own declared order, each exactly its two fields. */
-const motionProjection = <Id extends string>(
-  motion: Partial<Record<Id, MotionSpec>>,
-  ids: readonly Id[],
-) =>
-  Object.fromEntries(
-    ids.flatMap((id) => {
-      const spec = motion[id];
-      return spec === undefined ? [] : [[id, { character: spec.character, seed: spec.seed }]];
-    }),
-  );
 
 /**
  * One deck, durable. The live `DeckState` is structurally this shape plus the derived and
@@ -254,7 +237,6 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
         return lane === undefined || lane.length === 0 ? [] : [[id, laneProjection(lane)]];
       }),
     ),
-    motion: motionProjection(current.motion, DECK_AUTOMATION_PARAM_IDS),
     // Order is the signal order, and each entry projects through the registry it names, so one
     // rack state has exactly one JSON — what history's comparison is written against (0021).
     effects: current.effects.map(effectSnapshot),
@@ -286,33 +268,6 @@ function paramValue(value: unknown, param: ParamId, at: string): void {
   const spec = PARAMS[param];
   if (found < spec.min || found > spec.max) {
     throw new RangeError(`${at} is outside [${spec.min}, ${spec.max}]`);
-  }
-}
-
-/**
- * Motions, keyed by exactly the automatable parameters this owner declares, each the one shape
- * `assertMotion` passes — and none on a key the same owner holds a lane on, because a key holds
- * one or the other (0309). Takes the owner's lanes to say so, so the two are judged together.
- */
-function validateMotions(
-  value: unknown,
-  lanes: unknown,
-  allowed: readonly ParamId[],
-  at: string,
-): void {
-  const motion = objectAt(value, at);
-  const held = objectAt(lanes, at);
-  const declared = new Set<string>(allowed);
-  for (const [rawParam, rawSpec] of Object.entries(motion)) {
-    if (!declared.has(rawParam) || !isAutomationParam(rawParam)) {
-      throw new TypeError(`${at} has unsupported param: ${rawParam}`);
-    }
-    if (assertMotion(rawSpec, `${at}.${rawParam}`) === null) {
-      throw new TypeError(`${at}.${rawParam} is null`);
-    }
-    if (held[rawParam] !== undefined) {
-      throw new TypeError(`${at}.${rawParam} also holds a lane`);
-    }
   }
 }
 
@@ -377,11 +332,7 @@ function validateRack(value: unknown, at: string): void {
   for (const [index, raw] of value.entries()) {
     const where = `${at}[${index}]`;
     const entry = objectAt(raw, where);
-    exactKeys(
-      entry,
-      ["id", "effect", "bypassed", "params", "automation", "motion", "bounds"],
-      where,
-    );
+    exactKeys(entry, ["id", "effect", "bypassed", "params", "automation", "bounds"], where);
     assertEffectInstanceId(entry.id, `${where}.id`);
     if (seen.has(entry.id)) throw new TypeError(`${where}.id repeats ${entry.id}`);
     seen.add(entry.id);
@@ -394,12 +345,6 @@ function validateRack(value: unknown, at: string): void {
     exactKeys(params, owned, `${where}.params`);
     for (const param of owned) paramValue(params[param], param, `${where}.params.${param}`);
     validateLanes(entry.automation, effectAutomationParamIds(entry.effect), `${where}.automation`);
-    validateMotions(
-      entry.motion,
-      entry.automation,
-      effectAutomationParamIds(entry.effect),
-      `${where}.motion`,
-    );
     validateBounds(entry.bounds, entry.effect, `${where}.bounds`);
   }
 }
@@ -409,14 +354,13 @@ function validateRack(value: unknown, at: string): void {
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 function validateDeck(value: unknown, at: string): void {
   const stored = objectAt(value, at);
-  exactKeys(stored, ["params", "automation", "motion", "effects", "source", "loop", "player"], at);
+  exactKeys(stored, ["params", "automation", "effects", "source", "loop", "player"], at);
 
   const params = objectAt(stored.params, `${at}.params`);
   exactKeys(params, DECK_PARAM_IDS, `${at}.params`);
   for (const id of DECK_PARAM_IDS) paramValue(params[id], id, `${at}.params.${id}`);
 
   validateLanes(stored.automation, DECK_AUTOMATION_PARAM_IDS, `${at}.automation`);
-  validateMotions(stored.motion, stored.automation, DECK_AUTOMATION_PARAM_IDS, `${at}.motion`);
   validateRack(stored.effects, `${at}.effects`);
 
   if (stored.source !== null) assertSourceRef(stored.source, `${at}.source`);

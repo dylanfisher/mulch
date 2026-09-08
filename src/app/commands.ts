@@ -9,7 +9,6 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { BlobId, SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
-import type { MotionSpec } from "@/lib/motion";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
@@ -77,16 +76,6 @@ export type DurableEditCommand =
       instance?: EffectInstanceId;
       param: ParamId;
       span: number;
-    }
-  // The motion a parameter holds — a character and a seed, from which every stretch of its lane
-  // is drawn — or null for none. Setting one takes the key's lane away, and a lane recorded over
-  // it takes it away in turn: a key holds one or the other (0309).
-  | {
-      t: "motion.set";
-      deck: DeckId;
-      instance?: EffectInstanceId;
-      param: ParamId;
-      motion: MotionSpec | null;
     }
   // Adding names the instance id it is creating, the way `deck.add` and `clip.capture` do — so a
   // JSONL file can add two delays and then address each by the name it wrote itself (0029, 0030).

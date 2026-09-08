@@ -12,7 +12,7 @@ import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } 
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** One rack entry at its plugin's defaults — the live shape every fixture below dresses. */
-export const instance = (
+const instance = (
   id: string,
   effect: SessionEffect["effect"],
   rest: Partial<SessionEffect> = {},
@@ -22,7 +22,6 @@ export const instance = (
   bypassed: false,
   params: effectParamDefaults(effect, id),
   automation: {},
-  motion: {},
   bounds: {},
   ...rest,
 });
@@ -80,7 +79,6 @@ const STORED_FILTER = {
   bypassed: false,
   params: { "filter.cutoff": 1000 },
   automation: {},
-  motion: {},
   bounds: {},
 };
 
@@ -92,7 +90,6 @@ const storedAuto = (bounds: unknown) => ({
   bypassed: false,
   params: effectParamDefaults("automator", "auto"),
   automation: {},
-  motion: {},
   bounds,
 });
 
@@ -433,7 +430,6 @@ const STORED_RACK = [
         { at: 1, value: 900 },
       ],
     },
-    motion: {},
     bounds: {},
   },
   {
@@ -442,7 +438,6 @@ const STORED_RACK = [
     bypassed: true,
     params: { "delay.time": 0.25, "delay.feedback": 0.35, "delay.mix": 0.25 },
     automation: {},
-    motion: {},
     bounds: {},
   },
 ];
@@ -450,7 +445,6 @@ const STORED_RACK = [
 const STORED_DECK = {
   params: STORED_PARAMS,
   automation: {},
-  motion: {},
   effects: [],
   source: null,
   loop: null,
@@ -464,7 +458,6 @@ const STORED_CLIP = {
   deck: {
     params: STORED_PARAMS,
     automation: {},
-    motion: {},
     effects: STORED_RACK,
     source: { blobId: "audio-9" },
     loop: { in: 0, out: 1 },

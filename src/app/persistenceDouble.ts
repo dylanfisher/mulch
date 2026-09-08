@@ -111,9 +111,6 @@ export const engineDouble = (
     setAutomation: (deck, _instance, param) => {
       calls.push(`automation:${deck}:${param}`);
     },
-    setMotion: (deck, _instance, param) => {
-      calls.push(`motion:${deck}:${param}`);
-    },
     addEffect: (deck, _instance, effect) => {
       calls.push(`effect:${deck}:${effect}`);
       return 0;

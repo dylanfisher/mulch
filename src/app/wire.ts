@@ -9,7 +9,6 @@ import { isBoundableParam, isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertDurableText, finite, flag, isRecord } from "@/lib/guards";
-import { assertMotion } from "@/lib/motion";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -45,7 +44,6 @@ const COMMAND_HISTORY = {
   "param.set": "group",
   "automation.set": "group",
   "automation.span": "group",
-  "motion.set": "group",
   "effect.add": "group",
   "effect.bypass": "group",
   "effect.remove": "group",
@@ -179,13 +177,6 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       // span of nothing is a lane with no length at all, which is not a thing to stretch to.
       if (finite(raw.span, "automation span") <= 0)
         throw new RangeError(`automation span is not positive: ${String(raw.span)}`);
-      return;
-    case "motion.set":
-      if (!isAutomationParam(raw.param)) {
-        throw new TypeError(`param does not support automation: ${String(raw.param)}`);
-      }
-      if (raw.instance !== undefined) assertEffectInstanceId(raw.instance, "motion.set instance");
-      assertMotion(raw.motion, "motion.set motion");
       return;
     case "effect.add":
       if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);

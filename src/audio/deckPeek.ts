@@ -84,9 +84,7 @@ export type DeckPeek = {
    * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
    * where its gesture is parked and where the next play resumes it (0040). This is the whole live
    * automation read: a knob paints its dial and a preview paints its playhead from this one
-   * number and the lane they already hold (0035). A key holding a motion files its whole elapsed
-   * time instead, unwrapped, because its reader has to know which stretch it is inside as well
-   * as how far — `motionCycle` and `motionPhase` in src/lib/motion.ts split it (0309).
+   * number and the lane they already hold (0035).
    */
   automation: Map<string, number>;
   /**

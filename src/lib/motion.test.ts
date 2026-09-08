@@ -1,21 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { automationValueAt, laneSpan, normalizeAutomationLane } from "@/lib/automation";
+import { laneSpan, normalizeAutomationLane } from "@/lib/automation";
 import {
-  assertMotion,
-  drawMotionStretch,
-  MOTION_ANCHOR_STRETCHES,
+  dealMotionSpan,
+  drawMotionLane,
   MOTION_CHARACTER_REGIONS,
   MOTION_CHARACTERS,
   MOTION_KNOB_DIALS,
   MOTION_KNOBS,
+  MOTION_SPAN_SECS,
   MOTION_STEP_GAP_SECS,
-  MOTION_STRETCH_SECS,
-  motionCycle,
-  motionPhase,
-  motionValueAt,
-  sameMotion,
-  stretchEnd,
-  type MotionSpec,
 } from "@/lib/motion";
 
 const GAIN = { min: 0, max: 1.5 };
@@ -23,75 +16,53 @@ const CUTOFF = { min: 20, max: 20_000, curve: "log" as const };
 const WHOLE = { min: 0, max: 10, step: 1 };
 const SEEDS = [1, 7, 1234, 20_260_907];
 
-describe("a motion's stretch", () => {
-  it("is the same lane twice from the same seed and index, and another from the next index", () => {
-    const spec: MotionSpec = { character: "smooth", seed: 7 };
-    expect(drawMotionStretch(spec, 3, GAIN, 0.5)).toEqual(drawMotionStretch(spec, 3, GAIN, 0.5));
-    expect(drawMotionStretch(spec, 3, GAIN, 0.5)).not.toEqual(
-      drawMotionStretch(spec, 4, GAIN, 0.5),
+describe("a drawn lane", () => {
+  it("is the same lane twice from the same seed, and another from another seed or span", () => {
+    expect(drawMotionLane("smooth", 7, GAIN, 0.5, 6)).toEqual(
+      drawMotionLane("smooth", 7, GAIN, 0.5, 6),
     );
-    expect(drawMotionStretch(spec, 3, GAIN, 0.5)).not.toEqual(
-      drawMotionStretch({ ...spec, seed: 8 }, 3, GAIN, 0.5),
+    expect(drawMotionLane("smooth", 7, GAIN, 0.5, 6)).not.toEqual(
+      drawMotionLane("smooth", 8, GAIN, 0.5, 6),
     );
+    expect(laneSpan(drawMotionLane("smooth", 7, GAIN, 0.5, 12))).toBe(12);
   });
 
-  it("spans exactly one stretch, begins at the knob's value, and begins where the one before ended", () => {
+  it("spans exactly what was asked, begins at the knob's value, and ends there too", () => {
     for (const character of MOTION_CHARACTERS) {
       for (const seed of SEEDS) {
-        const spec: MotionSpec = { character, seed };
-        const first = drawMotionStretch(spec, 0, GAIN, 0.75);
-        expect(first[0]).toEqual({ at: 0, value: 0.75 });
-        expect(laneSpan(first)).toBe(MOTION_STRETCH_SECS);
-        for (let index = 0; index < MOTION_ANCHOR_STRETCHES * 2; index++) {
-          const stretch = drawMotionStretch(spec, index, GAIN, 0.75);
-          const next = drawMotionStretch(spec, index + 1, GAIN, 0.75);
-          expect(laneSpan(stretch)).toBe(MOTION_STRETCH_SECS);
-          expect(next[0]?.at).toBe(0);
-          expect(next[0]?.value).toBeCloseTo(stretch.at(-1)!.value, 12);
+        for (const span of [MOTION_SPAN_SECS.min, 9.5, MOTION_SPAN_SECS.max]) {
+          const lane = drawMotionLane(character, seed, GAIN, 0.5, span);
+          expect(lane[0]).toEqual({ at: 0, value: 0.5 });
+          expect(lane.at(-1)).toEqual({ at: span, value: 0.5 });
         }
       }
     }
   });
 
-  /** One stretch held against its range: normalized already, inside it, and whole where it counts. */
-  const inside = (
-    spec: MotionSpec,
-    range: typeof GAIN | typeof CUTOFF | typeof WHOLE,
-    base: number,
-  ) => {
-    const stretch = drawMotionStretch(spec, 2, range, base);
-    expect(normalizeAutomationLane(stretch, range)).toEqual(stretch);
-    for (const point of stretch) {
-      expect(point.value).toBeGreaterThanOrEqual(range.min);
-      expect(point.value).toBeLessThanOrEqual(range.max);
-      if (range === WHOLE) expect(Number.isInteger(point.value)).toBe(true);
-    }
-  };
-
   it("is already normalized, inside the range, at the step, and positive along a log curve", () => {
-    for (const character of MOTION_CHARACTERS) {
-      for (const seed of SEEDS) {
-        inside({ character, seed }, GAIN, 1);
-        inside({ character, seed }, CUTOFF, 800);
-        inside({ character, seed }, WHOLE, 4);
+    for (const seed of SEEDS) {
+      const hz = drawMotionLane("sporadic", seed, CUTOFF, 1000, 8);
+      expect(hz).toEqual(normalizeAutomationLane(hz, CUTOFF));
+      for (const point of hz) {
+        expect(point.value).toBeGreaterThanOrEqual(CUTOFF.min);
+        expect(point.value).toBeLessThanOrEqual(CUTOFF.max);
       }
+      const whole = drawMotionLane("pulse", seed, WHOLE, 4, 8);
+      for (const point of whole) expect(Number.isInteger(point.value)).toBe(true);
     }
   });
 
-  it("moves — every character lays more than its two ends over a few stretches, a gap apart at least", () => {
+  it("moves — every character lays more than its two ends on the shortest dealt span, a gap apart at least", () => {
     for (const character of MOTION_CHARACTERS) {
-      let points = 0;
-      for (let index = 0; index < 4; index++) {
-        const stretch = drawMotionStretch({ character, seed: 3 }, index, GAIN, 0.5);
-        points += stretch.length;
-        for (let at = 1; at < stretch.length; at++) {
-          expect(stretch[at]!.at - stretch[at - 1]!.at).toBeGreaterThanOrEqual(
+      for (const seed of SEEDS) {
+        const lane = drawMotionLane(character, seed, GAIN, 0.5, MOTION_SPAN_SECS.min);
+        expect(lane.length).toBeGreaterThan(2);
+        for (let at = 1; at < lane.length; at++) {
+          expect(lane[at]!.at - lane[at - 1]!.at).toBeGreaterThanOrEqual(
             MOTION_STEP_GAP_SECS - 1e-9,
           );
         }
       }
-      // A creep may wait longer than one stretch; over four it has moved, and the ends alone are eight.
-      expect(points).toBeGreaterThan(8);
     }
   });
 
@@ -100,16 +71,9 @@ describe("a motion's stretch", () => {
       let low = 1;
       let high = 0;
       for (const seed of SEEDS) {
-        for (let index = 0; index < 4; index++) {
-          for (const point of drawMotionStretch(
-            { character, seed },
-            index,
-            { min: 0, max: 1 },
-            0.5,
-          )) {
-            low = Math.min(low, point.value);
-            high = Math.max(high, point.value);
-          }
+        for (const point of drawMotionLane(character, seed, { min: 0, max: 1 }, 0.5, 16)) {
+          low = Math.min(low, point.value);
+          high = Math.max(high, point.value);
         }
       }
       return high - low;
@@ -118,41 +82,21 @@ describe("a motion's stretch", () => {
     expect(reach("sporadic")).toBeGreaterThan(0.8);
   });
 
-  it("refuses a stretch that is not a whole non-negative index", () => {
-    const spec: MotionSpec = { character: "pulse", seed: 1 };
-    expect(() => drawMotionStretch(spec, -1, GAIN, 0)).toThrow(RangeError);
-    expect(() => drawMotionStretch(spec, 1.5, GAIN, 0)).toThrow(RangeError);
+  it("refuses a span with no room for a move", () => {
+    expect(() => drawMotionLane("pulse", 1, GAIN, 0, 0)).toThrow(RangeError);
+    expect(() => drawMotionLane("pulse", 1, GAIN, 0, Number.NaN)).toThrow(RangeError);
   });
 });
 
-describe("the slow path a motion's ends ride", () => {
-  it("is continuous across an anchor and stays inside the unit interval", () => {
-    for (const seed of SEEDS) {
-      const spec: MotionSpec = { character: "smooth", seed };
-      for (let index = 0; index < MOTION_ANCHOR_STRETCHES * 3; index++) {
-        const end = stretchEnd(spec, index);
-        expect(end).toBeGreaterThanOrEqual(0);
-        expect(end).toBeLessThanOrEqual(1);
-        expect(Math.abs(stretchEnd(spec, index + 1) - end)).toBeLessThan(
-          1 / MOTION_ANCHOR_STRETCHES + 1e-9,
-        );
-      }
+describe("the span a press deals", () => {
+  it("is the same from the same seed, inside the dealt range, and not one value", () => {
+    const spans = SEEDS.map((seed) => dealMotionSpan(seed));
+    for (const [index, span] of spans.entries()) {
+      expect(span).toBe(dealMotionSpan(SEEDS[index]!));
+      expect(span).toBeGreaterThanOrEqual(MOTION_SPAN_SECS.min);
+      expect(span).toBeLessThanOrEqual(MOTION_SPAN_SECS.max);
     }
-  });
-});
-
-describe("the one reading of a motion", () => {
-  it("splits elapsed seconds into a stretch and a phase", () => {
-    expect(motionCycle(0)).toBe(0);
-    expect(motionCycle(MOTION_STRETCH_SECS * 2.5)).toBe(2);
-    expect(motionPhase(MOTION_STRETCH_SECS * 2.5)).toBeCloseTo(MOTION_STRETCH_SECS / 2, 12);
-  });
-
-  it("reads what the stretch it is inside says, through automationValueAt", () => {
-    const spec: MotionSpec = { character: "restless", seed: 9 };
-    const elapsed = MOTION_STRETCH_SECS * 3 + 1.25;
-    const stretch = drawMotionStretch(spec, 3, GAIN, 0.5);
-    expect(motionValueAt(spec, GAIN, elapsed, 0.5)).toBe(automationValueAt(stretch, 1.25, 0.5));
+    expect(new Set(spans).size).toBe(spans.length);
   });
 });
 
@@ -167,33 +111,5 @@ describe("what a character is", () => {
         expect(low).toBeLessThanOrEqual(high);
       }
     }
-  });
-});
-
-describe("assertMotion", () => {
-  it("passes exactly a character and a seed, and null", () => {
-    expect(assertMotion(null, "m")).toBeNull();
-    expect(assertMotion({ character: "creep", seed: 12 }, "m")).toEqual({
-      character: "creep",
-      seed: 12,
-    });
-  });
-
-  it("refuses an unknown character, a fractional or negative seed, and any other key", () => {
-    expect(() => assertMotion({ character: "wobble", seed: 1 }, "m")).toThrow(TypeError);
-    expect(() => assertMotion({ character: "creep", seed: 1.5 }, "m")).toThrow(RangeError);
-    expect(() => assertMotion({ character: "creep", seed: -1 }, "m")).toThrow(RangeError);
-    expect(() => assertMotion({ character: "creep", seed: 1, amount: 1 }, "m")).toThrow(TypeError);
-    expect(() => assertMotion("creep", "m")).toThrow(TypeError);
-  });
-
-  it("says two specs are one motion only when both fields agree", () => {
-    expect(sameMotion({ character: "creep", seed: 1 }, { character: "creep", seed: 1 })).toBe(true);
-    expect(sameMotion({ character: "creep", seed: 1 }, { character: "creep", seed: 2 })).toBe(
-      false,
-    );
-    expect(sameMotion({ character: "creep", seed: 1 }, { character: "pulse", seed: 1 })).toBe(
-      false,
-    );
   });
 });

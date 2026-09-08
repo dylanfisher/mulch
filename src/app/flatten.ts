@@ -78,7 +78,6 @@ function flattened(blobId: BlobId, secs: number, player: SessionDeck["player"]):
     // to the sound a second time.
     params: { ...DECK_PARAM_DEFAULTS },
     automation: {},
-    motion: {},
     effects: [],
     source: { blobId },
     loop: { in: 0, out: secs },

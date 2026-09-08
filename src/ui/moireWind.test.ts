@@ -44,7 +44,6 @@ const instance = (
     bypassed: over.bypassed ?? false,
     params: { ...effectParamDefaults(effect, id), ...over.params },
     automation: {},
-    motion: {},
     bounds: {},
   };
 };

@@ -36,9 +36,7 @@ export type HistoryState = Readonly<{ canUndo: boolean; canRedo: boolean }>;
  * clone of the whole session, and the real edits behind them pushed off a cap of a hundred.
  */
 export const gestureOf = (cmd: Command): string | null => {
-  // A motion is keyed with the value it rides for the reason a lane is: the move that clears one
-  // is a group the rest of that drag then joins (0024, 0309).
-  if (cmd.t === "param.set" || cmd.t === "automation.set" || cmd.t === "motion.set") {
+  if (cmd.t === "param.set" || cmd.t === "automation.set") {
     return `${cmd.deck} ${paramKey(cmd.instance ?? null, cmd.param)}`;
   }
   return cmd.t === "deck.player" ? `${cmd.deck} player` : null;

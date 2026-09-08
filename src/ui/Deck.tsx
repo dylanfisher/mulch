@@ -499,7 +499,6 @@ export function Deck({
                   param={param}
                   value={shown.params[param]}
                   lane={(isAutomationParam(param) ? shown.automation[param] : undefined) ?? null}
-                  motion={(isAutomationParam(param) ? shown.motion[param] : undefined) ?? null}
                   playing={shown.playing}
                 />
               ))}
