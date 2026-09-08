@@ -51,6 +51,7 @@ const COMMAND_HISTORY = {
   "effect.reorder": "group",
   "session.import": "alone",
   "session.sync": "alone",
+  "session.ground": "alone",
   "deck.duplicate": "alone",
   "deck.flatten": "alone",
   "effect.duplicate": "alone",

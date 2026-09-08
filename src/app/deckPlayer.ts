@@ -8,11 +8,11 @@
  *   audition a move rather than a note (0045, docs/map.md).
  */
 import { playerSounding } from "@/lib/player";
-import { assertSync } from "@/lib/playerWire";
+import { assertGround, assertSync } from "@/lib/playerWire";
 import { assertDurableText } from "@/lib/guards";
 import { songsOnset } from "@/lib/playerSongs";
 import { songIsDrawn } from "@/lib/playerSong";
-import { deckIn, patchDeck, setSync } from "@/state/store";
+import { deckIn, patchDeck, setGround, setSync } from "@/state/store";
 import type { Command } from "./commands";
 import { audio, refuseUnloaded } from "./refusals";
 import type { Runtime } from "./runtime";
@@ -50,6 +50,19 @@ export function setSyncClock(cmd: Extract<Command, { t: "session.sync" }>, rt: R
   rt.engine?.setSync(sync);
   setSync(rt.store, sync);
   rt.bus.emit({ t: "session.sync.changed", sync });
+}
+
+/**
+ * The session's shared ground, read exactly as the clock above it is and for the same reason: it
+ * names no deck, so it is a durable edit of its own, and it is written whether or not a host is
+ * attached (0313). Whole rather than a word at a time — a ground half moved is not a place a loop
+ * could be, and the yards standing on it would disagree about where they are for one frame.
+ */
+export function setSharedGround(cmd: Extract<Command, { t: "session.ground" }>, rt: Runtime): void {
+  const ground = assertGround(cmd.ground, "session.ground");
+  rt.engine?.setGround(ground);
+  setGround(rt.store, ground);
+  rt.bus.emit({ t: "session.ground.changed", ground });
 }
 
 /**

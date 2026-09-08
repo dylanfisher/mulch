@@ -43,6 +43,7 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   bedWanders: true,
   bedReach: "nudge",
   bedWay: "either",
+  bedTogether: false,
   seed: 9,
   bias: 0,
   stride: 0,
@@ -200,6 +201,7 @@ describe("deck.flatten", () => {
       "param.set",
       "effect.bypass",
       "deck.loop",
+      "session.ground",
       "deck.activate",
       "deck.play",
     ]);

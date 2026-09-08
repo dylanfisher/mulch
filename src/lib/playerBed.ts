@@ -7,8 +7,8 @@
  *   is unbounded, and what it finally lands on is resolved where the buffer is (0183, the way a
  *   travel is clamped where it is applied).
  * @instead The grid *inside* one bed — the sixteen slots a landing lands on → src/lib/playerSlots.ts.
- *   The draw the three words are spent on, shared with a jump → `leanStep`, src/lib/playerWalk.ts,
- *   which is where the draw is because the draw needs the walk's own generator. Turning a bed into
+ *   The draw the three words are spent on, shared with a jump → `leanStep`, src/lib/playerDraw.ts,
+ *   which is spent over this grid on the walk's own generator (src/lib/playerWalk.ts). Turning a bed into
  *   buffer seconds for a *sounding* deck → `gridOf` and `slotStart`, src/audio/player.ts, which
  *   fold once per pass; every other surface asks `bedGround` below. The dial each is turned on →
  *   src/lib/playerKnobs.ts.
@@ -54,10 +54,11 @@ export const PLAYER_BED_EVERY_MAX = 64;
  * way round).
  *
  * `jump` is the module as it was before this field existed and is what a switch press leaves. The
- * two above it are the arrangement's own boundaries, so a pattern with no arrangement — nothing
- * written and nothing drawn — never moves its ground on either of them: there is no part to begin
- * and no round to come round, which is the honest answer rather than a fallback to jumps
- * (principle 5).
+ * two above it are the arrangement's own boundaries, and a pattern with no arrangement — nothing
+ * written and nothing drawn — counts both of them on one whole row of the walk instead: no part
+ * begins and no round comes round, so the sheet the scope draws is the one boundary such a pattern
+ * has and the one a hand can watch go by. A fallback and never a fourth unit, and never a fallback
+ * to jumps — a period of four on `part` is still four somethings (0192, `PLAYER_SCOPE_LANDINGS`).
  */
 export const PLAYER_BED_PERS = ["jump", "part", "song"] as const;
 
@@ -100,7 +101,7 @@ export const PLAYER_BED_REACH_SLOTS: Record<PlayerBedReach, number> = {
  * Which way that walk leans, as the three words for the three leans a hand ever sets: always
  * back, as likely either, always on. The jump's own lean is a continuous −1…1 (0162), and every
  * hand leaves the ground's on one of these — so here it is the choice and not the amount, and the
- * number the shared draw wants is said once beside the word (`leanStep`, src/lib/playerWalk.ts).
+ * number the shared draw wants is said once beside the word (`leanStep`, src/lib/playerDraw.ts).
  */
 export const PLAYER_BED_WAYS = ["back", "either", "on"] as const;
 export type PlayerBedWay = (typeof PLAYER_BED_WAYS)[number];
@@ -209,11 +210,11 @@ export function bedsOf(value: unknown, at: string): readonly PlantedBed[] {
 const BED_FIELDS = ["bed", "every"] as const;
 
 /**
- * The seven fields of a `PlayerSpec` the ground under a pattern is shaped by, declared here for the
+ * The eight fields of a `PlayerSpec` the ground under a pattern is shaped by, declared here for the
  * reason `TravelSpec`'s four and `FigureSpec`'s three are declared beside what they are: the spec
  * in src/lib/player.ts is this and the rest of the pattern's amounts, each said once (principle 1).
  *
- * All seven are the *song's* and none of them is a part's (0184) — which is `PLAYER_SONG_KNOBS`'
+ * All eight are the *song's* and none of them is a part's (0184) — which is `PLAYER_SONG_KNOBS`'
  * business in src/lib/playerKnobs.ts rather than this file's, because nothing here knows what a
  * part is.
  */
@@ -239,6 +240,16 @@ export type BedSpec = {
   /** The grounds a hand planted, each with the period it comes round on. Empty is none planted,
    *  which is the ground as it was before one could be kept. */
   beds: readonly PlantedBed[];
+  /**
+   * Whether this yard reads the **session's** ground instead of walking one of its own — the one
+   * field here that is about more than this yard, and the reason it is a switch rather than an
+   * amount: two yards on one ground either are or are not (0313). While it is on, every other
+   * field above goes quiet — the crawl, its period, the clock that period is counted on, and the
+   * grounds this yard planted — because the ground is not this yard's to author any more, and a
+   * second author would be two answers to where the loop is (principle 1, 0184's claim one tier
+   * up). What it reads is `SessionGround` in src/lib/sessionGround.ts.
+   */
+  bedTogether: boolean;
 };
 
 /**

@@ -43,6 +43,7 @@ const {
   bedReach: _bedReach,
   bedWay: _bedWay,
   beds: _beds,
+  bedTogether: _bedTogether,
   bypassed: _bypassed,
   ...PLAIN
 } = PLAYER_DEFAULTS;

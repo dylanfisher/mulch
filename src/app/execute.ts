@@ -43,7 +43,7 @@ import type { Command } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
-import { armPlayer, setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
+import { armPlayer, setPlayer, setSharedGround, setSyncClock, soloPlayer } from "./deckPlayer";
 import {
   addEffect,
   boundEffect,
@@ -349,6 +349,16 @@ function dropDeck(cmd: Extract<Command, { t: "deck.remove" }>, rt: Runtime): voi
   rt.engine?.removeDeck(deck);
   removeDeck(rt.store, deck);
   rt.bus.emit({ t: "deck.removed", deck });
+  // A shared ground counted on this yard's parts is counted on a yard the session no longer holds,
+  // so the count goes with it: the ground stops moving and says which yard it wants, rather than
+  // storing a leader nothing can point at (0313, principle 5). Written through the ordinary
+  // command, so the graph, the store and the log hear it the way any other ground move is heard.
+  if (rt.store.getState().ground.leader === deck) {
+    setSharedGround(
+      { t: "session.ground", ground: { ...rt.store.getState().ground, leader: null } },
+      rt,
+    );
+  }
   const active = rt.store.getState().activeDeck;
   if (active !== null && active !== deck) rt.bus.emit({ t: "deck.activated", deck: active });
 }
@@ -547,6 +557,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "session.sync":
       setSyncClock(cmd, rt);
+      return;
+    case "session.ground":
+      setSharedGround(cmd, rt);
       return;
     case "session.save":
       rt.save("manual");

@@ -62,6 +62,14 @@ import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN } from "./playerReverse.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import {
+  GROUND_EVERY_MAX_SECS,
+  GROUND_EVERY_MIN_SECS,
+  GROUND_PERS,
+  GROUND_ROUNDS_MAX,
+  GROUND_ROUNDS_MIN,
+  type SessionGround,
+} from "./sessionGround.ts";
+import {
   PLAYER_SPARK_DELAY_MAX,
   PLAYER_SPARK_DELAY_MIN,
   PLAYER_SPARK_LEVEL_MAX,
@@ -153,6 +161,7 @@ const PLAYER_FIELDS = [
   "bedReach",
   "bedWay",
   "beds",
+  "bedTogether",
   ...PLAYER_KNOBS,
 ] as const;
 
@@ -194,6 +203,9 @@ const PART_VOICE_FILLER = {
   bedReach: "nudge",
   bedWay: "either",
   bedEvery: PLAYER_BED_EVERY_MIN,
+  // Off, which is the legal value that says nothing here too: a part is one yard's and the shared
+  // ground is the session's, so a part could not carry this if it wanted to (0313).
+  bedTogether: false,
 } as const;
 
 /**
@@ -299,6 +311,8 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // The grounds a hand planted, checked by the same module — a list and not a number, so it is
     // keyed and bounded there rather than clamped here (0184, src/lib/playerBed.ts).
     beds: bedsOf(raw["beds"], `${at} beds`),
+    // And whether the yard walks that ground at all, or reads the session's instead (0313).
+    bedTogether: flag(raw["bedTogether"], `${at} bedTogether`),
     bed: whole(raw["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${at} bed`),
     bedEvery: whole(raw["bedEvery"], PLAYER_BED_EVERY_MIN, PLAYER_BED_EVERY_MAX, `${at} bedEvery`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
@@ -446,6 +460,51 @@ export function assertSync(value: unknown, at: string): number | null {
 }
 
 /**
+ * The yard a shared ground is led by, as durable text — which is the whole of what a deck id is
+ * (`assertDeckId`, src/state/store.ts, whose guard this is — said again rather than imported,
+ * because this tier may not read src/state). Checked as a *shape* and never against the deck list:
+ * this validator is the wire's and knows no session, so whether the yard is still held is asked
+ * where the list is (`validateSession`, src/state/session.ts).
+ */
+function groundLeader(value: unknown, at: string): string | null {
+  if (value === null) return null;
+  assertDurableText(value, at);
+  return value;
+}
+
+/** The fields the shared ground is keyed against, read exactly as `PLAYER_FIELDS` is (0313). */
+const GROUND_FIELDS = ["per", "leader", "every", "wanders", "reach", "way"] as const;
+
+/**
+ * A session's shared ground off the wire or out of storage, checked through the guards a yard's
+ * own ground already goes through: the same two records of words, and the period in the seconds
+ * only this ground is counted in. The one validator — the command wire and
+ * the stored session both come through here, exactly as they do for the jump clock (0097, 0313).
+ */
+export function assertGround(value: unknown, at: string): SessionGround {
+  const raw = objectAt(value, at);
+  exactKeys(raw, GROUND_FIELDS, at);
+  const per = oneOf(raw["per"], GROUND_PERS, `${at} per`);
+  return {
+    per,
+    // The yard whose parts it counts, checked as an id and never against the deck list: whether
+    // that yard is still held is the session's question and is asked where the list is
+    // (`validateSession`, src/state/session.ts). Null is the whole of "nothing leads it", which is
+    // what seconds always are (0313).
+    leader: groundLeader(raw["leader"], `${at} leader`),
+    // The one number, bounded by the unit its own clock names: seconds where it counts them, and a
+    // whole count of parts or rounds otherwise. One period and not one per unit (0192, 0313).
+    every:
+      per === "second"
+        ? within(raw["every"], GROUND_EVERY_MIN_SECS, GROUND_EVERY_MAX_SECS, `${at} every`)
+        : whole(raw["every"], GROUND_ROUNDS_MIN, GROUND_ROUNDS_MAX, `${at} every`),
+    wanders: flag(raw["wanders"], `${at} wanders`),
+    reach: oneOf(raw["reach"], PLAYER_BED_REACHES, `${at} reach`),
+    way: oneOf(raw["way"], PLAYER_BED_WAYS, `${at} way`),
+  };
+}
+
+/**
  * One player rebuilt in its declared field order, or null. The projection the durable session
  * takes: history compares two sessions as JSON text, so one pattern has to have exactly one
  * spelling however the command that set it happened to be keyed (0021).
@@ -492,6 +551,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         // And each planted ground in its own declared order, for the reason a cell is: a list a
         // hand wrote is durable, so it has one spelling (0021).
         beds: player.beds.map((planted) => ({ bed: planted.bed, every: planted.every })),
+        bedTogether: player.bedTogether,
         bed: player.bed,
         bedEvery: player.bedEvery,
         distance: player.distance,

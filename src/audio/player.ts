@@ -6,7 +6,8 @@
  *   burst's seconds are and nothing else about the clock. The deck that owns this →
  *   src/audio/deck.ts: it holds the buffer, the loop and the plan, and hands all three over here.
  *   Where the seams of one step fall, and the shapes they are drawn along →
- *   src/audio/playerSeam.ts.
+ *   src/audio/playerSeam.ts. The contract this fills, which is read a tier up →
+ *   src/audio/playerVoice.ts.
  */
 // Over the 400-line cap by one section: the shared jump clock (0097) reaches four places in the
 // one pass closure below, and every line of it is beside the arming it moves. The alternative is
@@ -17,16 +18,22 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
-import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid, type Span } from "./playerGrid";
+import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid } from "./playerGrid";
 import { seam } from "./playerSeam";
 import { readInto, windowOf } from "./playerWindow";
 import { syncedFrom } from "@/lib/playerClock";
+import type { DeckPlayer, GroundClock } from "./playerVoice";
+import {
+  groundBedAt,
+  groundIsLed,
+  groundTicksBy,
+  SESSION_GROUND_DEFAULTS,
+  type SessionGround,
+} from "@/lib/sessionGround";
 import { songsOnset, soloSongs } from "@/lib/playerSongs";
 import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
-import type { PlayPlan } from "@/lib/timeline";
-import type { PlayerPeek } from "./deckPeek";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
@@ -89,82 +96,7 @@ type Scheduled = {
   ordinal: number;
 };
 
-export type DeckPlayer = {
-  /**
-   * Hold this pattern, or drop it. A pattern replacing another is heard where it was turned: the
-   * steps past the fade horizon are re-armed from it at once. Switching the module on or off is
-   * the caller's transport change and is not (P67, 0089).
-   */
-  set(spec: PlayerSpec | null): void;
-  /**
-   * Hold the shared jump clock, or drop it with null. It moves when the next step may begin and
-   * nothing else — the pattern is still this deck's seed's, so two decks under one clock land
-   * together and sound nothing alike (0097).
-   */
-  // A property rather than a method: the deck hands this very function on as its own pass-through
-  // (src/audio/deck.ts), which a method signature would call an unbound `this` (0007 is not the
-  // waiver for that — the implementation is an arrow and has no `this` to lose).
-  setSync: (sync: number | null) => void;
-  /** The pattern being held, or null. The whole of "this deck is not a jumping deck". */
-  held(): PlayerSpec | null;
-  /**
-   * Begin a pass at `at`, and return the plan the loop reporter counts boundaries against — or
-   * null when this deck cannot jump, which the caller plays as an ordinary pass.
-   */
-  begin(buffer: AudioBuffer, loop: Span | null, at: number, rate: number): PlayPlan | null;
-  /** Arm every jump beginning inside the horizon. The tick's work, and the render's (0071). */
-  arm(): void;
-  /**
-   * Drop every step still ahead of `from` and lay the pattern down again from there, at whatever
-   * rate the chain now reads. What a speed change costs a jumping pass: the steps it had already
-   * built are windows measured in the old rate's seconds, and playing them at the new one is the
-   * click the whole module is faded to avoid. `set` takes the same road for a moved number.
-   */
-  rearm(from: number): void;
-  /**
-   * Hear one part of the song being held on its own, over and over, or hand the whole song back
-   * with null — answering whether it did. The walk is built from the song that one part *is*, and a
-   * song of one part comes round (`soloSongs`, src/lib/playerSongs.ts, 0190). Pressed, that part is
-   * heard from its own first jump; released, the song is wound to it and carries on from there —
-   * the audition this replaced, which wound and let go (0181).
-   *
-   * A transport state and never an edit: nothing durable moves, the seed and the spec are the ones
-   * already held, and the song that comes back is the one that was there all along — a seek's
-   * sibling rather than a `set`'s (0041). It ends when the pass does.
-   *
-   * False is the one refusal it makes for itself: no pass to hold it over, or a part the
-   * **written** list does not hold or passes over. The caller's own — a pattern nobody holds, and a
-   * song the pattern is drawing for itself, whose run no press can name a part of — are made where
-   * the durable spec is, and this reads that list on the caller's word (0158).
-   */
-  // A property rather than a method, for the reason `setSync` above is one: the deck hands this
-  // very function on as its own pass-through (src/audio/deck.ts).
-  solo: (part: SongPartId | null) => boolean;
-  /**
-   * Queue one part of the song to be played next: at the next part boundary the walk is wound to
-   * that part's own first jump and carries on from there, which is what a launch grid's press is.
-   * Null lets go of what was queued, a jump already drawn and not yet heard included. Answers
-   * whether it did — false with no pass to queue over, under a solo (whose run of one part has no
-   * boundary this could land on), or for a part the written list does not hold or passes over.
-   *
-   * Transport on the terms a solo is: nothing durable moves, and it dies with the pass rather
-   * than outliving a stop — an arm is a pending jump of *this* pass and nothing else.
-   */
-  armPart: (part: SongPartId | null) => boolean;
-  /** Whether a pass is running. */
-  running(): boolean;
-  /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
-  position(at: number): number | null;
-  /**
-   * What the pattern is standing in at `at`, written into `out`: which part of its song the step
-   * the clock is inside was drawn under, the numbers it was drawn from, and where the spark that
-   * step threw is reading. Nulls with no pass running. Written in place because this is the
-   * per-frame read (0070, 0157).
-   */
-  peek(at: number, out: PlayerPeek): void;
-  /** Stop and release every source of the pass, sounding or still ahead of the clock. */
-  stop(): void;
-};
+export type { DeckPlayer } from "./playerVoice";
 
 /**
  * One pass is one closure over the pattern, the grid it is laid against and the queue of steps it
@@ -205,6 +137,26 @@ export function createDeckPlayer(
    * hands every voice the same number, not that they share a variable (0097).
    */
   let sync: number | null = null;
+  /**
+   * The session's shared ground, held per voice for the reason the clock is: a voice reaches
+   * nothing above itself, and what makes it one ground is that the host hands every voice the
+   * same shape (0097, 0313). Opened at the module's own, so a voice built before a host has said
+   * otherwise still stands somewhere rather than nowhere (principle 5).
+   */
+  let shared: SessionGround = SESSION_GROUND_DEFAULTS;
+  /**
+   * How the host answers the two questions about that ground a voice cannot answer for itself:
+   * where its count stands at an instant, and whether this yard is the one leading it. Null until
+   * a host has said, which is every voice built outside one — and a voice with no host reads a
+   * ground counted in seconds off the ground itself and a led one as standing still, because a
+   * ground led by a yard nothing is counting is a ground that has not moved (principle 5, 0313).
+   */
+  let clock: GroundClock | null = null;
+  /** Where the shared ground's count stands at `at`, by whichever of those two roads is live. */
+  const ticksBy = (at: number): number => {
+    if (clock !== null) return clock.ticksBy(at);
+    return groundIsLed(shared) ? 0 : groundTicksBy(shared, at);
+  };
   /**
    * The pattern's cursor for the pass being played, drawn again from the seed by every `begin`.
    * That is what makes two plays of one session the same performance with nothing durable
@@ -265,9 +217,41 @@ export function createDeckPlayer(
   // keeps it as, and every line of it is one of the things a step is. See
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
-  function armStep(step: PlayerStep, ordinal: number, at: number): number {
+  function armStep(drawn: PlayerStep, ordinal: number, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
+    /**
+     * The step as it is actually played: its own, or — where this pattern has Together on — the
+     * same step reading on the session's ground instead of the one its walk drew (0313). Swapped
+     * here and nowhere else, because this is the one place a step's own start time is known, and
+     * a ground counted in wall seconds is a function of that instant and of nothing about this
+     * yard: two yards arming the same instant read the same offset without either knowing the
+     * other exists, exactly as they land on the same tick of the jump clock (0097).
+     *
+     * The whole step and not a second field beside it: everything below reads `step.bed`, and a
+     * bed the walk drew sitting beside the bed the transport plays would be two answers to where
+     * the loop is (principle 1).
+     */
+    // The other half of a shared ground first: where this yard is the one leading it, the
+    // boundaries of *its* song are what the ground is counted on, so it says so as it arms them
+    // (0313). Said at the arming and not at the sounding, because a follower arms its own steps in
+    // the same window and a boundary reported later than that is one it has already passed.
+    //
+    // **Before the bed below it**, so a move the leader's own boundary caused lands on the first
+    // jump of the part that caused it — which is what makes it audible as the part arriving
+    // somewhere new, and is exactly where a yard's own `bedPer: "part"` ticks (0192).
+    const crossed = clock?.crossed;
+    // And a leader with nothing arranged reports one whole row of its walk instead, which is
+    // exactly the fallback its own ground already counts on: a hand that pointed the shared ground
+    // at a yard with no parts asked for a clock, and a row is the boundary that yard has (0192,
+    // principle 5). Read off the step and not worked out again here, because the walk is what
+    // knows where a row turned over (`PlayerStep.rows`, principle 1).
+    if (crossed != null && (drawn.rows || (shared.per === "part" ? drawn.opens : drawn.first)))
+      crossed(at);
+    const step: PlayerStep =
+      spec !== null && spec.bedTogether
+        ? { ...drawn, bed: groundBedAt(shared, ticksBy(at)) }
+        : drawn;
     const { rates, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
     // The rung this landing was let go onto: what its loop window is cut at, and what its first
     // repeat reads at. Every repeat after it is a step of the climb away (0167).
@@ -651,6 +635,16 @@ export function createDeckPlayer(
       // (0096). Switching the module on or off is the
       // caller's: that is a transport change and it restarts the deck (0089).
       if (moved) rearm(ctx.currentTime + LOOKAHEAD_SECS);
+    },
+    setGround: (next, held) => {
+      clock = held;
+      if (next === shared) return;
+      shared = next;
+      // Heard where it was turned, by the road a moved number takes — and only where this pattern
+      // is standing on it: a yard walking its own ground would be re-deriving a tail that could
+      // not have changed (0096, 0313).
+      if (running !== null && spec !== null && spec.bedTogether)
+        rearm(ctx.currentTime + LOOKAHEAD_SECS);
     },
     setSync: (next) => {
       if (next === sync) return;

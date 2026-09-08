@@ -36,6 +36,8 @@ const landing = (fields: Partial<PlayerStep> = {}): PlayerStep => ({
   song: null,
   place: null,
   opens: false,
+  first: false,
+  rows: false,
   ...fields,
 });
 

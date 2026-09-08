@@ -41,6 +41,8 @@ const standing = (song: string, id: string, songPlay = 0): PlayerStep => ({
   song: null,
   place: { song, songPlay, partLeft: 0, songLeft: 0 },
   opens: false,
+  first: false,
+  rows: false,
 });
 
 describe("what the run comes to next", () => {

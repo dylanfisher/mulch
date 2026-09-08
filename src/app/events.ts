@@ -12,6 +12,7 @@ import type { BlobId } from "@/lib/source";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
 import type { Loop } from "@/lib/timeline";
+import type { SessionGround } from "@/lib/sessionGround";
 
 export type EventBody =
   // A deck arriving and leaving are the two facts every other deck event depends on. Removal
@@ -125,6 +126,9 @@ export type EventBody =
   // The shared jump clock as it was actually held, in seconds, or null for yards each keeping
   // their own time. One event for the session rather than one per yard: it is one fact (0097).
   | { t: "session.sync.changed"; sync: number | null }
+  // And the shared ground as it was actually held. One event for the session for the same
+  // reason: however many yards stand on it, it is one fact (0313).
+  | { t: "session.ground.changed"; ground: SessionGround }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored" }
   /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */

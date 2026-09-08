@@ -93,8 +93,7 @@ const part = (
  */
 const sounded = (steps: readonly PlayerStep[]) =>
   steps.map(
-    ({ part: _part, voice: _voice, song: _song, place: _place, opens: _opens, ...sounds }) =>
-      sounds,
+    ({ part: _p, voice: _v, song: _s, place: _pl, opens: _o, first: _f, ...sounds }) => sounds,
   );
 
 /** A pattern holding no song, so what moves in the jump's own cases below is the jump alone. */

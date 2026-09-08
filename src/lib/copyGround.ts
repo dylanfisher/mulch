@@ -9,7 +9,9 @@
  *   src/lib/playerBed.ts. The picture itself → src/ui/PlayerGround.tsx, and the door the period
  *   sits behind → src/ui/PlayerBed.tsx.
  */
+import { PLAYER_SCOPE_LABEL } from "./copy.ts";
 import type { PlayerBedReach, PlayerBedWay } from "./playerBed.ts";
+import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
 
 /**
  * How to read the picture, in one sentence: what the three kinds of block on it are, and the one
@@ -32,12 +34,11 @@ export const PLAYER_BED_PER_LABELS = {
 
 /**
  * And what choosing one does, said as when the loop moves rather than as which counter ticks. It
- * has to say the quiet case out loud: a pattern with no song never moves its ground on either of
- * the arrangement's clocks, because there is no part to begin and no round to come round
- * (principle 5, 0158, the refusal `PLAYER_CAST_TOOLTIP` makes for the cast).
+ * has to say the quiet case out loud: with nothing arranged there is no part to begin and no round
+ * to come round, so both of the arrangement's clocks fall back to one whole row of the scope — the
+ * one boundary such a pattern has, and the one a hand can watch go by (0192, principle 5).
  */
-export const PLAYER_BED_PER_TOOLTIP =
-  "What the period beside this counts: the pattern's own jumps, the parts of the song, or whole rounds of it. A pattern with no song never moves at all on parts or songs.";
+export const PLAYER_BED_PER_TOOLTIP = `What the period beside this counts: the pattern's own jumps, the parts of the song, or whole rounds of it. With no parts or songs entered, parts and songs both count one whole row of ${PLAYER_SCOPE_LABEL} — ${PLAYER_SCOPE_LANDINGS} jumps.`;
 
 /**
  * The three rows of words a move is said in, each an eyebrow over its presses and the word each
@@ -48,6 +49,57 @@ export const PLAYER_BED_PER_TOOLTIP =
  * does: staying put is not the period at nought, it is coming home on every move the period is
  * due, which is a return a hand hears whenever a kept ground has walked the loop away.
  */
+/**
+ * Whose ground this yard stands on, as the eyebrow over two presses and the word each wears. The
+ * question is *whose* rather than *whether*, because both answers are a ground and a hand is
+ * choosing between two of them — a switch would have said the yard's own ground was the absence
+ * of something (0313, principle 5).
+ *
+ * "Together" and not "Sync": the header already carries that word for the shared jump clock, and
+ * one word for two shared facts is the drift these files exist to prevent (0097, src/lib/copy.ts).
+ */
+export const PLAYER_BED_TOGETHER_LABEL = "Whose ground";
+export const PLAYER_BED_TOGETHER_LABELS = {
+  own: "Its own",
+  together: "Together",
+} as const;
+export const PLAYER_BED_TOGETHER_TOOLTIP = `Whether this yard walks a ground of its own, or stands on the session's — the one every yard set to Together stands on at once, so their loops wander over the same part of the sample instead of drifting apart. While it is together, this yard's own period and the grounds it kept go quiet: the ground is the session's to move, and the rows below say how it moves for every yard on it.`;
+
+/**
+ * The shared ground's own period, which is the one clock on the instrument counted in seconds:
+ * a yard counts jumps, parts or rounds of its own song, and no two yards need share any of those
+ * (0097's argument for the jump clock, said one field along). Its own caption because it is not
+ * the yard's `Every` dial — the same word would be two periods on one fold (0313).
+ */
+export const PLAYER_GROUND_EVERY_LABEL = "Every";
+/**
+ * And what the shared ground's period is counted in, which is the row Together keeps rather than
+ * drops: seconds, or the parts and whole rounds of the one yard leading it. Its own words and not
+ * `PLAYER_BED_PER_LABELS`, because those three are jumps, parts and songs of the yard you are
+ * looking at and these are seconds and *someone else's* parts (0192, 0313).
+ */
+export const PLAYER_GROUND_PER_LABEL = "Counted in";
+export const PLAYER_GROUND_PER_LABELS = {
+  second: "Seconds",
+  part: "Parts",
+  song: "Songs",
+} as const;
+export const PLAYER_GROUND_PER_TOOLTIP = `What the period beside this counts for every yard on the shared ground: wall seconds, or the parts or whole rounds of one yard's song. Seconds need no yard named; parts and songs are counted on whichever yard leads, so the loops move when that yard's music does. With no parts or songs entered on that yard, both count one whole row of its ${PLAYER_SCOPE_LABEL} — ${PLAYER_SCOPE_LANDINGS} jumps.`;
+
+/**
+ * And which yard that is, as the eyebrow over one press per yard. The one control on the
+ * instrument that names a deck from another deck's card, which is why it is here rather than
+ * folded away: a period counted in parts is counted in *some yard's* parts, and a hand that cannot
+ * see which is reading a clock with no face (0313).
+ */
+export const PLAYER_GROUND_LEADER_LABEL = "Counting";
+export const PLAYER_GROUND_LEADER_TOOLTIP = `Which yard's song the shared ground is counted on. Its parts and rounds are the boundaries every yard on that ground moves at, so the loops move when this yard's music does. It need not be standing on the ground itself — leading it is a source of boundaries and nothing else — and while no yard leads, the ground holds still.`;
+export const PLAYER_GROUND_EVERY_TOOLTIP = `How long the session's shared ground stays put before it moves, in seconds. Counted in seconds and not in jumps, because seconds are the one thing yards holding different loops can share — the same reason the header's own clock is in them.`;
+
+/** What the three rows below say while the ground is the session's: the words are the same words,
+ *  and what they move is the ground every Together yard is standing on. */
+export const PLAYER_GROUND_SHARED_SAID = "This moves the ground every Together yard stands on.";
+
 export const PLAYER_BED_WANDERS_LABEL = "On its own";
 export const PLAYER_BED_WANDERS_LABELS = { stays: "Stays put", wanders: "Wanders" } as const;
 export const PLAYER_BED_WANDERS_TOOLTIP =

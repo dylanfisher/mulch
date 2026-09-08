@@ -16,6 +16,8 @@
 // oxlint-disable import/max-dependencies, max-lines
 import { playerSounding, type PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
+import { groundIsLed, groundTicksBy, type SessionGround } from "@/lib/sessionGround";
+import type { GroundClock } from "@/audio/playerVoice";
 import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
@@ -136,6 +138,12 @@ export type Engine = {
    * not any deck's (0097).
    */
   setSync(sync: number | null): void;
+  /**
+   * Hold the session's shared ground, whole. It reaches every voice for the reason the clock does
+   * — it is the session's and not any deck's — and a voice reads it only while its own pattern
+   * has Together on (0313).
+   */
+  setGround(ground: SessionGround): void;
   setParam(deck: DeckId, instance: EffectInstanceId | null, param: ParamId, value: number): void;
   setAutomation(
     deck: DeckId,
@@ -363,9 +371,48 @@ export function createAudioEngine(
    * to every voice it builds after it, which is the whole of what makes it one clock (0097).
    */
   let sync: number | null = null;
+  /** And the shared ground beside it, held and handed on for exactly the same reason (0313). */
+  let ground: SessionGround = store.getState().ground;
+  /**
+   * The instants a **led** ground has actually moved at, in the order they fell, and how many of
+   * the leader's boundaries have gone by since the last of them. Live and not durable, and the
+   * host's rather than any voice's: it is counted off one yard's arming and read by every yard
+   * standing on the ground, which is precisely the fact no voice can hold (0089, 0313).
+   *
+   * Emptied whenever the ground itself changes, because the period, the clock and the yard leading
+   * it are all inside the count: a ground moved to a new leader is a new count and never that
+   * leader's boundaries laid over the last one's.
+   */
+  let ticks: number[] = [];
+  let crossed = 0;
+  /** How many times a led ground had moved by `at` — the ticks at or before it, which is a walk
+   *  from the end because a follower asks about the instant it is arming and that is the newest. */
+  const ledTicksBy = (at: number): number => {
+    let count = ticks.length;
+    while (count > 0 && (ticks[count - 1] ?? 0) > at) count--;
+    return count;
+  };
+  /**
+   * What one voice is handed about the shared ground: the count at an instant, and the way to say
+   * a boundary was armed — the second of which is null for every yard but the one leading it, so a
+   * voice never has to know its own name (0313).
+   */
+  const groundClock = (deck: DeckId): GroundClock => ({
+    ticksBy: (at) => (groundIsLed(ground) ? ledTicksBy(at) : groundTicksBy(ground, at)),
+    crossed:
+      groundIsLed(ground) && ground.leader === deck
+        ? (at) => {
+            crossed++;
+            if (crossed < ground.every) return;
+            crossed = 0;
+            ticks.push(at);
+          }
+        : null,
+  });
   const newVoice = (deck: DeckId): DeckVoice => {
     const voice = makeVoice(ctx, master.input, deck, store, emit, () => rescheduling === deck);
     voice.setSync(sync);
+    voice.setGround(ground, groundClock(deck));
     return voice;
   };
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
@@ -523,6 +570,14 @@ export function createAudioEngine(
       sync = next;
       for (const held of voices.values()) held.setSync(next);
     },
+    setGround: (next) => {
+      ground = next;
+      // The count starts again with the ground: its period, its clock and the yard leading it are
+      // all inside it, so a changed ground is a new count rather than the old one carried on.
+      ticks = [];
+      crossed = 0;
+      for (const [deck, held] of voices) held.setGround(next, groundClock(deck));
+    },
     setParam: (deck, instance, param, value) => {
       voice(deck).setParam(instance, param, value);
     },
@@ -675,6 +730,10 @@ export function createAudioEngine(
         // above the decks rather than one of theirs, and a graph rebuilt without it would leave
         // an undone or imported session's yards free-running (0097).
         for (const { id: deck } of session.deckList) preparedIn(deck).setSync(session.sync);
+        // And the ground beside it, for the reason above: a graph rebuilt without it would leave
+        // an undone or imported session's yards standing on the ground this host last held (0313).
+        for (const { id: deck } of session.deckList)
+          preparedIn(deck).setGround(session.ground, groundClock(deck));
       } catch (error) {
         release();
         throw error;
@@ -705,6 +764,9 @@ export function createAudioEngine(
           // The restored session's clock is this host's from here: a voice added after the swap
           // reads it, and nothing else remembers what the replaced session was jumping on.
           sync = session.sync;
+          ground = session.ground;
+          ticks = [];
+          crossed = 0;
         },
         measure: () => {
           // A restored deck is a freshly decoded buffer like any other, so it is measured like

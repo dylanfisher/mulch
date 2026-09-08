@@ -99,6 +99,7 @@ export const PLAYER: PlayerSpec = {
   bedWanders: true,
   bedReach: "nudge",
   bedWay: "either",
+  bedTogether: false,
   seed: 7,
   bias: 0,
   stride: 0,

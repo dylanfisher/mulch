@@ -233,6 +233,11 @@ export const PLAYER_DEFAULTS = {
   // this either, and for the reason none names `song` — a list of places a hand chose is not a
   // texture a die may draw (0184).
   beds: [],
+  // And walking its own ground rather than the session's, which is the module as it was before a
+  // ground could be shared: a yard opens alone, and a hand puts it on the session's ground with
+  // one press (0313). No region names it either, and for the reason none names `beds` — whether
+  // two yards move together is a fact about the session and not a texture a die may draw.
+  bedTogether: false,
 } as const satisfies PlayerDefaults;
 
 // The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the

@@ -19,6 +19,7 @@ import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
 import { assertDurableText } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
+import { SESSION_GROUND_DEFAULTS, type SessionGround } from "@/lib/sessionGround";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 import type { Clip, SessionDeck, SessionEffect } from "./session";
@@ -157,6 +158,12 @@ export type SessionState = {
    * than one deck, which is why it is the session's and not a field on any of them (0097).
    */
   sync: number | null;
+  /**
+   * The ground every yard with Together on stands on: the second durable fact belonging to more
+   * than one deck, and the session's for the reason the clock is — a ground more than one yard
+   * reads is no one yard's to move (0313).
+   */
+  ground: SessionGround;
 };
 
 const defaultDeck = (): DeckState => ({
@@ -181,6 +188,7 @@ export const createSessionStore = () =>
     spentDeckIds: [INITIAL_DECK_ID],
     clips: [],
     sync: null,
+    ground: { ...SESSION_GROUND_DEFAULTS },
   }));
 
 export type SessionStore = ReturnType<typeof createSessionStore>;
@@ -287,6 +295,11 @@ export function setClips(store: SessionStore, clips: Clip[]): void {
 /** Hold the session's shared jump clock, or drop it with null (0097). `src/app` alone calls it. */
 export function setSync(store: SessionStore, sync: number | null): void {
   store.setState({ sync });
+}
+
+/** Hold the session's shared ground, whole (0313). `src/app` remains the only caller. */
+export function setGround(store: SessionStore, ground: SessionGround): void {
+  store.setState({ ground });
 }
 
 /**

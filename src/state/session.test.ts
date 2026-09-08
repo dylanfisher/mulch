@@ -470,6 +470,7 @@ const STORED_CLIP = {
       bedWanders: true,
       bedReach: "nudge",
       bedWay: "either",
+      bedTogether: false,
       seed: 12_345,
       bias: 0,
       stride: 0,
@@ -528,6 +529,7 @@ const STORED_SESSION = {
   spentDeckIds: ["a", "b"],
   clips: [STORED_CLIP],
   sync: 0.5,
+  ground: { per: "second", leader: null, every: 4, wanders: true, reach: "nudge", way: "either" },
 };
 
 const withClips = (clips: unknown) => ({ ...STORED_SESSION, clips });
@@ -570,6 +572,7 @@ describe("stored clips", () => {
         bedWanders: true,
         bedReach: "nudge",
         bedWay: "either",
+        bedTogether: false,
         seed: 12_345,
         bias: 0,
         stride: 0,
@@ -637,6 +640,7 @@ describe("stored clips", () => {
       bedWanders: true,
       bedReach: "nudge",
       bedWay: "either",
+      bedTogether: false,
       seed: 12_345,
       bias: 0,
       stride: 0,
@@ -754,10 +758,37 @@ describe("stored clips", () => {
     expect(() => validateSession(withoutSync)).toThrow(/expected \[/u);
   });
 
+  /**
+   * And the ground beside it, which is the second: checked by the same validator the command wire
+   * comes through, and stored whole rather than as a clock that may be absent — there is no "no
+   * ground" for a session to hold (0313).
+   */
+  it("refuses a shared ground whose leader is not a yard this session holds", () => {
+    const whole = { per: "second", leader: null, wanders: true, reach: "nudge", way: "either" };
+    expect(validateSession(STORED_SESSION).ground.every).toBe(4);
+    // The one thing the ground's own validator could not ask, because it knows no session: a
+    // period counted in a yard's parts names a yard that is here. The `activeDeck` rule, said for
+    // the ground — what the shape itself may be is asked in src/lib/sessionGround.test.ts.
+    expect(
+      validateSession({
+        ...STORED_SESSION,
+        ground: { ...whole, per: "song", leader: "b", every: 2 },
+      }).ground.leader,
+    ).toBe("b");
+    expect(() =>
+      validateSession({
+        ...STORED_SESSION,
+        ground: { ...whole, per: "part", leader: "nowhere", every: 4 },
+      }),
+    ).toThrow(/not a held deck/u);
+    const { ground: _dropped, ...withoutGround } = STORED_SESSION;
+    expect(() => validateSession(withoutGround)).toThrow(/expected \[/u);
+  });
+
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
     expect(() => validateSession(withoutClips)).toThrow(
-      /expected \[activeDeck, clips, deckList, decks, spentDeckIds, sync\]/u,
+      /expected \[activeDeck, clips, deckList, decks, ground, spentDeckIds, sync\]/u,
     );
   });
 });

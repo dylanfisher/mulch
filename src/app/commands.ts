@@ -3,6 +3,7 @@
  *       by construction so a file of commands is a test, a macro and a repro.
  */
 import type { PlayerSpec } from "@/lib/player";
+import type { SessionGround } from "@/lib/sessionGround";
 import type { SongPartId } from "@/lib/playerSong";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
@@ -108,6 +109,10 @@ export type DurableEditCommand =
   // for the session because that is whose it is: it is the first durable fact belonging to more
   // than one deck, and a command per deck would be one clock spelled n ways (0097).
   | { t: "session.sync"; sync: number | null }
+  // The ground every yard with Together on stands on, whole. The session's for the reason the
+  // clock is, and one command carrying the whole ground rather than one per word, because a
+  // partial ground is not a ground a yard could stand on (0313).
+  | { t: "session.ground"; ground: SessionGround }
   // The clip commands name an id the caller minted, never a name and never a list index: a
   // label is not identity and an index is a fact about the list at the time of writing (0027).
   | { t: "clip.capture"; id: ClipId; name: string; deck: DeckId }
@@ -122,8 +127,8 @@ export type DurableEditCommand =
  * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
  * `historyGroup`, so a group holding one would be a group inside a group (0078). `effect.duplicate`
  * is the same shape one rack card down (0092), and `deck.flatten` is that shape again, around a
- * render (0112). `session.sync` names no deck at all, and every
- * groupable command is checked as one that does (src/app/wire.ts).
+ * render (0112). `session.sync` and `session.ground` name no deck at all, and
+ * every groupable command is checked as one that does (src/app/wire.ts).
  */
 export type GroupedEditCommand = Exclude<
   DurableEditCommand,
@@ -131,6 +136,7 @@ export type GroupedEditCommand = Exclude<
     t:
       | "session.import"
       | "session.sync"
+      | "session.ground"
       | "deck.duplicate"
       | "deck.flatten"
       | "effect.duplicate"

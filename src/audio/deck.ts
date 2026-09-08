@@ -590,6 +590,11 @@ export function createDeckVoice(
       chain.setSync(sync);
       retick();
     },
+    // The shared ground reaches the pattern alone: it is where a landing reads, and the rack
+    // counts nothing in it (0313).
+    setGround: (ground, clock) => {
+      player.setGround(ground, clock);
+    },
 
     setParam: (instance, param, value) => {
       const now = ctx.currentTime;

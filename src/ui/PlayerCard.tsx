@@ -215,6 +215,14 @@ export function PlayerCard({
    */
   const live = playerSounding(player);
   const off = live === null;
+  /**
+   * Whether this yard is standing on the session's ground rather than walking one of its own, which
+   * is what quiets the three controls on the fold's row that author *this* yard's: the bed its own
+   * crawl comes home to, the press that plants one, and the grounds it kept. Every one of them is
+   * an author of where this loop is, and a shared ground already is one — two authors would be two
+   * answers to that question (principle 1, 0313).
+   */
+  const shared = live !== null && live.bedTogether;
   const send = useCallback(
     (next: PlayerSpec | null) => {
       instrument.send({ t: "deck.player", deck, player: next });
@@ -627,8 +635,18 @@ export function PlayerCard({
                     which is why it is on the row and not behind the marker (0124). Handed
                     `selected={false}` for the reason the arrangement below it is — a song knob
                     wears no mark, because no selection could point it anywhere else. */}
-                <PlayerDial knob="bed" {...runProps} patch={patch} selected={false} />
-                <PlayerBed {...runProps} patch={patch} selected={false} />
+                {/* Refused while the ground is the session's: this yard's own bed is what its own
+                    crawl comes home to, and there is no such bed on a shared ground — every yard
+                    on one holds a different source, so the one ground they all have is the loop
+                    itself (0313, src/lib/sessionGround.ts). */}
+                <PlayerDial
+                  knob="bed"
+                  {...runProps}
+                  patch={patch}
+                  selected={false}
+                  disabled={off || shared}
+                />
+                <PlayerBed {...runProps} patch={patch} selected={false} instrument={instrument} />
                 {/* And the one gesture here, at the end of the row the ground is set on: the
                     walk moves the window and this writes it back down. A press and not a dial,
                     because it is a place a hand liked rather than an amount it is holding. */}
@@ -636,7 +654,7 @@ export function PlayerCard({
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    disabled={off || state.loop === null}
+                    disabled={off || shared || state.loop === null}
                     aria-label={`${PLANT_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
                     onClick={onPlant}
                   >
@@ -654,7 +672,7 @@ export function PlayerCard({
                     beds={live.beds}
                     bed={live.bed}
                     onChange={onBeds}
-                    disabled={off}
+                    disabled={off || shared}
                   />
                 )}
               </div>

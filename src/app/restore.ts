@@ -279,6 +279,9 @@ export function restorationCommands(session: Session): Command[] {
   // held a clock, and a graph being rebuilt under a live session takes the other road
   // (`prepareRestore`, src/app/engine.ts), which states it either way.
   if (session.sync !== null) commands.push({ t: "session.sync", sync: session.sync });
+  // And the ground beside it, always sent: a ground is a whole shape rather than a clock that may
+  // be absent, so there is no null here to pass over (0313).
+  commands.push({ t: "session.ground", ground: { ...session.ground } });
   // A session that holds no decks has nothing to activate, and says so by holding null (0029).
   if (session.activeDeck !== null) commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
@@ -363,5 +366,6 @@ export function restoredSessionState(
     // Inert durable data: a clip has nothing for the graph to prepare, so it restores by copy.
     clips: structuredClone(session.clips),
     sync: session.sync,
+    ground: { ...session.ground },
   };
 }

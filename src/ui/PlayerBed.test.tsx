@@ -16,6 +16,9 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
+    // The third, for the shared ground the run reads off the session: outside a renderer it is
+    // the read itself, which is what the two above already are (0313).
+    useSyncExternalStore: (_subscribe: unknown, read: () => unknown) => read(),
   };
 });
 
@@ -35,6 +38,17 @@ import {
   PLAYER_BED_WAY_LABEL,
   PLAYER_BED_WAY_LABELS,
 } from "@/lib/copyGround";
+import { manualClock } from "@/app/clock";
+import { createInstrument, type Instrument } from "@/app/facade";
+import {
+  PLAYER_BED_TOGETHER_LABEL,
+  PLAYER_BED_TOGETHER_LABELS,
+  PLAYER_GROUND_EVERY_LABEL,
+  PLAYER_GROUND_LEADER_LABEL,
+  PLAYER_GROUND_PER_LABEL,
+  PLAYER_GROUND_PER_LABELS,
+} from "@/lib/copyGround";
+import { GROUND_PERS, GROUND_ROUNDS_DEFAULT, SESSION_GROUND_DEFAULTS } from "@/lib/sessionGround";
 import { PlayerBed } from "@/ui/PlayerBed";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
@@ -47,6 +61,7 @@ const PLAYER: PlayerSpec = {
   bedWanders: true,
   bedReach: "nudge",
   bedWay: "either",
+  bedTogether: false,
   seed: 9,
   bias: 0.5,
   stride: 0.25,
@@ -136,7 +151,10 @@ const row = (element: unknown, eyebrow: string): Group | null => {
   return found;
 };
 
-const run = (player: PlayerSpec = PLAYER) => {
+const run = (
+  player: PlayerSpec = PLAYER,
+  instrument: Instrument = createInstrument(manualClock()),
+) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const element = PlayerBed({
     deck: "a",
@@ -144,12 +162,14 @@ const run = (player: PlayerSpec = PLAYER) => {
     player,
     defaults: DEFAULTS,
     patch,
+    instrument,
   });
-  return { element, patch };
+  return { element, patch, instrument };
 };
 
-/** The four rows, each with the words its presses are mapped from and how each spells. */
+/** The five rows, each with the words its presses are mapped from and how each spells. */
 const ROWS: readonly (readonly [string, readonly string[], Record<string, string>])[] = [
+  [PLAYER_BED_TOGETHER_LABEL, ["own", "together"], PLAYER_BED_TOGETHER_LABELS],
   [PLAYER_BED_PER_LABEL, PLAYER_BED_PERS, PLAYER_BED_PER_LABELS],
   [PLAYER_BED_WANDERS_LABEL, ["stays", "wanders"], PLAYER_BED_WANDERS_LABELS],
   [PLAYER_BED_REACH_LABEL, PLAYER_BED_REACHES, PLAYER_BED_REACH_LABELS],
@@ -235,5 +255,102 @@ describe("the ground's run", () => {
     expect(
       items.map((item) => (isValidElement<{ value: string }>(item) ? item.props.value : null)),
     ).toEqual([...PLAYER_BED_PERS]);
+  });
+});
+
+/**
+ * And whose ground it is, which is the one row on the board that is about more than this yard: it
+ * patches the yard's own switch, and while it is on the three rows beside it stop writing the
+ * spec and start writing the session's ground instead (0313).
+ */
+describe("the shared ground", () => {
+  it("patches this yard's own switch, and nothing of the session's", () => {
+    const { element, patch, instrument } = run();
+    row(element, PLAYER_BED_TOGETHER_LABEL)?.onValueChange?.(["together"]);
+    expect(patch).toHaveBeenCalledExactlyOnceWith({ bedTogether: true });
+    // The press says which ground this yard is on and never moves one: a yard joining a shared
+    // ground finds it where the session left it (0313).
+    expect(instrument.state.getState().ground).toEqual(SESSION_GROUND_DEFAULTS);
+  });
+
+  it("writes the session's ground from the three rows while it is on", () => {
+    const { element, patch, instrument } = run({ ...PLAYER, bedTogether: true });
+    row(element, PLAYER_BED_REACH_LABEL)?.onValueChange?.(["bed"]);
+    row(element, PLAYER_BED_WAY_LABEL)?.onValueChange?.(["back"]);
+    row(element, PLAYER_BED_WANDERS_LABEL)?.onValueChange?.(["stays"]);
+    expect(instrument.state.getState().ground).toEqual({
+      ...SESSION_GROUND_DEFAULTS,
+      reach: "bed",
+      way: "back",
+      wanders: false,
+    });
+    // And not one word of the yard's own spec: the ground is not this yard's to move (0313).
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("reads the session's ground back onto those rows, and drops the clock row", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({
+      t: "session.ground",
+      ground: {
+        per: "second",
+        leader: null,
+        every: 8,
+        wanders: false,
+        reach: "anywhere",
+        way: "on",
+      },
+    });
+    const { element } = run({ ...PLAYER, bedTogether: true }, instrument);
+    expect(row(element, PLAYER_BED_WANDERS_LABEL)?.value).toEqual(["stays"]);
+    expect(row(element, PLAYER_BED_REACH_LABEL)?.value).toEqual(["anywhere"]);
+    expect(row(element, PLAYER_BED_WAY_LABEL)?.value).toEqual(["on"]);
+    // The clock row is still there and is the shared ground's own: seconds, or the parts and
+    // rounds of the yard leading it — never this yard's jumps, which are not what moves the loop
+    // while the ground is the session's (0192, 0313).
+    expect(row(element, PLAYER_GROUND_PER_LABEL)?.value).toEqual(["second"]);
+    const drawn = renderToStaticMarkup(element);
+    expect(drawn).toContain(PLAYER_GROUND_EVERY_LABEL);
+    for (const word of GROUND_PERS) expect(drawn).toContain(`>${PLAYER_GROUND_PER_LABELS[word]}</`);
+    // And no yard is named while the clock is the wall: a row of yard names beside a period of
+    // seconds would answer a question nothing put.
+    expect(row(element, PLAYER_GROUND_LEADER_LABEL)).toBeNull();
+  });
+
+  /**
+   * The clock and the period move together, because one number means two things — seconds where
+   * the clock counts them and a whole count of parts otherwise. A press that changed only the
+   * clock would leave four seconds reading as four parts (0192's one period, 0313).
+   */
+  it("carries the period its own clock opens at when the clock is pressed", () => {
+    const { element, instrument } = run({ ...PLAYER, bedTogether: true });
+    row(element, PLAYER_GROUND_PER_LABEL)?.onValueChange?.(["part"]);
+    expect(instrument.state.getState().ground).toMatchObject({
+      per: "part",
+      every: GROUND_ROUNDS_DEFAULT,
+    });
+  });
+
+  /**
+   * And the one control on the instrument that names a deck from another deck's card: whose parts
+   * the shared ground is counted on. Drawn only where a clock asks for one (0313).
+   */
+  it("names the yard a led ground is counted on", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    instrument.send({
+      t: "session.ground",
+      ground: { ...SESSION_GROUND_DEFAULTS, per: "part", every: 4, leader: "a" },
+    });
+    const { element } = run({ ...PLAYER, bedTogether: true }, instrument);
+    const picker = row(element, PLAYER_GROUND_LEADER_LABEL);
+    expect(picker?.value).toEqual(["a"]);
+    expect(
+      picker?.children?.map((item) =>
+        isValidElement<{ value: string }>(item) ? item.props.value : null,
+      ),
+    ).toEqual(["a", "b"]);
+    picker?.onValueChange?.(["b"]);
+    expect(instrument.state.getState().ground.leader).toBe("b");
   });
 });

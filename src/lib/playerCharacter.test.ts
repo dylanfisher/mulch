@@ -46,14 +46,15 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
   bedWanders: true,
   bedReach: "nudge",
   bedWay: "either",
+  bedTogether: false,
   beds: [],
   ...voice,
 });
 
 /**
  * The switch's own values as a *voice* — every field a character draws, which is the whole of
- * `PLAYER_DEFAULTS` but the song, the cast, the ground's own clock and the switch a draw may not
- * touch (0153, 0174, 0192, P164). What "back to plain" is compared against, so the two assertions below say what a
+ * `PLAYER_DEFAULTS` but the song, the cast, the ground's own clock, whose ground it is on and the switch
+ * a draw may not touch (0153, 0174, 0192, 0313, P164). What "back to plain" is compared against, so the two assertions below say what a
  * blend of none of it is and not what a spec is.
  */
 const {
@@ -64,6 +65,7 @@ const {
   bedReach: _bedReach,
   bedWay: _bedWay,
   beds: _beds,
+  bedTogether: _bedTogether,
   bypassed: _bypassed,
   ...PLAIN
 } = PLAYER_DEFAULTS;

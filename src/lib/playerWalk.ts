@@ -24,7 +24,7 @@ import { mulberry32 } from "./random.ts";
 import { bedDue, bedMove } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";
 import { stripStep, type PartStep } from "./playerStrip.ts";
-import { createSongs, type SongPlace } from "./playerSongs.ts";
+import { createSongs, songsArePlayed, type SongPlace } from "./playerSongs.ts";
 import {
   createDrawnSong,
   PLAYER_PART_DEFAULTS,
@@ -35,20 +35,20 @@ import {
 } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import { tierName } from "./copyNames.ts";
-import { restIsPlaced, restPattern } from "./playerRest.ts";
+import { restPattern } from "./playerRest.ts";
 import { drawCast, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
+import { drawBurst, drawRepeats, drawRest, drawRung, leanStep } from "./playerDraw.ts";
+import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { assertPlayer } from "./playerWire.ts";
 import {
-  PLAYER_BURST_MIN,
   PLAYER_GATE_FLOOR,
   partVoice,
   playerVoice,
   type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
-import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
 
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
@@ -183,100 +183,29 @@ export type PlayerStep = {
    * top of the run and not of a part).
    */
   opens: boolean;
+  /**
+   * And whether it is the top of the **arrangement** — the first part of the run coming round,
+   * which is a boundary of the song rather than of a part. Said by the walk for the reason `opens`
+   * is: the song's cursor is the one thing that knows which part of the run it just handed out,
+   * and the ground's own `bedPer: "song"` already reads it here rather than comparing part ids
+   * (`SongDraw.first`, 0192). Carried out onto the step so a yard leading the session's shared
+   * ground can tick it on rounds as well as on parts, without a second reader of the order
+   * (principle 1, 0313).
+   */
+  first: boolean;
+  /**
+   * And whether it is the top of one whole **row** of the walk on a pattern with nothing arranged
+   * — the sheet the scope draws, which is the one boundary such a pattern has and the one both of
+   * the arrangement's clocks fall back to (`PLAYER_SCOPE_LANDINGS`, 0192). False at every step of
+   * a pattern that *is* arranged: the row is what those clocks count where there is no
+   * arrangement to count, and never a fourth boundary beside the two above it.
+   *
+   * Carried out onto the step for the reason `first` is: a yard leading the session's shared
+   * ground is asked for its boundaries whatever its own period is counted in, so the one thing
+   * that knows where a row turned over says so once and both grounds read it (principle 1, 0313).
+   */
+  rows: boolean;
 };
-
-/**
- * Where a rate change lands, in rungs from unity: uniform over the rungs the drift can reach and
- * the spread allows, with the one it is already on taken out — so a change always changes
- * something, and neither end of the ladder is over-represented the way clamping a leap into range
- * would make it (0118).
- *
- * `rung` is always inside `[-spread, spread]`: a walk starts at zero, zero is inside every spread,
- * and every draw lands in the window. So `hi - lo` counts the reachable rungs exactly once the
- * current one is removed, and the shift below turns a pick at or above it into the rung past it.
- */
-function drawRung(random: () => number, rung: number, spread: number, drift: number): number {
-  const lo = Math.max(-spread, rung - drift);
-  const hi = Math.min(spread, rung + drift);
-  const reach = hi - lo;
-  // A spread of zero: there is nowhere to go, and holding the deck's own rate is the point of it.
-  if (reach <= 0) return rung;
-  const pick = lo + Math.floor(random() * reach);
-  return pick >= rung ? pick + 1 : pick;
-}
-
-/**
- * How long one landing sounds: the burst, strayed by as much as `vary` either way — on the
- * landings the chance lets stray. A spec that never varies rolls nothing, so the stream it lays
- * down is the one it laid before the chance existed (P87).
- */
-function drawBurst(random: () => number, spec: PlayerVoice): number {
-  const stray = spec.vary > 0 && random() < spec.varyChance ? spec.vary : 0;
-  return Math.max(PLAYER_BURST_MIN, spec.burst + stray * (2 * random() - 1));
-}
-
-/**
- * Which count the next hold is kept at: uniform over the whole numbers within `repeatsSpread` of
- * the dial, clipped to the range the dial itself has. Called only where the spread is above zero,
- * so the window always holds at least two counts. Clipped rather than wrapped, so a spread
- * wider than the room below the dial simply reaches the floor — and drawn fresh rather than
- * travelled from the count it is on, which is why there is no drift beside it (0135).
- */
-function drawRepeats(random: () => number, spec: PlayerVoice): number {
-  const lo = Math.max(PLAYER_REPEATS_MIN, spec.repeats - spec.repeatsSpread);
-  const hi = Math.min(PLAYER_REPEATS_MAX, spec.repeats + spec.repeatsSpread);
-  return lo + Math.floor(random() * (hi - lo + 1));
-}
-
-/**
- * The four amounts one leaning move is drawn under, whatever grid it is a move over. The jump's
- * own four are `TravelSpec`; the bed's are three of them and no stride (0183).
- */
-type Lean = { distance: number; bias: number; stride: number; home: number };
-
-/**
- * How far one leaning move goes and which way, or **null** where it comes home instead — the one
- * piece of arithmetic this module moves by, spent by the jump over the loop's sixteen slots and by
- * the bed over the source's sixteenths of one (0185). Signed and unwrapped: what a move lands on is the
- * caller's, because the two grids wrap at different widths and one of them does not wrap here at
- * all (`bedWrap`, src/lib/playerBed.ts).
- *
- * The draws, in this order and no other: the home roll, taken only above zero and short-circuiting
- * the rest, because coming home is *instead of* travelling and not a travel of its own; then the
- * stride's, again only above zero; then the distance; then the side. A caller with no stride dial
- * passes zero, which is the value that rolls nothing — the same reading `PLAYER_STRIDE_MIN` has, so
- * a bed's walk is a jump's walk with one amount it does not offer (0134, 0162).
- *
- * **The order is the contract.** A pattern is a pure function of its seed, so moving a draw here
- * would re-derive every tail in every stored session (0089, 0096).
- */
-function leanStep(random: () => number, lean: Lean): number | null {
-  if (lean.home > 0 && random() < lean.home) return null;
-  const far =
-    lean.stride > 0 && random() < lean.stride
-      ? lean.distance
-      : 1 + Math.floor(random() * lean.distance);
-  return random() < (1 - lean.bias) / 2 ? -far : far;
-}
-
-/**
- * How long the pattern waits before the next jump, in slots — from whichever of the field's two
- * authors is live (0163). `placed` is what the pattern says about this jump, and where it is
- * placing them the two rolled amounts are not read and no draw is taken: a placed pattern leaves
- * the walk's stream exactly where it found it, which is what makes it the author rather than a
- * third amount the roll consults.
- *
- * Rolled instead: the rest, taken on the jumps the chance allows and strayed by as much as
- * `restSpread` either way. A pattern that never rests rolls nothing whichever author is live. A
- * refused wait is zero rather than a shorter one — the whole of what "no wait" means here is the
- * steps butting up, which is what a rest of zero already gives (P87).
- */
-function drawRest(random: () => number, spec: PlayerVoice, placed: boolean): number {
-  if (spec.rest === 0) return 0;
-  if (restIsPlaced(spec)) return placed ? spec.rest : 0;
-  if (random() >= spec.restChance) return 0;
-  return spec.rest * (1 + spec.restSpread * (2 * random() - 1));
-}
 
 /**
  * The pattern as a walk: call it for the next step, forever. The first step is the top of the loop
@@ -374,6 +303,14 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * here for the ground because this is where the counting happens (0192).
    */
   let stood = false;
+  /**
+   * How many jumps this walk has taken, which is what the two clocks the arrangement keeps count
+   * on where there is no arrangement to count: a pattern with nothing entered has no part to begin
+   * and no round to come round, so both fall back to **one whole row of the walk** — the sheet the
+   * scope draws, which is the one boundary such a pattern actually has and the one a hand can see
+   * go by (`PLAYER_SCOPE_LANDINGS`, 0192).
+   */
+  let rowed = 0;
   /**
    * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
    * grid. The one move this module makes, and the figure below is handed it so that an evolving
@@ -516,6 +453,13 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   const song = songIsDrawn(spec)
     ? createDrawnSong(spec, random, drawPart, partVoiceOf)
     : createSongs(spec.songs, partVoiceOf);
+  /**
+   * Whether that cursor stands anywhere at all — a drawn arrangement, or a written run holding a
+   * song that plays a part it does not pass over. The same rule the card reads to decide whether
+   * a part could be standing (principle 1, src/ui/PlayerCard.tsx); the ground's own clocks read it
+   * to know whether they have an arrangement to count on (0192).
+   */
+  const arranged = songIsDrawn(spec) || songsArePlayed(spec.songs);
 
   // One draw per field of a step, each with the paragraph saying why it is drawn where it is, and
   // above them the part boundary that decides which numbers those draws read. The length is the
@@ -566,6 +510,21 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // while the ground is a new *place* and there is only one loop to be in. A part arrives on
       // whatever bed the walk had moved to, exactly as it arrives on whatever slot the pattern was
       // reading — a song moves through the source the way it moves through the loop.
+    }
+    // And where nothing is arranged, that same tick off the picture's own row: `song()` hands back
+    // null at every jump of such a pattern, so the two clocks above would never come due at all —
+    // and a ground a hand asked to move on parts, on a pattern with no parts, is a control that
+    // does nothing rather than one that says so. Counted here and moved below, exactly as the part
+    // boundary is, so the move lands on the first jump of the row that moved it (0192).
+    //
+    // Counted on every unarranged pattern and not only where this yard's own period reads it, so
+    // the boundary is a fact about the walk rather than about the clock asking: a yard leading the
+    // session's shared ground reports it whatever its own `bedPer` says (0313, `rows` below).
+    const tops = !arranged && rowed > 0 && rowed % PLAYER_SCOPE_LANDINGS === 0;
+    if (!arranged) rowed++;
+    if (tops && spec.bedPer !== "jump") {
+      grounded++;
+      counted++;
     }
     /**
      * The cell this jump is written as, or null where the part is drawn. Read before anything the
@@ -713,6 +672,8 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       song: standingSong,
       place,
       opens: begun !== null,
+      first: begun?.first ?? false,
+      rows: tops,
     };
     // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern

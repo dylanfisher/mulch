@@ -36,6 +36,7 @@ import { drawCharacter, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { PlayerCharacter } from "./playerCast.ts";
 import type { SongPart } from "./playerSong.ts";
 import { mulberry32 } from "./random.ts";
+import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence, type PlayerStep } from "./playerWalk.ts";
 import { oneSong } from "./playerSongs.ts";
@@ -310,15 +311,59 @@ describe("the bed each step is read in", () => {
   });
 
   /**
-   * And a pattern with no song at all never moves on either of them, which is the honest answer
-   * rather than a fall back to jumps: there is no part to begin and no round to come round, so
-   * such a period never comes due (0192, P158, principle 5).
+   * And a pattern with nothing arranged counts both of them on one whole row of the scope: there
+   * is no part to begin and no round to come round, so the row the picture draws is the boundary
+   * such a pattern has — a ground asked to move on parts moves, rather than being a control that
+   * does nothing (0192, P158). Two rows walked, so the first row is the pattern beginning and the
+   * second is the one boundary in the run.
    */
-  it("never moves the ground on an arrangement's clock while the pattern has no song", () => {
+  it("counts an arrangement's clock on one row of the walk while the pattern has no song", () => {
     for (const bedPer of ["part", "song"] as const) {
-      const walked = beds(jumping({ bedPer, bedEvery: 1, bedReach: "nudge", bedWay: "on" }));
-      expect(new Set(walked)).toEqual(new Set([0]));
+      const walked = beds(
+        jumping({ bedPer, bedEvery: 1, bedReach: "nudge", bedWay: "on" }),
+        PLAYER_SCOPE_LANDINGS * 2,
+      );
+      // One ground for the whole of the first row, and one for the whole of the second.
+      expect(new Set(walked.slice(0, PLAYER_SCOPE_LANDINGS)).size).toBe(1);
+      expect(new Set(walked.slice(PLAYER_SCOPE_LANDINGS)).size).toBe(1);
+      expect(walked[0]).toBe(0);
+      expect(new Set(walked).size).toBe(2);
     }
+  });
+
+  /**
+   * And a pattern that *is* arranged does not read that fallback at all: the row is what the two
+   * clocks count where there is no arrangement to count, so a song of two-jump parts still moves
+   * at its own boundaries and nowhere near the twenty-fourth jump (0192).
+   */
+  it("counts the parts and not the row once a song is entered", () => {
+    const song = [part("plain", 2), part("plain", 2)];
+    const walked = beds(
+      { ...spec(song), bedPer: "part", bedEvery: 1, bedReach: "nudge", bedWay: "on" },
+      PLAYER_SCOPE_LANDINGS,
+    );
+    expect(new Set(walked).size).toBe(PLAYER_SCOPE_LANDINGS / 2);
+  });
+
+  /**
+   * And the row says so on the step itself, on every unarranged pattern and whatever this yard's
+   * own period is counted in: a yard leading the session's shared ground is asked for its
+   * boundaries and its own `bedPer` is about where *its* loop goes, so the flag is a fact about
+   * the walk rather than about the clock asking for it (0313).
+   */
+  it("says on the step where a whole row of an unarranged walk turned over", () => {
+    const rowed = playerSequence(jumping({ bedPer: "jump" }), PLAYER_SCOPE_LANDINGS * 2 + 1)
+      .map((step, at) => (step.rows ? at : -1))
+      .filter((at) => at >= 0);
+    expect(rowed).toEqual([PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_LANDINGS * 2]);
+  });
+
+  /** And it never says so on a pattern that is arranged: the row is what those clocks count where
+   *  there is no arrangement to count, and never a boundary beside the ones a song keeps (0192). */
+  it("says nothing on any step once a song is entered", () => {
+    const song = [part("plain", 2), part("plain", 2)];
+    const steps = playerSequence(spec(song), PLAYER_SCOPE_LANDINGS * 2 + 1);
+    expect(steps.some((step) => step.rows)).toBe(false);
   });
 });
 

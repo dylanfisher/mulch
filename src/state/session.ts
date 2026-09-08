@@ -13,7 +13,8 @@
 // kinds of thing a stored session holds. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
-import { assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
+import { assertGround, assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
+import type { SessionGround } from "@/lib/sessionGround";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import {
   BOUNDABLE_PARAM_IDS,
@@ -137,6 +138,13 @@ export type Session = {
    * nothing alike (0097).
    */
   sync: number | null;
+  /**
+   * The ground every yard with Together on reads instead of walking one of its own — where it
+   * comes home to, how many seconds between its moves, and the three words one move is said in.
+   * The second durable fact belonging to more than one deck, and the session's for the reason the
+   * clock is: a ground more than one yard reads is no one yard's to move (0313).
+   */
+  ground: SessionGround;
 };
 
 /**
@@ -259,6 +267,7 @@ export function sessionSnapshot(state: SessionState): Session {
       deck: deckSnapshot(clip.deck),
     })),
     sync: state.sync,
+    ground: { ...state.ground },
   };
 }
 
@@ -430,7 +439,7 @@ export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
   exactKeys(
     session,
-    ["activeDeck", "deckList", "decks", "spentDeckIds", "clips", "sync"],
+    ["activeDeck", "deckList", "decks", "spentDeckIds", "clips", "sync", "ground"],
     "session",
   );
 
@@ -469,6 +478,17 @@ export function validateSession(value: unknown): Session {
   // The one validator, shared with the command wire (src/lib/player.ts) — and no rule tying it
   // to any deck: a clock is the session's whether or not a yard is jumping on it (0097).
   assertSync(session.sync, "session.sync");
+  // And the shared ground beside it, through the same one validator and under the same rule: it
+  // is the session's whether or not a yard is standing on it (0313).
+  const ground = assertGround(session.ground, "session.ground");
+  // And the one thing that validator could not ask, because it knows no session: a ground counted
+  // on a yard's parts names a yard this session actually holds. The rule `activeDeck` is under,
+  // said for the ground (0029, 0313).
+  if (ground.leader !== null && !deckIds.includes(ground.leader)) {
+    throw new TypeError(
+      `session.ground.leader is not a held deck: ${JSON.stringify(ground.leader)}`,
+    );
+  }
   // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return value as Session;

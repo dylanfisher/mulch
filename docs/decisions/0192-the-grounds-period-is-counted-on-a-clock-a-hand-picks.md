@@ -29,10 +29,17 @@ move is heard as the part arriving somewhere new. `SongDraw` answers whether the
 of the arrangement rather than a walk comparing part ids, because the song's cursor is the one thing
 that knows which part of the run it just handed out (principle 1).
 
-**A pattern with no song never moves on either song clock.** No part begins and no round comes
-round, so the period never comes due — the honest answer, and not a fall back to jumps (principle
-5). `jump` is what a switch press leaves and is the module as it was before this field existed, so a
-switch pressed today moves its ground exactly as one pressed before this decision did.
+**Amended: a pattern with nothing arranged counts both song clocks on one whole row of the walk.**
+This decision used to say such a pattern never moves at all, on the grounds that no part begins and
+no round comes round. That is true of the arrangement and false of what a hand asked for: picking
+`parts` on a pattern with no parts left a control that did nothing and said so only in a tooltip.
+The row the scope draws — `PLAYER_SCOPE_LANDINGS` jumps, the sheet that turns over whole (0187) —
+is the one boundary such a pattern has and the one a hand can watch go by, so both clocks fall back
+to it and neither falls back to jumps: a period of four on `parts` is still four somethings and not
+four jumps. It is a fallback and never a fourth unit — the moment a part is entered, the clocks are
+the arrangement's again. `jump` is what a switch press leaves and is the module as it was before
+this field existed, so a switch pressed today moves its ground exactly as one pressed before this
+decision did.
 
 **Amended, P158 and then P170: the album's round was a fourth clock, and it is gone with the
 album.** `PLAYER_BED_PERS` gained `"album"` and has lost it again: the tier it counted no longer

@@ -107,6 +107,9 @@ export const renderPlayer = async ({ page }) => {
         // And nothing planted, so no ground arrives on a count of its own and the crawl above is
         // the only author of where the loop is (0194).
         beds: [],
+        // Walking its own ground and not the session's, which is what a switch press leaves: these
+        // files are the files this scenario rendered before a ground could be shared (0313).
+        bedTogether: false,
         // The jump's own three, left where a switch press leaves them: no lean, no stride and
         // never coming home, which is the wandering uniform jump this scenario rendered before a
         // jump could do any of the three — so these files are the files it rendered then (0162).

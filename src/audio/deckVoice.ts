@@ -12,10 +12,11 @@ import type { AutomationPoint } from "@/lib/automation";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import type { Loop } from "@/lib/timeline";
 import type { DeckPeek } from "./deckPeek";
-import type { DeckPlayer } from "./player";
+import type { DeckPlayer, GroundClock } from "./playerVoice";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
 import type { AutomationParamId, EffectParamValues, ParamId } from "./params";
+import type { SessionGround } from "@/lib/sessionGround";
 
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
@@ -56,6 +57,9 @@ export type DeckVoice = {
    *  transport state on the solo's own terms (0041). A property for the reason that one is. */
   armPlayer: DeckPlayer["armPart"];
   setSync(sync: number | null): void;
+  /** Hold the session's shared ground, whole. Read only while this yard's pattern has Together
+   *  on, and it is the session's whether one is standing on it or none is (0313). */
+  setGround(ground: SessionGround, clock: GroundClock): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */
   endGesture(): void;

@@ -294,7 +294,15 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  */
 export type PlayerVoice = Omit<
   PlayerDefaults,
-  "songs" | "cast" | "bedPer" | "bedWanders" | "bedReach" | "bedWay" | "beds" | "bypassed"
+  | "songs"
+  | "cast"
+  | "bedPer"
+  | "bedWanders"
+  | "bedReach"
+  | "bedWay"
+  | "beds"
+  | "bedTogether"
+  | "bypassed"
 >;
 
 /**

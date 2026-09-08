@@ -43,10 +43,10 @@ import type { DeckState } from "@/state/store";
 import { handlers, keyOf, PLAYER, playerCard, SWITCH } from "@/ui/playerCardDouble";
 import { PlayerFront } from "@/ui/PlayerFront";
 
-/** Every press the Which Ground fold draws: the clock's words, and the move's — stays put or
- *  wanders, the three reaches and the three ways (0192, 0277). */
+/** Every press the Which Ground fold draws: whose ground it is, the clock's words, and the
+ *  move's — stays put or wanders, the three reaches and the three ways (0192, 0277, 0313). */
 const GROUND_WORDS =
-  PLAYER_BED_PERS.length + 2 + PLAYER_BED_REACHES.length + PLAYER_BED_WAYS.length;
+  2 + PLAYER_BED_PERS.length + 2 + PLAYER_BED_REACHES.length + PLAYER_BED_WAYS.length;
 
 /**
  * The card as this suite reads it: every fold open, because what a claim about the switch reads is
@@ -99,8 +99,8 @@ describe("the jumps card's switch", () => {
     // Every dial the module declares is refused — all of them, because none of them is behind
     // anything any more (0195) — and each is painted from the switch's own values rather than from
     // a spec the card invented: the gate a press of that switch would send is 0. The presses
-    // beyond them are the ground's four rows of words — the clock its period is counted on, and
-    // the three the move is said in, one press per word (0192, 0277, P158) — and the six names
+    // beyond them are the ground's five rows of words — whose ground it is, the clock its period
+    // is counted on, and the three the move is said in, one press per word (0192, 0277, 0313) — and the six names
     // on the cast's own pad, which are presses drawn inside a picture (0259).
     const refused = PLAYER_KNOBS.length + GROUND_WORDS + PLAYER_CHARACTERS.length;
     expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);

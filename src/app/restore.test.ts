@@ -16,6 +16,7 @@ import {
 } from "@/state/store";
 import { clipRestorationCommands, restorationCommands, restoreInto } from "./restore";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { SESSION_GROUND_DEFAULTS } from "@/lib/sessionGround";
 
 /** One rack entry at its plugin's defaults — the fixture every case below dresses further. */
 const instance = (
@@ -56,6 +57,7 @@ describe("restoration command order", () => {
         bedWanders: true,
         bedReach: "nudge",
         bedWay: "either",
+        bedTogether: false,
         seed: 9,
         bias: 0,
         stride: 0,
@@ -146,6 +148,7 @@ describe("restoration command order", () => {
           bedWanders: true,
           bedReach: "nudge",
           bedWay: "either",
+          bedTogether: false,
           seed: 9,
           bias: 0,
           stride: 0,
@@ -226,6 +229,18 @@ describe("restoration command order", () => {
    * and before any of them is activated — which is what carries it into an export, since an
    * export is this list through the render harness (0097, 0068).
    */
+  it("restores the shared ground once, after the yards it applies to", () => {
+    const store = createSessionStore();
+    const commands = restorationCommands(sessionSnapshot(store.getState()));
+    // Always, and whatever it holds: unlike the clock beside it there is no "no ground" to skip.
+    expect(commands.filter(({ t }) => t === "session.ground")).toEqual([
+      { t: "session.ground", ground: SESSION_GROUND_DEFAULTS },
+    ]);
+    const kinds = commands.map(({ t }) => t);
+    expect(kinds.lastIndexOf("deck.add")).toBeLessThan(kinds.indexOf("session.ground"));
+    expect(kinds.indexOf("session.ground")).toBeLessThan(kinds.indexOf("deck.activate"));
+  });
+
   it("restores the shared jump clock once, after the yards it applies to", () => {
     const store = createSessionStore();
     expect(restorationCommands(sessionSnapshot(store.getState()))).not.toContainEqual(
@@ -249,10 +264,15 @@ describe("restoration command order", () => {
       spentDeckIds: ["a"],
       clips: [],
       sync: null,
+      ground: SESSION_GROUND_DEFAULTS,
     });
-    // A session that holds none is the booted deck's removal and nothing else: no add, and no
-    // activation, because there is no deck to name (0029).
-    expect(empty).toEqual([{ t: "deck.remove", deck: "a" }]);
+    // A session that holds none is the booted deck's removal and the ground under it: no add, and
+    // no activation, because there is no deck to name (0029). The ground is always sent — it is a
+    // whole shape rather than a clock that may be absent, so there is no null to pass over (0313).
+    expect(empty).toEqual([
+      { t: "deck.remove", deck: "a" },
+      { t: "session.ground", ground: SESSION_GROUND_DEFAULTS },
+    ]);
 
     const store = createSessionStore();
     addDeck(store, "x", "🌴", "North Willow");
