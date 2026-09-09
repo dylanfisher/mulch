@@ -15,6 +15,7 @@ import {
   PLAYER_BEDS_MAX,
   type PlantedBed,
 } from "./playerBed.ts";
+import { PLAYER_ZONE_MAX, PLAYER_ZONE_MIN } from "./playerZone.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence } from "./playerWalk.ts";
 import type { PlayerSpec } from "./player.ts";
@@ -73,6 +74,23 @@ export function bedAt(secs: number, loopIn: number, span: number): number {
   // takes with its own pair (principle 5, src/lib/playerBed.ts).
   const bed = rounded === 0 ? 0 : rounded;
   return Math.min(PLAYER_BED_MAX, Math.max(PLAYER_BED_MIN, bed));
+}
+
+/**
+ * The offset a point on the source names, in the loop's own sixteenths: `bedAt` said in the unit a
+ * zone is counted in (0318). A sixteenth and not a whole bed, because that is the unit `bedBounds`
+ * answers in and a zone is a narrowing of what it answers — a hand marking an edge is saying where
+ * the crawl may reach, and the crawl crosses sixteenths.
+ *
+ * Clamped to the zone's own reach rather than to the file's, for the reason `bedAt` is clamped to
+ * the dial's: which grounds a buffer actually holds is folded where that is known.
+ */
+export function zoneAt(secs: number, loopIn: number, span: number): number {
+  if (span <= 0) return 0;
+  const rounded = Math.round(((secs - loopIn) * PLAYER_SLOTS) / span);
+  // The `-0` care `bedAt` takes, for a number written into the same durable spec.
+  const at = rounded === 0 ? 0 : rounded;
+  return Math.min(PLAYER_ZONE_MAX, Math.max(PLAYER_ZONE_MIN, at));
 }
 
 /**

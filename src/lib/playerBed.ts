@@ -2,7 +2,8 @@
  * @role The ground a loop is read on: how far through the source the loop has been moved, in the
  *   loop's own **sixteenths**, which bed the song opens on, how often the ground moves, how far
  *   it reaches and which way when it does, said in three words rather than three numbers (0185,
- *   0277), and the grounds a hand kept for the song to come back to on counts of their own (0194).
+ *   0277), the grounds a hand kept for the song to come back to on counts of their own (0194), and the
+ *   zone a hand marked for every one of them to stand inside (0318).
  *   The song's, not a part's (0184). Pure maths — no clock, no PRNG and no buffer: an index here
  *   is unbounded, and what it finally lands on is resolved where the buffer is (0183, the way a
  *   travel is clamped where it is applied).
@@ -14,7 +15,9 @@
  *   src/lib/playerKnobs.ts.
  */
 import { exactKeys, objectAt, whole } from "./guards.ts";
+import type { BedZone } from "./playerZone.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
+import { clamp } from "./range.ts";
 
 /**
  * How far from the loop's own bed a song may open, in beds either way. Zero is the loop itself,
@@ -250,6 +253,14 @@ export type BedSpec = {
    * up). What it reads is `SessionGround` in src/lib/sessionGround.ts.
    */
   bedTogether: boolean;
+  /**
+   * The stretch of the source the ground may stand in, or **null where a hand has marked none** —
+   * which is unbounded, and is this module as it stood before a zone could be marked (0318). It
+   * narrows `bedBounds` and nothing else: the crawl, the planted beds and the shared ground a
+   * Together yard reads all land inside it through that one fold, so no reader of a ground has to
+   * ask whether a zone exists.
+   */
+  zone: BedZone | null;
 };
 
 /**
@@ -274,15 +285,24 @@ export const bedMove = (spec: BedSpec): { distance: number; bias: number; home: 
  * used to hop. The bed itself is unchanged — it is one loop-length of source *beginning at the
  * offset*, which is what a burst is still clamped inside (0183, `bedStart`, src/audio/player.ts).
  *
- * **Offset zero is always one of them.** The loop is inside the buffer by construction
- * (`setLoop` clamps both edges, src/audio/deck.ts), so `from` is never above zero and `to` never
- * below it — a loop with no room either side is a pattern that never leaves it, which is this
- * module before it could move.
+ * **A zone narrows this and never widens it** (0318): the room the buffer answers for is the outer
+ * bound whatever a hand marked, so a zone reaching past the file is the file. This is the one
+ * place a zone is read — the crawl, the planted beds and the session's own ground all reach the
+ * buffer through it, so they land inside a marked zone by the same arithmetic and no reader of a
+ * ground asks whether one exists.
+ *
+ * **Offset zero is no longer promised.** Unzoned it still is: the loop is inside the buffer by
+ * construction (`setLoop` clamps both edges, src/audio/deck.ts), so `from` is never above zero and
+ * `to` never below it. A zone marked at the far end of a file does not contain it, and the home
+ * roll — a yard's own `bed`, or the shared ground's zero (src/lib/sessionGround.ts) — is then
+ * folded onto the zone by `bedWrap` the way anything else is. That is the honest reading of a hand
+ * that said "only here": coming home means the nearest home inside the zone (0318 amending this).
  */
 export function bedBounds(
   loopIn: number,
   span: number,
   duration: number,
+  zone: BedZone | null,
 ): { from: number; to: number } {
   if (span <= 0) return { from: 0, to: 0 };
   const step = span / PLAYER_SLOTS;
@@ -290,10 +310,13 @@ export function bedBounds(
   // at the very start of the file answers `0` and never `-0`: the two are `Object.is`-distinct, and
   // this pair is compared, spread onto a grid and read back out on every pass (principle 5).
   const back = Math.floor(loopIn / step);
-  return {
-    from: back > 0 ? -back : 0,
-    to: Math.max(0, Math.floor((duration - span - loopIn) / step)),
-  };
+  const from = back > 0 ? -back : 0;
+  const to = Math.max(0, Math.floor((duration - span - loopIn) / step));
+  if (zone === null) return { from, to };
+  // Each edge pulled into the room rather than intersected: a zone wholly past the end of a short
+  // file then answers the nearest ground that file holds, where an empty intersection would be a
+  // pair nothing could be folded onto.
+  return { from: clamp(zone.from, from, to), to: clamp(zone.to, from, to) };
 }
 
 /**
@@ -326,15 +349,18 @@ export function bedWrap(offset: number, from: number, to: number): number {
  *
  * **`on` is zero exactly when the ground is the loop itself** — a pattern that has not been moved.
  * A rectangle drawn there claims a move that never happened, and a plant there writes back the loop
- * the hand already set, so both callers read it as nothing to do.
+ * the hand already set, so both callers read it as nothing to do. A zone that does not reach the
+ * loop is the one thing that makes zero unreachable, and there `on` is the nearest ground the hand
+ * left (0318).
  */
 export function bedGround(
   loopIn: number,
   span: number,
   duration: number,
   offset: number,
+  zone: BedZone | null,
 ): { on: number; in: number } {
-  const { from, to } = bedBounds(loopIn, span, duration);
+  const { from, to } = bedBounds(loopIn, span, duration, zone);
   const on = bedWrap(offset, from, to);
   return { on, in: loopIn + (on * span) / PLAYER_SLOTS };
 }

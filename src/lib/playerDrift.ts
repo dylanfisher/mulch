@@ -257,7 +257,10 @@ export const playerRowStand = (
   duration: number,
 ): { centre: number; ground: number } | null => {
   if (bed === null || loop === null || duration <= 0) return null;
-  const stood = bedGround(loop.in, loop.out - loop.in, duration, bed);
+  // Unzoned, which is this picture's one known cost: the anchor is read off a per-frame peek that
+  // carries no spec, so a yard with a zone marked anchors its rows where the walk would have stood
+  // without one (plan §4). Nothing else here reads a ground.
+  const stood = bedGround(loop.in, loop.out - loop.in, duration, bed, null);
   return { centre: standingCentre(stood.in, duration), ground: stood.on };
 };
 

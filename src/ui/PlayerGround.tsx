@@ -22,28 +22,38 @@ import type { Instrument } from "@/app/facade";
 import { PLAYER_GROUP_LABELS, yardLabel } from "@/lib/copy";
 import type { PlayerSpec } from "@/lib/player";
 import { bedGround } from "@/lib/playerBed";
-import { bedAt, groundsAhead, plantBed } from "@/lib/playerGround";
+import type { BedZone } from "@/lib/playerZone";
+import { bedAt, groundsAhead, plantBed, zoneAt } from "@/lib/playerGround";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { offsetPx, pxToSecs, type Loop } from "@/lib/timeline";
 import type { DeckId } from "@/state/store";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
-import { usePointerGesture } from "@/ui/gesture";
+import { PlayerGroundZone, spanning, zoneBlock, type Block } from "@/ui/PlayerGroundZone";
+import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 
-/** One rectangle on the strip: where it begins and how wide it is, both as CSS percentages. */
-type Block = { left: string; width: string };
+/**
+ * Which of the strip's gestures a pointer went down on. `ground` is the plain drag that moves the
+ * window, `mark` the Shift-drag that sweeps a zone out of its own two ends, and the two edges are
+ * the elements a zone is dragged narrower or wider by — targets a pointer either hit or did not,
+ * the way the loop's own strip discriminates its four (0053, src/ui/LoopHandles.tsx).
+ */
+type Grip = "ground" | "mark" | "from" | "to";
 
-/** The drag in flight, which carries nothing but its pointer: every move commits the bed it
- *  reached, so there is nothing painted ahead of the store to put back (0114, src/ui/Knob.tsx). */
-type Drag = { pointerId: number };
+/** The drag in flight: its pointer, which gesture it is, and — for the two edge grips — the zone
+ *  as it stood when the pointer went down, so the edge that is not moving is held still. Every
+ *  move commits what it reached, so there is nothing painted ahead of the store to put back
+ *  (0114, src/ui/Knob.tsx). */
+type Drag = Tracked & { pointerId: number; grip: Grip; anchor: number; zone: BedZone | null };
 
 /**
  * One ground as a block over the buffer: the offset folded onto the source the deck is holding,
  * and one loop-length from there. `bedGround` is the fold and the second at once, which is what
- * keeps this rectangle and the loop a plant writes in step (principle 1, 0185).
+ * keeps this rectangle and the loop a plant writes in step (principle 1, 0185). The zone goes in
+ * with it, so every block on this strip lands inside a marked one exactly as the sound does (0318).
  */
-const blockOf = (loop: Loop, duration: number, offset: number): Block => {
+const blockOf = (loop: Loop, duration: number, offset: number, zone: BedZone | null): Block => {
   const span = loop.out - loop.in;
-  const ground = bedGround(loop.in, span, duration, offset);
+  const ground = bedGround(loop.in, span, duration, offset, zone);
   return { left: pct(ground.in, duration), width: pct(span, duration) };
 };
 
@@ -85,14 +95,23 @@ export function PlayerGround({
   /** The window the loop itself is, which is bed zero and the thing every other block is read
    *  against: a hand reading this strip is asking "where is the loop, and where is it being read
    *  instead". */
-  const home = useMemo(() => (loop === null ? null : blockOf(loop, duration, 0)), [loop, duration]);
+  const zone = player?.zone ?? null;
+  // Unzoned, and it is the one block here that is: the loop is a fact about the deck rather than a
+  // ground the walk reaches, so folding it would move the marker every other block is read against
+  // off the loop the handles and the waveform both draw (0183, 0318).
+  const home = useMemo(
+    () => (loop === null ? null : blockOf(loop, duration, 0, null)),
+    [loop, duration],
+  );
   /** The ground the song opens on — the block a drag carries. Drawn even at bed zero, where it
    *  sits exactly on the loop's own window: it is the thing a hand takes hold of, and one that
    *  appeared only once the pattern had moved would be a control nobody could find (0121). */
   const opens = useMemo(
     () =>
-      loop === null || player === null ? null : blockOf(loop, duration, player.bed * PLAYER_SLOTS),
-    [loop, duration, player],
+      loop === null || player === null
+        ? null
+        : blockOf(loop, duration, player.bed * PLAYER_SLOTS, zone),
+    [loop, duration, player, zone],
   );
   /** And the grounds a hand kept, marked wherever they fall on the source: the song comes back to
    *  each on a count of its own, so they are places on this picture and not moves on it (0194). */
@@ -100,8 +119,8 @@ export function PlayerGround({
     () =>
       loop === null || player === null
         ? []
-        : player.beds.map((one) => blockOf(loop, duration, one.bed * PLAYER_SLOTS)),
-    [loop, duration, player],
+        : player.beds.map((one) => blockOf(loop, duration, one.bed * PLAYER_SLOTS, zone)),
+    [loop, duration, player, zone],
   );
   /** And where the pattern's own moves go next, off the walk the transport lays: a picture of the
    *  moves being made rather than a second opinion about them (`groundsAhead`, 0089). */
@@ -109,8 +128,14 @@ export function PlayerGround({
     () =>
       loop === null || player === null
         ? []
-        : groundsAhead(player).map((offset) => blockOf(loop, duration, offset)),
-    [loop, duration, player],
+        : groundsAhead(player).map((offset) => blockOf(loop, duration, offset, zone)),
+    [loop, duration, player, zone],
+  );
+  /** And the zone a hand marked, or nothing where none is: the one block on this strip that is a
+   *  bound rather than a ground (0318). */
+  const marked = useMemo(
+    () => (loop === null || zone === null ? null : zoneBlock(loop, duration, zone)),
+    [loop, duration, zone],
   );
 
   /** Where a press or a move landed, as the bed it names. The reading is taken off the padding
@@ -120,6 +145,16 @@ export function PlayerGround({
       if (loop === null) return 0;
       const secs = pxToSecs(offsetPx(root, clientX), duration, root.clientWidth);
       return bedAt(secs, loop.in, loop.out - loop.in);
+    },
+    [loop, duration],
+  );
+  /** And the same reading in the unit a zone is counted in: the loop's own sixteenths, which is
+   *  what `bedBounds` is narrowed in (`zoneAt`, 0318). */
+  const edge = useCallback(
+    (root: HTMLDivElement, clientX: number): number => {
+      if (loop === null) return 0;
+      const secs = pxToSecs(offsetPx(root, clientX), duration, root.clientWidth);
+      return zoneAt(secs, loop.in, loop.out - loop.in);
     },
     [loop, duration],
   );
@@ -146,31 +181,148 @@ export function PlayerGround({
     },
     [patch, player],
   );
+  /** And the third: the zone the ground is bounded to, or null where a hand cleared it. Unchanged
+   *  is unsent for the reason a bed is — a sweep crosses a sixteenth once and reports a pointer
+   *  move a hundred times — and the whole gesture is one `zone` patch, so a drag is one history
+   *  entry the card closes on release (0067, src/ui/PlayerCard.tsx). */
+  const mark = useCallback(
+    (next: BedZone | null) => {
+      if (player === null) return;
+      const held = player.zone;
+      if (next === null ? held === null : held?.from === next.from && held.to === next.to) return;
+      patch({ zone: next });
+    },
+    [patch, player],
+  );
+  /** One gesture begun, whichever grip it is: the pointer, the reading it went down on and — for
+   *  the two edges — the zone that edge is moved against. */
+  const begin = useCallback(
+    (target: HTMLDivElement, event: PointerEvent<HTMLDivElement>, grip: Grip) => {
+      drag.begin(target, event, {
+        pointerId: event.pointerId,
+        downClientX: event.clientX,
+        grip,
+        // Only a sweep has one, and only a sweep is measured against the strip it went down on:
+        // an edge grip captures on the handle itself, whose box is not the ruler.
+        anchor: grip === "mark" ? edge(target, event.clientX) : 0,
+        zone: player?.zone ?? null,
+        // Overwritten by the first `track`, on a move or on the release, before anything reads it.
+        current: 0,
+        moved: false,
+      });
+    },
+    [drag, edge, player],
+  );
   const onDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (disabled || player === null || loop === null || event.button !== 0) return;
-      // The modifier is read before the drag begins, so keeping a ground never moves the window
-      // the press landed on: two gestures on one picture, and a press is one of them (0194).
+      // The modifiers are read before the drag begins, so neither of the other two gestures moves
+      // the window the press landed on: three gestures on one picture, and the plain drag is the
+      // one a hand makes most (0194, 0318).
       if (event.altKey) {
         keep(reach(event.currentTarget, event.clientX));
         return;
       }
-      drag.begin(event.currentTarget, event, { pointerId: event.pointerId });
+      // A Shift press writes nothing yet: it is a sweep until it has travelled, and a press that
+      // never travels is the one that clears the zone — read on the release, where that is known.
+      if (event.shiftKey) {
+        begin(event.currentTarget, event, "mark");
+        return;
+      }
+      begin(event.currentTarget, event, "ground");
       write(reach(event.currentTarget, event.clientX));
     },
-    [disabled, drag, keep, loop, player, reach, write],
+    [begin, disabled, keep, loop, player, reach, write],
+  );
+  /** A press on one of the zone's own two edges, which is a target a pointer either hit or did
+   *  not — and never also the drag that moves the window, so the press stops here (0053). */
+  const onDownEdge = useCallback(
+    (event: PointerEvent<HTMLDivElement>, grip: "from" | "to") => {
+      if (disabled || player === null || loop === null || event.button !== 0) return;
+      if (player.zone === null) return;
+      event.stopPropagation();
+      begin(event.currentTarget, event, grip);
+    },
+    [begin, disabled, loop, player],
+  );
+  const onDownFrom = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      onDownEdge(event, "from");
+    },
+    [onDownEdge],
+  );
+  const onDownTo = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      onDownEdge(event, "to");
+    },
+    [onDownEdge],
+  );
+  /** What a gesture that has travelled asks for, read live so a move and the release that follows
+   *  it cannot disagree: a sweep is drawn out of its own two ends, and an edge against the one it
+   *  is not moving (the shape `LoopHandles.asked` has). */
+  const commit = useCallback(
+    (active: Drag) => {
+      if (active.grip === "ground") {
+        write(active.current);
+        return;
+      }
+      if (active.grip === "mark") {
+        mark(spanning(active.anchor, active.current));
+        return;
+      }
+      const held = active.zone;
+      // `onDownEdge` refuses an edge grip without one, and the edges are drawn only where there is
+      // a zone, so this cannot happen (principle 5, the claim `LoopHandles` makes of its origin).
+      if (held === null) throw new Error(`a ${active.grip} edge began with no zone to move`);
+      mark(spanning(active.grip === "from" ? held.to : held.from, active.current));
+    },
+    [mark, write],
   );
   const onMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (drag.matched(event) === null) return;
-      write(reach(event.currentTarget, event.clientX));
+      const active = drag.matched(event);
+      if (active === null) return;
+      const root = event.currentTarget;
+      if (active.grip === "ground") {
+        track(active, event.clientX, reach(root, event.clientX));
+        write(active.current);
+        return;
+      }
+      track(active, event.clientX, edge(root, event.clientX));
+      if (active.moved) commit(active);
     },
-    [drag, reach, write],
+    [commit, drag, edge, reach, write],
   );
-  /** The hand let go, and that is the whole of it: the card above this closes the history entry
-   *  for every gesture inside it, because every dial on it patches the one `deck.player` and no
-   *  one control is the place for that boundary (0067, src/ui/PlayerCard.tsx). */
+  /**
+   * The hand let go. The card above this closes the history entry for every gesture inside it,
+   * because every dial on it patches the one `deck.player` and no one control is the place for
+   * that boundary (0067, src/ui/PlayerCard.tsx) — so what is left here is the release's own
+   * position and the one press that clears the zone (0318).
+   *
+   * The release is a position of its own: the browser coalesces the moves of a frame, so the last
+   * pixels of a drag reach the page here and nowhere else, and a whole flick can arrive as a press
+   * and a release with nothing between them. Read once and then asked, or a flick would be a press
+   * that never travelled — which is the gesture that clears the zone it meant to sweep
+   * (src/ui/gesture.ts, the read `LoopHandles` takes on its own release).
+   */
   const onUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const active = drag.ended(event);
+      if (active === null) return;
+      const root = event.currentTarget;
+      track(
+        active,
+        event.clientX,
+        active.grip === "ground" ? reach(root, event.clientX) : edge(root, event.clientX),
+      );
+      if (active.moved) commit(active);
+      else if (active.grip === "mark") mark(null);
+    },
+    [commit, drag, edge, mark, reach],
+  );
+  /** A gesture the browser ended commits nothing, which is what a cancel has always meant here:
+   *  the clear above is a press a hand made and let go of, not one it was interrupted in (0114). */
+  const onCancel = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       drag.ended(event);
     },
@@ -196,7 +348,7 @@ export function PlayerGround({
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
-      onPointerCancel={onUp}
+      onPointerCancel={onCancel}
     >
       <canvas ref={canvasRef} className="size-full text-muted-foreground" aria-hidden="true" />
       {/* Where the loop itself is, in the loop's own ink at the level the waveform draws a moved
@@ -234,6 +386,16 @@ export function PlayerGround({
           style={block}
         />
       ))}
+      {/* The zone a hand marked, under everything it bounds, or nothing where none is: the whole
+            file, which is the strip as it was (0318). */}
+      {marked !== null && (
+        <PlayerGroundZone
+          block={marked}
+          named={named}
+          onDownFrom={onDownFrom}
+          onDownTo={onDownTo}
+        />
+      )}
       {/* The block a hand moves, and the one thing on this strip that is a control. */}
       {opens !== null && (
         <div

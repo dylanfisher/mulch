@@ -47,6 +47,7 @@ import {
   PLAYER_BED_WAYS,
   bedsOf,
 } from "./playerBed.ts";
+import { zoneOf } from "./playerZone.ts";
 import {
   PLAYER_RATCHET_MAX,
   PLAYER_RATCHET_MIN,
@@ -162,6 +163,7 @@ const PLAYER_FIELDS = [
   "bedWay",
   "beds",
   "bedTogether",
+  "zone",
   ...PLAYER_KNOBS,
 ] as const;
 
@@ -206,6 +208,9 @@ const PART_VOICE_FILLER = {
   // Off, which is the legal value that says nothing here too: a part is one yard's and the shared
   // ground is the session's, so a part could not carry this if it wanted to (0313).
   bedTogether: false,
+  // And no zone, which is the legal value that says nothing for the reason the switch above is:
+  // where the loop may stand is the song's and never a part's (0184, 0318).
+  zone: null,
 } as const;
 
 /**
@@ -313,6 +318,10 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     beds: bedsOf(raw["beds"], `${at} beds`),
     // And whether the yard walks that ground at all, or reads the session's instead (0313).
     bedTogether: flag(raw["bedTogether"], `${at} bedTogether`),
+    // And the stretch of the source all of that is bounded to, or null where a hand marked none —
+    // checked by the same module, for the reason the planted beds are: it is a pair and not a
+    // number, so it is keyed and bounded there (0318, src/lib/playerBed.ts).
+    zone: zoneOf(raw["zone"], `${at} zone`),
     bed: whole(raw["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${at} bed`),
     bedEvery: whole(raw["bedEvery"], PLAYER_BED_EVERY_MIN, PLAYER_BED_EVERY_MAX, `${at} bedEvery`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
@@ -552,6 +561,9 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         // hand wrote is durable, so it has one spelling (0021).
         beds: player.beds.map((planted) => ({ bed: planted.bed, every: planted.every })),
         bedTogether: player.bedTogether,
+        // Rebuilt rather than carried, for the reason a song's parts are: two edges in their own
+        // declared order is one spelling, whichever order the command that set them was keyed in.
+        zone: player.zone === null ? null : { from: player.zone.from, to: player.zone.to },
         bed: player.bed,
         bedEvery: player.bedEvery,
         distance: player.distance,

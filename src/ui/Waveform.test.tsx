@@ -158,20 +158,20 @@ describe("Waveform's frame", () => {
       player: { step, at: 0, sparkPosition: 2.5, armed: null },
     };
     const loop = { in: 1, out: 3 };
-    paintTransport(read, 10, loop, 200, surfaces, worn);
+    paintTransport(read, 10, loop, null, 200, surfaces, worn);
     expect(playhead.wrote).toEqual(["transform: translateX(30px)"]);
     expect(spark.wrote).toEqual(["transform: translateX(50px)"]);
     expect(ground.wrote).toEqual(["left: 11.25%", "width: 20%"]);
     expect(meter.wrote).toEqual(["transform: scaleX(0.5)"]);
 
-    paintTransport(read, 10, loop, 200, surfaces, worn);
+    paintTransport(read, 10, loop, null, 200, surfaces, worn);
     expect(playhead.wrote).toHaveLength(1);
     expect(spark.wrote).toHaveLength(1);
     expect(ground.wrote).toHaveLength(2);
     expect(meter.wrote).toHaveLength(1);
 
     // The clock and the meter move; the spark and the ground stand where they were.
-    paintTransport({ ...read, position: 1.75, meter: 0.25 }, 10, loop, 200, surfaces, worn);
+    paintTransport({ ...read, position: 1.75, meter: 0.25 }, 10, loop, null, 200, surfaces, worn);
     expect(playhead.wrote).toEqual(["transform: translateX(30px)", "transform: translateX(35px)"]);
     expect(spark.wrote).toHaveLength(1);
     expect(ground.wrote).toHaveLength(2);

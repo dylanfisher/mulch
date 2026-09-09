@@ -18,7 +18,7 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
-import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid } from "./playerGrid";
+import { bedStart, gridOf, gridSpan, loopIn, slotStart, zonedGrid, type Grid } from "./playerGrid";
 import { seam } from "./playerSeam";
 import { readInto, windowOf } from "./playerWindow";
 import { syncedFrom } from "@/lib/playerClock";
@@ -629,6 +629,12 @@ export function createDeckPlayer(
         pending = null;
         landing = null;
       }
+      // And the zone the pass is laid against, read again: it is the one thing about the grid a
+      // hand can move without restarting the deck, and left alone the sound would go on arming
+      // steps outside a zone every picture had already folded into (0318).
+      if (running !== null) {
+        running.grid = zonedGrid(running.grid, running.buffer.duration, next?.zone ?? null);
+      }
       // A knob is heard where it is turned: the steps past the lookahead are cancelled and the
       // tail derived again. The step already sounding keeps its window and its seams, so a move
       // lands at the end of the burst being played rather than at the end of the arming horizon
@@ -705,7 +711,9 @@ export function createDeckPlayer(
     },
 
     begin: (buffer, loop, at, startRate) => {
-      const grid = gridOf(loop, startRate, buffer.duration);
+      // The zone the spec was holding when the pass began, folded into the grid's own bounds once
+      // for the whole pass — the same shape the room the buffer answers for has (0318).
+      const grid = gridOf(loop, startRate, buffer.duration, spec?.zone ?? null);
       if (spec === null || grid === null) return null;
       running = { buffer, grid };
       walk = playerWalk(soloSongs(spec, solo));

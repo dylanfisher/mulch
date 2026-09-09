@@ -33,9 +33,11 @@ import { mulberry32 } from "./random.ts";
  *
  * **And there is no bed here to come home to.** A yard's own ground opens on the bed a hand put it
  * on, and a shared one cannot: two yards may hold two sources, so the bed one of them chose is
- * nowhere on the other. Offset zero is the one ground every yard has, whatever it loaded — it is
- * the loop itself, and `bedBounds` guarantees it is always reachable — so staying put comes home
- * there (src/lib/playerBed.ts).
+ * nowhere on the other. Offset zero is the one ground every yard can name, whatever it loaded — it
+ * is the loop itself — so staying put comes home there. Where that home *lands* is the reading
+ * yard's: since 0318 a zone that yard marked may not contain the loop, and this offset is then
+ * folded onto the nearest home inside it, exactly as any other is (`bedWrap`,
+ * src/lib/playerBed.ts).
  */
 export type SessionGround = {
   /**
@@ -129,7 +131,8 @@ export const SESSION_GROUND_DEFAULTS: SessionGround = {
 const GROUND_SEED = 0x67726e64;
 
 /** Where it opens, and where staying put brings it home to: the loop itself, which is the one
- *  ground every yard has whatever it loaded (`bedBounds`, src/lib/playerBed.ts). */
+ *  ground every yard can name whatever it loaded — folded, on the reading yard, onto whatever zone
+ *  that yard marked (`bedWrap`, src/lib/playerBed.ts, 0318). */
 const GROUND_HOME = 0;
 
 /**

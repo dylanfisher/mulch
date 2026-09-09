@@ -19,7 +19,20 @@ import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
  * the reason the scope's sentence and the written row's are said on their eyebrows (0080, 0188,
  * 0191, 0217): a canvas is not a thing a pointer can rest on or a keyboard can reach.
  */
-export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. Option-click anywhere on it to keep that ground, or to let a kept one go.`;
+export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. Option-click anywhere on it to keep that ground, or to let a kept one go. Shift-drag to mark the zone the ground stays inside, and shift-click to clear it back to the whole sound.`;
+
+/**
+ * The zone a hand marked, as the two edges it is dragged by and the sentence over them. Not a dial
+ * and so not a row of `PLAYER_SONG_KNOBS`: two edges are a place and not an amount, and a place is
+ * marked on the picture of the file rather than turned (0318, the argument that put the kept
+ * grounds on the strip and not in a box).
+ *
+ * "Zone" and not "Region": the loop's own strip already calls the span between its handles a
+ * region, and one word for two spans on one card is the drift these files exist to prevent (0097).
+ */
+export const PLAYER_ZONE_LABEL = "Zone";
+export const PLAYER_ZONE_FROM = "The near edge of the zone the ground stays inside.";
+export const PLAYER_ZONE_TO = "The far edge of the zone the ground stays inside.";
 
 /**
  * What the ground's period is counted in, as the eyebrow over the three presses and the word each

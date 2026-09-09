@@ -48,6 +48,7 @@ import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
 import { bedGround } from "@/lib/playerBed";
+import type { BedZone } from "@/lib/playerZone";
 import { useOnFrame } from "@/ui/frame";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -96,6 +97,9 @@ export function paintTransport(
   at: Readonly<DeckPeek>,
   duration: number,
   loop: Loop | null,
+  /** The stretch the yard's ground is bounded to, or null where none is marked: the rectangle is
+   *  folded onto the same narrowed bounds the sound is, so the two cannot disagree (0318). */
+  zone: BedZone | null,
   width: number,
   surfaces: Surfaces,
   worn: Worn,
@@ -134,7 +138,7 @@ export function paintTransport(
     // the press would not write (principle 1, `bedGround`, src/lib/playerBed.ts). The transport
     // keeps its own, on a grid it folded once for the whole pass (`bedStart`, src/audio/player.ts).
     const stood =
-      loop === null || bed === undefined ? null : bedGround(loop.in, span, duration, bed);
+      loop === null || bed === undefined ? null : bedGround(loop.in, span, duration, bed, zone);
     ground.style.display = stood === null || stood.on === 0 ? "none" : "";
     if (stood !== null && stood.on !== 0) {
       const left = `${(100 * stood.in) / duration}%`;
@@ -395,11 +399,12 @@ export function Waveform({
       instrument.peek(deck),
       state.duration,
       state.loop,
+      state.player?.zone ?? null,
       widthRef.current,
       surfaces.current,
       worn.current,
     );
-  }, [instrument, deck, state.duration, state.loop, widthRef]);
+  }, [instrument, deck, state.duration, state.loop, state.player, widthRef]);
 
   useOnFrame(paintFrame, state.playing);
 

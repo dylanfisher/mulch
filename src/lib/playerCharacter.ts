@@ -238,6 +238,10 @@ export const PLAYER_DEFAULTS = {
   // one press (0313). No region names it either, and for the reason none names `beds` — whether
   // two yards move together is a fact about the session and not a texture a die may draw.
   bedTogether: false,
+  // And no zone marked, which is the whole file: the ground stands wherever the source has room
+  // for it, exactly as it did before a hand could bound it (0318). No region names this either,
+  // and for the reason none names `beds` — a stretch of the file a hand chose is a *where*.
+  zone: null,
 } as const satisfies PlayerDefaults;
 
 // The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the

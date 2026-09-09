@@ -48,6 +48,7 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
   bedWay: "either",
   bedTogether: false,
   beds: [],
+  zone: null,
   ...voice,
 });
 
@@ -66,6 +67,7 @@ const {
   bedWay: _bedWay,
   beds: _beds,
   bedTogether: _bedTogether,
+  zone: _zone,
   bypassed: _bypassed,
   ...PLAIN
 } = PLAYER_DEFAULTS;

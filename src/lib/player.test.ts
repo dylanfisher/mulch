@@ -58,6 +58,7 @@ const SPEC: PlayerSpec = {
   bedReach: "nudge",
   bedWay: "either",
   bedTogether: false,
+  zone: null,
   seed: 1,
   bias: 0,
   stride: 0,

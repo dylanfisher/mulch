@@ -10,6 +10,7 @@
  */
 import { PLAYER_MIN_SLOT_SECS } from "@/lib/player";
 import { bedBounds, bedWrap } from "@/lib/playerBed";
+import type { BedZone } from "@/lib/playerZone";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { loopPeriodSecs } from "@/lib/recurrence";
 import type { Loop } from "@/lib/timeline";
@@ -80,9 +81,30 @@ export const loopJumps = (loop: Span | null, rate: number): loop is Span =>
  * pass at the one place holding both (0183, 0185). A loop with no room for a single sixteenth
  * either side answers one ground and never leaves it — this module before the ground could move.
  * A loop with no room for a whole *bed* still crawls, which is the crawl's whole point.
+ *
+ * `zone` is the stretch of the source a hand said the ground may stand in, or null where none is
+ * marked: it narrows those bounds and nothing else, so a sounding pass reads the narrowed grid
+ * through the one fold every ground already came through (0318, `bedBounds`).
  */
-export function gridOf(loop: Span | null, rate: number, duration: number): Grid | null {
+/**
+ * The same grid with the zone read again: the pass's bounds are the buffer's *and* the hand's, and
+ * a zone is a durable field a hand moves while a deck is playing — so the one it was laid against
+ * is re-answered where that field is turned, exactly as a moved number is heard where it is turned
+ * (0096, 0318, `set` in src/audio/player.ts). Everything else about the grid is the loop's and
+ * cannot move without restarting the deck.
+ */
+export const zonedGrid = (grid: Grid, duration: number, zone: BedZone | null): Grid => ({
+  ...grid,
+  ...bedBounds(grid.in, gridSpan(grid), duration, zone),
+});
+
+export function gridOf(
+  loop: Span | null,
+  rate: number,
+  duration: number,
+  zone: BedZone | null,
+): Grid | null {
   if (!loopJumps(loop, rate)) return null;
   const span = loop.out - loop.in;
-  return { in: loop.in, slot: span / PLAYER_SLOTS, ...bedBounds(loop.in, span, duration) };
+  return { in: loop.in, slot: span / PLAYER_SLOTS, ...bedBounds(loop.in, span, duration, zone) };
 }

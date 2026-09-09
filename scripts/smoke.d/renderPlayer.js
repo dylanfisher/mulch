@@ -110,6 +110,9 @@ export const renderPlayer = async ({ page }) => {
         // Walking its own ground and not the session's, which is what a switch press leaves: these
         // files are the files this scenario rendered before a ground could be shared (0313).
         bedTogether: false,
+        // And no zone marked, so the ground stands wherever the file has room for it — these
+        // files are the files this scenario rendered before one could be marked (0318).
+        zone: null,
         // The jump's own three, left where a switch press leaves them: no lean, no stride and
         // never coming home, which is the wandering uniform jump this scenario rendered before a
         // jump could do any of the three — so these files are the files it rendered then (0162).

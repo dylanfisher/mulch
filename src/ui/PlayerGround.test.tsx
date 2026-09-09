@@ -9,6 +9,7 @@
 import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactTypes from "react";
+import type * as Gesture from "@/ui/gesture";
 import type * as PeakCanvas from "@/ui/peakCanvas";
 import { describe, expect, it, vi } from "vitest";
 
@@ -25,15 +26,27 @@ vi.mock("react", async (importOriginal) => {
 
 // And the gesture skeleton, which is a capture and three endings this file has no DOM for: what a
 // press does with the bed it names is this surface's, and that the capture is taken is
-// src/ui/gesture.ts's own claim.
-vi.mock("@/ui/gesture", () => ({
-  usePointerGesture: () => ({
-    held: () => null,
-    begin: () => {},
-    matched: () => null,
-    ended: () => null,
-  }),
-}));
+// src/ui/gesture.ts's own claim. It does remember the record a press began with, because a drag is
+// a thing this file asserts about — a stateless stand-in could only ever be pressed once.
+vi.mock("@/ui/gesture", async (importOriginal) => {
+  const gesture = await importOriginal<typeof Gesture>();
+  let record: unknown = null;
+  return {
+    ...gesture,
+    usePointerGesture: () => ({
+      held: () => record,
+      begin: (_target: unknown, _event: unknown, started: unknown) => {
+        record = started;
+      },
+      matched: () => record,
+      ended: () => {
+        const was = record;
+        record = null;
+        return was;
+      },
+    }),
+  };
+});
 
 // The canvas the peaks are painted on is the one part of this that needs a DOM. Stubbed, the
 // markup is exactly what the blocks are drawn as — the same call src/ui/PlayerScope.test.tsx makes
@@ -82,25 +95,52 @@ const drawn = (over: Partial<PlayerSpec> = {}, loop: typeof LOOP | null = LOOP) 
     duration: 10,
     patch,
   });
-  const press = (px: number, altKey = false): void => {
-    if (!isValidElement<{ onPointerDown: (event: unknown) => void }>(element)) {
-      throw new Error("the ground drew no strip to press");
-    }
-    // A press `px` pixels along a hundred-pixel strip, which is what the reading is taken off.
-    element.props.onPointerDown({
-      button: 0,
-      pointerId: 1,
-      altKey,
-      clientX: px,
-      currentTarget: {
-        clientWidth: 100,
-        clientLeft: 0,
-        getBoundingClientRect: () => ({ left: 0 }),
-      },
-    });
+  type Handlers = {
+    onPointerDown: (event: unknown) => void;
+    onPointerMove: (event: unknown) => void;
+    onPointerUp: (event: unknown) => void;
   };
-  return { patch, press, markup: element === null ? "" : renderToStaticMarkup(element) };
+  const strip = (): Handlers => {
+    if (!isValidElement<Handlers>(element)) throw new Error("the ground drew no strip to press");
+    return element.props;
+  };
+  const press = (px: number, altKey = false): void => {
+    strip().onPointerDown(pointerAt(px, { altKey }));
+  };
+  /** A whole gesture: down, a move to each pixel in turn, and the release. */
+  const sweep = (from: number, to: number[], modifier = {}): void => {
+    strip().onPointerDown(pointerAt(from, modifier));
+    for (const px of to) strip().onPointerMove(pointerAt(px, modifier));
+    strip().onPointerUp(pointerAt(to.at(-1) ?? from, modifier));
+  };
+  /** And the same gesture as the browser coalesces it: a press and a release, nothing between. */
+  const flick = (from: number, to: number, modifier = {}): void => {
+    strip().onPointerDown(pointerAt(from, modifier));
+    strip().onPointerUp(pointerAt(to, modifier));
+  };
+  return {
+    patch,
+    press,
+    sweep,
+    flick,
+    markup: element === null ? "" : renderToStaticMarkup(element),
+  };
 };
+
+/** A pointer `px` pixels along a hundred-pixel strip, which is what the reading is taken off. */
+const pointerAt = (px: number, modifier: { altKey?: boolean; shiftKey?: boolean } = {}) => ({
+  button: 0,
+  pointerId: 1,
+  altKey: false,
+  shiftKey: false,
+  ...modifier,
+  clientX: px,
+  currentTarget: {
+    clientWidth: 100,
+    clientLeft: 0,
+    getBoundingClientRect: () => ({ left: 0 }),
+  },
+});
 
 /** Every block the strip drew, as the CSS left it was placed at. */
 const lefts = (markup: string): string[] =>
@@ -177,6 +217,87 @@ describe("the ground as a strip", () => {
     const already = drawn({ beds: [{ bed: 5, every: PLAYER_BED_ROUND }] });
     already.press(60, true);
     expect(already.patch.mock.calls).toEqual([[{ beds: [] }]]);
+  });
+
+  /**
+   * And the third gesture: a Shift-drag sweeps the zone the ground is bounded to out of its own
+   * two ends, in the loop's own sixteenths. Every move of it patches the one `zone` field, which
+   * is what makes the drag one history entry — the card above closes it on release (0067, 0318).
+   */
+  it("writes the two edges a shift drag swept, as one field and one gesture", () => {
+    const { patch, sweep } = drawn();
+    // A one-second loop one second into ten of source, over a hundred pixels: ten pixels along is
+    // the loop's own start and each further one is a tenth of a second, which is 1.6 sixteenths.
+    sweep(20, [40, 60], { shiftKey: true });
+    // Each move, and the release read as a position of its own — which in a live card is the same
+    // span the last move wrote and goes nowhere, because this stand-in re-renders from a fixed
+    // spec and so cannot show `mark`'s own unchanged-is-unsent (asserted in the case below).
+    expect(patch.mock.calls.map(([fields]) => fields)).toEqual([
+      { zone: { from: 16, to: 48 } },
+      { zone: { from: 16, to: 80 } },
+      { zone: { from: 16, to: 80 } },
+    ]);
+    // One field and one field only: nothing on this gesture moves the window it was dragged over.
+    for (const [fields] of patch.mock.calls) expect(Object.keys(fields)).toEqual(["zone"]);
+  });
+
+  /**
+   * And an edge dragged past its partner turns the span over rather than refusing it, which is
+   * what the loop's own handles do — a hand marking a zone leftwards means the same zone.
+   */
+  it("turns a zone over rather than refusing it, and sends an unchanged one nowhere", () => {
+    const { patch, sweep } = drawn();
+    sweep(60, [20], { shiftKey: true });
+    expect(patch).toHaveBeenLastCalledWith({ zone: { from: 16, to: 80 } });
+    const held = drawn({ zone: { from: 16, to: 80 } });
+    held.sweep(20, [60], { shiftKey: true });
+    expect(held.patch).not.toHaveBeenCalled();
+  });
+
+  /**
+   * And a flick the browser coalesced — a press and a release with the moves between them gone —
+   * is still the sweep it was: the last pixels of a drag reach the page in the `pointerup` and
+   * nowhere else, and read as a press that never travelled it would clear the zone it meant to
+   * mark (src/ui/gesture.ts, the read `LoopHandles` takes on its own release).
+   */
+  it("marks the zone a flick swept, whose moves never reached the page", () => {
+    const { patch, flick } = drawn();
+    flick(20, 60, { shiftKey: true });
+    expect(patch.mock.calls).toEqual([[{ zone: { from: 16, to: 80 } }]]);
+  });
+
+  /**
+   * And a Shift press that never travelled clears it back to the whole file — the one press, and
+   * the reason the sweep writes nothing until it has moved (0318).
+   */
+  it("clears the zone on a shift press that never travelled", () => {
+    const { patch, sweep } = drawn({ zone: { from: 16, to: 80 } });
+    sweep(40, [], { shiftKey: true });
+    expect(patch.mock.calls).toEqual([[{ zone: null }]]);
+    // And a yard with none marked has nothing to clear, so the same press says nothing.
+    const none = drawn();
+    none.sweep(40, [], { shiftKey: true });
+    expect(none.patch).not.toHaveBeenCalled();
+  });
+
+  /** And the zone is drawn as the one block on the strip that is a bound rather than a ground. */
+  it("draws the zone it is bounded to, and nothing where none is marked", () => {
+    expect(drawn({ zone: { from: 0, to: 32 } }).markup).toContain('data-slot="ground-zone"');
+    expect(drawn().markup).not.toContain('data-slot="ground-zone"');
+  });
+
+  /**
+   * And the loop's own window stays on the loop under a zone that does not contain it: it is a
+   * fact about the deck rather than a ground the walk reaches, and it is what every other block on
+   * this strip is read against — folded, it would claim the loop is somewhere the handles and the
+   * waveform both say it is not (0183, 0318).
+   */
+  it("leaves the loop's own window where the loop is, whatever zone is marked", () => {
+    // A one-second loop one second into ten of source: the loop is at 10%, and a zone of 32…47
+    // sixteenths would fold offset zero onto 32 — three seconds in.
+    const marked = drawn({ zone: { from: 32, to: 47 } });
+    expect(lefts(marked.markup)[0]).toBe("10%");
+    expect(lefts(drawn().markup)[0]).toBe("10%");
   });
 
   /** And each of them is drawn where it falls, beside the window and the ground the song opens on. */

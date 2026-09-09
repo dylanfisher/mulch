@@ -44,15 +44,15 @@ describe("playerJumps", () => {
 
 describe("gridOf", () => {
   it("draws no grid for a loop whose slots are too short to carry a seam", () => {
-    expect(gridOf({ in: 0, out: SHORT_SECS }, RATE, SHORT_SECS)).toBeNull();
+    expect(gridOf({ in: 0, out: SHORT_SECS }, RATE, SHORT_SECS, null)).toBeNull();
   });
 
   it("draws no grid at all when there is no loop", () => {
-    expect(gridOf(null, RATE, LONG_SECS)).toBeNull();
+    expect(gridOf(null, RATE, LONG_SECS, null)).toBeNull();
   });
 
   it("divides the loop into sixteenths of buffer seconds, whatever the rate the seam is judged at", () => {
-    const grid = gridOf({ in: 0, out: LONG_SECS }, RATE, LONG_SECS);
+    const grid = gridOf({ in: 0, out: LONG_SECS }, RATE, LONG_SECS, null);
     expect(grid).not.toBeNull();
     expect(grid?.in).toBe(0);
     expect(grid?.slot).toBe(LONG_SECS / PLAYER_SLOTS);
@@ -60,12 +60,12 @@ describe("gridOf", () => {
 
   it("judges the seam in real seconds, so a loop played fast enough stops jumping", () => {
     const loop = { in: 0, out: LONG_SECS };
-    expect(gridOf(loop, RATE, LONG_SECS)).not.toBeNull();
-    expect(gridOf(loop, 4, LONG_SECS)).toBeNull();
+    expect(gridOf(loop, RATE, LONG_SECS, null)).not.toBeNull();
+    expect(gridOf(loop, 4, LONG_SECS, null)).toBeNull();
   });
 
   it("answers one ground and never leaves it when the file holds no sixteenth either side", () => {
-    const grid = gridOf({ in: 0, out: LONG_SECS }, RATE, LONG_SECS);
+    const grid = gridOf({ in: 0, out: LONG_SECS }, RATE, LONG_SECS, null);
     expect(grid?.from).toBe(0);
     expect(grid?.to).toBe(0);
   });
@@ -73,9 +73,33 @@ describe("gridOf", () => {
   it("counts the ground either side in the loop's own sixteenths of source", () => {
     const slot = LONG_SECS / PLAYER_SLOTS;
     const duration = slot * 3 + LONG_SECS * 2 + slot / 2;
-    const grid = gridOf({ in: slot * 3, out: slot * 3 + LONG_SECS }, RATE, duration);
+    const grid = gridOf({ in: slot * 3, out: slot * 3 + LONG_SECS }, RATE, duration, null);
     expect(grid?.from).toBe(-3);
     expect(grid?.to).toBe(PLAYER_SLOTS);
+  });
+
+  /**
+   * And a sounding pass reads the grid a zone narrowed: the bounds are folded once for the whole
+   * pass, so every slot the transport arms lands inside the stretch the hand marked (0318).
+   */
+  it("reads the narrowed grid where a zone is marked, and folds every step inside it", () => {
+    const slot = LONG_SECS / PLAYER_SLOTS;
+    const duration = slot * 3 + LONG_SECS * 2 + slot / 2;
+    const loop = { in: slot * 3, out: slot * 3 + LONG_SECS };
+    const grid = gridOf(loop, RATE, duration, { from: 2, to: 5 });
+    expect(grid?.from).toBe(2);
+    expect(grid?.to).toBe(5);
+    // The bed a walk's raw offset stands on, and the slot armed from it: both inside the zone,
+    // and both a whole number of sixteenths past the loop's own start.
+    for (const bed of [-3, 0, 4, PLAYER_SLOTS * 9]) {
+      const at = bedStart(grid!, bed);
+      expect(at).toBeGreaterThanOrEqual(loop.in + 2 * slot);
+      expect(at).toBeLessThanOrEqual(loop.in + 5 * slot);
+      expect(slotStart(grid!, 1, bed)).toBeCloseTo(at + slot, 12);
+    }
+    // And with nothing marked the same walk reaches the ground the file holds either side of it.
+    const whole = gridOf(loop, RATE, duration, null);
+    expect(bedStart(whole!, -3)).toBeCloseTo(loop.in - 3 * slot, 12);
   });
 });
 

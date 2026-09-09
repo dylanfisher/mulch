@@ -80,25 +80,40 @@ describe("how far a buffer may be moved through", () => {
   it("counts the loop's own sixteenths either side of it, and the loop is offset zero", () => {
     // A ten-second file, a two-second loop starting at four: two whole beds behind it and two
     // ahead, which is thirty-two sixteenths of the loop each way since the crawl.
-    expect(bedBounds(4, 2, 10)).toEqual({ from: -2 * PLAYER_SLOTS, to: 2 * PLAYER_SLOTS });
+    expect(bedBounds(4, 2, 10, null)).toEqual({ from: -2 * PLAYER_SLOTS, to: 2 * PLAYER_SLOTS });
   });
 
   it("holds the sixteenths that fit even where no whole bed does", () => {
     // Six seconds of a ten-second file: not one whole bed ahead, and yet the ground may still
     // crawl ten sixteenths into it. This is the whole difference the crawl makes to the bounds —
     // before it, this loop answered a single bed and could not move at all.
-    expect(bedBounds(0, 6, 10)).toEqual({ from: 0, to: 10 });
+    expect(bedBounds(0, 6, 10, null)).toEqual({ from: 0, to: 10 });
   });
 
   it("never answers a ground the loop is not one of, however the edges round", () => {
     // A loop on the very end of the file, and one on its very start: each still holds offset zero,
     // because the loop is inside the buffer by construction (src/audio/deck.ts).
-    expect(bedBounds(8, 2, 10)).toEqual({ from: -4 * PLAYER_SLOTS, to: 0 });
-    expect(bedBounds(0, 2, 10)).toEqual({ from: 0, to: 4 * PLAYER_SLOTS });
+    expect(bedBounds(8, 2, 10, null)).toEqual({ from: -4 * PLAYER_SLOTS, to: 0 });
+    expect(bedBounds(0, 2, 10, null)).toEqual({ from: 0, to: 4 * PLAYER_SLOTS });
   });
 
   it("answers one bed for a span nothing can be measured in", () => {
-    expect(bedBounds(0, 0, 10)).toEqual({ from: 0, to: 0 });
+    expect(bedBounds(0, 0, 10, null)).toEqual({ from: 0, to: 0 });
+  });
+
+  /**
+   * And the zone a hand marked narrows that and never widens it: the room the buffer answers for
+   * is the outer bound whatever was marked, so a zone reaching past the file is the file (0318).
+   */
+  it("narrows the bounds to a zone, and never past the room the file holds", () => {
+    // Six seconds of a ten-second file: the ground may crawl ten sixteenths into it unbounded.
+    expect(bedBounds(0, 6, 10, { from: 2, to: 6 })).toEqual({ from: 2, to: 6 });
+    // A zone the file cannot hold is the file, at each end and at both.
+    expect(bedBounds(0, 6, 10, { from: -40, to: 400 })).toEqual({ from: 0, to: 10 });
+    expect(bedBounds(0, 6, 10, { from: 4, to: 400 })).toEqual({ from: 4, to: 10 });
+    // And one wholly past its end is the nearest ground the file does hold, rather than a pair
+    // nothing could be folded onto.
+    expect(bedBounds(0, 6, 10, { from: 40, to: 80 })).toEqual({ from: 10, to: 10 });
   });
 });
 
@@ -133,15 +148,39 @@ describe("where the ground a walk is standing on begins", () => {
   it("crawls a sixteenth of the loop at a time rather than hopping a whole one", () => {
     // A two-second file under a one-second loop at its start. Eight is half a bed in — a place no
     // index of loop lengths can name, and the whole of what the crawl is for.
-    expect(bedGround(0, 1, 2, 8)).toEqual({ on: 8, in: 0.5 });
-    expect(bedGround(0, 1, 2, 1)).toEqual({ on: 1, in: 1 / PLAYER_SLOTS });
-    expect(bedGround(0, 1, 2, PLAYER_SLOTS)).toEqual({ on: PLAYER_SLOTS, in: 1 });
+    expect(bedGround(0, 1, 2, 8, null)).toEqual({ on: 8, in: 0.5 });
+    expect(bedGround(0, 1, 2, 1, null)).toEqual({ on: 1, in: 1 / PLAYER_SLOTS });
+    expect(bedGround(0, 1, 2, PLAYER_SLOTS, null)).toEqual({ on: PLAYER_SLOTS, in: 1 });
   });
 
   it("reads the loop itself as nothing to draw and nothing to plant", () => {
-    expect(bedGround(0, 1, 2, 0)).toEqual({ on: 0, in: 0 });
+    expect(bedGround(0, 1, 2, 0, null)).toEqual({ on: 0, in: 0 });
     // And a raw offset one past the last sixteenth that fits folds back onto it.
-    expect(bedGround(0, 1, 2, PLAYER_SLOTS + 1)).toEqual({ on: 0, in: 0 });
+    expect(bedGround(0, 1, 2, PLAYER_SLOTS + 1, null)).toEqual({ on: 0, in: 0 });
+  });
+
+  /**
+   * And every offset lands inside a zone through that same fold: the crawl's own raw index, a bed
+   * a hand planted outside it, and the home roll of zero the shared ground comes back to. Zero is
+   * no longer promised — a zone at the far end of a file does not contain the loop, and coming
+   * home there means the nearest home inside the zone (0318 amending `bedBounds`' own claim).
+   */
+  it("folds every offset into a zone, planted bed and home roll alike", () => {
+    // A ten-second file under a one-second loop at its start: sixteenths 0…144 exist unbounded,
+    // and this hand said only 32…47.
+    const zone = { from: 32, to: 47 };
+    for (const offset of [0, 8, 31, 48, PLAYER_SLOTS * 5, -100]) {
+      const stood = bedGround(0, 1, 10, offset, zone);
+      expect(stood.on).toBeGreaterThanOrEqual(32);
+      expect(stood.on).toBeLessThanOrEqual(47);
+      expect(stood.in).toBeCloseTo(stood.on / PLAYER_SLOTS, 12);
+    }
+    // A planted bed two loop-lengths in is outside it and folds in, and the home roll of zero
+    // does the same rather than escaping the zone.
+    expect(bedGround(0, 1, 10, 2 * PLAYER_SLOTS, zone).on).toBe(32);
+    expect(bedGround(0, 1, 10, 0, zone).on).toBe(32);
+    // Unbounded, that same home roll is the loop itself — which is what the zone took away.
+    expect(bedGround(0, 1, 10, 0, null).on).toBe(0);
   });
 });
 

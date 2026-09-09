@@ -100,6 +100,7 @@ export const PLAYER: PlayerSpec = {
   bedReach: "nudge",
   bedWay: "either",
   bedTogether: false,
+  zone: null,
   seed: 7,
   bias: 0,
   stride: 0,
@@ -497,6 +498,37 @@ describe("deck player", () => {
     expect(fresh.length).toBeGreaterThan(0);
     // Heard well inside one turn of the loop rather than at the end of the arming horizon.
     expect(fresh[0]?.started[0]?.[0] ?? Number.NaN).toBeLessThan(at + SPAN);
+  });
+
+  /**
+   * And a zone is one of those moved numbers, though what it moves is the pass's own bounds rather
+   * than a step's offset: a hand marking one while a deck plays is heard where it is turned,
+   * because every picture folds into it the instant it is written and a grid frozen at `begin`
+   * would go on arming steps outside it for the rest of the pass (0096, 0318).
+   */
+  it("re-reads a zone marked while it is playing, and lays the tail inside it", () => {
+    // The buffer is four seconds under a 3.2s loop at its start, so grounds 0…4 sixteenths exist
+    // and this hand said only 3…4 — the last two of them.
+    const moving: PlayerSpec = { ...PLAYER, bedEvery: 1, bedReach: "anywhere", bedWay: "on" };
+    const host = jumping(moving);
+    const armed = host.sources.length;
+    host.now(0.5);
+    host.voice.setPlayer({ ...moving, zone: { from: 3, to: 4 } });
+    const zoned = host.sources.slice(armed).map((source) => source.started[0]?.[1] ?? Number.NaN);
+    expect(zoned.length).toBeGreaterThan(2);
+    // A step reads a slot of the loop from the bed it stands on, so the zone's floor is the floor
+    // of every offset armed under it.
+    for (const into of zoned) expect(into).toBeGreaterThanOrEqual(3 * SLOT - 1e-9);
+
+    // And the same walk re-armed at the same instant with nothing marked lays a different tail —
+    // so what the case above read is the zone and not the walk, which is untouched by it (P87).
+    const open = jumping(moving);
+    const opened = open.sources.length;
+    open.now(0.5);
+    open.voice.setPlayer({ ...moving });
+    const wide = open.sources.slice(opened).map((source) => source.started[0]?.[1] ?? Number.NaN);
+    expect(wide).toHaveLength(zoned.length);
+    expect(zoned).not.toEqual(wide);
   });
 
   // And what replaces them is the tail of the same walk under the new spec — a pure function of

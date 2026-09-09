@@ -62,6 +62,7 @@ const PLAYER: PlayerSpec = {
   bedReach: "nudge",
   bedWay: "either",
   bedTogether: false,
+  zone: null,
   seed: 9,
   bias: 0.5,
   stride: 0.25,

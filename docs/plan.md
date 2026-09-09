@@ -289,9 +289,13 @@ fold inside it with no second rule. The master rack is **a rack the session hold
 `deck: null`. A panner splits by band, with time and slice as toggles that stack over it, and
 declares a look of its own. The EQ gains a shape, that shape steers the band it draws, and the
 filter entry goes — taking the `soften` look with it, because nothing else declares one. The
-clipboard is runtime and dies with the tab. The next free decision number after bench-01's is 0318.
+clipboard is runtime and dies with the tab. bench-02 landed on 2026-09-08 as
+[0318](decisions/0318-a-ground-is-bounded-by-a-zone-the-hand-marked.md); the zone came out of
+src/lib/playerBed.ts into src/lib/playerZone.ts and its picture out of src/ui/PlayerGround.tsx into
+src/ui/PlayerGroundZone.tsx, both at the 400-line warning, and src/lib/player.test.ts gave its zone
+case to src/lib/playerZone.test.ts at the hard cap. The next free decision number is 0319.
 
-2.  **A ground is bounded by a zone the hand marked.** _(bench-02)_ **Durable shape moved: a
+2.  **A ground is bounded by a zone the hand marked.** _(bench-02, landed 0318)_ **Durable shape moved: a
     yard's ground gains a zone.** One item, one gate.
 
     **The zone is one span in the loop's own sixteenths** (0318). `BedSpec`
@@ -322,9 +326,14 @@ clipboard is runtime and dies with the tab. The next free decision number after 
     with its words in src/lib/copyGround.ts. Not a dial: two edges are a place and not an amount,
     so there is no `PLAYER_SONG_KNOBS` row (src/lib/playerKnobs.ts:339) and no `copyKnobs` caption.
 
-    **The outcome wanted:** a hand drags a region of the strip and the ground stays inside it —
-    crawling, arriving at planted beds and following the session ground alike — and clears it back
-    to the whole file with one press.
+    **The outcome:** landed as written. A Shift-drag on the strip sweeps the zone out of its own
+    two ends, its two edges drag it narrower or wider, and a Shift press that never travelled
+    clears it — the plain drag still moves the window and the Option press still keeps a ground.
+    `bedBounds` is the one place the zone is read, so the sounding grid, the drawn crawl, the
+    planted beds and the shared ground all fold inside it through the arithmetic they already came
+    through — and the transport re-answers those bounds where the field is turned rather than at
+    the next play, which review caught. The loop's own window on the strip is deliberately not
+    folded, and the drift picture's anchor is the one reader left unzoned (§4).
 
     **Tests that must fail first.** src/lib/playerBed.test.ts: a zone narrows what `bedBounds`
     answers and never widens it; `bedGround` inside a zone folds every offset into it, including a
@@ -604,6 +613,27 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**The drift picture's anchor reads the ground unzoned** (bench-02, 0318). `playerRowStand`
+(src/lib/playerDrift.ts) folds the standing bed with no zone, so a yard with one marked anchors its
+moire rows where the walk would have stood without it. The zone reaches every other reader — the
+sounding grid, the ground strip, the waveform's rectangle and the plant on the card — because each
+of those has the spec at hand; this one is read off a per-frame `DeckPeek` that carries no spec, and
+threading it would have meant a further argument through `refillRows` (already sixteen, with 66
+call sites in the suite) and every row helper under it. The cost is a picture whose ground row can
+disagree with the sound while a zone is marked; the site says so in a comment naming this paragraph.
+The honest fix is the peek reporting the folded bed rather than the raw offset, which is a change to
+what a step reports and belongs to a step of its own.
+
+**A zone on the session's ground** (bench-02, 0318). Asked for and answered the other way once the
+units were read: a zone is counted in a yard's own sixteenths, and a yard's loop is its own, so a
+shared zone would mean a different region of every file. A Together yard is still bounded — by its
+own zone, which narrows the bounds the shared offset is folded onto — so "only here" holds per yard
+even while the crawl is the session's.
+
+**Several zones** (bench-02, 0318). A list is a second arrangement beside the planted beds, which
+are already the list of places a ground returns to. One span is the bound and the beds are the
+itinerary; two lists would be two answers to where the loop goes.
 
 **A redraw count that outlives the lane it counts for** (bench-01, 0314). The knob's own `every`
 was a `useState` that survived a clear, so a knob cleared and drawn again came back at the count it

@@ -371,10 +371,10 @@ export function PlayerCard({
     const bed = instrument.peek(deck).player.step?.bed;
     if (loop === null || bed === undefined) return;
     const span = loop.out - loop.in;
-    const stood = bedGround(loop.in, span, state.duration, bed);
+    const stood = bedGround(loop.in, span, state.duration, bed, player?.zone ?? null);
     if (stood.on === 0) return;
     instrument.send({ t: "deck.loop", deck, in: stood.in, out: stood.in + span });
-  }, [instrument, deck, state.loop, state.duration]);
+  }, [instrument, deck, player, state.loop, state.duration]);
   /**
    * What the pattern is standing at, one knob at a time — the peek this card's dials paint from
    * while a song plays. Built here rather than in each dial so the per-frame read is asked for

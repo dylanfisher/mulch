@@ -285,6 +285,10 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * words its move is shaped by, on the same terms: the walk turns them into the draw's amounts
  * once, where the move is due (`bedMove`, 0277).
  *
+ * And the zone is out on the grounds the planted beds are, one field further along: it is a place
+ * and not an amount, and where on the source a hand said the loop may stand is a *where* — the
+ * same reason `bed` itself is out (0318).
+ *
  * And the switch's own field is out because it is not a number and draws nothing: it says whether
  * the graph is handed this pattern at all, so a voice carrying one would be a step deciding
  * whether it sounds (P164).
@@ -302,6 +306,7 @@ export type PlayerVoice = Omit<
   | "bedWay"
   | "beds"
   | "bedTogether"
+  | "zone"
   | "bypassed"
 >;
 

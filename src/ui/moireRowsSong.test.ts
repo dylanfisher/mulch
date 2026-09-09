@@ -426,7 +426,9 @@ describe("the jumps module's row", () => {
     for (const bed of [1, 8, PLAYER_SLOTS]) {
       peek.player.step = { ...standingStep(song, verse), bed };
       refillRows(rows, reads, peek, 1, loop, duration);
-      expect(row.centre).toBe(bedGround(loop.in, loop.out - loop.in, duration, bed).in / duration);
+      expect(row.centre).toBe(
+        bedGround(loop.in, loop.out - loop.in, duration, bed, null).in / duration,
+      );
       walked.push(row.centre);
     }
     expect(walked).toEqual([2.125 / 16, 3 / 16, 4 / 16]);
