@@ -36,6 +36,18 @@ export const STILL_WIDE = FIELD_ASPECT * STILL_PX;
  * speck of sky rises through the gold before it reaches the blue, which is the order the picture
  * needs and the order a lightness ramp would forbid.
  *
+ * **The tan of a grass field is between two stops and not one of them.** Nothing in
+ * src/ui/tokens.css is amber; what makes amber is the ember stop mixed with the straw stop, so the
+ * seed heads' mass is read at about two thirds of its ramp rather than at a stop. A ramp is read
+ * between its stops as readily as at them, and a still that needed a colour the theme does not hold
+ * gets it that way or not at all — never by minting one (0236).
+ *
+ * **And a stop the picture must never reach is a stop it must not hold.** The seed heads carried
+ * `--screen-green` for a draft, because the still has green stalks; every value the mass passed
+ * through on its way to tan came out that vivid green, and the picture read as flames. Its ramp is
+ * warm end to end now, and its stalks are the dark olive its first stop mixes toward — the colours a
+ * still does not use cost it as much as the ones it does.
+ *
  * **Five, and none of them the caller's own ink.** A shipped scene's middle stop is `null`, which
  * is whatever ink its caller resolved (`sceneStops`, src/ui/moireScreen.ts); a bench picture has no
  * caller, and drawing that stop as the box's own foreground would flip the middle of every ramp
@@ -59,10 +71,10 @@ export const STILL_STOPS: Readonly<Record<StillName, readonly SketchStop[]>> = {
   ],
   seedheads: [
     { name: "root", chip: "bg-(--scene-canopy-dark)" },
-    { name: "stalk", chip: "bg-(--drift-hot)" },
-    { name: "awn", chip: "bg-(--screen-red)" },
-    { name: "tip", chip: "bg-(--scene-canopy-lit)" },
-    { name: "sparkle", chip: "bg-(--scene-water-lit)" },
+    { name: "shadow", chip: "bg-(--drift-hot)" },
+    { name: "ember", chip: "bg-(--screen-red)" },
+    { name: "straw", chip: "bg-(--scene-canopy-lit)" },
+    { name: "spark", chip: "bg-(--scene-water-lit)" },
   ],
   skylight: [
     { name: "mass", chip: "bg-(--scene-canopy-dark)" },
@@ -98,15 +110,46 @@ export function hash2(a: number, b: number): number {
 }
 
 /**
+ * Smooth value noise, sampled anisotropically: one cell is `wide` of the scale's pixels across and
+ * `tall` of them down, so a field of it reads as **fibres lying one way** rather than as blobs.
+ * Four hashed corners with a smooth step between them — the cheapest thing that is soft everywhere,
+ * has an edge nowhere, and repeats nowhere.
+ *
+ * **Two of the four stills need this and no product of gratings can give it.** A mass of grass and a
+ * wall of leaf are textures with no spacing in them; two gratings crossed always have one, and what
+ * comes out is a comb, a herringbone or a moiré — which this bench already has nine pictures of.
+ * The other two stills stay on gratings, because a ripple and a lattice of poppies do have a pitch.
+ */
+export function streakAt(across: number, down: number, wide: number, tall: number): number {
+  const gx = across / wide;
+  const gy = down / tall;
+  const ix = Math.floor(gx);
+  const iy = Math.floor(gy);
+  const fx = gx - ix;
+  const fy = gy - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy);
+  const b = hash2(ix + 1, iy);
+  const c = hash2(ix, iy + 1);
+  const d = hash2(ix + 1, iy + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
+/**
  * The print: how much grain is laid over a still, how far the corners fall away, and how many grains
  * stand in one of the scale's own pixels.
  *
- * **The grain is half what it was**, because at 0.07 peak to peak it stood exactly as tall as three
- * of the four grounds did — the water's swell, the poppy stems and the canopy's fall to its foot
- * were each stated at the amplitude of the noise laid over them, and all three read as noise. A
- * print is the thing you notice second; a print you notice first is a fault.
+ * **The grain is half what it was, and the vignette a third**, because both were louder than the
+ * grounds under them. At 0.07 peak to peak the grain stood exactly as tall as the water's swell, the
+ * poppy stems and the canopy's fall to its foot were stated at, and all three read as noise; at a
+ * third of the ramp the vignette dragged the corners of a picture whose mass sits at two thirds all
+ * the way back to its own middle stop, so the seed heads had a scarlet border. A vignette **scales**
+ * a ramp position, so what it costs is proportional to where the picture sits on its ramp — which
+ * means a still whose mass is high pays several times what one resting near its floor does. A print
+ * is the thing you notice second; a print you notice first is a fault.
  */
-const PRINT = { grain: 0.035, fall: 0.34, per: 2 };
+const PRINT = { grain: 0.035, fall: 0.13, per: 2 };
 
 /**
  * One still's ramp position, printed: dimmed toward the corners and shaken by a grain. **This is

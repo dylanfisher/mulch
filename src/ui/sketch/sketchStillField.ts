@@ -14,7 +14,7 @@ import { TAU } from "@/lib/moire";
 import { sceneAxis, sceneSharp } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import type { SketchDriftField } from "@/ui/sketch/sketchDrift";
-import { hash2, printed, STILL_PX, STILL_WIDE } from "@/ui/sketch/sketchStill";
+import { hash2, printed, STILL_PX, STILL_WIDE, streakAt } from "@/ui/sketch/sketchStill";
 
 /**
  * The poppies: how far apart the heads stand at the top of the frame and at its foot, how far one
@@ -199,154 +199,162 @@ export const glintField: SketchDriftField = (x, y, amount) => {
 };
 
 /**
- * The seed heads: how far apart the stalks stand, the tufts they clump into, how far apart the awns
- * tick along one, how far a stalk lies over at the crest of the gust, and how wide the gust itself
- * is — one wavelength across most of the picture, or it reads as a ripple rather than as weather.
+ * The seed heads: the three scales of fibre the mass is built from — each stated as how wide a cell
+ * is across the stroke and how long it is along it — how far apart the green stalks stand and how
+ * long they run, how far a stroke lies over and how much of that lean the gust carries, how wide the
+ * gust is, and how far the foot of the picture falls back.
  */
 const SEED = {
-  stroke: 2.4,
-  wide: 0.36,
-  tuft: 26,
-  awn: 4.2,
-  soft: 7,
-  reach: 34,
-  cut: 0.24,
-  over: 0.12,
-  lean: 0.35,
-  gusted: 0.12,
+  seed: 0.6,
+  fibre: 0.85,
+  awn: 7,
+  tuft: 2.6,
+  clump: 7,
+  sweep: 34,
+  stalk: 2.8,
+  tall: 80,
+  lean: 0.42,
+  gusted: 0.1,
   gust: 150,
+  foot: 0.5,
 };
 
 /**
- * Backlit wild grass: a hundred and more feathery strokes, dark olive at the root and amber at
- * the tip, with a seed here and there catching the light outright. **Every stroke carries its own
- * crown** —
- * where its seed head begins and how far down it runs, both off the stroke's own hash — so the heads
- * stand at every height at once the way the still's do, and the picture is a mass of individual
- * marks rather than a texture laid over the whole box.
+ * Backlit wild grass: an amber-tan mass filling the frame, dark olive where it thins, with green
+ * stalks rising through it and a seed here and there catching the light outright.
+ *
+ * **The mass is the middle of the ramp and not its floor.** It sits between the ember stop and the
+ * straw stop, which is where these tokens make tan, so the picture is warm wall to wall and the dark
+ * is the minority — which is the way round the still has it, and the way round the first two
+ * drawings of this picture did not. The whole ramp is warm for the same reason: a value on its way
+ * to tan has to pass through something, and whatever that is, the picture is mostly made of it.
+ *
+ * **And it is noise and not gratings.** Three scales of streaked value noise, each cell longer along
+ * the stroke than across it, so the texture is fibrous and soft with no spacing anywhere in it. Two
+ * earlier drawings of this field crossed gratings instead and read as a beaded comb and then as a
+ * herringbone; a seed head has no pitch, so nothing with a pitch will draw one.
  *
  * The dial is the **gust travelling across the picture as a wave**: the lean is a function of where
- * a stroke stands and of the phase, not one lean for the whole field. The travelling half of it is a
- * third of the standing half, and that is not timidity — a lean that varies fast across x sweeps the
- * stroke coordinate through whole periods within a pixel, and what that draws is two gratings
- * beating, which is the one picture this bench already has nine of.
+ * a stroke stands and of the phase, not one lean for the whole field.
  */
 export const seedheadsField: SketchDriftField = (x, y, amount) => {
   const px = x * STILL_PX;
   const py = y * STILL_PX;
   const gust = Math.sin(TAU * (px / SEED.gust - amount));
   const lean = SEED.lean + SEED.gusted * gust;
-  const u = (px + lean * (STILL_PX - py) * 0.6) / SEED.stroke;
-  const stalk = Math.round(u);
-  const line = clamp(1 - Math.abs(u - stalk) / SEED.wide, 0, 1);
-  const crown = (0.01 + 0.55 * hash2(stalk, 1)) * STILL_PX;
-  const foot = crown + (0.25 + 0.3 * hash2(stalk, 2)) * STILL_PX;
-  const held = clamp((py - crown) / SEED.soft, 0, 1) * clamp((foot - py) / SEED.soft, 0, 1);
-  // The awns tick along the head, each stroke starting its own — along the stroke and never across
-  // the picture, which is the difference between a feather and a second grating.
-  const tick = sceneAxis((py - crown) / SEED.awn + hash2(stalk, 3));
-  const feather = line * (0.16 + 0.84 * held * (0.22 + 0.78 * tick));
-  // How near the crown of its own head this point stands — one at the tip, nought by the root.
-  const risen = clamp(1 - (py - crown) / Math.max(foot - crown, 1), 0, 1);
-  const litness = clamp(0.1 + 0.45 * hash2(stalk, 0) + 0.5 * held * risen, 0, 1);
-  const ground = 0.02 + 0.05 * sceneAxis(px / SEED.tuft + 0.2 * y);
-  // A lit awn lands past the middle stop or it does not land at all. A stroke allowed to fade evenly
-  // through the ramp would spend the whole picture on the stop between the root and the awn, which
-  // is the colour of neither — the still is dark olive with amber marks on it, never a wash of the
-  // average of the two.
-  const glow = clamp((feather - SEED.cut) / SEED.over, 0, 1);
-  // A mark reads from its own root to its own tip and not at one height: the still is amber where
-  // the sun catches a crown and dark red-olive a finger below it, on the one stroke.
-  const value = ground + glow * (0.44 + 0.3 * risen + 0.24 * litness - ground);
-  // And the stalk under a head is drawn, dark, or the heads float over nothing. Below the crown
-  // only, and it never reaches the awn stop.
-  const stem = line * clamp((py - foot) / SEED.soft, 0, 1) * (1 - glow);
-  const spark = clamp((hash2(stalk, Math.round(py / SEED.awn)) - 0.94) / 0.06, 0, 1) * held * line;
-  return printed(x, y, Math.max(value, ground + stem * (0.2 - ground)) + spark * (1 - value));
+  // Across the strokes, with the lean anchored at the foot: what a gust bends is the standing grass.
+  const across = px + lean * (STILL_PX - py) * 0.6;
+  const mass =
+    0.14 * streakAt(across + 5, py + 3, SEED.seed, SEED.seed * 1.9) +
+    0.42 * streakAt(across, py, SEED.fibre, SEED.awn) +
+    0.28 * streakAt(across + 31, py + 17, SEED.tuft, SEED.awn * 2.6) +
+    0.16 * streakAt(across + 77, py + 53, SEED.clump, SEED.sweep);
+  // Three noises summed sit near a half and reach neither end, so the sum is stretched — and
+  // stretched off centre, because the mass of this still is warm and its dark is the exception.
+  const lit = clamp((mass - 0.28) / 0.38, 0, 1);
+  // **The mass does not span the ramp; it sits in a sixth of it.** The ember stop is the most
+  // saturated ink the instrument holds, and a smooth field is continuous — so any mass reaching from
+  // the dark end to the straw end spends a wide band of itself on that stop whatever curve it takes,
+  // and three drawings of this picture came out scarlet before that was the lesson. The mass stays
+  // between tan and pale straw, where the contrast it needs is the lightness between two warm inks;
+  // the dark this still has is not in the mass at all, but in the stalks threading it.
+  let value = 0.72 + 0.13 * lit;
+  // The dark stalks rising through it: one very long, very narrow cell, read by pulling the mass
+  // back toward the root stop rather than drawn over it, so they stand inside the grass.
+  const stalk = clamp((streakAt(across + 13, py, SEED.stalk, SEED.tall) - 0.82) / 0.07, 0, 1);
+  value += (0.12 - value) * stalk * 0.92;
+  const spark =
+    clamp(
+      (hash2(Math.round(across / SEED.fibre), Math.round(py / SEED.tuft)) - 0.97) / 0.03,
+      0,
+      1,
+    ) * lit;
+  value += spark * (0.97 - value);
+  // The foot falls back: nearer the tan and further from the straw, with less between its own light
+  // and dark. Toward tan and not toward the dark, because on this ramp the way down is through the
+  // ember stop and a scarlet foreground is not what a lens focused past something does.
+  return printed(x, y, 0.6 + (value - 0.6) * (SEED.foot + (1 - SEED.foot) * (1 - y * y)));
 };
 
 /**
- * The canopy: the three scales its leaves clump at, how much taller a clump is than it is wide, how
- * wide the gust that shimmers them is, how far up the ramp the closed mass may reach, how far a
- * speck of sky needs the mass to have thinned, how far apart the specks stand, how wide one is and
- * how sharply it ends, and how few of the places one could fall actually hold one.
+ * The canopy: the three scales its leaves clump at, how wide the gust that shimmers them is, how far
+ * up the ramp the closed mass may reach, how far the foot falls under that, how thin the leaf has to
+ * be before a speck of sky is let through, how far apart the places a speck could fall stand, how
+ * wide one is and how sharply it ends, how few of those places hold one, and how many more the gust
+ * opens at its crest.
  */
 const SKY = {
-  clump: 41,
-  leaf: 13,
-  fleck: 7.5,
-  tall: 1.25,
+  crown: 44,
+  leaf: 15,
+  fleck: 5,
+  blade: 1.7,
   gust: 120,
-  mass: 0.14,
-  thin: 0.2,
-  wide: 0.15,
-  edge: 0.02,
-  rare: 0.93,
-  opens: 0.1,
+  mass: 0.15,
+  foot: 0.16,
+  thin: 0.5,
+  speck: 7,
+  wide: 0.1,
+  edge: 0.05,
+  rare: 0.84,
+  opens: 0.08,
 };
 
 /**
- * The three octaves, each turned off the one under it. **Turned and not just scaled**: three
- * lattices sharing an axis line up wherever their periods do, and where three troughs coincide on a
- * grid the picture grows a lattice of holes — which is exactly what a canopy is not. A third of a
- * turn apiece costs one cosine and one sine each and buys an irregular mass.
+ * The four scales of leaf, coarsest first: how wide a clump is, how much of the mass it is, and how
+ * far the gust slides it. **Streaked noise and not lattices.** Lattices crossed leave their
+ * gaps on a grid however they are turned, and a canopy whose holes stand in rows is a net; three
+ * scales of noise leave gaps where they happen to fall, which is what a wall of leaf does, and the
+ * finest of the four is what makes the mass foliage rather than cloud. The
+ * coarse scale stands still and the fine ones shiver, because a whole canopy sliding as one is a
+ * curtain rather than a wind.
  */
-const CANOPY_OCTAVES: readonly {
-  period: number;
-  turn: number;
-  share: number;
-  shivers: number;
-}[] = [
-  { period: SKY.clump, turn: 0.03, share: 0.42, shivers: 0 },
-  { period: SKY.leaf, turn: 0.19, share: 0.34, shivers: 3.2 },
-  { period: 4.3, turn: 0.41, share: 0.24, shivers: 6.5 },
+const CANOPY_SCALES: readonly { wide: number; share: number; shivers: number; at: number }[] = [
+  { wide: SKY.crown, share: 0.38, shivers: 0, at: 0 },
+  { wide: SKY.leaf, share: 0.28, shivers: 1.1, at: 37 },
+  { wide: SKY.fleck, share: 0.18, shivers: 2.8, at: 91 },
+  { wide: SKY.blade, share: 0.16, shivers: 4.4, at: 143 },
 ];
 
-/** One octave of leaf: a lattice drawn in toward its own crests, taller than it is wide and turned. */
-function clumpAt(px: number, py: number, period: number, turn: number): number {
-  const cos = Math.cos(TAU * turn);
-  const sin = Math.sin(TAU * turn);
-  return sceneSharp(
-    sceneAxis((px * cos + py * sin) / period) *
-      sceneAxis((py * cos - px * sin) / (period * SKY.tall)),
-    2,
-  );
-}
-
 /**
- * A dense green canopy: leaf clumps at three scales, very dark and darkest at the foot, with specks
- * of sky at the top stop breaking through where the mass has thinned. A speck is a fine mark of its
- * own gated by how much leaf stands over it and by how high up the frame it is, rather than the
- * hole three lattices leave between them, which is a hole on a grid.
+ * A dense green canopy: leaf clumps at four scales with the coarsest reading as whole crowns light
+ * against dark, the mass falling to the floor of its own ramp at the foot, and a couple of dozen
+ * pale specks of sky in the upper half where the leaf has thinned. The dial is the gust: it shivers
+ * the three fine scales and decides which specks are open.
  *
- * The dial is the gust: it shimmers the finest octave and opens and closes the gaps behind it.
+ * **The picture cannot be as dark as the still and does not try.** The darkest ink the instrument
+ * holds is `--scene-canopy-dark` at a lightness of 0.38, so what carries this one is the contrast
+ * between a lit crown and the shade beside it, not how black the shade is — the whole mass lives in
+ * the lower two stops and the foot sits on the first of them.
  */
 export const skylightField: SketchDriftField = (x, y, amount) => {
   const px = x * STILL_PX;
   const py = y * STILL_PX;
   const gust = 0.5 + 0.5 * Math.sin(TAU * (amount + px / SKY.gust));
-  let mass = 0;
-  for (const octave of CANOPY_OCTAVES) {
-    // The coarse octave stands still and the fine ones shiver, by the share of a leaf's own width
-    // each is: a whole canopy sliding as one is a curtain, not a wind.
-    mass += octave.share * clumpAt(px + octave.shivers * gust, py, octave.period, octave.turn);
+  let raw = 0;
+  for (const scale of CANOPY_SCALES) {
+    const slid = px + scale.at + scale.shivers * gust;
+    raw += scale.share * streakAt(slid, py + scale.at * 0.5, scale.wide, scale.wide * 0.8);
   }
-  // The fall to the foot is on the whole read and not on the clump alone: over the base as well it
-  // was a fiftieth of the ramp, which is under the grain laid on top of it.
-  const value = (0.02 + SKY.mass * clamp(mass, 0, 1)) * (0.3 + 0.7 * (1 - y));
-  // A speck is a break in the leaf and not a mark on a grid, so where one falls is a hash and not a
-  // lattice: a lattice of holes is the one thing three octaves of lattice must not be seen to leave.
-  const cx = Math.round(px / SKY.fleck);
-  const cy = Math.round(py / SKY.fleck);
-  const dx = px / SKY.fleck - cx - 0.5 * (hash2(cx, cy) - 0.5);
-  const dy = py / SKY.fleck - cy - 0.5 * (hash2(cx + 9, cy + 3) - 0.5);
+  // Three noises summed sit near a half and reach neither end. Stretched, the coarsest scale reads
+  // as whole crowns rather than as a wash, which is the one thing the still is unmistakably made of.
+  const spread = clamp((raw - 0.34) / 0.36, 0, 1);
+  // Stepped once, so a crown reads as a shape with an edge to it rather than as a cloud: a canopy
+  // seen from outside is a stack of separate masses, and what separates them is a sharp fall.
+  const lit = spread * spread * (3 - 2 * spread);
+  const value = (0.01 + SKY.mass * lit) * (SKY.foot + (1 - SKY.foot) * (1 - y * y));
+  // A speck is a break in the leaf and not a mark on a grid, so where one falls is a hash.
+  const cx = Math.round(px / SKY.speck);
+  const cy = Math.round(py / SKY.speck);
+  const dx = px / SKY.speck - cx - 0.5 * (hash2(cx, cy) - 0.5);
+  const dy = py / SKY.speck - cy - 0.5 * (hash2(cx + 9, cy + 3) - 0.5);
   // The gust decides **which** specks are open, never how bright an open one is: a speck let half
-  // through would be read at the stops between the leaf and the sky, and sky seen through a leaf is
-  // not a colour of its own. A gap opens and closes; it does not dim.
-  const speck =
-    clamp((SKY.wide - (dx * dx + dy * dy)) / SKY.edge, 0, 1) *
-    clamp((hash2(cx + 5, cy + 11) - (SKY.rare - SKY.opens * gust)) / 0.04, 0, 1);
-  const gate = clamp((SKY.thin - mass) / (SKY.thin * 0.5), 0, 1) * clamp((0.72 - y) / 0.15, 0, 1);
-  const sky = speck * gate;
+  // through is read at the stops between the leaf and the sky, and sky seen through a leaf is not a
+  // colour of its own. A gap opens and closes; it does not dim.
+  const near = clamp((SKY.wide - (dx * dx + dy * dy)) / SKY.edge, 0, 1);
+  const chosen = clamp((hash2(cx + 5, cy + 11) - (SKY.rare - SKY.opens * gust)) / 0.03, 0, 1);
+  const open = clamp((0.46 - y) / 0.1, 0, 1) * clamp((SKY.thin - lit) / 0.1, 0, 1);
+  // And the disc itself is stepped once more on its way out, so that what little of it is neither
+  // leaf nor sky is a pixel of edge rather than a ring of some third colour.
+  const sky = clamp((near * chosen * open - 0.3) / 0.3, 0, 1);
   return printed(x, y, value + sky * (0.99 - value));
 };

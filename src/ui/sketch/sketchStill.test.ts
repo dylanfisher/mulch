@@ -9,7 +9,14 @@ import { describe, expect, it } from "vitest";
 
 import { type SketchDial, type SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
-import { hash2, printed, STILL_DIALS, STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
+import {
+  hash2,
+  printed,
+  STILL_DIALS,
+  STILL_NAMES,
+  STILL_STOPS,
+  streakAt,
+} from "@/ui/sketch/sketchStill";
 import {
   glintField,
   poppiesField,
@@ -29,10 +36,11 @@ const STILLS: readonly { name: string; field: SketchDriftField; dial: SketchDial
 function readOf(
   field: SketchDriftField,
   amount: number,
-): { least: number; most: number; hot: number } {
+): { least: number; most: number; hot: number; cool: number } {
   let least = Infinity;
   let most = -Infinity;
   let hot = 0;
+  let cool = 0;
   let count = 0;
   for (let y = 0.005; y < 1; y += 0.01) {
     for (let x = 0.005; x < FIELD_ASPECT; x += 0.01) {
@@ -41,10 +49,11 @@ function readOf(
       least = Math.min(least, at);
       most = Math.max(most, at);
       if (at > 0.6) hot += 1;
+      if (at < 0.3) cool += 1;
       count += 1;
     }
   }
-  return { least, most, hot: hot / count };
+  return { least, most, hot: hot / count, cool: cool / count };
 }
 
 /**
@@ -101,14 +110,21 @@ describe("what a still's own five stops are for", () => {
    */
   it("reaches both ends of its own five stops inside one picture", () => {
     for (const { name, field, dial } of STILLS) {
-      const { least, most, hot } = readOf(field, dial.rest);
+      const { least, most, hot, cool } = readOf(field, dial.rest);
       expect(least, `${name} never reaches its low stop`).toBeLessThan(0.15);
       // Past 0.8 is past the fourth of five stops — the sampling is a grid and the print's own
       // vignette dims whatever the grid happens to land on, so the claim is "reaches the fourth
       // stop", which is the one that says the picture is not all ground.
       expect(most, `${name} never reaches its high stop`).toBeGreaterThan(0.8);
-      expect(hot, `${name} is ${Math.round(hot * 100)}% hot, which is a wash`).toBeLessThan(0.5);
-      expect(hot, `${name} has no marks at the hot end`).toBeGreaterThan(0.001);
+      // **Both ends are used, and neither is capped.** This was a ceiling on the hot share — under a
+      // half, "which is a wash" — and that was a claim about the wrong picture: the grass still is a
+      // warm mass wall to wall, so its hot share is meant to be most of the box, and the ceiling was
+      // what three scarlet drawings of it were tuned against. What the four actually owe is that
+      // each end of the ramp is somewhere in the picture and not in a handful of pixels of it.
+      expect(cool, `${name} has no shade at all`).toBeGreaterThan(0.01);
+      // A five-hundredth, which is the canopy: its hot end is a couple of dozen specks of sky in a
+      // wall of leaf, and a bar set where the other three sit would be a bar against that picture.
+      expect(hot, `${name} has no marks at the hot end`).toBeGreaterThan(0.002);
     }
   });
 
@@ -147,6 +163,39 @@ describe("a still's own stops", () => {
       seen.add(list);
     }
     expect(seen.size).toBe(STILL_NAMES.length);
+  });
+});
+
+describe("the streaked noise two of the four are made of", () => {
+  /**
+   * The one thing it has to be is **smooth**, because the whole reason it is here is that gratings
+   * are not: a lookup that stepped between its hashed corners would draw the blocks a nearest
+   * neighbour draws, which is a lattice again by another road.
+   */
+  it("moves less between two near samples than its corners are apart", () => {
+    let worst = 0;
+    for (let at = 0; at < 400; at += 1) {
+      const px = at * 0.37;
+      const py = at * 0.11;
+      worst = Math.max(worst, Math.abs(streakAt(px, py, 4, 9) - streakAt(px + 0.02, py, 4, 9)));
+    }
+    // A twentieth of a cell moves the read by well under a twentieth of its own range.
+    expect(worst).toBeLessThan(0.02);
+  });
+
+  it("is longer along its cell than across it, and is the same field twice", () => {
+    expect(streakAt(6, 7, 3, 40)).toBe(streakAt(6, 7, 3, 40));
+    // The same three pixels stepped two ways: across a cell three wide it is a whole corner, and
+    // down a cell forty tall it is a fortieth of one. That difference is what makes a fibre.
+    let across = 0;
+    let along = 0;
+    for (let at = 0; at < 200; at += 1) {
+      const px = at * 0.7;
+      const py = at * 1.3;
+      across += Math.abs(streakAt(px, py, 3, 40) - streakAt(px + 3, py, 3, 40));
+      along += Math.abs(streakAt(px, py, 3, 40) - streakAt(px, py + 3, 3, 40));
+    }
+    expect(along * 4).toBeLessThan(across);
   });
 });
 
