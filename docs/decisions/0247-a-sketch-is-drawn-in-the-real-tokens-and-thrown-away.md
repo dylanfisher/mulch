@@ -4,7 +4,10 @@
 - **Status:** accepted, adding a third screen to
   [0074](0074-both-screens-read-the-one-shell-width.md); its "six answers to one question" half is
   amended by [0254](0254-the-bench-argues-the-card-fold-by-fold.md), where the bench becomes two
-  lists and "pick one and the rest of this directory is deleted" becomes "pick one per fold"
+  lists and "pick one and the rest of this directory is deleted" becomes "pick one per fold";
+  its "not by colour" half is amended for the drift bench by
+  [0331](0331-a-still-is-read-along-its-own-stops-per-pixel.md), where four pictures are each read
+  along five stops of their own
 
 `src/ui/PlayerCard.tsx` draws one control per number the module declares — 45 dials, eight of them
 carrying a run of extra amounts, in five folds, and every part row redraws 32 of them again. Its own

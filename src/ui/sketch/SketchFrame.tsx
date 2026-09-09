@@ -2,7 +2,8 @@
  * @role The frame every sketch on the bench sits in — its number, its name, the one sentence it
  *   argues, what it gives up to argue it, how it would be built where an entry says so, and the
  *   stage the sketch itself is drawn on.
- * @instead The bench's own layout and the list of what is on it → src/ui/sketch/SketchPage.tsx.
+ * @instead The bench's own layout → src/ui/sketch/SketchPage.tsx, and the two lists it draws into
+ *   this frame → src/ui/sketch/sketchEntries.ts.
  */
 import type { ReactNode } from "react";
 

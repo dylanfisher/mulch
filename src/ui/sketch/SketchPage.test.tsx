@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
-import { SKETCH_DRIFTS, SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_DRIFTS, SKETCH_GROUNDS } from "@/ui/sketch/sketchEntries";
+import { SketchPage } from "@/ui/sketch/SketchPage";
 
 /**
  * The bench is a list of arguments drawn out of the same primitives the instrument is, so rendering

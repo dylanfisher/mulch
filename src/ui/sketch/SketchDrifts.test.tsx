@@ -1,5 +1,5 @@
 /**
- * The drift bench's own half of the naming rule (0252): eight directions of one picture, each on
+ * The drift bench's own half of the naming rule (0252): thirteen directions of one picture, each on
  * a canvas under its own dial, each naming what the dial stands at and the inks it is drawn in,
  * and each saying where in the painter it would land — at a file that exists. Out of
  * `SketchPage.test.tsx` in the shape `SketchGrounds.test.tsx` took: that file mounts the bench and
@@ -12,7 +12,9 @@ import { describe, expect, it } from "vitest";
 
 import { SCENE_NAMES } from "@/lib/moireScene";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
-import { SKETCH_DRIFTS, SketchPage } from "@/ui/sketch/SketchPage";
+import { STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
+import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
+import { SketchPage } from "@/ui/sketch/SketchPage";
 
 /** The whole bench, rendered once: every case here reads one stage out of the one markup. */
 const markup = renderToStaticMarkup(<SketchPage />);
@@ -30,9 +32,27 @@ function stageOf(id: string, next: string | undefined): string {
   return markup.slice(opens, closes);
 }
 
-describe("SketchPage draws where the picture goes, eight ways", () => {
+/** The inks a stage names, in the order its own legend draws them. */
+function chipsOf(stage: string): string[] {
+  return [...stage.matchAll(/data-chip="([^"]+)"/gu)].map((found) => found[1] ?? "");
+}
+
+/** One list of stops as the names a legend would draw, so two inkings compare as one string. */
+const namesOf = (stops: readonly { name: string }[]): string =>
+  stops.map((stop) => stop.name).join();
+
+/**
+ * Every inking a picture on this bench may be drawn through: the two shared ones, and one per still.
+ * Held as the names in their order and not as a count — four stills at five stops each and the
+ * reference ramp at five would all pass a count, and what is being checked is which five.
+ */
+const DECLARED = [...Object.values(INKING_STOPS), ...Object.values(STILL_STOPS)].map((stops) =>
+  namesOf(stops),
+);
+
+describe("SketchPage draws where the picture goes, thirteen ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length);
+    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length + STILL_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");
@@ -42,25 +62,48 @@ describe("SketchPage draws where the picture goes, eight ways", () => {
         new RegExp(`data-said="${entry.id}"[^>]*>[^<]*[a-z]`, "u"),
       );
       // Every ink the stage paints with is a chip a hand can see, and there are no others.
-      const chips = [...stage.matchAll(/data-chip="/gu)].length;
-      expect(
-        Object.values(INKING_STOPS).some((stops) => stops.length === chips),
-        `${entry.id} names ${chips} inks`,
-      ).toBe(true);
+      const drawn = chipsOf(stage).join();
+      expect(DECLARED, `${entry.id} names inks nothing declared: ${drawn}`).toContain(drawn);
     }
   });
+});
 
+describe("the bench spends colour on a scene, and on nothing else", () => {
   /**
-   * The one direction that spends a second colour says so by reading through the five-stop ramp,
-   * and it is the only one — a bench where two pictures were coloured would be arguing about the
-   * palette rather than the move (0247).
+   * **Amended for the stills.** The rule was that exactly one picture spent a second colour, which
+   * was right for a bench arguing about one move at a time on a one-hue instrument (0247). The four
+   * stills are the answer to the shipped scenes reading as too quiet, and colour at full strength is
+   * the thing they are for — so the rule is now two: the reference ramp of five is still read by the
+   * Ramp and by nothing else, and a picture drawn along stops of its own holds those stops alone.
+   *
+   * The second half is walked over **every entry** and not over the four names, which is what keeps
+   * it as strong as the rule it replaces: "no picture but the Ramp draws five chips" banned a
+   * fourteenth entry from borrowing a still's palette, and a loop over `STILL_NAMES` would have let
+   * one through the moment it was added under any other id (0331).
    */
-  it("reads exactly one picture through the ramp of five", () => {
-    const ramped = SKETCH_DRIFTS.filter((entry, index) => {
-      const chips = [...stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id).matchAll(/data-chip="/gu)];
-      return chips.length === INKING_STOPS.ramp.length;
-    });
-    expect(ramped.map((entry) => entry.id)).toEqual(["ramp"]);
+  it("reads one picture through the reference ramp and every other palette once", () => {
+    const reference = namesOf(INKING_STOPS.ramp);
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    const seen = new Map<string, string>();
+    for (const [index, entry] of SKETCH_DRIFTS.entries()) {
+      const chips = chipsOf(stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id)).join();
+      // A picture may share the two-stop inking every geometry direction is drawn in; anything
+      // wider than that is a palette, and a palette belongs to one picture.
+      if (chips === namesOf(INKING_STOPS.ink)) continue;
+      const held = seen.get(chips);
+      expect(held, `${entry.id} draws the palette ${chips}, which ${held ?? "nothing"} holds`).toBe(
+        undefined,
+      );
+      seen.set(chips, entry.id);
+    }
+    expect(seen.get(reference), "the reference ramp is not the Ramp's").toBe("ramp");
+
+    for (const name of STILL_NAMES) {
+      expect(drawn, `${name} is not on the bench`).toContain(name);
+      const stops = namesOf(STILL_STOPS[name]);
+      const chips = chipsOf(stageOf(name, SKETCH_DRIFTS[drawn.indexOf(name) + 1]?.id)).join();
+      expect(chips, `${name} is not read along its own stops`).toBe(stops);
+    }
   });
 });
 
@@ -83,9 +126,9 @@ describe("the bench draws every scene", () => {
   });
 });
 
-describe("each of the eight says where it would land", () => {
+describe("each of the thirteen says where it would land", () => {
   /**
-   * A build note is the point of this bench: the eight are a plan's worth of parts, so each one
+   * A build note is the point of this bench: the thirteen are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */

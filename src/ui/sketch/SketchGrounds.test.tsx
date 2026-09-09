@@ -11,7 +11,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { SKETCH_GROUNDS, SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_GROUNDS } from "@/ui/sketch/sketchEntries";
+import { SketchPage } from "@/ui/sketch/SketchPage";
 import {
   aheadIn,
   bedNamed,

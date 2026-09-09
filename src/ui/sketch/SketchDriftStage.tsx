@@ -24,11 +24,18 @@ import { inkOf } from "@/ui/moireScreen";
 import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
 
+/** One stop of an inking: what it is called under the picture, and the token its chip is drawn in. */
+export type SketchStop = { readonly name: string; readonly chip: string };
+
 /**
- * The two ways a picture is inked. `ink` is the instrument today — its ground and one ink, which
- * is the box's own `text-*` token. `ramp` is the reference: the ground, the cool ink, the green
- * channel, the primary and the hot ink, in that order, which is the one direction on the bench
- * that spends a second colour and says so.
+ * The two inkings every picture on the bench shares. `ink` is the instrument today — its ground and
+ * one ink, which is the box's own `text-*` token. `ramp` is the reference: the ground, the cool ink,
+ * the green channel, the primary and the hot ink, in that order, which is the one direction on the
+ * bench that argues for a second colour out of the instrument's own five.
+ *
+ * A picture may hand the stage a **list of stops of its own** instead of naming one of these, which
+ * is what a still is drawn through: four fields each read along their own scene's five, so the
+ * question they argue is which field, and not which palette (0331).
  */
 export type SketchInking = "ink" | "ramp";
 
@@ -39,7 +46,7 @@ export type SketchInking = "ink" | "ramp";
  * an unregistered property computes to its token text, and a chip is a colour the engine has
  * already resolved (principle 5).
  */
-export const INKING_STOPS: Record<SketchInking, readonly { name: string; chip: string }[]> = {
+export const INKING_STOPS: Record<SketchInking, readonly SketchStop[]> = {
   ink: [
     { name: "ground", chip: "bg-muted" },
     { name: "ink", chip: "bg-foreground" },
@@ -93,7 +100,8 @@ export function SketchDriftStage({
 }: {
   reading: string;
   label: string;
-  inking?: SketchInking;
+  /** One of the two shared inkings, or this picture's own stops — see `SketchInking`. */
+  inking?: SketchInking | readonly SketchStop[];
   field: SketchDriftField;
   dial: SketchDial;
   /** What the dial stands at, in the picture's own words — drawn under the picture. */
@@ -112,7 +120,7 @@ export function SketchDriftStage({
     [reading],
   );
 
-  const stops = INKING_STOPS[inking];
+  const stops = typeof inking === "string" ? INKING_STOPS[inking] : inking;
   // The legend is where the inks are read from, so it is reached by its own ref and never by
   // walking up from the canvas: a wrapper added between the two would read the wrong element.
   const legend = useRef<HTMLDivElement>(null);
@@ -127,7 +135,11 @@ export function SketchDriftStage({
       const inks = Array.from(chips, (chip) => inkOf(getComputedStyle(chip).backgroundColor));
       paintField(canvas, inks, field, amount);
     },
-    [amount, field, reading, stops.length],
+    // On `stops` and not on `stops.length`: the reference ramp and all four stills hold five, so a
+    // length is no longer a name for an inking, and a picture that swapped one five-stop list for
+    // another would keep its old inks with the new chips under them. Every list is a module
+    // constant, so the identity is stable and this costs no repaint.
+    [amount, field, reading, stops],
   );
   const { rootRef, canvasRef } = useCanvasSurface(paint, false);
 

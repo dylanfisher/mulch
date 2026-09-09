@@ -59,7 +59,7 @@ so no yard word is written twice; `latticeAxis` was lifted into the contract as 
 scenes being its second caller; and a scene's tunables are read inside the bake, so the tile key
 carries a count of how many times any tuning has moved and the tiles are cleared when one does —
 without which every slider the bench argues a ground on was inert in the app. The next free decision
-number is 0330.
+number is 0332.
 
 1.  **A yard's picture is a scene its name names.** _(bench-06, landed 0329)_ **Durable shape
     moved: none.**
