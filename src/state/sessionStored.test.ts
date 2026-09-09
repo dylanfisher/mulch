@@ -51,11 +51,11 @@ const STORED_PARAMS = {
 const STORED_RACK = [
   {
     id: "flt",
-    effect: "filter",
+    effect: "eq",
     bypassed: false,
-    params: { "filter.cutoff": 1000 },
+    params: { "eq.frequency": 1000, "eq.gain": 0, "eq.q": 1, "eq.shape": 0 },
     automation: {
-      "filter.cutoff": [
+      "eq.frequency": [
         { at: 0, value: 400 },
         { at: 1, value: 900 },
       ],
@@ -188,9 +188,9 @@ describe("stored clips", () => {
     patchDeck(store, "a", {
       source: { blobId: "audio-9" },
       effects: [
-        instance("flt", "filter", {
+        instance("flt", "eq", {
           automation: {
-            "filter.cutoff": [
+            "eq.frequency": [
               { at: 0, value: 400 },
               { at: 1, value: 900 },
             ],

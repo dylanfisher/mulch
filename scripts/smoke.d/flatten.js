@@ -29,7 +29,7 @@ const FLATTEN_EDGE_FRAMES = 12;
 export const flattenYard = async ({ page }) => {
   const flatten = await page.evaluate(
     async ({ blob, deck, gain, lookahead, rendered, secs, sounding }) => {
-      // The performance: a tone read at half speed through a filter, looped across its middle.
+      // The performance: a tone read at half speed through a low-pass, looped across its middle.
       // Every one of those is a thing a flatten is supposed to put into the samples. Written
       // against whichever yard is holding it — the live one this scenario adds, or the one a
       // render's own instrument starts with, which is the only yard its envelopes may name.
@@ -37,12 +37,13 @@ export const flattenYard = async ({ page }) => {
         { t: "deck.load", deck: on, source: { gen: "sine", hz: 220 } },
         { t: "param.set", deck: on, param: "deck.gain", value: gain },
         { t: "param.set", deck: on, param: "deck.speed", value: 0.5 },
-        { t: "effect.add", deck: on, id: "flatten-filter", effect: "filter" },
+        { t: "effect.add", deck: on, id: "flatten-eq", effect: "eq" },
+        { t: "param.set", deck: on, instance: "flatten-eq", param: "eq.shape", value: 1 },
         {
           t: "param.set",
           deck: on,
-          instance: "flatten-filter",
-          param: "filter.cutoff",
+          instance: "flatten-eq",
+          param: "eq.frequency",
           value: 600,
         },
         { t: "deck.loop", deck: on, in: 0.1, out: 0.35 },
@@ -230,7 +231,7 @@ export const flattenYard = async ({ page }) => {
     });
   }
   report(
-    `a ${flatten.secs.toFixed(2)}s pass of a yard read at 0.5x through a filter became its whole source: ` +
+    `a ${flatten.secs.toFixed(2)}s pass of a yard read at 0.5x through a low-pass became its whole source: ` +
       `${flatten.bytes} bytes of stored wav, decoded to ${flatten.after.duration.toFixed(3)}s and ` +
       `sounding from frame ${flatten.edges.firstLoud} to ${flatten.edges.lastLoud} of ` +
       `${flatten.edges.frames}, that play straight to the performance's own fingerprint`,

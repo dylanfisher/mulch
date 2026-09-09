@@ -20,13 +20,13 @@ const POLL_MS = 100;
 const SLACK = 8;
 
 /**
- * The two effects the cycles build with, and the prototypes each one puts in the heap. `filter`
+ * The two effects the cycles build with, and the prototypes each one puts in the heap. `eq`
  * builds a BiquadFilterNode and `delay` a DelayNode (src/audio/effects/), so counting instances of
  * those two prototypes counts the graph those effects left behind — without the rack, the engine
  * or `window.mulch` having to expose a handle that exists only for this test.
  */
 const PROTOTYPES = [
-  ["filter", "BiquadFilterNode.prototype"],
+  ["eq", "BiquadFilterNode.prototype"],
   ["delay", "DelayNode.prototype"],
 ];
 
@@ -80,9 +80,9 @@ export const leaks = async ({ page }) => {
     const held = 0;
 
     for (let cycle = 0; cycle < CYCLES; cycle += 1) {
-      const ids = ["filter", "delay"].map((effect) => `leak-${cycle}-${effect}`);
+      const ids = ["eq", "delay"].map((effect) => `leak-${cycle}-${effect}`);
       await page.evaluate((round) => {
-        for (const effect of ["filter", "delay"]) {
+        for (const effect of ["eq", "delay"]) {
           window.mulch.send({ t: "effect.add", deck: "a", effect, id: `leak-${round}-${effect}` });
         }
       }, cycle);
@@ -121,8 +121,8 @@ export const leaks = async ({ page }) => {
       );
     }
     report(
-      `${CYCLES} rack add/remove cycles left no filter or delay nodes alive in the heap ` +
-        `(filter ${before.filter}→${after.filter}, delay ${before.delay}→${after.delay})`,
+      `${CYCLES} rack add/remove cycles left no EQ or delay nodes alive in the heap ` +
+        `(eq ${before.eq}→${after.eq}, delay ${before.delay}→${after.delay})`,
     );
 
     const performanceAfter = await cdp.send("Performance.getMetrics");

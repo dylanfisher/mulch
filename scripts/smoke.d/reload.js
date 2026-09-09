@@ -50,7 +50,7 @@ export const reload = async ({ page, state }) => {
     restored.before.duration <= 0 ||
     restored.before.playing !== false ||
     restored.before.params["deck.gain"] !== 0.4 ||
-    restored.before.effects.map((entry) => entry.effect).join(",") !== "filter" ||
+    restored.before.effects.map((entry) => entry.effect).join(",") !== "eq" ||
     !restored.before.effects.every((entry) => entry.bypassed) ||
     restored.automation?.length <= 1
   ) {

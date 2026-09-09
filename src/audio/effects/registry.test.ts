@@ -20,15 +20,15 @@ import {
   STRAIGHT_DIMENSIONS,
   type DriftGeometry,
 } from "@/lib/moire";
-import { LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
+import { LOOK_NAMES, LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
 import { PARAMS } from "@/audio/params";
 import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
-import { EFFECTS, effectForParam, validateEffects } from "./registry";
+import { effectById, EFFECTS, effectForParam, isGrowable, validateEffects } from "./registry";
 import type { Effect, ParamDeclaration } from "./contract";
 
-const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effect => ({
+const unbuilt = (id: string, param: string, drift: DriftProfile = "cross"): Effect => ({
   id,
   label: id,
   width: "half",
@@ -76,6 +76,33 @@ describe("effect registry", () => {
       expect(pools?.nouns.length).toBeGreaterThan(0);
     }
     expect(new Set(Object.keys(EFFECT_NAMES))).toEqual(new Set(EFFECTS.map(({ id }) => id)));
+  });
+
+  // 0322, 0323: the registry's own list moved — an entry left it and one arrived, and what each of
+  // them owns went with it. Asserted here rather than spread over the files that no longer mention
+  // a filter, because the registry is the one place that says which entries exist.
+  it("holds a panner and no filter, and every look and pool moved with them", () => {
+    const ids = EFFECTS.map(({ id }) => id);
+    expect(ids).toContain("panner");
+    expect(ids).not.toContain("filter");
+    // A low-pass is what the EQ's shape is now, so a second entry answering the same question is
+    // gone and so is everything only it declared.
+    expect(LOOK_NAMES).not.toContain("soften");
+    expect(Object.keys(LOOKS)).not.toContain("soften");
+    expect(DRIFT_PROFILES).not.toContain("slope");
+    expect(Object.keys(EFFECT_NAMES)).not.toContain("filter");
+    // And the arrival is a whole entry: its own look, its own wave, a presence that puts it in the
+    // growable pool, and twenty-four names of each kind whose nouns nothing else uses.
+    const panner = effectById("panner");
+    expect(panner.look).toBe("stagger");
+    expect(LOOKS.stagger.at).toBe("pass");
+    expect(panner.drift).toBe("cross");
+    expect(DRIFT_PROFILES).toContain("cross");
+    expect(panner.presence).toMatchObject({ param: "panner.spread" });
+    expect(isGrowable(panner)).toBe(true);
+    const pools = EFFECT_NAMES.panner;
+    expect(pools?.adjectives).toHaveLength(24);
+    expect(pools?.nouns).toHaveLength(24);
   });
 
   it("rejects duplicate effect ids", () => {
@@ -407,7 +434,7 @@ describe("effect registry", () => {
         "warp",
         "shards",
         "shatter",
-        "soften",
+        "stagger",
         "bloom",
         "blocks",
         "echoes",
@@ -547,7 +574,7 @@ describe("effect registry", () => {
   });
 
   it("indexes parameter ownership without another declaration", () => {
-    expect(effectForParam("filter.cutoff")).toBe("filter");
+    expect(effectForParam("eq.frequency")).toBe("eq");
     expect(effectForParam("delay.time")).toBe("delay");
     expect(effectForParam("delay.feedback")).toBe("delay");
     expect(effectForParam("delay.mix")).toBe("delay");

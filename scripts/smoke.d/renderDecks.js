@@ -95,7 +95,7 @@ export const renderDecks = async ({ page }) => {
     );
   }
   report(
-    "two instances of one effect through one rack: a second filter added, bypassed and removed on " +
+    "two instances of one effect through one rack: a second EQ added, bypassed and removed on " +
       "its own in the browser, and offline two delays in series parted from one by " +
       `${Math.max(...delayed.twoDb.map((db, index) => Math.abs(db - delayed.oneDb[index]))).toFixed(1)}dB`,
   );

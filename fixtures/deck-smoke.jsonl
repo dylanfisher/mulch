@@ -4,8 +4,8 @@
 {"t":"deck.load","deck":"a","source":{"gen":"click-train","hz":8}}
 # An instance holds its own values, so each plugin is appended under a caller-minted id and then
 # configured through that id — the same (instance, param) handoff a session restore uses (0030).
-{"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
-{"t":"param.set","deck":"a","instance":"flt","param":"filter.cutoff","value":8000}
+{"t":"effect.add","deck":"a","id":"flt","effect":"eq"}
+{"t":"param.set","deck":"a","instance":"flt","param":"eq.frequency","value":8000}
 # A quarter-second loop over the first two clicks: four cycles per second of wall time.
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
 {"t":"param.set","deck":"a","param":"deck.gain","value":0.8}

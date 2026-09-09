@@ -83,10 +83,10 @@ export const renderAutomator = async ({ page }) => {
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 9, 3),
     run(AUTOMATOR_RENDER_SECS, 7, 0),
-    // The same run with one window on the pool: every filter it draws is pinned to a sliver at
+    // The same run with one window on the pool: every EQ it draws is pinned to a sliver at
     // the bottom of its own range, which is a different performance from the same seed (0208).
     run(AUTOMATOR_RENDER_SECS, 7, 3, {
-      bounds: { param: "filter.cutoff", bounds: { min: 60, max: 90 } },
+      bounds: { param: "eq.frequency", bounds: { min: 60, max: 90 } },
     }),
     // And the same run kept alive: every knob that carries a lane is redrawn as it stands.
     run(AUTOMATOR_RENDER_SECS, 7, 3, { wander: 1 }),

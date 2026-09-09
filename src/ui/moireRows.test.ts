@@ -390,27 +390,27 @@ describe("moireRows", () => {
   });
 
   it("keeps the fold for a dimension no value of the effect's reaches", () => {
-    // The filter declares its cutoff into where along the ramp its row is drawn and nothing else
-    // (0141), so its period is still the one its own id folds to and two of them still beat
-    // against each other.
+    // The EQ declares its three knobs into a pitch, a depth and a fringe and into nothing else
+    // (0141), so its period is still the one its own id folds to, two of them still beat against
+    // each other, and the dimensions it says nothing with stay where the picture rests.
     const rows = moireRows(
       [],
-      [instance("fx1", { effect: "filter" }), instance("fx2", { effect: "filter" })],
+      [instance("fx1", { effect: "eq" }), instance("fx2", { effect: "eq" })],
       0,
       PLAIN_CUT,
     ).rows;
     expect(rows[0]?.period).toBe(effectRowPeriod(fold("fx1")));
     expect(rows[1]?.period).toBe(effectRowPeriod(fold("fx2")));
     expect(rows[0]?.bend).toBe(FLAT_BEND);
-    expect(rows[0]?.depth).toBe(1);
+    expect(rows[0]?.hue).toBe(DRIFT_REST.hue);
     const wide = moireRows(
       [],
-      [instance("fx1", { effect: "filter", params: { "filter.cutoff": 20_000 } })],
+      [instance("fx1", { effect: "eq", params: { "eq.frequency": 20_000 } })],
       0,
       PLAIN_CUT,
     ).rows[0];
-    expect(wide?.hue).not.toBe(rows[0]?.hue);
-    expect(wide?.pitch).toBe(DRIFT_REST.pitch);
+    expect(wide?.pitch).not.toBe(rows[0]?.pitch);
+    expect(wide?.hue).toBe(DRIFT_REST.hue);
     expect(wide?.period).toBe(rows[0]?.period);
   });
 
@@ -444,7 +444,7 @@ describe("moireRows", () => {
   it("gives every effect an automator has grown a row of its own, cut to its own plugin", () => {
     const auto = instance("auto", { effect: "automator" });
     const none = moireRows([], [auto], 8, PLAIN_CUT).rows;
-    const standing: readonly EffectId[] = ["delay", "reverb", "filter"];
+    const standing: readonly EffectId[] = ["delay", "reverb", "eq"];
     const three = moireRows(
       [],
       [auto],
@@ -475,9 +475,8 @@ describe("moireRows", () => {
     // And what it is *set* to comes off the run: a knob the automator drew low and the same knob
     // drawn high are two rows, exactly as two rack instances set differently are (0139).
     const reaching = (turn: number): MoireRow | undefined =>
-      moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn])))
-        .rows[1];
-    expect(reaching(0)?.hue).not.toBe(reaching(1)?.hue);
+      moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("eq", "g1", [turn]))).rows[1];
+    expect(reaching(0)?.pitch).not.toBe(reaching(1)?.pitch);
   });
 
   /**
@@ -598,7 +597,7 @@ describe("moireRows", () => {
   // no single knob owns — so the composition reorganises on it without any row in it moving
   // differently (0143).
   it("puts a grating on the whole yard coming round, and keeps it out of the yard's own periods", () => {
-    const two = [instance("fx1", { effect: "filter" }), instance("fx2", { effect: "eq" })];
+    const two = [instance("fx1", { effect: "eq" }), instance("fx2", { effect: "eq" })];
     const { rows, reads, periods, recurrence } = moireRows([], two, 8, PLAIN_CUT);
     // The periods are the yard's own three: the rows the macro one was measured from, and not the
     // macro row itself — the estimate beside the picture and the window the picture is drawn across

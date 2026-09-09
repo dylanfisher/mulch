@@ -67,7 +67,12 @@ describe("the parametric EQ in the rack", () => {
   it("builds as one native peaking biquad bound to all three of its parameters", () => {
     const { context, filters, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("e1", effectById("eq"), { "eq.frequency": 2_500, "eq.gain": -9, "eq.q": 4 });
+    rack.add("e1", effectById("eq"), {
+      "eq.frequency": 2_500,
+      "eq.gain": -9,
+      "eq.q": 4,
+      "eq.shape": 0,
+    });
 
     const eq = required(filters, 0);
     expect(eq.type).toBe("peaking");

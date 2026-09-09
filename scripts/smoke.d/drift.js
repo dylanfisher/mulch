@@ -20,7 +20,7 @@ const WASH_ID = "drift-wash";
  * And the rack the picture is shaped by (0278): two more entries to tighten the lattice, a sway to
  * bend the field, and a second automator to tear the picture across the first one's tear (0296).
  */
-const LATTICE_IDS = ["drift-eq", "drift-filter"];
+const LATTICE_IDS = ["drift-eq", "drift-panner"];
 const SWAY_ID = "drift-sway";
 const SHARD_ID = "drift-shard";
 
@@ -39,7 +39,7 @@ const washedRead = (wash) => wash >= LIVE_CREST && wash <= WASH_CREST_STRUCK;
  * Two of the drift's own paintings, so the picture has certainly drawn since the run filled — and
  * two of the *slowest* it paints at, not two of the fastest: the racks this scenario stands up run
  * more passes than `LOOK_FULL_RATE`, and a chain longer than that paints at half the rate (0284,
- * and filter's own pass, 0286). Twice the cadence would be one painting of those racks.
+ * and the panner's own pass, 0323). Twice the cadence would be one painting of those racks.
  */
 const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 4);
 
@@ -208,7 +208,7 @@ export const driftOpens = async ({ page }) => {
     ([lattice, sway, shard]) => {
       for (const [id, effect] of [
         [lattice[0], "eq"],
-        [lattice[1], "filter"],
+        [lattice[1], "panner"],
         [sway, "sway"],
         [shard, "automator"],
       ]) {

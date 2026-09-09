@@ -373,7 +373,7 @@ describe("how long a session has to settle", () => {
     });
     expect(settle(instrument)).toBe(6);
     // A second entry that remembers less does not shorten it, and does not lengthen it either.
-    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
     expect(settle(instrument)).toBe(6);
   });
 

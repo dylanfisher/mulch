@@ -52,8 +52,6 @@ import {
   grainBite,
   isLookName,
   SHARPEN_CEILING,
-  SOFTEN_SCALE,
-  softenScale,
   SHARPEN_SCALE,
   sharpenAmount,
   WOBBLE_CEILING,
@@ -70,19 +68,12 @@ import { SHATTER_BANDS, shatterBands, SHATTER_CEILING, shatterPieces } from "@/l
 import { clamp, normalize } from "@/lib/range";
 
 /**
- * How present a filter at one cutoff is heard to be, and where that cutoff stands on its own knob —
- * the entry's own declared silence and default spelt out here (src/audio/effects/filter.ts, 0202),
- * for the reason the bloom's defaults are: what this file tests is the maths, and the reading a rack
- * makes of an instance is src/ui/moireLooks.test.ts's own case.
- *
- * **All the way in is the knob's own default and not its minimum** (`presenceFull`,
- * src/audio/effects/contract.ts): the filter declares no `full`, so anything at or under a kilohertz
- * is heard as the whole of the effect and only the radius goes on moving below it.
+ * Where a frequency stands on the twenty-to-twenty-thousand log range the EQ's Freq declares — one
+ * helper, because one changed declaration must not leave a second name quietly answering for the
+ * wrong knob (principle 1). Spelt out here rather than read off the registry for the reason the
+ * bloom's defaults are: what this file tests is the maths, and the reading a rack makes of an
+ * instance is src/ui/moireLooks.test.ts's own case.
  */
-const heardAt = (cutoff: number): number => clamp((cutoff - 20_000) / (1_000 - 20_000), 0, 1);
-// And where a frequency stands on the twenty-to-twenty-thousand log range both the filter's Cutoff
-// and the EQ's Freq declare — one helper, because one changed declaration must not leave a second
-// name quietly answering for the wrong knob (principle 1).
 const turnAt = (frequency: number): number => normalize(frequency, 20, 20_000, "log");
 
 /**
@@ -456,48 +447,15 @@ describe("what a look is", () => {
     expect(grainBite(1, hiss)).toBeGreaterThan(0);
     expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING.value);
   });
-  // P286: filter's, and the one pass that replaces the field rather than laying anything over it.
-  it("softens the field on the cutoff's own turn, and stands open at the top of the knob", () => {
-    expect(LOOKS.soften.at).toBe("pass");
-    expect(LOOKS.soften.terms).toEqual({ radius: "turn" });
-    // The band is stated open end last, because the term is the cutoff's own turn and a cutoff
-    // reads that way round: shut at the bottom of the knob and wide open at the top.
-    expect(SOFTEN_SCALE[0]).toBeGreaterThan(0);
-    expect(SOFTEN_SCALE[0]).toBeLessThan(SOFTEN_SCALE[1]);
-    // And it closes at the field itself: a filter standing open is a wire, and the band says so
-    // rather than leaving the entry's own presence to say it (0202).
-    expect(SOFTEN_SCALE[1]).toBe(1);
-    // Wider at its shut end than the halo the bloom draws, because what this pass says is that the
-    // fine detail is gone and not that there is a room around it (0280).
-    expect(SOFTEN_SCALE[0]).toBeGreaterThan(BLOOM_SCALE[1]);
-    // A filter standing open, and one the picture has not travelled to yet, are both the field at
-    // the whole of itself — the one draw this pass makes when it makes no difference.
-    expect(softenScale(1, 1)).toBe(1);
-    expect(softenScale(0, 0)).toBe(1);
-    expect(softenScale(-1, 0)).toBe(1);
-    // And shut, it is the band's own other end: the blocks' walk out from the field's own size and
-    // never the bloom's weighed share, because this pass lays nothing over the picture (0281).
-    expect(softenScale(2, -1)).toBeCloseTo(SOFTEN_SCALE[0], 12);
-    expect(softenScale(0.5, 0)).toBeCloseTo(1 + (SOFTEN_SCALE[0] - 1) / 2, 12);
-    // At filter's own declared range and default (src/audio/effects/filter.ts, spelt out here for
-    // the reason the bloom's are) the picture is visibly softened and a long way off the most this
-    // pass can do — and both numbers come off the one knob: over the top of its range a cutoff
-    // falling raises how present the filter is heard to be *and* shrinks the copy, and under the
-    // default the presence is already the whole of it and the radius goes on alone (0202).
-    expect(heardAt(20_000)).toBe(0);
-    expect(heardAt(200)).toBe(1);
-    // Visibly softened at the default and a long way off the most this pass can do.
-    const standing = softenScale(heardAt(1000), turnAt(1000));
-    expect(standing).toBeGreaterThan(SOFTEN_SCALE[0]);
-    expect(standing).toBeLessThan(0.75);
-    expect(softenScale(heardAt(200), turnAt(200))).toBeLessThan(standing);
-    expect(softenScale(heardAt(20_000), turnAt(20_000))).toBe(1);
-  });
-
   // P287: eq's, and the one look declared whole in a file of its own (0287).
   it("stands one band down the field on the frequency, as deep as the Q, lifting or cutting", () => {
     expect(LOOKS.band.at).toBe("pass");
-    expect(LOOKS.band.terms).toEqual({ position: "turn", lift: "turn", width: "turn" });
+    expect(LOOKS.band.terms).toEqual({
+      position: "turn",
+      lift: "turn",
+      width: "turn",
+      shape: "turn",
+    });
     // The depth band is stated widest first, because the term is the Q's own turn and a Q reads
     // that way round — and neither end is the whole field or a scratch across it.
     expect(BAND_DEPTH[0]).toBeLessThan(1);

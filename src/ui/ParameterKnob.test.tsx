@@ -386,7 +386,7 @@ describe("ParameterKnob automation gestures", () => {
       instrument,
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 1_234.567_890_123,
       lane: null,
       drawn: null,

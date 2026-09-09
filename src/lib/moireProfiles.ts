@@ -24,7 +24,7 @@ import { cosTurn, halfCosine, wrap } from "./moire.ts";
 export const DRIFT_PROFILES = [
   "plain",
   "strike",
-  "slope",
+  "cross",
   "peak",
   "flat",
   "twin",
@@ -64,20 +64,23 @@ export const RESERVED_PROFILES: readonly DriftProfile[] = [PLAIN_PROFILE, STRIKE
 const HARMONIC_SHARE = 0.25;
 
 /**
- * How much of a cycle a `slope`'s fall takes, and how sharply a `flat`'s edges stand up. The fall
+ * How much of a cycle a ramp's fall takes, and how sharply a `flat`'s edges stand up. It is the
+ * `strike`'s alone, and it was the `slope`'s too until the filter that claimed that wave left the
+ * registry with it (0322) — a wave no entry may draw is maths nothing can reach, which is what the
+ * look beside it answered for. The fall
  * is a fraction rather than nothing because the tile is sampled at sixty-four points and drawn at
  * between three and sixteen: an instantaneous edge is the one thing that shimmers under that
  * filtering rather than beating. An eighth of a cycle is a third of a device pixel at the band's
  * finest pitch and two at its coarsest — a fall the eye reads as an edge and the filter does not.
  */
-const SLOPE_FALL = 0.12;
+const RAMP_FALL = 0.12;
 const FLAT_EDGE = 3;
 
 /**
  * How many steps a `stair` takes either side of its own middle, and how much of the way to a
  * boundary the riser takes, on each side of it. Three steps is a staircase the eye counts rather
  * than a curve it reads as smooth, and the riser is a fraction of a step for the reason
- * `SLOPE_FALL` is a fraction of a cycle: the tile is sampled at sixty-four points and drawn at
+ * `RAMP_FALL` is a fraction of a cycle: the tile is sampled at sixty-four points and drawn at
  * between three and sixteen, so an instantaneous riser shimmers under that filtering rather than
  * beating. Symmetrical about the boundary, so the wave stays odd about its own middle and its mean
  * stays exactly a half.
@@ -132,7 +135,7 @@ const OCTAVE_SHARE = 0.5 / OCTAVE_DEPTHS;
 
 /**
  * A ramp that rises across the cycle and falls back over `fall` of it. Its mean is exactly a half
- * whatever `fall` is — a triangle of any skew averages its own ends — which is what lets `slope`
+ * whatever `fall` is — a triangle of any skew averages its own ends — which is what lets `strike`
  * and `peak` be the same line twice.
  */
 const rampBlock = (turn: number, fall: number): number => {
@@ -172,12 +175,18 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // own fails to compile rather than quietly drawing as this one.
   plain: (turn) => halfCosine(turn),
   // The other wave no effect may claim: a source with transients in it, drawn as one — up over an
-  // eighth of the cycle and down across the rest of it, which is a strike and its decay. The same
-  // ramp `slope` is and reversed, so its edge stands where the cycle begins: the reference row's
-  // zero is the top of the loop, so that edge is the loop point drawn rather than inferred (0145).
-  strike: (turn) => rampBlock(turn, 1 - SLOPE_FALL),
-  // A slope: the spectrum falling away past a cutoff, cut off and begun again.
-  slope: (turn) => rampBlock(turn, SLOPE_FALL),
+  // eighth of the cycle and down across the rest of it, which is a strike and its decay. Its edge
+  // stands where the cycle begins: the reference row's zero is the top of the loop, so that edge is
+  // the loop point drawn rather than inferred (0145).
+  strike: (turn) => rampBlock(turn, 1 - RAMP_FALL),
+  // A crest that leans across its own cycle: the fundamental with the second harmonic a quarter of
+  // that harmonic's own cycle along, so the wave is skewed one way at its crest and the other at its
+  // trough — a thing moving across rather than a shape standing in place, which is what a panner is.
+  // The pair to check is `twin` and `split`, which are this same pair of harmonics in step and in
+  // antiphase: a quarter turn is neither, so the beat between the two terms falls where neither of
+  // those puts it and no depth of either is this one (0122). It reaches a little short of both ends,
+  // which is a shallower cut and not a second family, exactly as `fifth` and `grain` are.
+  cross: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn + 0.125, 2)),
   // One band lifted and its skirts either side of it — the same ramp, fallen symmetrically.
   peak: (turn) => rampBlock(turn, 0.5),
   // A crest clipped flat, which is what a compressor does to one.

@@ -68,7 +68,7 @@ export const squashFloor = (presence: number, floor: number): number =>
  * range by the same presence. The blocks' walk and not the bloom's weighed share (0281, 0286),
  * because what travels here is where the range _ends_ and not how much of something is laid over
  * the picture; a compressor the picture has not travelled to yet is the field at the whole of
- * itself. Spelt out rather than shared with `blockSize` and `softenScale` for the reason above, and
+ * itself. Spelt out rather than shared with `blockSize` for the reason above, and
  * it is that walk's third site: folding the three together wants a module neither file's cycle
  * reaches, which is four passes' worth of change and not this step's.
  */

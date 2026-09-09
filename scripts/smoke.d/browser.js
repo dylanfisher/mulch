@@ -104,7 +104,7 @@ const LANES = [
     name: "renders",
     /**
      * A second yard, added through the visible affordance rather than by a command past the UI
-     * (0029) — ./formats.js and ./drop.js both name deck b. A filter on yard A's rack, which is
+     * (0029) — ./formats.js and ./drop.js both name deck b. An EQ on yard A's rack, which is
      * the half of the pair ./dragCard.js drags; ./picker.js below adds the eq it is dragged past.
      * And the instrument's own clock past `SETTLE_ASK_SECS`: ./exportAudio.js takes from the ear,
      * with the whole performance standing behind it, and asserts that the export shortened that to
@@ -120,10 +120,10 @@ const LANES = [
             .join(",") === "a,b",
       );
       await page.evaluate(() =>
-        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" }),
+        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" }),
       );
       await page.waitForFunction(
-        () => window.mulch.probe().decks.a.effects.at(-1)?.effect === "filter",
+        () => window.mulch.probe().decks.a.effects.at(-1)?.effect === "eq",
       );
       await page.waitForFunction((ask) => window.mulch.stats().at > ask, SETTLE_ASK_SECS);
     },
@@ -172,7 +172,7 @@ const LANES = [
     prelude: async ({ page }) => {
       await page.evaluate(() => {
         window.mulch.send({ t: "deck.loop", deck: "a", in: 0, out: 0.05 });
-        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
       });
       await page.waitForFunction(() => {
         const deck = window.mulch.probe().decks.a;

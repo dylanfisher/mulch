@@ -3,13 +3,13 @@ import { fail, settledBox } from "./harness.js";
 
 /**
  * How many knobs Option reveals here: both decks' automatable deck parameters — gain and pan —
- * plus the one automatable parameter of the single filter instance deck a is holding at this point
- * in the scenario order. Counted rather than read from the registry, because this half of the
- * smoke is plain Node and `src/audio/params.ts` reaches its own imports without extensions.
- * `src/audio/params.test.ts` pins the automatable list exactly, so nothing joins it without
- * someone arriving here.
+ * plus the three automatable parameters of the single EQ instance deck a is holding at this point
+ * in the scenario order, which is every knob on that card but its Shape (0322). Counted rather than
+ * read from the registry, because this half of the smoke is plain Node and `src/audio/params.ts`
+ * reaches its own imports without extensions. `src/audio/params.test.ts` pins the automatable list
+ * exactly, so nothing joins it without someone arriving here.
  */
-const ARMED_KNOBS = 5;
+const ARMED_KNOBS = 7;
 
 export const cutoff = async ({ page }) => {
   const rack = page.getByLabel("Yard A Effects");
@@ -17,7 +17,7 @@ export const cutoff = async ({ page }) => {
   // declared it and the rack holds it, and Option turns that same knob into a recorded lane —
   // on a bypassed effect, which is still bound and still scheduled (0024, 0028).
   const beforeCutoff = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-  const cutoffKnob = rack.getByRole("slider", { name: "Cutoff" });
+  const cutoffKnob = rack.getByRole("slider", { name: "Freq" });
   // Settled, because the ride below is raw `page.mouse` at coordinates measured here (0084).
   const knobBounds = await settledBox(cutoffKnob, "the cutoff knob");
   const armed = () => page.locator('[data-automation="armed"]').count();
@@ -36,7 +36,7 @@ export const cutoff = async ({ page }) => {
   await page.keyboard.up("Alt");
   // The lane lands on the instance holding the knob, not beside the deck's own lanes (0030).
   await page.waitForFunction(
-    () => (window.mulch.probe().decks.a.effects[0]?.automation["filter.cutoff"]?.length ?? 0) > 1,
+    () => (window.mulch.probe().decks.a.effects[0]?.automation["eq.frequency"]?.length ?? 0) > 1,
   );
   if ((await armed()) !== 0) throw new Error("a knob stayed armed after Option was released");
   const cutoffOps = await page.evaluate((after) => {
@@ -47,10 +47,10 @@ export const cutoff = async ({ page }) => {
         .ring()
         .filter((event) => event.seq > after && event.t === "automation.changed")
         .map((event) => event.param),
-      lane: entry.automation["filter.cutoff"].length,
+      lane: entry.automation["eq.frequency"].length,
       // Every recorded point is timed from the start of its own gesture, never from the
       // playhead the recorder happened to be at (0028).
-      startsAtZero: entry.automation["filter.cutoff"][0].at === 0,
+      startsAtZero: entry.automation["eq.frequency"][0].at === 0,
       // The deck holds no lane of its own for it: a value belongs to (instance, param) (0030).
       deckLanes: Object.keys(deck.automation).join(","),
       // The recorded lane runs against a bypassed instance, which kept its nodes (0023, 0024).
@@ -65,10 +65,10 @@ export const cutoff = async ({ page }) => {
   // bypassed rack and through the offline chain, marked and previewed on the knob (0024, 0028).
   if (
     cutoffOps.events.length !== 1 ||
-    cutoffOps.events.some((param) => param !== "filter.cutoff") ||
+    cutoffOps.events.some((param) => param !== "eq.frequency") ||
     cutoffOps.lane < 2 ||
     !cutoffOps.startsAtZero ||
-    cutoffOps.bypassed !== "filter"
+    cutoffOps.bypassed !== "eq"
   ) {
     fail(
       `effect-owned automation did not commit one lane per gesture — ${JSON.stringify(cutoffOps)}`,

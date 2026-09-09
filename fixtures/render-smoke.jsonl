@@ -2,13 +2,14 @@
 # so every number below is arithmetic rather than a race — `./scripts/drive --render 2` and
 # scripts/smoke compares the last line to fixtures/golden/render-smoke.json.
 #
-# The first portion is a click train through a low-pass filter and a loop point. The filter's
+# The first portion is a click train through a low-pass EQ and a loop point. The EQ's
 # ringing is visible in the first fingerprint windows, while the exact loop events keep the
 # transport timing assertion independent of the sound's shape.
 {"t":"deck.load","deck":"a","source":{"gen":"click-train","hz":8}}
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
-{"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
-{"t":"param.set","deck":"a","instance":"flt","param":"filter.cutoff","value":300}
+{"t":"effect.add","deck":"a","id":"flt","effect":"eq"}
+{"t":"param.set","deck":"a","instance":"flt","param":"eq.shape","value":1}
+{"t":"param.set","deck":"a","instance":"flt","param":"eq.frequency","value":300}
 {"t":"deck.play","deck":"a"}
 # The filtered portion ends before the delayed one begins, so their fingerprint windows are
 # independently readable rather than two effects summed over the same source.

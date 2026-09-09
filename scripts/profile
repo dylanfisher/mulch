@@ -257,13 +257,14 @@ const liveCount = async (cdp, expression) => {
 };
 
 /**
- * What the churn adds and removes each cycle. `filter` and `delay` are linear and untinted, so
- * every run before P107 painted the drift's cheap path and nothing else — no profiler run baked a
+ * What the churn adds and removes each cycle. `eq` and `delay` are linear and untinted, so every run
+ * before P107 painted the drift's cheap path and nothing else — no profiler run baked a
  * picture-sized tile at all, which is the gap P103 recorded. `reverb` is the curved, tinted entry
  * that makes the painter's expensive path measurable: its rows are rings about an anchor and its
- * tone is a step of the picture's own colour (0141, 0142).
+ * tone is a step of the picture's own colour (0141, 0142). `eq` stands where the filter did, which
+ * is the same native biquad at the same cost and the entry that absorbed it (0322).
  */
-const CHURNED = ["filter", "delay", "reverb"];
+const CHURNED = ["eq", "delay", "reverb"];
 
 /** Everything a rack churn plausibly strands, including the ones the gate refuses to assert on. */
 const PROTOTYPES = [
@@ -583,7 +584,7 @@ const main = async () => {
           envelopes: [
             load,
             { t: "deck.loop", deck: "a", in: 0, out: loop },
-            { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
+            { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
             { t: "effect.add", deck: "a", id: "vrb", effect: "reverb" },
             { t: "param.set", deck: "a", instance: "vrb", param: "reverb.wet", value: 0.5 },
             { t: "effect.add", deck: "a", id: "tpe", effect: "tape" },

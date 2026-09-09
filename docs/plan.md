@@ -301,7 +301,19 @@ the two presses are a row of src/ui/MotionMenu.tsx. bench-04 landed on 2026-09-0
 [0321](decisions/0321-the-session-holds-one-rack-under-all-the-yards.md); `RackId` is
 `DeckId | null`, `session.master` is a rack and nothing else, `createEffectRack` is called once
 inside `createMasterBus`, and `effect.move` carries an instance between two racks as one history
-entry. The next free decision number is 0322.
+entry. bench-05 landed on 2026-09-08 as
+[0322](decisions/0322-an-eq-band-has-a-shape-and-the-filter-goes.md) and
+[0323](decisions/0323-a-panner-walks-a-sound-across-the-field-in-pieces.md); `EQ_SHAPES` is
+src/lib/biquad.ts's, the shape is held by the EQ's own presence, src/audio/effects/filter.ts is gone
+with the `soften` look and the `slope` wave, and src/audio/effects/panner.ts is three stages a
+toggle builds and takes away again over one plain pan, looking through `staggerLook` in
+src/lib/moirePanner.ts. Review caught four things and each has its own test: the panner's dispose
+let go of the spread source before the stages that tap it, which throws on a real node and left the
+rest of the graph wired; its declared silence was not transparent with a stage standing, so the three
+toggles are held; its position walked a whole picture width, which a wrapping draw reads as no move
+at all at both ends and which left a column of the picture blank; and the fake context's own
+`disconnect` shrugged at a destination it was not connected to, which is what hid the first of them.
+The next free decision number is 0324.
 
 2.  **A ground is bounded by a zone the hand marked.** _(bench-02, landed 0318)_ **Durable shape moved: a
     yard's ground gains a zone.** One item, one gate.
@@ -493,7 +505,7 @@ AutomationRange; drawn: MotionDrawn | null }`, subscribed to with `useSyncExtern
     rack with no automation._ An effect that cannot be automated is a different effect from the one
     in a yard's rack, and there is one registry.
 
-5.  **The registry gains a shape and a panner, and loses the filter.** _(bench-05)_ **Durable shape
+5.  **The registry gains a shape and a panner, and loses the filter.** _(bench-05, landed 0322, 0323)_ **Durable shape
     moved: an entry leaves the registry and one arrives.** Two items, one gate. A stored session
     holding a filter instance no longer validates and is discarded (0026) — which is free, and is
     why this is one step and not a migration.
@@ -657,6 +669,64 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**A grown panner is a plain pan, and a hand stacks the stages on it** (bench-05, 0323). The step
+said all three toggles stack and refused offering only one of three. They do, for a hand — but the
+presence contract is that silence passes the input through unchanged (0202), and a band split at no
+spread is three crossovers summed rather than a wire: −17dB at 500Hz on this repo's own maths. So
+the toggles are `held`, which takes them out of what a run draws (`growthEntryOf`). What is lost is
+an automator that grows a slicing, band-split panner; what is kept is an entry whose fade in and out
+is silent, which is what puts it in the pool at all. A run that could draw a stage needs a presence
+that reads its own `held` parameters, which is a change to `effectHeard` and every entry with one.
+
+**The `radius` term stayed, and the `slope` wave left with the filter instead** (bench-05, 0322).
+The step said the `soften` name, its radius term and its draw all leave src/lib/moireLook.ts. The
+name and the draw did; the term did not, because the bloom declares `radius` too (`LOOKS.bloom`,
+src/lib/moireLook.ts) and a term two looks read is not the departing entry's to take. What did leave
+by the step's own argument is the `slope` drift profile: the filter was the only entry claiming that
+wave, and "maths nothing can reach" is the sentence the step wrote about the look. The panner's
+`cross` took the slot it vacated, so the profile list is the same length it was.
+
+**The stagger's position walks a quarter of the picture, not the whole of it** (bench-05, 0323). The
+step said the rows are displaced "by the spread, at the position". Read as the whole width, the
+position was unreadable: the pass wraps each band round the edge, so hard left, the middle and hard
+right drew the same picture, and a slide past a width left a column of it blank. `STAGGER_PLACE`
+bounds the walk at a quarter, which with the spread's own ceiling keeps every slide inside one width
+— which is exactly the condition the wrap needs.
+
+**A pass-shape band is weighed by the gain it does not hear** (bench-05, 0322). The band's alpha is
+the entry's presence, which is `eq.gain`'s distance from flat — and a low-pass does not read the
+gain, so an EQ switched to a pass shape with its gain at nought draws nothing. Weighing a pass band
+at the look's ceiling instead was tried and refused: every pass in the chain draws the field once
+and leaves it exactly as it was at no presence (0285, asserted over `LOOKS` in
+src/ui/moireCanvasChain.test.ts), and a pass that ignored its presence would break that property for
+every look at once. What the shape buys is the _draw_ — a cut past the edge rather than a lift at
+the frequency, which is the picture 0128 was about. The honest fix is a presence that reads its
+entry's `held` parameters, which is a change to `effectHeard` and every entry that declares one.
+
+**The panner's toggles rewire at the move rather than at the gesture's end** (bench-05, 0323). They
+declare no `rebuild`, so a stage is built or disposed as the value lands. A `rebuild` toggle would
+also be held out of the growable pool (`growthEntryOf`, src/audio/effects/automator.ts), and a hand
+asked for three stages that stack in a grown run. The cost is that a toggle dragged rather than
+clicked can rewire twice, and a rewire is a disconnect and a connect on a live graph rather than a
+crossfade; the move that lands on the value already standing rewires nothing, which bounds it at two.
+
+**The band-pass reads Q as a quality factor** (bench-05, 0322). src/lib/biquad.ts states the RBJ
+constant-peak band-pass, `alpha = sin(w0) / 2Q`, rather than the octave-bandwidth form written with
+a sinh. The two disagree about which direction Q narrows in, and this file exists to say what the
+node does — the browser smoke measures the real node and would catch a disagreement in dB, but no
+case here does, so what is asserted is the arithmetic this file states.
+
+**The discard case is in src/app/persistence.test.ts** (bench-05, 0322). The step named
+src/state/session.test.ts, which holds `validateSession`'s refusals and cannot see a
+`session.discarded` event at all — the event is emitted where a stored session meets a boot. The
+refusal itself is already covered there by the unregistered-effect case.
+
+**The filter was the instrument's generic test effect, and the EQ took the job** (bench-05, 0322).
+Fifty-odd files named `filter` because it was the cheapest entry to add — one knob, one native node
+— and every one of them now names `eq`, whose four values they have to spell. Three smoke scenarios
+that depended on a low-pass now set `eq.shape` to reach it, and the picker and drag scenarios seed
+the panner instead, so the browser still exercises two half-width cards abreast.
 
 **A card is carried between racks by a menu and not yet by a drag** (bench-04, 0320). The step
 asked for two gestures on one command, and the "Move to" item is the one that landed. `useListDrag`

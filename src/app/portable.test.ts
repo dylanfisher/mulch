@@ -41,7 +41,7 @@ describe("portable sessions", () => {
         { at: 1, value: 0.8 },
       ],
     });
-    source.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    source.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
     source.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();

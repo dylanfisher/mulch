@@ -27,9 +27,9 @@ const POOL: readonly GrowthEntry[] = [
     ],
   },
   {
-    id: "filter",
+    id: "panner",
     weight: 1,
-    params: [{ id: "filter.cutoff", min: 20, max: 20_000, default: 1_000, curve: "log" }],
+    params: [{ id: "panner.rate", min: 0.05, max: 8, default: 1, curve: "log" }],
   },
   { id: "eq", weight: 1, params: [{ id: "eq.gain", min: -24, max: 24, default: 0 }] },
 ];
@@ -205,7 +205,7 @@ describe("effect growth", () => {
   // At no drift a value is exactly what its plugin shipped — not very nearly.
   it("draws a value at its own default where there is no drift", () => {
     const param = {
-      id: "filter.cutoff",
+      id: "eq.frequency",
       min: 20,
       max: 20_000,
       default: 1_000,
@@ -219,7 +219,7 @@ describe("effect growth", () => {
   // A log range strays by octaves, so a cutoff wanders as the ear hears it.
   it("draws a log value in its own space", () => {
     const param = {
-      id: "filter.cutoff",
+      id: "eq.frequency",
       min: 20,
       max: 20_000,
       default: 1_000,
@@ -247,7 +247,7 @@ describe("effect growth", () => {
   // and the bottom of Stray is the window's nearer edge rather than a default outside it (0208).
   it("draws inside the window a hand put on a parameter, wherever the default fell", () => {
     const param = {
-      id: "filter.cutoff",
+      id: "eq.frequency",
       min: 20,
       max: 20_000,
       default: 1_000,
@@ -283,7 +283,7 @@ describe("effect growth", () => {
     expect(moves(0)).toEqual([]);
     const alive = moves(1);
     expect(alive.length).toBeGreaterThan(0);
-    // Only what can be ramped: `delay.mix` is held and `filter.cutoff` declares no lane in this
+    // Only what can be ramped: `delay.mix` is held and `panner.rate` declares no lane in this
     // pool, so neither may be moved after the arrival however alive the run is.
     const moved = new Set(alive.flatMap((change) => change.values.map(({ param }) => param)));
     expect([...moved]).toEqual(["delay.time"]);

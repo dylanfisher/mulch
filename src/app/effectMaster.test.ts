@@ -195,14 +195,14 @@ describe("effect.move", () => {
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: { min: 60, max: 90 },
     });
 
     instrument.send({ t: "effect.move", from: "a", to: null, instance: "auto", index: 0 });
     await turns();
 
-    expect(instrument.probe().master.effects[0]!.bounds["filter.cutoff"]).toEqual({
+    expect(instrument.probe().master.effects[0]!.bounds["eq.frequency"]).toEqual({
       min: 60,
       max: 90,
     });

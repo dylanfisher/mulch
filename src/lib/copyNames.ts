@@ -20,8 +20,8 @@ export type NamePools = {
  * Two pools multiplied rather than one flat list of pairs, the way a yard's name already is
  * (P55): a rack of five delays runs out of distinct readings from eight fixed pairs and does not
  * from twenty-four adjectives times twenty-four nouns. The adjectives say what that kind of effect
- * does — a delay's about distance and return, a filter's about narrowing, an eq's about shaping —
- * and the noun pools are disjoint by construction, so a delay and a filter can never draw the same
+ * does — a delay's about distance and return, a panner's about going across, an eq's about shaping —
+ * and the noun pools are disjoint by construction, so a delay and a panner can never draw the same
  * name. Twenty-four of each is 576 readings per kind, so two instances of one kind reading alike is
  * expected somewhere past the thirtieth rather than at the twelfth (0149, 0317) — further than any
  * rack goes.
@@ -41,14 +41,14 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
         "Culvert Tunnel Archway Gully Shaft Vault Passage Stairwell Conduit Cloakroom Pantry Trench",
     ),
   },
-  filter: {
+  panner: {
     adjectives: words(
-      "Narrow Close Shaded Winnowed Woven Tight Combed Strained Pinched Cropped Slotted Threaded " +
-        "Sifted Filtered Narrowed Guarded Slimmed Trimmed Barred Screened Fined Culled Hemmed Notched",
+      "Wandering Straying Roaming Sidelong Ranging Travelling Veering Drifting Sweeping Passing Migrating Slanting " +
+        "Angled Departing Arriving Circuiting Coursing Traversing Skirting Wheeling Ambling Parting Widening Crossing",
     ),
     nouns: words(
-      "Hedge Trellis Sieve Gate Screen Lattice Grille Mesh Weir Vent Louvre Riddle " +
-        "Colander Strainer Netting Filter Baffle Damper Shutter Gauze Wicket Portcullis Fretwork Slat",
+      "Bridleway Causeway Towpath Footbridge Ford Crossroads Stile Boundary Headland Byway Drove Furlong " +
+        "Lane Byre Paddock Fenland Marshes Levee Foreshore Sandbar Isthmus Spit Junction Portage",
     ),
   },
   eq: {

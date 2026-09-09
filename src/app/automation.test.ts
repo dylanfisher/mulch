@@ -70,12 +70,12 @@ describe("instance-owned automation", () => {
   it("reaches a target only through the instance whose plugin declares it", () => {
     const instrument = createInstrument(manualClock());
     const rack = () => instrument.probe().decks.a!.effects;
-    expect(paramReachable(rack(), "one", "filter.cutoff")).toBe(false);
+    expect(paramReachable(rack(), "one", "eq.frequency")).toBe(false);
 
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
-    expect(paramReachable(rack(), "one", "filter.cutoff")).toBe(true);
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
+    expect(paramReachable(rack(), "one", "eq.frequency")).toBe(true);
     // The deck does not own an effect's parameter, and never did the value either (0030).
-    expect(paramReachable(rack(), null, "filter.cutoff")).toBe(false);
+    expect(paramReachable(rack(), null, "eq.frequency")).toBe(false);
   });
 
   it("schedules an instance target through the same command as a deck target", () => {
@@ -85,24 +85,24 @@ describe("instance-owned automation", () => {
       { at: 1, value: 200 },
       { at: 2, value: 4000 },
     ];
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "automation.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points,
     });
 
-    expect(instanceIn(instrument, "one").automation).toEqual({ "filter.cutoff": points });
+    expect(instanceIn(instrument, "one").automation).toEqual({ "eq.frequency": points });
     // The deck's own lanes are untouched: a lane is held where its value is (0030).
     expect(instrument.probe().decks.a!.automation).toEqual({});
-    expect(scheduled).toEqual([["a", "one", "filter.cutoff", points, 1000]]);
+    expect(scheduled).toEqual([["a", "one", "eq.frequency", points, 1000]]);
     expect(instrument.ring().at(-1)).toMatchObject({
       t: "automation.changed",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points,
     });
   });
@@ -112,33 +112,33 @@ describe("instance-owned automation", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [{ at: 1, value: 200 }];
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
-    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
     instrument.send({
       t: "param.set",
       deck: "a",
       instance: "two",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 800,
     });
     instrument.send({
       t: "automation.set",
       deck: "a",
       instance: "two",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points,
     });
 
     expect(instanceIn(instrument, "one").automation).toEqual({});
-    expect(instanceIn(instrument, "two").automation).toEqual({ "filter.cutoff": points });
+    expect(instanceIn(instrument, "two").automation).toEqual({ "eq.frequency": points });
     // Scheduled against the second instance's binding and its own manual value, not the first's.
-    expect(scheduled).toEqual([["a", "two", "filter.cutoff", points, 800]]);
+    expect(scheduled).toEqual([["a", "two", "eq.frequency", points, 800]]);
 
     // And it survives one round trip through the durable shape as the same one lane.
     const durable = sessionSnapshot(instrument.probe());
     expect(durable.decks.a!.effects.map((entry) => entry.automation)).toEqual([
       {},
-      { "filter.cutoff": points },
+      { "eq.frequency": points },
     ]);
   });
 
@@ -146,12 +146,12 @@ describe("instance-owned automation", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [{ at: 1, value: 200 }];
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "automation.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points,
     });
     instrument.send({ t: "effect.remove", deck: "a", instance: "one" });
@@ -161,7 +161,7 @@ describe("instance-owned automation", () => {
     expect(instrument.probe().decks.a!.automation).toEqual({});
     scheduled.length = 0;
 
-    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
     expect(instanceIn(instrument, "two").automation).toEqual({});
     expect(scheduled).toEqual([]);
   });
@@ -170,46 +170,46 @@ describe("instance-owned automation", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [{ at: 1, value: 200 }];
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: true });
     instrument.send({
       t: "automation.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points,
     });
 
-    expect(scheduled).toEqual([["a", "one", "filter.cutoff", points, 1000]]);
+    expect(scheduled).toEqual([["a", "one", "eq.frequency", points, 1000]]);
   });
 
   it("clears a lane and sets the value that replaced it as one undoable transaction", async () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "automation.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       points: [{ at: 1, value: 200 }],
     });
     await turns();
     instrument.send({
       t: "history.group",
       commands: [
-        { t: "automation.set", deck: "a", instance: "one", param: "filter.cutoff", points: [] },
-        { t: "param.set", deck: "a", instance: "one", param: "filter.cutoff", value: 5000 },
+        { t: "automation.set", deck: "a", instance: "one", param: "eq.frequency", points: [] },
+        { t: "param.set", deck: "a", instance: "one", param: "eq.frequency", value: 5000 },
       ],
     });
     await turns();
     expect(instanceIn(instrument, "one").automation).toEqual({});
-    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(5000);
+    expect(instanceIn(instrument, "one").params["eq.frequency"]).toBe(5000);
 
     instrument.send({ t: "history.undo" });
     await turns();
     const restored = instanceIn(instrument, "one");
-    expect(restored.automation).toEqual({ "filter.cutoff": [{ at: 1, value: 200 }] });
-    expect(restored.params["filter.cutoff"]).toBe(1000);
+    expect(restored.automation).toEqual({ "eq.frequency": [{ at: 1, value: 200 }] });
+    expect(restored.params["eq.frequency"]).toBe(1000);
   });
 });
 

@@ -29,11 +29,12 @@ export const renderRack = async ({ page }) => {
             { at: secs, value: 0.5 },
           ],
         },
-        { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
+        { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.shape", value: 1 },
         { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
         { t: "effect.reorder", deck: "a", instance: "dly", index: 0 },
         { t: "effect.remove", deck: "a", instance: "dly" },
-        { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 200 },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.frequency", value: 200 },
         { t: "deck.play", deck: "a" },
         { at: 0.2, cmd: { t: "effect.bypass", deck: "a", instance: "flt", bypassed: true } },
       ],
@@ -63,12 +64,13 @@ export const renderRack = async ({ page }) => {
         // Looped over the whole clip, so the source sounds for the whole render: a load
         // carries no length any more, and every drawn source is one length (P127).
         { t: "deck.loop.toggle", deck: "a" },
-        { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
+        { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.shape", value: 1 },
         {
           t: "automation.set",
           deck: "a",
           instance: "flt",
-          param: "filter.cutoff",
+          param: "eq.frequency",
           // A lane exactly as long as the render, so what this measures is one cycle of it:
           // its own length is what it would otherwise repeat on (0035).
           points: [
@@ -82,8 +84,8 @@ export const renderRack = async ({ page }) => {
       ],
     });
     return {
-      lane: result.probes.at(-1).probe.decks.a.effects[0].automation["filter.cutoff"].length,
-      // 0.1s windows: [0] is under the closed filter, [3] is after the lane opened it.
+      lane: result.probes.at(-1).probe.decks.a.effects[0].automation["eq.frequency"].length,
+      // 0.1s windows: [0] is under the closed low-pass, [3] is after the lane opened it.
       windows: result.fingerprint.rmsDb,
       closedDb: result.fingerprint.rmsDb[0],
       openDb: result.fingerprint.rmsDb[3],
@@ -100,11 +102,12 @@ export const renderRack = async ({ page }) => {
       envelopes: [
         { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
         { t: "deck.loop", deck: "a", in: 0, out: 0.1 },
-        { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
-        { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 18000 },
+        { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.shape", value: 1 },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.frequency", value: 18000 },
         ...(points.length === 0
           ? []
-          : [{ t: "automation.set", deck: "a", instance: "flt", param: "filter.cutoff", points }]),
+          : [{ t: "automation.set", deck: "a", instance: "flt", param: "eq.frequency", points }]),
         { t: "deck.play", deck: "a" },
       ],
     });
@@ -137,8 +140,8 @@ export const renderRack = async ({ page }) => {
   }, LANE_RENDER_SECS);
 
   if (
-    rackRender.effects !== "filter" ||
-    rackRender.bypassed !== "filter" ||
+    rackRender.effects !== "eq" ||
+    rackRender.bypassed !== "eq" ||
     !rackRender.events.includes("effect.reordered") ||
     !rackRender.events.includes("effect.removed") ||
     !rackRender.events.includes("effect.bypass.changed")
@@ -154,7 +157,7 @@ export const renderRack = async ({ page }) => {
     );
   }
   report(
-    "automation targets followed the rack: a knob recorded under Option on the filter's own lane, " +
+    "automation targets followed the rack: a knob recorded under Option on the EQ's own lane, " +
       `which opened the offline render by ` +
       `${(cutoffRender.openDb - cutoffRender.closedDb).toFixed(1)}dB`,
   );
@@ -173,7 +176,7 @@ export const renderRack = async ({ page }) => {
   }
   if (cycleRender.openDb - cycleRender.closedDb < RACK_BYPASS_DB) {
     fail(
-      `the lane's second cycle did not close the filter again: ${cycleRender.closedDb}dB ` +
+      `the lane's second cycle did not close the low-pass again: ${cycleRender.closedDb}dB ` +
         `closed, ${cycleRender.openDb}dB open`,
       cycleRender,
     );
@@ -194,7 +197,7 @@ export const renderRack = async ({ page }) => {
 
   if (rackRender.openDb - rackRender.filteredDb < RACK_BYPASS_DB) {
     fail(
-      `a bypassed filter did not leave the offline signal path: ${rackRender.filteredDb}dB ` +
+      `a bypassed EQ did not leave the offline signal path: ${rackRender.filteredDb}dB ` +
         `filtered, ${rackRender.openDb}dB after the bypass`,
       rackRender,
     );

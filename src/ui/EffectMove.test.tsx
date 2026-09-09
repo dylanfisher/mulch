@@ -41,7 +41,7 @@ const item = (tree: ReactNode, label: string): Labelled => {
 const twoYards = () => {
   const instrument = createInstrument(manualClock());
   instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
-  instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
   return instrument;
 };
 

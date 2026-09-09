@@ -234,7 +234,7 @@ function buildAutomator(
     "auto.fade": bind(),
     "auto.drift": bind(),
     "auto.wander": bind(),
-    "auto.filter": bind(),
+    "auto.panner": bind(),
     "auto.delay": bind(),
     "auto.eq": bind(),
     "auto.compressor": bind(),

@@ -295,7 +295,7 @@ describe("Deck effect rack", () => {
   it("offers the picker and shows no controls for an empty rack", () => {
     const markup = renderEffects();
     expect(markup).toContain('aria-label="Add an Effect to Yard A"');
-    expect(markup).not.toContain('aria-label="Cutoff"');
+    expect(markup).not.toContain('aria-label="Freq"');
     expect(markup).not.toContain('aria-label="Time"');
     expect(markup).not.toContain('aria-label="Feedback"');
     expect(markup).not.toContain('aria-label="Mix"');
@@ -303,7 +303,7 @@ describe("Deck effect rack", () => {
 
   it("renders active controls in rack order from registry labels and ranges", () => {
     const markup = renderEffects((instrument) => {
-      instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+      instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
       instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
       instrument.send({
         t: "param.set",
@@ -316,13 +316,13 @@ describe("Deck effect rack", () => {
 
     // A card is numbered among its own effect's instances, so one filter and one delay are both
     // the first of their kind; the rack's order is the order they are rendered in (0076).
-    expect(markup.indexOf('aria-label="Filter 1"')).toBeLessThan(
+    expect(markup.indexOf('aria-label="EQ 1"')).toBeLessThan(
       markup.indexOf('aria-label="Delay 1"'),
     );
     // The picker never runs out: a rack holds any number of instances of one entry (0030).
     expect(markup).toContain('aria-label="Add an Effect to Yard A"');
     expect(markup).toMatch(
-      /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
+      /aria-label="Freq"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
     expect(markup).toMatch(/aria-label="Mix"[^>]*aria-valuenow="0.7"/u);
   });

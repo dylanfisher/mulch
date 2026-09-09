@@ -6,7 +6,7 @@
  */
 import { fail, report } from "./harness.js";
 
-/** What the session holds for the filter's cutoff on a given instance, or null. */
+/** What the session holds for the EQ's frequency on a given instance, or null. */
 const drawnOn = (page, instance) =>
   page.evaluate(
     (id) => window.mulch.probe().decks.a.effects.find((entry) => entry.id === id)?.drawn ?? null,
@@ -17,26 +17,26 @@ export const motionDrawn = async ({ page }) => {
   // The character row is a toggle group pressed on what the session holds, so the press is the
   // ordinary one a hand makes: the marker, then a name, then a count (0314).
   await page.keyboard.down("Alt");
-  const marker = page.getByLabel("Yard A Filter 1 Cutoff Automation");
+  const marker = page.getByLabel("Yard A EQ 1 Freq Automation");
   await marker.scrollIntoViewIfNeeded();
   await marker.click();
-  await page.getByLabel("Yard A Filter 1 Cutoff Smooth").click();
+  await page.getByLabel("Yard A EQ 1 Freq Smooth").click();
   await page.waitForFunction(
-    () => window.mulch.probe().decks.a.effects[0]?.drawn["filter.cutoff"] !== undefined,
+    () => window.mulch.probe().decks.a.effects[0]?.drawn["eq.frequency"] !== undefined,
   );
   // The count is set without redrawing: the other writer of the one fact the draw above wrote.
   const points = await page.evaluate(
-    () => window.mulch.probe().decks.a.effects[0]?.automation["filter.cutoff"]?.length ?? 0,
+    () => window.mulch.probe().decks.a.effects[0]?.automation["eq.frequency"]?.length ?? 0,
   );
-  await page.getByLabel("Yard A Filter 1 Cutoff Redraw every 2 passes").click();
+  await page.getByLabel("Yard A EQ 1 Freq Redraw every 2 passes").click();
   await page.waitForFunction(
-    () => window.mulch.probe().decks.a.effects[0]?.drawn["filter.cutoff"]?.redraw === 2,
+    () => window.mulch.probe().decks.a.effects[0]?.drawn["eq.frequency"]?.redraw === 2,
   );
   await page.keyboard.up("Alt");
   await page.keyboard.press("Escape");
 
   const drew = await drawnOn(page, "flt");
-  if (drew?.["filter.cutoff"]?.character !== "smooth" || !(points > 1)) {
+  if (drew?.["eq.frequency"]?.character !== "smooth" || !(points > 1)) {
     fail("the drawn lane did not say what drew it", { drew, points });
   }
 

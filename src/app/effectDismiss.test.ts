@@ -66,7 +66,7 @@ describe("effect.dismiss", () => {
 
   it("refuses a place the run is no longer holding, and an entry that grows nothing", () => {
     const { instrument, events } = dismissing(false);
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     // The graph answers false: that place has gone, and it is not applied to whatever has since
     // rolled into its slot (principle 5).
     instrument.send({ t: "effect.dismiss", deck: "a", instance: "auto", place: "auto:0:0:0:eq" });
@@ -75,7 +75,7 @@ describe("effect.dismiss", () => {
 
     expect(events.flatMap((event) => (event.t === "error" ? [event.detail] : []))).toEqual([
       "effect.dismiss: deck a is not holding auto:0:0:0:eq",
-      "effect.dismiss: filter grows nothing: one",
+      "effect.dismiss: eq grows nothing: one",
     ]);
     expect(events.some((event) => event.t === "effect.dismissed")).toBe(false);
   });

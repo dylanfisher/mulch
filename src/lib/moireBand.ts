@@ -10,6 +10,7 @@
  *   the travel every presence takes → src/ui/moireLooks.ts. The declaration itself → `look` and
  *   `lookFrom` on src/audio/effects/eq.ts.
  */
+import { EQ_SHAPE_MAX, eqShapeAt, type EqShape } from "@/lib/biquad";
 import type { Look, LookPass } from "@/lib/moireLook";
 import { clamp, denormalize } from "@/lib/range";
 import { tunable } from "@/lib/moireTuning";
@@ -45,6 +46,32 @@ export const bandCentre = (position: number): number => 1 - clamp(position, 0, 1
  * being counted twice (0287).
  */
 export const bandLifts = (lift: number): boolean => lift >= 0.5;
+
+/**
+ * Which of the four shapes the band is standing in, off the shape term — the knob's own turn walked
+ * back onto its own stepped range and read by the one function the node's `type` is set through
+ * (`eqShapeAt`, src/lib/biquad.ts). Through it rather than beside it: a second index-to-shape
+ * reading would be a second answer to which index means which shape (principle 1), and the turn is
+ * clamped here because a term is a share and a share outside 0..1 is the reading's own fault rather
+ * than a shape nobody declared.
+ */
+export const bandShape = (shape: number): EqShape => eqShapeAt(clamp(shape, 0, 1) * EQ_SHAPE_MAX);
+
+/**
+ * Which side of the band's own edge a pass shape takes out — and nothing at all for the peaking
+ * shape, which is not a pass and is drawn as the band it always was.
+ *
+ * A low-pass keeps what is under its corner, so what leaves the picture is everything above the
+ * band's own centre — which is the top of the field, because the picture draws low at the bottom
+ * (`bandCentre`). A high-pass is the same the other way. A band-pass keeps the band and takes both
+ * skirts, which is the one shape whose cut is two pieces.
+ */
+export const bandCut = (shape: EqShape): readonly ("above" | "below")[] => {
+  if (shape === "lowpass") return ["above"];
+  if (shape === "highpass") return ["below"];
+  if (shape === "bandpass") return ["above", "below"];
+  return [];
+};
 
 /**
  * The most of itself the band lays back over the field, or takes out of it. Well short of the whole
@@ -124,6 +151,11 @@ const bandPass: LookPass = (into, source, presence, terms) => {
   const { width, height } = source;
   const middle = bandCentre(terms.position ?? 0) * height;
   const deep = bandDepth(terms.width ?? 0) * height;
+  const cut = bandCut(bandShape(terms.shape ?? 0));
+  if (cut.length > 0) {
+    bandCutPast(into, source, alpha, middle, deep, cut);
+    return;
+  }
   into.globalCompositeOperation = bandLifts(terms.lift ?? 0.5) ? "destination-out" : "source-over";
   into.globalAlpha = alpha / BAND_EDGES.value;
   for (let edge = 0; edge < BAND_EDGES.value; edge++) {
@@ -135,14 +167,56 @@ const bandPass: LookPass = (into, source, presence, terms) => {
 };
 
 /**
+ * A pass shape, drawn: everything past the band's own edge taken out of the picture, in the same
+ * `source-over` draws of the field the cut above is made of — so a low-pass reads as the top of the
+ * picture closing up, a high-pass as the bottom of it, and a band-pass as both. The taper runs the
+ * other way round from the peaking band's: each step of it starts a little further from the edge,
+ * so the piece furthest past the corner carries every draw and the corner itself carries one, which
+ * is the skirt a filter actually has rather than a wall.
+ *
+ * **And the direction is not in this draw at all**, which is the whole point of the shape reaching
+ * the look (0322): the node reads `eq.gain` for the peaking shape and no other, so a pass band drawn
+ * as a lift off that knob would be a picture saying something the sound is not (0128). What it is
+ * weighed by is the presence, exactly as the band above and every other pass is — a look the picture
+ * has not travelled to is the field where it stands, which is the chain's own rule and not this
+ * look's (0285).
+ */
+function bandCutPast(
+  into: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  alpha: number,
+  middle: number,
+  deep: number,
+  cut: readonly ("above" | "below")[],
+): void {
+  const { width, height } = source;
+  into.globalCompositeOperation = "source-over";
+  into.globalAlpha = alpha / BAND_EDGES.value;
+  for (let edge = 0; edge < BAND_EDGES.value; edge++) {
+    // The outermost step stands the whole half-depth off the centre and the innermost barely off
+    // it, which is `bandTaper` read from the other end — the same steps, laid the other way.
+    const half = (deep / 2) * (1 - bandTaper(edge));
+    for (const side of cut) {
+      // Neither end is floored at a row: a corner sitting at the very edge of the field has nothing
+      // past it, and a one-row draw there would be a hairline saying a whole side had been taken
+      // out. The skip below is what says so.
+      const top = side === "above" ? 0 : Math.round(middle + half);
+      const foot = side === "above" ? Math.round(middle - half) : height;
+      if (foot <= top || top >= height || foot <= 0) continue;
+      into.drawImage(source, 0, top, width, foot - top, 0, top, width, foot - top);
+    }
+  }
+}
+
+/**
  * EQ's, and the seventh look to take a slot in the chain: one band of the picture stood out of the
  * rest of it, at the frequency the band sits on. Where it stands is the Freq, on its own log range;
  * how deep it is, is the Q, on its; and which way it goes is the Gain — the one term a look reads
  * for a direction and not for a share, because how far the gain stands from flat is already this
- * entry's own presence (0202, 0287).
+ * entry's own presence (0202, 0287). And which of the two draws it is, is the Shape (0322).
  */
 export const bandLook: Look = {
   at: "pass",
-  terms: { position: "turn", lift: "turn", width: "turn" },
+  terms: { position: "turn", lift: "turn", width: "turn", shape: "turn" },
   pass: bandPass,
 };

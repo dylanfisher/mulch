@@ -24,8 +24,8 @@ describe("parameter registry", () => {
   it("composes deck and effect declarations into the sole lookup", () => {
     const effectIds = EFFECTS.flatMap((effect) => effect.params.map((param) => param.id));
     expect(PARAM_IDS).toEqual([...DECK_PARAM_IDS, ...effectIds]);
-    expect(PARAMS["filter.cutoff"]).toMatchObject({
-      label: "Cutoff",
+    expect(PARAMS["eq.frequency"]).toMatchObject({
+      label: "Freq",
       min: 20,
       max: 20_000,
       default: 1_000,
@@ -70,9 +70,9 @@ describe("parameter registry", () => {
     // The two ends of the unit interval and a place between them, so the mapping is asserted
     // rather than sampled: a fixed draw is what makes a range claim a claim (0089).
     for (const at of [0, 1, 0.5]) {
-      const drawn = effectParamDraws("filter", () => at);
-      expect(Object.keys(drawn)).toEqual(effectParamIds("filter"));
-      for (const id of effectParamIds("filter")) {
+      const drawn = effectParamDraws("eq", () => at);
+      expect(Object.keys(drawn)).toEqual(effectParamIds("eq"));
+      for (const id of effectParamIds("eq")) {
         const spec = PARAMS[id];
         expect(drawn[id]).toBeGreaterThanOrEqual(spec.min);
         expect(drawn[id]).toBeLessThanOrEqual(spec.max);
@@ -80,10 +80,10 @@ describe("parameter registry", () => {
     }
     // Nought and one are the ends themselves, and a logarithmic parameter's middle is its
     // geometric middle rather than its arithmetic one — the curve the knob is read on (0064).
-    const cutoff = PARAMS["filter.cutoff"];
-    expect(effectParamDraws("filter", () => 0)["filter.cutoff"]).toBeCloseTo(cutoff.min, 6);
-    expect(effectParamDraws("filter", () => 1)["filter.cutoff"]).toBeCloseTo(cutoff.max, 6);
-    expect(effectParamDraws("filter", () => 0.5)["filter.cutoff"]).toBeCloseTo(
+    const cutoff = PARAMS["eq.frequency"];
+    expect(effectParamDraws("eq", () => 0)["eq.frequency"]).toBeCloseTo(cutoff.min, 6);
+    expect(effectParamDraws("eq", () => 1)["eq.frequency"]).toBeCloseTo(cutoff.max, 6);
+    expect(effectParamDraws("eq", () => 0.5)["eq.frequency"]).toBeCloseTo(
       Math.sqrt(cutoff.min * cutoff.max),
       6,
     );
@@ -128,7 +128,9 @@ describe("parameter registry", () => {
     expect(AUTOMATION_PARAM_IDS).toEqual([
       "deck.gain",
       "deck.pan",
-      "filter.cutoff",
+      "panner.position",
+      "panner.spread",
+      "panner.rate",
       "delay.time",
       "delay.feedback",
       "delay.mix",
@@ -174,11 +176,18 @@ describe("parameter registry", () => {
     // compressor's envelope shape, which is set for a source rather than performed, and the two
     // numbers the reverb's impulse is a function of, whose move is a rebuild and not a ramp
     // (0087) — plus the tape's drive and hiss, which are the condition of the machine rather
-    // than a gesture over it: a head is worn and a tape is noisy, and neither is performed.
+    // than a gesture over it: a head is worn and a tape is noisy, and neither is performed —
+    // plus the four discrete choices, which are a graph and not a number: the panner's three
+    // stages and the EQ's shape are nodes built and taken away again, and there is no ramping to a
+    // set of nodes or to a `BiquadFilterNode.type` (0322, 0323).
     expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
       "deck.speed",
       "deck.pitch",
       "deck.tone",
+      "panner.band",
+      "panner.time",
+      "panner.slice",
+      "eq.shape",
       "comp.attack",
       "comp.release",
       "comp.knee",
@@ -198,7 +207,7 @@ describe("parameter registry", () => {
       "auto.fade",
       "auto.drift",
       "auto.wander",
-      "auto.filter",
+      "auto.panner",
       "auto.delay",
       "auto.eq",
       "auto.compressor",
@@ -229,19 +238,19 @@ describe("parameter registry", () => {
 
   it("reaches a value only through the instance that holds it", () => {
     const rack = [
-      { id: "one", effect: "filter" },
+      { id: "one", effect: "eq" },
       { id: "two", effect: "delay" },
     ] as const;
     expect(paramReachable([], null, "deck.gain")).toBe(true);
     // A deck parameter belongs to no instance, and an effect's belongs to no deck (0030).
     expect(paramReachable(rack, "one", "deck.gain")).toBe(false);
-    expect(paramReachable(rack, null, "filter.cutoff")).toBe(false);
+    expect(paramReachable(rack, null, "eq.frequency")).toBe(false);
     // The pair is the lookup: the right parameter on the wrong instance is not reachable.
-    expect(paramReachable(rack, "two", "filter.cutoff")).toBe(false);
-    expect(paramReachable(rack, "one", "filter.cutoff")).toBe(true);
-    expect(paramReachable(rack, "missing", "filter.cutoff")).toBe(false);
+    expect(paramReachable(rack, "two", "eq.frequency")).toBe(false);
+    expect(paramReachable(rack, "one", "eq.frequency")).toBe(true);
+    expect(paramReachable(rack, "missing", "eq.frequency")).toBe(false);
     expect(paramOwner("deck.gain")).toBeNull();
-    expect(paramOwner("filter.cutoff")).toBe("filter");
+    expect(paramOwner("eq.frequency")).toBe("eq");
     expect(paramOwner("eq.frequency")).toBe("eq");
   });
 
@@ -281,7 +290,7 @@ describe("the parametric EQ's registry entry", () => {
 });
 
 /** One entry at its own defaults, with whatever a case moves off them. */
-const at = (effect: "reverb" | "filter" | "eq" | "automator", over = {}): number | null =>
+const at = (effect: "reverb" | "eq" | "panner" | "automator", over = {}): number | null =>
   effectHeard(effect, { ...effectParamDefaults(effect, "one"), ...over });
 
 describe("how much of a rack entry is heard", () => {
@@ -291,10 +300,10 @@ describe("how much of a rack entry is heard", () => {
     expect(at("reverb", { "reverb.wet": 0 })).toBe(0);
     expect(at("reverb", { "reverb.wet": PARAMS["reverb.wet"].default })).toBe(1);
     expect(at("reverb", { "reverb.wet": 1 })).toBe(1);
-    // The direction is the declaration's and never assumed: a lowpass is transparent at the *top*
-    // of its own range, so a cutoff below its default is a filter fully in the picture.
-    expect(at("filter", { "filter.cutoff": 20_000 })).toBe(0);
-    expect(at("filter", { "filter.cutoff": 200 })).toBe(1);
+    // The direction is the declaration's and never assumed: a panner is transparent at a spread of
+    // nothing, and one spread all the way is heard whole.
+    expect(at("panner", { "panner.spread": 0 })).toBe(0);
+    expect(at("panner", { "panner.spread": 1 })).toBe(1);
     // And `full` where the plugin declared one, because a peaking band ships flat and its default
     // *is* its silence.
     expect(at("eq", { "eq.gain": 0 })).toBe(0);

@@ -335,9 +335,9 @@ describe("restoration and autosave", () => {
       effects: [
         {
           id: "flt",
-          effect: "filter",
+          effect: "eq",
           bypassed: false,
-          params: effectParamDefaults("filter", "flt"),
+          params: effectParamDefaults("eq", "flt"),
           automation: {},
           drawn: {},
           bounds: {},
@@ -363,15 +363,15 @@ describe("restoration and autosave", () => {
       source: { blobId: "saved" },
       duration: 4,
       playing: false,
-      effects: [{ id: "flt", effect: "filter" }],
+      effects: [{ id: "flt", effect: "eq" }],
       loop: { in: 0.5, out: 1.5 },
     });
     expect(instrument.probe().activeDeck).toBe("b");
     expect(calls.indexOf("loadBlob:a")).toBeLessThan(calls.indexOf("param:a:deck.gain"));
     // An instance's own values follow its addition, and every lane follows both (0030).
-    expect(calls.indexOf("param:b:deck.pan")).toBeLessThan(calls.indexOf("effect:a:filter"));
-    expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("param:a:filter.cutoff"));
-    const lastValue = calls.indexOf("param:a:filter.cutoff");
+    expect(calls.indexOf("param:b:deck.pan")).toBeLessThan(calls.indexOf("effect:a:eq"));
+    expect(calls.indexOf("effect:a:eq")).toBeLessThan(calls.indexOf("param:a:eq.frequency"));
+    const lastValue = calls.indexOf("param:a:eq.frequency");
     expect(lastValue).toBeLessThan(calls.indexOf("automation:a:deck.gain"));
     expect(calls.indexOf("automation:a:deck.gain")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
@@ -400,6 +400,42 @@ describe("restoration and autosave", () => {
     expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(DECK_PARAM_DEFAULTS["deck.gain"]);
     // The unreadable snapshot is replaced immediately, so it cannot fail the next boot too.
     expect(repository.saves).toEqual([sessionSnapshot(createSessionStore().getState())]);
+  });
+
+  // 0322: an entry can leave the registry, and pre-release pays for that with a discard rather than
+  // a migration (0026) — a stored rack holding the filter this build no longer registers is dropped
+  // whole, which is exactly why the entry could go in one step.
+  it("discards a stored session holding an entry this build no longer registers", async () => {
+    const stale = sessionSnapshot(createSessionStore().getState());
+    const repository = repositoryDouble({
+      ...stale,
+      decks: {
+        ...stale.decks,
+        a: {
+          ...stale.decks.a!,
+          effects: [
+            {
+              id: "flt",
+              effect: "filter",
+              bypassed: false,
+              params: { "filter.cutoff": 1_000 },
+              automation: {},
+              drawn: {},
+              bounds: {},
+            },
+          ],
+        },
+      },
+    });
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+
+    await instrument.ready;
+
+    expect(instrument.ring().at(-1)).toMatchObject({
+      t: "session.discarded",
+      detail: /effect is not registered: filter/u,
+    });
+    expect(instrument.probe().decks.a!.effects).toEqual([]);
   });
 
   it("coalesces durable mutations, ignores transient writes, and labels autosaves", async () => {

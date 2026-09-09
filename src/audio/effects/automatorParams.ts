@@ -188,7 +188,7 @@ export const params = [
   // One weight per poolable entry. Eleven literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` (0203, 0204).
-  { id: "auto.filter", label: "Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
+  { id: "auto.panner", label: "Panner", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.delay", label: "Delay", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.eq", label: "EQ", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   {
@@ -221,7 +221,7 @@ export type AutoParamId = (typeof params)[number]["id"];
 
 /** The weight knob that decides how often each entry is drawn, by that entry's own id. */
 export const WEIGHT_OF: Record<string, AutoParamId> = {
-  filter: "auto.filter",
+  panner: "auto.panner",
   delay: "auto.delay",
   eq: "auto.eq",
   compressor: "auto.compressor",
@@ -269,7 +269,7 @@ export const AUTO_UNREACHED: readonly { param: AutoParamId; because: string }[] 
       "the picture already reads how finely a run is drawn off Stray, and how often a " +
       "drawn knob is redrawn afterwards is the same shape happening more times",
   },
-  { param: "auto.filter", because: "a weight is one voice in a pool, and no row is a pool" },
+  { param: "auto.panner", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.delay", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.eq", because: "a weight is one voice in a pool, and no row is a pool" },
   {

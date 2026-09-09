@@ -70,11 +70,11 @@ const withRack = (effects: unknown) => {
   return { ...durable, decks: { ...durable.decks, a: { ...durable.decks.a!, effects } } };
 };
 
-const STORED_FILTER = {
+const STORED_EQ = {
   id: "flt",
-  effect: "filter",
+  effect: "eq",
   bypassed: false,
-  params: { "filter.cutoff": 1000 },
+  params: effectParamDefaults("eq", "flt"),
   automation: {},
   drawn: {},
   bounds: {},
@@ -95,8 +95,13 @@ const storedAuto = (bounds: unknown) => ({
 describe("rack session validation", () => {
   it("accepts two instances of one effect, each with its own values and bypass", () => {
     const stored = withRack([
-      STORED_FILTER,
-      { ...STORED_FILTER, id: "flt2", bypassed: true, params: { "filter.cutoff": 240 } },
+      STORED_EQ,
+      {
+        ...STORED_EQ,
+        id: "flt2",
+        bypassed: true,
+        params: { ...STORED_EQ.params, "eq.frequency": 240 },
+      },
     ]);
     const session = validateSession(stored);
     expect(session.decks.a!.effects.map((entry) => [entry.id, entry.bypassed])).toEqual([
@@ -106,35 +111,35 @@ describe("rack session validation", () => {
   });
 
   it("rejects a rack that is not a list of identified, registered, exactly-valued instances", () => {
-    expect(() => validateSession(withRack("filter"))).toThrow(/not an array/u);
-    expect(() => validateSession(withRack([{ ...STORED_FILTER, effect: "nope" }]))).toThrow(
+    expect(() => validateSession(withRack("eq"))).toThrow(/not an array/u);
+    expect(() => validateSession(withRack([{ ...STORED_EQ, effect: "nope" }]))).toThrow(
       /effect is not registered: nope/u,
     );
-    expect(() => validateSession(withRack([STORED_FILTER, STORED_FILTER]))).toThrow(
-      /id repeats flt/u,
-    );
-    expect(() => validateSession(withRack([{ ...STORED_FILTER, id: "" }]))).toThrow(
+    expect(() => validateSession(withRack([STORED_EQ, STORED_EQ]))).toThrow(/id repeats flt/u);
+    expect(() => validateSession(withRack([{ ...STORED_EQ, id: "" }]))).toThrow(
       /id is not a non-empty string/u,
     );
-    expect(() => validateSession(withRack([{ ...STORED_FILTER, bypassed: "yes" }]))).toThrow(
+    expect(() => validateSession(withRack([{ ...STORED_EQ, bypassed: "yes" }]))).toThrow(
       /bypassed is not a boolean/u,
     );
     // Values are keyed by exactly the parameters this instance's own plugin declares (0030).
-    expect(() => validateSession(withRack([{ ...STORED_FILTER, params: {} }]))).toThrow(
-      /expected \[filter\.cutoff\]/u,
+    expect(() => validateSession(withRack([{ ...STORED_EQ, params: {} }]))).toThrow(
+      /expected \[eq\.frequency, eq\.gain, eq\.q, eq\.shape\]/u,
     );
     expect(() =>
       validateSession(
-        withRack([{ ...STORED_FILTER, params: { "filter.cutoff": 1000, "delay.mix": 0.5 } }]),
+        withRack([{ ...STORED_EQ, params: { ...STORED_EQ.params, "delay.mix": 0.5 } }]),
       ),
-    ).toThrow(/expected \[filter\.cutoff\]/u);
+    ).toThrow(/expected \[eq\.frequency, eq\.gain, eq\.q, eq\.shape\]/u);
     expect(() =>
-      validateSession(withRack([{ ...STORED_FILTER, params: { "filter.cutoff": 0 } }])),
+      validateSession(
+        withRack([{ ...STORED_EQ, params: { ...STORED_EQ.params, "eq.frequency": 0 } }]),
+      ),
     ).toThrow(/outside \[20, 20000\]/u);
     // And so are its lanes: a lane for a parameter this plugin does not declare is not its.
     expect(() =>
       validateSession(
-        withRack([{ ...STORED_FILTER, automation: { "deck.gain": [{ at: 0, value: 1 }] } }]),
+        withRack([{ ...STORED_EQ, automation: { "deck.gain": [{ at: 0, value: 1 }] } }]),
       ),
     ).toThrow(/unsupported param/u);
   });
@@ -150,9 +155,7 @@ describe("rack session validation", () => {
 
     // A window on an entry with no run to bound is a fact about nothing.
     expect(() =>
-      validateSession(
-        withRack([{ ...STORED_FILTER, bounds: { "filter.cutoff": { min: 1, max: 2 } } }]),
-      ),
+      validateSession(withRack([{ ...STORED_EQ, bounds: { "eq.frequency": { min: 1, max: 2 } } }])),
     ).toThrow(/bounds a run this effect does not have/u);
     // The pool's own list: a parameter no arrival is ever drawn at takes no window.
     expect(() =>
@@ -168,7 +171,7 @@ describe("rack session validation", () => {
       validateSession(withRack([storedAuto({ "delay.time": { min: 0.1, max: 0.4, mid: 0.2 } })])),
     ).toThrow(/expected \[max, min\]/u);
     // And a rack entry with no bounds field at all is not this build's shape.
-    const { bounds: _dropped, ...unbounded } = STORED_FILTER;
+    const { bounds: _dropped, ...unbounded } = STORED_EQ;
     expect(() => validateSession(withRack([unbounded]))).toThrow(/expected \[automation, bounds/u);
   });
 });
@@ -351,13 +354,13 @@ describe("automation session validation", () => {
       automation: {},
       drawn: {},
       effects: [
-        instance("flt", "filter", {
-          drawn: { "filter.cutoff": { character: "creep", redraw: 0 } },
+        instance("flt", "eq", {
+          drawn: { "eq.frequency": { character: "creep", redraw: 0 } },
         }),
       ],
     });
     expect(() => validateSession(sessionSnapshot(store.getState()))).toThrow(
-      /filter\.cutoff has no lane/u,
+      /eq\.frequency has no lane/u,
     );
   });
 
@@ -368,13 +371,13 @@ describe("automation session validation", () => {
       { at: 1.5, value: 4000 },
     ];
     patchDeck(store, "a", {
-      effects: [instance("flt", "filter", { automation: { "filter.cutoff": points } })],
+      effects: [instance("flt", "eq", { automation: { "eq.frequency": points } })],
     });
     const durable = sessionSnapshot(store.getState());
 
     // The lane travels on the instance holding it, not beside the deck's own (0030).
     expect(durable.decks.a!.automation).toEqual({});
-    expect(durable.decks.a!.effects[0]?.automation).toEqual({ "filter.cutoff": points });
+    expect(durable.decks.a!.effects[0]?.automation).toEqual({ "eq.frequency": points });
     expect(validateSession(durable)).toEqual(durable);
   });
 

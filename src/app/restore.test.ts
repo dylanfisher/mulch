@@ -43,9 +43,9 @@ describe("restoration command order", () => {
       source: { gen: "sine" },
       effects: [
         instance("dly", "delay"),
-        instance("flt", "filter", {
+        instance("flt", "eq", {
           bypassed: true,
-          automation: { "filter.cutoff": [{ at: 1, value: 400 }] },
+          automation: { "eq.frequency": [{ at: 1, value: 400 }] },
         }),
       ],
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
@@ -202,7 +202,7 @@ describe("restoration command order", () => {
     // An effect's lane is restored the same way and in the same stage as the deck's own (0024).
     expect(commands.filter(({ t }) => t === "automation.set")).toMatchObject([
       { deck: "a", param: "deck.gain" },
-      { deck: "a", instance: "flt", param: "filter.cutoff" },
+      { deck: "a", instance: "flt", param: "eq.frequency" },
     ]);
     // Every instance states the flag it carries, in rack order: a preset says what its bypass is
     // rather than only which entries are off, and a flag already held is a no-op (0030).
@@ -212,7 +212,7 @@ describe("restoration command order", () => {
     ]);
     expect(commands.filter(({ t }) => t === "effect.add")).toMatchObject([
       { deck: "a", id: "dly", effect: "delay" },
-      { deck: "a", id: "flt", effect: "filter" },
+      { deck: "a", id: "flt", effect: "eq" },
     ]);
     // A fresh deck receives its instances in order, so nothing is reordered on the way in.
     expect(kinds).not.toContain("effect.reorder");
@@ -223,7 +223,10 @@ describe("restoration command order", () => {
       { deck: "a", instance: "dly", param: "delay.time" },
       { deck: "a", instance: "dly", param: "delay.feedback" },
       { deck: "a", instance: "dly", param: "delay.mix" },
-      { deck: "a", instance: "flt", param: "filter.cutoff" },
+      { deck: "a", instance: "flt", param: "eq.frequency" },
+      { deck: "a", instance: "flt", param: "eq.gain" },
+      { deck: "a", instance: "flt", param: "eq.q" },
+      { deck: "a", instance: "flt", param: "eq.shape" },
     ]);
     expect(commands.at(-1)).toEqual({ t: "deck.activate", deck: "b" });
   });
@@ -327,7 +330,7 @@ describe("restoration command order", () => {
         instance("auto", "automator", {
           bounds: { "delay.time": { min: 0.1, max: 0.4 }, "reverb.wet": { min: 0.2, max: 0.5 } },
         }),
-        instance("flt", "filter"),
+        instance("flt", "eq"),
       ],
     });
     const commands = restorationCommands(sessionSnapshot(store.getState()));
@@ -364,13 +367,13 @@ describe("clip application command order", () => {
         instance("eq1", "eq", { automation: { "eq.gain": [{ at: 0, value: 6 }] } }),
         instance("dly", "delay"),
         // Shared with the clip below by id: the same instance, which apply must not rebuild.
-        instance("flt", "filter", { automation: { "filter.cutoff": [{ at: 0, value: 900 }] } }),
+        instance("flt", "eq", { automation: { "eq.frequency": [{ at: 0, value: 900 }] } }),
       ],
       automation: { "deck.gain": [{ at: 0, value: 0.5 }] },
     });
     patchDeck(store, "a", {
       source: { blobId: "clip-audio" },
-      effects: [instance("flt", "filter", { bypassed: true }), instance("eq2", "eq")],
+      effects: [instance("flt", "eq", { bypassed: true }), instance("eq2", "eq")],
       automation: { "deck.gain": [{ at: 0, value: 0.25 }] },
       loop: { in: 0, out: 1 },
     });
@@ -399,7 +402,7 @@ describe("clip application command order", () => {
     expect(
       commands.filter((command) => command.t === "automation.set" && command.points.length === 0),
     ).toEqual([
-      { t: "automation.set", deck: "b", instance: "flt", param: "filter.cutoff", points: [] },
+      { t: "automation.set", deck: "b", instance: "flt", param: "eq.frequency", points: [] },
     ]);
     // The same stage order the session restores in, on the one deck being rewritten.
     expect(kinds.indexOf("deck.load")).toBeLessThan(kinds.indexOf("param.set"));
@@ -454,10 +457,10 @@ describe("clip application command order", () => {
   it("un-bypasses a kept instance the preset does not carry bypassed", () => {
     const store = createSessionStore();
     addDeck(store, "b", "🌴", "North Willow");
-    patchDeck(store, "b", { effects: [instance("flt", "filter", { bypassed: true })] });
+    patchDeck(store, "b", { effects: [instance("flt", "eq", { bypassed: true })] });
     patchDeck(store, "a", {
       source: { blobId: "clip-audio" },
-      effects: [instance("flt", "filter", { bypassed: false })],
+      effects: [instance("flt", "eq", { bypassed: false })],
     });
     const session = sessionSnapshot(store.getState());
 

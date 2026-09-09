@@ -78,7 +78,7 @@ type Fixture = { instrument: Instrument; calls: GraphCalls; events: Event[] };
 
 /** A prepared graph that refuses the moment the target deck holds the clip's rack. */
 const refusesToPrepare: Engine["prepareRestore"] = (session: Session) =>
-  session.decks.b!.effects.some((entry) => entry.effect === "filter")
+  session.decks.b!.effects.some((entry) => entry.effect === "eq")
     ? Promise.reject(new Error("corrupt source"))
     : Promise.resolve({
         durations: fromDecks(deckIdsOf(session.deckList), () => 0),
@@ -111,14 +111,14 @@ const fixture = (
 const dressDeck = (instrument: Instrument): void => {
   instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
   instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
-  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
   instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
   instrument.send({ t: "effect.bypass", deck: "a", instance: "dly", bypassed: true });
   instrument.send({
     t: "automation.set",
     deck: "a",
     instance: "flt",
-    param: "filter.cutoff",
+    param: "eq.frequency",
     points: [
       { at: 0, value: 400 },
       { at: 1, value: 900 },
@@ -163,7 +163,7 @@ describe("clip capture, rename and delete", () => {
       ["dly", true],
     ]);
     expect(captured.deck.effects[0]?.automation).toEqual({
-      "filter.cutoff": [
+      "eq.frequency": [
         { at: 0, value: 400 },
         { at: 1, value: 900 },
       ],
@@ -258,7 +258,7 @@ describe("clip.apply", () => {
     expect(applied.params).toEqual(clip.deck.params);
     // The deck it was captured from is untouched: a clip is applied, never moved.
     expect(instrument.probe().decks.a!.effects.map((entry) => entry.effect)).toEqual([
-      "filter",
+      "eq",
       "delay",
     ]);
 
@@ -305,12 +305,12 @@ describe("clip.apply", () => {
     await settle();
 
     const applied = instrument.probe().decks.b!;
-    expect(applied.effects.map((entry) => entry.effect)).toEqual(["filter", "delay"]);
+    expect(applied.effects.map((entry) => entry.effect)).toEqual(["eq", "delay"]);
     // The deck-level lane the clip does not carry is cleared, and the clip's own instance lane
     // arrives on the instance that holds it (0030).
     expect(applied.automation).toEqual({});
     expect(applied.effects.map((entry) => Object.keys(entry.automation))).toEqual([
-      ["filter.cutoff"],
+      ["eq.frequency"],
       [],
     ]);
   });

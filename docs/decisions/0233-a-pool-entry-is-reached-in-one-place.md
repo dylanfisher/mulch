@@ -4,7 +4,8 @@
 - **Status:** accepted, narrowing [0208](0208-a-run-is-bounded-off-the-pool-it-draws-from.md) and
   [0055](0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)
 
-The automator's eight weights are not knobs. `auto.filter` through `auto.scatter` keep their
+The automator's eight weights are not knobs. `auto.panner` (`auto.filter` when this landed) through
+`auto.scatter` keep their
 declarations, their values, their `rebuild` and their `AUTO_UNREACHED` reasons; what is gone is the
 row they sat in. Each is one slider at the head of the popover its own entry's button opens, in
 `src/ui/PoolEntries.tsx`, above the windows that entry's arrivals are drawn inside.

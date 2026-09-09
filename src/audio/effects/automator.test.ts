@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 
 import { eqEffect } from "./eq";
-import { filterEffect } from "./filter";
+import { pannerEffect } from "./panner";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
 import { STIR_MIN_SECS, stirSecs, TICK_MIN_SECS, WAIT_MAX } from "./automatorParams";
 import { isGrowable } from "./registry";
@@ -60,7 +60,7 @@ function fakeContext(ramps: Ramp[]) {
     },
     createGain: () => Object.assign(node(), { gain: fakeParam(ramps) }),
     createConstantSource: () =>
-      Object.assign(node(), { offset: fakeParam(ramps), start: () => {} }),
+      Object.assign(node(), { offset: fakeParam(ramps), start: () => {}, stop: () => {} }),
     createBiquadFilter: () =>
       Object.assign(node(), {
         frequency: fakeParam(ramps),
@@ -68,15 +68,29 @@ function fakeContext(ramps: Ramp[]) {
         Q: fakeParam(ramps),
         type: "lowpass",
       }),
+    // The rest of what the panner's three stages build and take away again: the pool draws its
+    // toggles like any other value, so a run reaches every one of them (0323).
+    createStereoPanner: () => Object.assign(node(), { pan: fakeParam(ramps) }),
+    createChannelSplitter: () => node(),
+    createChannelMerger: () => node(),
+    createDelay: () => Object.assign(node(), { delayTime: fakeParam(ramps) }),
+    createWaveShaper: () => Object.assign(node(), { curve: null }),
+    createOscillator: () =>
+      Object.assign(node(), {
+        frequency: fakeParam(ramps),
+        type: "sine",
+        start: () => {},
+        stop: () => {},
+      }),
   };
   return context;
 }
 
-/** A pool of the two biquad plugins — enough to draw from, and no buffers to build. */
+/** A pool of two native-node plugins — enough to draw from, and no buffers to build. */
 // By reference, as in the registry: `isGrowable` is a type predicate and an arrow wrapping it
 // returns plain `boolean`, which would leave this `Effect[]`.
 // oxlint-disable-next-line unicorn/no-array-callback-reference
-const POOL: GrowablePlugin[] = [filterEffect, eqEffect].filter(isGrowable);
+const POOL: GrowablePlugin[] = [pannerEffect, eqEffect].filter(isGrowable);
 
 function built(count: number, seed = 3, stays = count) {
   const ramps: Ramp[] = [];
@@ -274,10 +288,17 @@ describe("the effect automator", () => {
   it("says which parameters an arrival draws, in the order the entry declares them", () => {
     // Everything but what the presence holds down, the presence itself included: it is drawn like
     // any other value, at the point its plugin declares `full` at until a hand widens the window.
-    // The pool the fixture builds on, which is the registry's own two biquad entries.
-    const [filter, eq] = POOL;
+    // The pool the fixture builds on, which is the registry's own two native-node entries. The
+    // EQ's shape is not in its list: it is what the presence holds down, so a run never draws it
+    // and every grown EQ stands in the one shape a gain of nought is silent in (0322).
+    const [panner, eq] = POOL;
     expect(eq === undefined ? [] : drawnParamIds(eq)).toEqual(["eq.frequency", "eq.gain", "eq.q"]);
-    expect(filter === undefined ? [] : drawnParamIds(filter)).toEqual(["filter.cutoff"]);
+    // And the panner draws two: its three stages are held for the reason the EQ's shape is, because
+    // a stage standing at no spread is not the wire its silence claims to be (0323).
+    expect(panner === undefined ? [] : drawnParamIds(panner)).toEqual([
+      "panner.spread",
+      "panner.rate",
+    ]);
     // And it is exactly what an arrival is handed: the row's values and this list stay index for
     // index, which is what lets a dial be labelled without a second reading.
     const { instance } = built(3);
@@ -298,7 +319,7 @@ describe("the effect automator", () => {
     const before = rowsOf(instance).map((row) => row.instance);
     expect(before.length).toBeGreaterThan(0);
 
-    instance.setBounds?.({ "filter.cutoff": { min: 400, max: 500 } });
+    instance.setBounds?.({ "eq.frequency": { min: 400, max: 500 } });
     // Nothing was cut: what the old window drew is still sounding while its fade runs.
     const leaving = rowsOf(instance);
     for (const id of before) expect(leaving.some((row) => row.instance === id)).toBe(true);
@@ -312,7 +333,7 @@ describe("the effect automator", () => {
     // And every filter the redrawn run laid was drawn inside the window: the cutoff is the first
     // and only value a filter's arrival draws, and 400–500Hz is a sliver of its 20–20000 range.
     const cutoffs = after
-      .filter((row) => row.effect === "filter")
+      .filter((row) => row.effect === "eq")
       .map((row) => row.values[0] ?? Number.NaN);
     expect(cutoffs.length).toBeGreaterThan(0);
     for (const at of cutoffs) {
@@ -359,12 +380,12 @@ describe("the effect automator", () => {
     }
     // A presence is drawn like anything else — inside the window a bound puts on it, which is the
     // point the plugin declares `full` at until a hand widens it (0208) — so the eq draws its two
-    // other knobs and its gain, and the filter, which has nothing but its presence, draws that.
-    // Asserted through the rows themselves rather than through a fallback: a `?? 3` would make
-    // this pass for a run that grew neither of them.
+    // other knobs and its gain, and the panner its spread and its rate — the three stages it holds
+    // are not drawn at all. Asserted through the rows themselves rather than through a fallback: a
+    // `?? 3` would make this pass for a run that grew neither.
     const drew = rows.map((row) => [row.effect, row.values.length]);
     expect(drew).toContainEqual(["eq", 3]);
-    expect(drew).toContainEqual(["filter", 1]);
+    expect(drew).toContainEqual(["panner", 2]);
   });
 
   /**

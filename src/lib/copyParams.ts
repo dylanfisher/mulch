@@ -21,13 +21,15 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "deck.speed": "How fast the sample is read, as a multiplier. It moves the pitch with it.",
   "deck.pitch": "How far the sample is transposed, in semitones. It moves the speed with it.",
   "deck.tone": "The pitch a tone sounds at, in hertz — and the rate any other source is read at.",
-  "filter.cutoff": "Where the low-pass filter starts cutting, in hertz.",
   "delay.time": "How long each repeat waits before it sounds, in seconds.",
   "delay.feedback": "How much of each repeat is fed back in, so how many repeats there are.",
   "delay.mix": "How much of the delayed sound is heard beside the dry one, from none to all.",
   "eq.frequency": "The frequency the band lifts or cuts around, in hertz.",
   "eq.gain": "How far that band is lifted or cut, in decibels.",
   "eq.q": "How narrow the band is. Higher is a tighter piece of the spectrum.",
+  "eq.shape":
+    "Which shape the band is: a peaking lift or cut, or a low-pass, high-pass or band-pass. " +
+    "The Gain is heard by the peaking shape alone.",
   "comp.threshold": "The level above which the compressor starts pressing, in decibels.",
   "comp.ratio": "How hard it presses what is over the threshold, as a ratio to 1.",
   "comp.attack":
@@ -77,6 +79,16 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
     "How long a grain each read head takes. Short rasps at the interval and long smears.",
   "shift.mix":
     "How much of the transposed sound is heard beside the untouched one, from none to all.",
+  "panner.position":
+    "Where the sound sits between the speakers, from -1 hard left to 1 hard right.",
+  "panner.spread":
+    "How far apart the pieces of it stand across the field. At none the whole of it sits at the " +
+    "Position, whatever is switched on below.",
+  "panner.rate": "How fast successive slices are landed, in hertz. It moves nothing on its own.",
+  "panner.band": "Split the sound at two crossovers and sit each band at its own point.",
+  "panner.time": "Give the two sides their own short delay and gain, so a move is heard arriving.",
+  "panner.slice":
+    "Land successive short slices at their own positions, so the sound crosses in grains.",
   // The automator's own twenty. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
@@ -95,7 +107,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.wander":
     "How alive a grown effect's knobs are once they are drawn: the odds one moves again, and how " +
     "fast it gets there.",
-  "auto.filter": "How often a filter is drawn against the rest of the pool. None is never.",
+  "auto.panner": "How often a panner is drawn against the rest of the pool. None is never.",
   "auto.delay": "How often a delay is drawn against the rest of the pool. None is never.",
   "auto.eq": "How often an EQ is drawn against the rest of the pool. None is never.",
   "auto.compressor": "How often a compressor is drawn against the rest of the pool. None is never.",

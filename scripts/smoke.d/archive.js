@@ -89,7 +89,7 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
             // 0078).
             probe.activeDeck === "a" &&
             probe.decks.a.automation["deck.gain"].length > 1 &&
-            probe.decks.a.effects.map((entry) => entry.effect).join(",") === "filter" &&
+            probe.decks.a.effects.map((entry) => entry.effect).join(",") === "eq" &&
             probe.decks.a.effects.every((entry) => entry.bypassed),
           bytesEqual:
             storedBytes.length === bytes.length &&

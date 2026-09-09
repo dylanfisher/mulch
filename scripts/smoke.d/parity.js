@@ -61,8 +61,9 @@ export const exportParity = async ({ page }) => {
               ],
             },
             { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
-            { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
-            { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 3200 },
+            { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
+            { t: "param.set", deck: "a", instance: "flt", param: "eq.frequency", value: 3200 },
+            { t: "param.set", deck: "a", instance: "flt", param: "eq.shape", value: 1 },
             // And one on the rack that is no yard's, so the master rack is inside the graph this
             // parity is taken of: it is built by the one `createMasterBus` both hosts call, and a
             // rack that were not in that graph would be a second signal path (0321,

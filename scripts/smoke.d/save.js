@@ -116,10 +116,10 @@ export const save = async ({ page, state, bytes }) => {
           session.decks.a.source.blobId === kept &&
           session.decks.a.params["deck.gain"] === 0.4 &&
           session.decks.a.automation["deck.gain"].length > 1 &&
-          session.decks.a.effects.map((entry) => entry.effect).join(",") === "filter" &&
+          session.decks.a.effects.map((entry) => entry.effect).join(",") === "eq" &&
           session.decks.a.effects.every((entry) => entry.bypassed) &&
           // The lane the knob recorded is stored on the instance that owns the value (0030).
-          session.decks.a.effects[0].automation["filter.cutoff"].length > 1,
+          session.decks.a.effects[0].automation["eq.frequency"].length > 1,
         // The snapped loop is durable; the analysis that suggested it is not, and is re-derived
         // from the source on every load rather than stored beside it (0025).
         storedLoop: session.decks.b.loop,

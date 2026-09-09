@@ -16,7 +16,7 @@ describe("effect rack", () => {
     const rack = createEffectRack(context, destination);
 
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     const rackInput = asFakeNode(rack.input);
     const delayInput = required(gains, 1);
@@ -30,16 +30,16 @@ describe("effect rack", () => {
   it("hands out the bound AudioParam an active effect's lane is scheduled onto", () => {
     const { context, filters, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     // The same binding setParam moves — one parameter, one AudioParam, two ways in (0024).
-    expect(rack.automationTarget("f1", "filter.cutoff")).toBe(required(filters, 0).frequency);
+    expect(rack.automationTarget("f1", "eq.frequency")).toBe(required(filters, 0).frequency);
     // A bypassed effect keeps its nodes, so its lane keeps a target to run against.
     rack.setBypass("f1", true);
-    expect(rack.automationTarget("f1", "filter.cutoff")).toBe(required(filters, 0).frequency);
+    expect(rack.automationTarget("f1", "eq.frequency")).toBe(required(filters, 0).frequency);
 
     rack.remove("f1");
-    expect(() => rack.automationTarget("f1", "filter.cutoff")).toThrow(
+    expect(() => rack.automationTarget("f1", "eq.frequency")).toThrow(
       /effect instance is not held/u,
     );
   });
@@ -63,7 +63,7 @@ describe("effect rack performance operations", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     rack.setBypass("d1", true);
 
@@ -85,7 +85,7 @@ describe("effect rack performance operations", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     rack.remove("d1");
 
@@ -100,7 +100,7 @@ describe("effect rack performance operations", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     rack.reorder(["f1", "d1"]);
 
@@ -115,7 +115,7 @@ describe("effect rack performance operations", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
     rack.setBypass("f1", true);
 
     rack.remove("d1");
@@ -123,7 +123,7 @@ describe("effect rack performance operations", () => {
     // Nothing is left in the path, but the bypassed filter is still built and still bound.
     expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
     expect([...required(gains, 5).connections]).toEqual([]);
-    rack.setParam("f1", "filter.cutoff", 400, 1);
+    rack.setParam("f1", "eq.frequency", 400, 1);
     expect(required(filters, 0).frequency.ramps).toEqual([[400, 1 + PARAM_RAMP_SECS]]);
     expect(required(delays, 0).delayTime.ramps).toEqual([]);
 
@@ -137,7 +137,7 @@ describe("effect rack performance operations", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
     rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
     rack.setBypass("d1", true);
 
     rack.reorder(["f1", "d1"]);
@@ -156,7 +156,7 @@ describe("effect rack performance operations", () => {
   it("refuses to operate on an effect the rack does not hold", () => {
     const { context, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
+    rack.add("f1", effectById("eq"), effectParamDefaults("eq", "f1"));
 
     expect(() => {
       rack.setBypass("d1", true);

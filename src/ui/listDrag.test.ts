@@ -109,7 +109,7 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
   const sent: (Command | Envelope)[] = [];
   const instrument = createInstrument(manualClock());
   for (let index = 0; index < count; index++) {
-    instrument.send({ t: "effect.add", deck: "a", id: `e${index}`, effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: `e${index}`, effect: "eq" });
   }
   const cards = layout(count);
   const placeholder = { hidden: true, style: {} as Record<string, string> };

@@ -61,7 +61,7 @@ export function findLabelled(node: ReactNode, label: string): Labelled | null {
 
 /** One place a run is holding, as the per-frame read hands it over — the shape, not a real draw. */
 export const grownPlace = (instance: EffectInstanceId): GrownEffect => ({
-  effect: "filter",
+  effect: "eq",
   instance,
   presence: 1,
   remain: 3,

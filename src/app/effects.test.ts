@@ -89,15 +89,15 @@ describe("effect.add", () => {
     });
 
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
-    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
 
     expect(rackOf(instrument)).toEqual([
       ["one", "delay"],
-      ["two", "filter"],
+      ["two", "eq"],
     ]);
     expect(events).toMatchObject([
       { seq: 0, t: "effect.added", instance: "one", effect: "delay", index: 0 },
-      { seq: 1, t: "effect.added", instance: "two", effect: "filter", index: 1 },
+      { seq: 1, t: "effect.added", instance: "two", effect: "eq", index: 1 },
     ]);
   });
 
@@ -139,10 +139,10 @@ describe("effect.add", () => {
       }),
     );
 
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
-    expect(initial?.["filter.cutoff"]).toBe(1_000);
-    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(1_000);
+    expect(initial?.["eq.frequency"]).toBe(1_000);
+    expect(instanceIn(instrument, "one").params["eq.frequency"]).toBe(1_000);
   });
 
   it("reports a repeated instance id and leaves state and graph unchanged", () => {
@@ -154,7 +154,7 @@ describe("effect.add", () => {
     });
 
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     expect(additions).toBe(1);
     expect(rackOf(instrument)).toEqual([["one", "delay"]]);
@@ -172,7 +172,7 @@ describe("effect.add", () => {
   it("throws for a missing instance id as malformed wire input", () => {
     const instrument = createInstrument(manualClock());
     expect(() => {
-      instrument.send(wire('{"t":"effect.add","deck":"a","effect":"filter"}'));
+      instrument.send(wire('{"t":"effect.add","deck":"a","effect":"eq"}'));
     }).toThrow(/is not a non-empty string/u);
     expect(rackOf(instrument)).toEqual([]);
   });
@@ -185,7 +185,7 @@ describe("effect.add", () => {
     );
 
     expect(() => {
-      instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+      instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     }).toThrow(/graph refused/u);
     expect(rackOf(instrument)).toEqual([]);
   });
@@ -209,7 +209,7 @@ describe("effect.add", () => {
       t: "param.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 400,
     });
     expect(events.at(-1)).toMatchObject({ t: "error", detail: /filter\.cutoff is not on one/u });
@@ -242,12 +242,12 @@ describe("effect.add", () => {
 
   it("keeps probes JSON-safe after rack and parameter changes", () => {
     const instrument = createInstrument(manualClock(3));
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "param.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 4,
     });
     const probe = instrument.probe();
@@ -260,30 +260,30 @@ describe("effect.add", () => {
 describe("effect.bypass", () => {
   it("keeps a bypassed instance's place in the rack and its parameter values", () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     instrument.send({
       t: "param.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 240,
     });
 
     instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: true });
 
     expect(rackOf(instrument)).toEqual([
-      ["one", "filter"],
+      ["one", "eq"],
       ["two", "delay"],
     ]);
     expect(instanceIn(instrument, "one").bypassed).toBe(true);
-    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(240);
+    expect(instanceIn(instrument, "one").params["eq.frequency"]).toBe(240);
     expect(calls.bypassed).toEqual([["one", true]]);
     expect(events.at(-1)).toMatchObject({
       t: "effect.bypass.changed",
       deck: "a",
       instance: "one",
-      effect: "filter",
+      effect: "eq",
       bypassed: true,
     });
   });
@@ -310,7 +310,7 @@ describe("effect.bypass", () => {
         },
       }),
     );
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const before = instrument.ring().length;
 
     expect(() => {
@@ -331,7 +331,7 @@ describe("effect.bypass", () => {
 
   it("is a silent no-op when the instance is already in the requested state", () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: false });
 
     expect(calls.bypassed).toEqual([]);
@@ -340,7 +340,7 @@ describe("effect.bypass", () => {
 
   it("throws for a non-boolean bypass flag as malformed wire input", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     expect(() => {
       instrument.send(wire('{"t":"effect.bypass","deck":"a","instance":"one","bypassed":"yes"}'));
     }).toThrow(/bypass is not a boolean/u);
@@ -380,12 +380,12 @@ describe("effect.bounds", () => {
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: { min: 90_000, max: 2 },
     });
-    expect(boundsOf(instrument)).toEqual({ "filter.cutoff": { min: 20, max: 20_000 } });
+    expect(boundsOf(instrument)).toEqual({ "eq.frequency": { min: 20, max: 20_000 } });
     expect(windows).toEqual([
-      ["auto", JSON.stringify({ "filter.cutoff": { min: 20, max: 20_000 } })],
+      ["auto", JSON.stringify({ "eq.frequency": { min: 20, max: 20_000 } })],
     ]);
   });
 
@@ -396,14 +396,14 @@ describe("effect.bounds", () => {
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: window,
     });
     instrument.send({
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: null,
     });
     expect(boundsOf(instrument)).toEqual({});
@@ -420,14 +420,14 @@ describe("effect.bounds", () => {
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: window,
     });
     instrument.send({
       t: "effect.bounds",
       deck: "a",
       instance: "auto",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: { ...window },
     });
     instrument.send({
@@ -443,12 +443,12 @@ describe("effect.bounds", () => {
 
   it("refuses a window on an entry with no run to bound, and on a value no run draws", () => {
     const { instrument, windows, events } = boundedInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
     instrument.send({
       t: "effect.bounds",
       deck: "a",
       instance: "flt",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       bounds: { min: 60, max: 90 },
     });
     expect(events.at(-1)).toMatchObject({ t: "error", detail: /filter draws nothing: flt/u });
@@ -471,7 +471,7 @@ describe("effect.bounds", () => {
 describe("effect.remove", () => {
   it("removes from the rack and the graph, taking the instance's values with it", () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     instrument.send({
       t: "param.set",
@@ -483,7 +483,7 @@ describe("effect.remove", () => {
 
     instrument.send({ t: "effect.remove", deck: "a", instance: "two" });
 
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
     expect(calls.removed).toEqual(["two"]);
     expect(events.at(-1)).toMatchObject({
       t: "effect.removed",
@@ -520,12 +520,12 @@ describe("effect.remove", () => {
         },
       }),
     );
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     expect(() => {
       instrument.send({ t: "effect.remove", deck: "a", instance: "one" });
     }).toThrow(/removal refused/u);
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
   });
 
   it("reports removing an instance that is not in the rack", () => {
@@ -541,14 +541,14 @@ describe("effect.remove", () => {
 describe("effect.reorder", () => {
   it("moves an instance and hands the graph the resulting order first", () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
 
     instrument.send({ t: "effect.reorder", deck: "a", instance: "two", index: 0 });
 
     expect(rackOf(instrument)).toEqual([
       ["two", "delay"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
     expect(calls.orders).toEqual([["two", "one"]]);
     expect(events.at(-1)).toMatchObject({
@@ -576,20 +576,20 @@ describe("effect.reorder", () => {
 
   it("clamps an index past the end of the rack, like a parameter out of range", () => {
     const { instrument } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
 
     instrument.send({ t: "effect.reorder", deck: "a", instance: "one", index: 9 });
 
     expect(rackOf(instrument)).toEqual([
       ["two", "delay"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
   });
 
   it("is a silent no-op when the instance is already at that index", () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.reorder", deck: "a", instance: "one", index: 0 });
 
     expect(calls.orders).toEqual([]);
@@ -598,7 +598,7 @@ describe("effect.reorder", () => {
 
   it("throws for a non-integer index as malformed wire input", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     expect(() => {
       instrument.send(wire('{"t":"effect.reorder","deck":"a","instance":"one","index":0.5}'));
     }).toThrow(/index is not an integer/u);
@@ -612,14 +612,14 @@ describe("effect.reorder", () => {
         },
       }),
     );
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
 
     expect(() => {
       instrument.send({ t: "effect.reorder", deck: "a", instance: "two", index: 0 });
     }).toThrow(/reorder refused/u);
     expect(rackOf(instrument)).toEqual([
-      ["one", "filter"],
+      ["one", "eq"],
       ["two", "delay"],
     ]);
   });
@@ -629,24 +629,24 @@ describe("effect.reorder", () => {
 describe("rack operations under history", () => {
   it("undoes and redoes each operation as one atomic transaction", async () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: true });
     instrument.send({ t: "effect.reorder", deck: "a", instance: "two", index: 0 });
     instrument.send({ t: "effect.remove", deck: "a", instance: "two" });
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
 
     instrument.send({ t: "history.undo" });
     await turns();
     expect(rackOf(instrument)).toEqual([
       ["two", "delay"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
 
     instrument.send({ t: "history.undo" });
     await turns();
     expect(rackOf(instrument)).toEqual([
-      ["one", "filter"],
+      ["one", "eq"],
       ["two", "delay"],
     ]);
     expect(instanceIn(instrument, "one").bypassed).toBe(true);
@@ -662,13 +662,13 @@ describe("rack operations under history", () => {
     await turns();
     instrument.send({ t: "history.redo" });
     await turns();
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
     expect(instanceIn(instrument, "one").bypassed).toBe(true);
   });
 
   it("commits an ordered group of rack operations as one entry", async () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "history.group",
       commands: [
@@ -680,12 +680,12 @@ describe("rack operations under history", () => {
     await turns();
     expect(rackOf(instrument)).toEqual([
       ["two", "delay"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
 
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
   });
 });
 
@@ -695,7 +695,7 @@ describe("rack operations under history", () => {
 describe("the parametric EQ through the generic surface", () => {
   it("adds, bypasses, reorders, removes and undoes with no EQ-specific command", async () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
     instrument.send({ t: "param.set", deck: "a", instance: "two", param: "eq.q", value: 6 });
     instrument.send({ t: "param.set", deck: "a", instance: "two", param: "eq.gain", value: -18 });
@@ -703,14 +703,14 @@ describe("the parametric EQ through the generic surface", () => {
     instrument.send({ t: "effect.bypass", deck: "a", instance: "two", bypassed: true });
 
     expect(calls.added).toEqual([
-      ["one", "filter"],
+      ["one", "eq"],
       ["two", "eq"],
     ]);
     expect(calls.orders).toEqual([["two", "one"]]);
     expect(calls.bypassed).toEqual([["two", true]]);
     expect(rackOf(instrument)).toEqual([
       ["two", "eq"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
     expect(instanceIn(instrument, "two").bypassed).toBe(true);
     // Values set after activation survive the rewiring, like every other plugin's.
@@ -719,18 +719,18 @@ describe("the parametric EQ through the generic surface", () => {
 
     instrument.send({ t: "effect.remove", deck: "a", instance: "two" });
     expect(calls.removed).toEqual(["two"]);
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
 
     instrument.send({ t: "history.undo" });
     await turns();
     expect(rackOf(instrument)).toEqual([
       ["two", "eq"],
-      ["one", "filter"],
+      ["one", "eq"],
     ]);
     expect(instanceIn(instrument, "two").bypassed).toBe(true);
     instrument.send({ t: "history.redo" });
     await turns();
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
 
     expect(events.some((event) => event.t === "error")).toBe(false);
   });

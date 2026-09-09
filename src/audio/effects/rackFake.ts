@@ -79,6 +79,9 @@ export function fakeContext() {
     stopped: boolean;
   })[] = [];
   const compressors: (FakeNode & FakeCompressor)[] = [];
+  const panners: (FakeNode & { pan: AudioParam & FakeParam })[] = [];
+  const splitters: (FakeNode & { channels: number })[] = [];
+  const mergers: (FakeNode & { channels: number })[] = [];
   const convolvers: (FakeNode & { buffer: FakeBuffer | null; normalize: boolean })[] = [];
   const buffers: FakeBuffer[] = [];
 
@@ -91,8 +94,23 @@ export function fakeContext() {
         connections.add(asFakeNode(destination));
         return destination;
       },
-      disconnect: () => {
-        connections.clear();
+      // One destination, or all of them — which is the real node's own signature, and what a stage
+      // that lets go of one tap off a shared source needs (src/audio/effects/panner.ts).
+      //
+      // **And naming a destination that is not connected throws, as the real node does**: the
+      // specification answers an unconnected destination with an `InvalidAccessError`, so a fake
+      // that shrugged at it would hide a double teardown until a browser ran it — which is exactly
+      // what it hid on the panner's own dispose (0323).
+      disconnect: (destination?: AudioNode) => {
+        if (destination === undefined) {
+          connections.clear();
+          return;
+        }
+        const target = asFakeNode(destination);
+        if (!connections.has(target)) {
+          throw new Error(`${name} is not connected to what it was told to let go of`);
+        }
+        connections.delete(target);
       },
     };
     // oxlint-disable-next-line no-unsafe-type-assertion -- only connect/disconnect are exercised
@@ -188,6 +206,23 @@ export function fakeContext() {
       buffers.push(buffer);
       return buffer;
     },
+    // The three the panner is made of, and the one entry that uses any of them: a stereo panner per
+    // point in the field, and the splitter and merger its time stage takes the two sides apart with.
+    createStereoPanner: () => {
+      const panner = Object.assign(node(`panner-${panners.length}`), { pan: fakeParam() });
+      panners.push(panner);
+      return panner;
+    },
+    createChannelSplitter: (channels: number) => {
+      const splitter = Object.assign(node(`splitter-${splitters.length}`), { channels });
+      splitters.push(splitter);
+      return splitter;
+    },
+    createChannelMerger: (channels: number) => {
+      const merger = Object.assign(node(`merger-${mergers.length}`), { channels });
+      mergers.push(merger);
+      return merger;
+    },
     createBiquadFilter: () => {
       const type: BiquadFilterType = "lowpass";
       const filter = Object.assign(node(`filter-${filters.length}`), {
@@ -212,6 +247,9 @@ export function fakeContext() {
     oscillators,
     compressors,
     convolvers,
+    panners,
+    splitters,
+    mergers,
     buffers,
     node,
   };

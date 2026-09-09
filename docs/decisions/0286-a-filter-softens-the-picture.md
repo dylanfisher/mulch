@@ -1,7 +1,9 @@
 # 0286 — A filter softens the picture
 
 - **Date:** 2026-09-02
-- **Status:** accepted, standing on [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (a look
+- **Status:** superseded by [0322](0322-an-eq-band-has-a-shape-and-the-filter-goes.md), which took
+  the filter entry out of the registry and the `soften` look with it — a low-pass is `eq.shape` now,
+  and this record describes maths nothing declares. It stood on [0279](0279-a-look-is-declared-and-the-chain-draws-it.md) (a look
   is declared on the entry and the chain draws it) beside
   [0280](0280-a-room-blooms-the-picture.md), [0281](0281-a-crusher-blocks-the-picture.md),
   [0282](0282-a-delay-repeats-the-picture.md), [0283](0283-a-pop-sharpens-the-picture.md) and

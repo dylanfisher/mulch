@@ -15,7 +15,7 @@ import { compressorEffect } from "./compressor";
 import { crushEffect } from "./crush";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
-import { filterEffect } from "./filter";
+import { pannerEffect } from "./panner";
 import { popEffect } from "./pop";
 import { reverbEffect } from "./reverb";
 import { scatterEffect } from "./scatter";
@@ -36,7 +36,7 @@ import type { Effect, ParamDeclaration } from "./contract";
  * both import each other — see `createAutomator` (0203).
  */
 const growable = [
-  filterEffect,
+  pannerEffect,
   delayEffect,
   eqEffect,
   compressorEffect,

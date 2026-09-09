@@ -11,7 +11,7 @@ export const effectPicker = async ({ page }) => {
   const rack = page.getByLabel("Yard A Effects");
   const before = await page.evaluate(() => window.mulch.probe().decks.a.effects.length);
 
-  const chosen = page.getByRole("button", { name: "Add EQ to Yard A" });
+  const chosen = page.getByRole("button", { name: "Add Panner to Yard A" });
   await rack.getByRole("button", { name: "Add an Effect to Yard A" }).click();
   await chosen.waitFor();
   // Every registry entry, read in one pass off the open popup rather than one wait per label: a
@@ -20,7 +20,7 @@ export const effectPicker = async ({ page }) => {
     .locator('[data-slot="popover-content"] [aria-label^="Add "]')
     .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
   const expected = [
-    "Filter",
+    "Panner",
     "Delay",
     "EQ",
     "Compressor",
@@ -44,7 +44,9 @@ export const effectPicker = async ({ page }) => {
   await chosen.waitFor({ state: "hidden" });
   await page.waitForFunction((was) => {
     const entries = window.mulch.probe().decks.a.effects;
-    return entries.length === was + 1 && entries.at(-1).effect === "eq";
+    return entries.length === was + 1 && entries.at(-1).effect === "panner";
   }, before);
-  report(`the picker listed ${listed.length} registry entries and added an eq through the popover`);
+  report(
+    `the picker listed ${listed.length} registry entries and added a panner through the popover`,
+  );
 };

@@ -14,8 +14,9 @@
  *   src/lib/moireGrain.ts, split off here at the hard cap (0286) — and the one look declared whole
  *   in a file of its own, its terms and its draw together, because this file stood at the cap again
  *   → `bandLook` in src/lib/moireBand.ts (0287), `squashLook` in src/lib/moireSquash.ts (0288),
- *   `doubleLook` in src/lib/moireDouble.ts (0289), `echoesLook` in src/lib/moireEchoes.ts (0294)
- *   and, cut rather than passed, `shardsLook` in src/lib/moireShards.ts (0296).
+ *   `doubleLook` in src/lib/moireDouble.ts (0289), `echoesLook` in src/lib/moireEchoes.ts (0294),
+ *   `staggerLook` in src/lib/moirePanner.ts (0323) and, cut rather than passed, `shardsLook` in
+ *   src/lib/moireShards.ts (0296).
  */
 // Over the soft cap and well under the hard one, and for the reason the whole file exists: every
 // look's terms, where it lands and — where it lands in the chain — the one draw it is, sit together
@@ -25,6 +26,7 @@
 // oxlint-disable max-lines
 import { bandLook } from "@/lib/moireBand";
 import { doubleLook } from "@/lib/moireDouble";
+import { staggerLook } from "@/lib/moirePanner";
 import { echoesLook } from "@/lib/moireEchoes";
 import { shardsLook } from "@/lib/moireShards";
 import { squashLook } from "@/lib/moireSquash";
@@ -46,10 +48,10 @@ export const LOOK_NAMES = [
   "echoes",
   "sharpen",
   "wobble",
-  "soften",
   "band",
   "squash",
   "double",
+  "stagger",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -72,6 +74,8 @@ export const LOOK_TERMS = [
   "position",
   "lift",
   "width",
+  "shape",
+  "spread",
   "floor",
   "ceiling",
   "zoom",
@@ -155,9 +159,10 @@ export type Look =
  * `copy` is what takes it back up over the *whole* of that surface rather than blending it over the
  * corner it was drawn into — carrying `alpha`, because the upscale is where a halo's share rides.
  *
- * **Three passes blur this way, which is what makes it a helper and not a third copy** (principle 3,
- * and `weighed` said of a share, src/lib/moireWeigh.ts): the bloom's halo, the sharpen's mask and the soften's whole
- * picture. What each does *after* it is what tells the three apart, and stays at each declaration.
+ * **Two passes blur this way, and it was three until the soften left with the filter that declared
+ * it** (0322): the bloom's halo and the sharpen's mask. It stays a helper rather than being folded
+ * back into either, because what tells the two apart is what each does *after* it and neither of
+ * them is the blur (principle 3, and `weighed` said of a share, src/lib/moireWeigh.ts).
  */
 const blurred = (
   into: CanvasRenderingContext2D,
@@ -512,58 +517,6 @@ const wobblePass: LookPass = (into, source, presence, terms, _veer, clock) => {
 };
 
 /**
- * The working size a softened field is redrawn at, as a share of its own size: the band the radius
- * is stated across, **open end last**, because the term is the cutoff's own turn and a filter's
- * cutoff reads the same way round — wide open at the top of the knob and shut at the bottom. The
- * bloom's units and the bloom's reason (0280): a blur *is* its working size, nothing about one
- * lands on a grid, and the strip, the overlay and an export at any scale soften by the same amount
- * of picture. Wider at its shut end than the halo the bloom draws, because what this pass says is
- * that the fine detail is *gone* rather than that there is a room around it — and **the open end is
- * the field itself**, which is the one band here that closes at one: a filter standing open is a
- * wire, and the entry's own presence stands at nought in the same place (0202). The two agree
- * because they are one knob, and the band says so rather than leaving the presence to say it.
- */
-export const SOFTEN_SCALE: readonly [number, number] = [1 / 16, 1];
-
-/**
- * The size the copy that replaces the field is drawn at: the radius its entry declared, walked out
- * from the field's own size by how present the picture has travelled the instance to. **The blocks'
- * walk and not the bloom's weighed share** (0281, 0283): this pass lays nothing over the picture and
- * has no alpha to weigh, so what a travelling presence moves is the working size itself — a filter
- * arriving dissolves the picture out of focus rather than crossfading two of them, and one at no
- * presence at all is the field at the whole of itself.
- */
-export const softenScale = (presence: number, radius: number): number =>
-  1 + clamp(presence, 0, 1) * (denormalize(radius, ...SOFTEN_SCALE) - 1);
-
-/**
- * The soften, drawn: the field small, and that small copy back up over the whole surface — and
- * **nothing else**, which is the whole of what tells this pass from the bloom. The halo lays the
- * blurred copy back *over* the picture and keeps the original underneath it (0280); this one is the
- * blurred copy at the whole of itself with no original under it at all, so the fine detail does not
- * come back and the picture reads as out of focus rather than as lit. Two draws of what is already
- * drawn, no fill over the picture and no pixel touched (0129, 0269).
- *
- * `copy` is what makes the second draw the whole of the surface rather than a blend over the small
- * corner the first draw left, and it is the bloom's second draw exactly — at the whole of itself,
- * because the plan's draw is `source-over` at one and an alpha here would be a halo by another name.
- */
-const softenPass: LookPass = (into, source, presence, terms) => {
-  // An absent radius is the open end of the knob and not the shut one, which is the field itself —
-  // the registry refuses an entry that leaves the term unread, so nothing standing reaches this.
-  const scale = softenScale(presence, terms.radius ?? 1);
-  // A filter standing open, and one the picture has not travelled to yet, are both the field at the
-  // whole of itself — and this is the one draw that says so.
-  if (scale >= 1) {
-    into.drawImage(source, 0, 0);
-    return;
-  }
-  // At the whole of itself, and with nothing drawn after it: the plan's draw is `source-over` at one
-  // and an alpha here would be a halo by another name.
-  blurred(into, source, scale, 1);
-};
-
-/**
  * The looks, and the whole of what a look is to anything outside this file. **A look two entries
  * claim is refused at load, exactly as a drift profile is** (0122): an effect's look is its whole
  * identity in a glance at the picture, and two entries wearing one would draw the same move twice
@@ -635,14 +588,6 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    */
   wobble: { at: "pass", terms: { wobble: "turn", grain: "turn" }, pass: wobblePass },
   /**
-   * Filter's, and the one look whose single term is the knob its own presence is read off: the field
-   * redrawn from a copy of itself too small to hold what was in it, so the picture keeps where every
-   * row is and loses how finely it is drawn. How small that copy is, is the Cutoff, on its own range
-   * — a filter shut down over the band is a picture with its fine detail dissolved out of it, and one
-   * standing open is the field itself, which is where this entry's presence already stands (0202).
-   */
-  soften: { at: "pass", terms: { radius: "turn" }, pass: softenPass },
-  /**
    * EQ's, and the one look whose terms, maths and draw are declared away from here: this file stood
    * at the 800-line hard cap when the band landed, so what left it is a whole look and never half
    * of one (`bandLook`, src/lib/moireBand.ts, 0287). What it draws is one band of the picture stood
@@ -667,6 +612,15 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * already read off.
    */
   double: doubleLook,
+  /**
+   * Panner's, declared away from here for the band's reason and at the same cap (`staggerLook`,
+   * src/lib/moirePanner.ts, 0323): the picture's own rows displaced across the field band by band,
+   * so a glance says the sound is not standing in one place. How far apart the bands stand is the
+   * Spread, on its own range — which is the knob this entry's presence is already read off, because
+   * no spread is no field however the toggles are set; and where the whole of it sits across the
+   * field is the Position, on its.
+   */
+  stagger: staggerLook,
 };
 
 /**

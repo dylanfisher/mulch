@@ -104,7 +104,7 @@ const into = (): Float64Array => new Float64Array(SHARD_CAP).fill(Number.NaN);
 
 /** One place of a run, standing at `presence`, as the read holds it (`looksHeldInto`). */
 const place = (presence: number) => ({
-  effect: "filter",
+  effect: "eq",
   instance: "grown",
   presence,
   remain: 1,

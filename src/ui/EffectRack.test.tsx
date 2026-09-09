@@ -112,7 +112,7 @@ const headControl = (
   label: string,
   control: string,
   bypassed = false,
-  effect: EffectId = "filter",
+  effect: EffectId = "eq",
 ): Labelled => {
   let head: ReactNode = null;
   function Probe(): null {
@@ -133,8 +133,8 @@ const switchProps = (
   const { checked, onCheckedChange } = headControl(
     instrument,
     "one",
-    "Filter 1",
-    "Enable Filter 1 on Yard A",
+    "EQ 1",
+    "Enable EQ 1 on Yard A",
     bypassed,
   );
   if (checked === undefined || onCheckedChange === undefined) {
@@ -146,8 +146,8 @@ const switchProps = (
 /** A deck holding two filters, the second of them bypassed — the rack's two switch states. */
 const rackMarkup = (): string => {
   const instrument = createInstrument(manualClock());
-  instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
-  instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
+  instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
   instrument.send({ t: "effect.bypass", deck: "a", instance: "two", bypassed: true });
   return markupOf(instrument);
 };
@@ -210,10 +210,10 @@ describe("the effect rack's controls", () => {
   // independently (0030).
   it("reports the effect running as a switch per instance", () => {
     const markup = rackMarkup();
-    expect(markup).toMatch(/data-slot="switch"[^>]*aria-label="Enable Filter 1 on Yard A"/u);
-    // Filter 1 is running, so its switch is on; Filter 2 is bypassed, so its switch is off.
-    expect(markup).toMatch(/aria-checked="true"[^>]*aria-label="Enable Filter 1 on Yard A"/u);
-    expect(markup).toMatch(/aria-checked="false"[^>]*aria-label="Enable Filter 2 on Yard A"/u);
+    expect(markup).toMatch(/data-slot="switch"[^>]*aria-label="Enable EQ 1 on Yard A"/u);
+    // EQ 1 is running, so its switch is on; EQ 2 is bypassed, so its switch is off.
+    expect(markup).toMatch(/aria-checked="true"[^>]*aria-label="Enable EQ 1 on Yard A"/u);
+    expect(markup).toMatch(/aria-checked="false"[^>]*aria-label="Enable EQ 2 on Yard A"/u);
     // The word is gone with the flip: a toggle that reads right needs no caption (0055).
     expect(markup).not.toContain(">Bypass<");
     // The state's own picture went with the Toggle: a state is a switch and an action has an
@@ -227,10 +227,10 @@ describe("the effect rack's controls", () => {
   // label that names which instance it acts on.
   it("keeps the once-per-press controls as labelled buttons", () => {
     const markup = rackMarkup();
-    for (const label of ["Remove Filter 1 from Yard A", "Reorder Filter 2 on Yard A"]) {
+    for (const label of ["Remove EQ 1 from Yard A", "Reorder EQ 2 on Yard A"]) {
       expect(markup).toMatch(new RegExp(`data-slot="button"[^>]*aria-label="${label}"`, "u"));
     }
-    expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove Filter 1 from Yard A"/u);
+    expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove EQ 1 from Yard A"/u);
   });
 
   // P34: the two arrow buttons are gone, and the handle is what reordering is reached through
@@ -239,7 +239,7 @@ describe("the effect rack's controls", () => {
     const markup = rackMarkup();
     expect(markup).not.toContain("Earlier");
     expect(markup).not.toContain("Later");
-    expect(markup).toContain('aria-label="Reorder Filter 1 on Yard A"');
+    expect(markup).toContain('aria-label="Reorder EQ 1 on Yard A"');
   });
 });
 
@@ -249,7 +249,7 @@ describe("the switch's sense", () => {
   // one is turned into the other (P57).
   it("sends the bypass the switch's new position means", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     const running = switchProps(instrument, false);
     expect(running.checked).toBe(true);
@@ -267,9 +267,9 @@ describe("what a card is called", () => {
   // is what this was — renumbers every card the drag passed.
   it("leaves every card's label byte-identical across a reorder", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
-    instrument.send({ t: "effect.add", deck: "a", id: "three", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "three", effect: "eq" });
     const before = labels(markupOf(instrument));
 
     instrument.send({ t: "effect.reorder", deck: "a", instance: "three", index: 0 });
@@ -277,8 +277,8 @@ describe("what a card is called", () => {
 
     // The same labels, in the rack's new order rather than in new words.
     expect(new Set(after)).toEqual(new Set(before));
-    expect(before).toContain("Filter 1");
-    expect(before).toContain("Filter 2");
+    expect(before).toContain("EQ 1");
+    expect(before).toContain("EQ 2");
     expect(before).toContain("Delay 1");
   });
 
@@ -316,10 +316,10 @@ describe("copying a card", () => {
   // head never sends the add, the values and the bypass itself (0078, 0092).
   it("sends one effect.duplicate naming the card it sits on", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
 
-    headControl(instrument, "one", "Filter 1", "Duplicate Filter 1 on Yard A").onClick?.();
+    headControl(instrument, "one", "EQ 1", "Duplicate EQ 1 on Yard A").onClick?.();
 
     expect(sent).toHaveBeenCalledTimes(1);
     expect(sent).toHaveBeenCalledWith(
@@ -353,13 +353,13 @@ describe("the die on a card's head", () => {
    */
   it("sends one group of draws, one per knob the card declares", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
 
-    headControl(instrument, "one", "Filter 1", "Randomize Filter 1 on Yard A").onClick?.();
+    headControl(instrument, "one", "EQ 1", "Randomize EQ 1 on Yard A").onClick?.();
 
     const commands = groupOf(sent.mock.calls[0]?.[0]);
-    expect(commands.map((command) => setOf(command).param)).toEqual(effectParamIds("filter"));
+    expect(commands.map((command) => setOf(command).param)).toEqual(effectParamIds("eq"));
     // Every draw is a value a hand could have dialled: inside the range its own declaration gives
     // it, which is the registry's claim and `effectParamDraws`' to keep (0030).
     for (const command of commands) {
@@ -377,10 +377,10 @@ describe("the die on a card's head", () => {
   // a function of the card it is pressed on (0089).
   it("draws again on every press", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
     const press = (): Command[] => {
-      headControl(instrument, "one", "Filter 1", "Randomize Filter 1 on Yard A").onClick?.();
+      headControl(instrument, "one", "EQ 1", "Randomize EQ 1 on Yard A").onClick?.();
       return groupOf(sent.mock.calls.at(-2)?.[0]);
     };
     expect(press()).not.toEqual(press());
@@ -395,7 +395,7 @@ describe("emptying the rack", () => {
    */
   it("sends every card's removal as one group, in the rack's own order", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     const sent = vi.spyOn(instrument, "send");
 
@@ -419,7 +419,7 @@ describe("emptying the rack", () => {
   // The question is worth asking only if it says how much is at stake, so it counts the cards.
   it("counts the cards the press would take in the question it asks", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     expect(textOf(rackTree(instrument))).toContain(effectsClearTitle(1));
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     expect(textOf(rackTree(instrument))).toContain(effectsClearTitle(2));
@@ -430,7 +430,7 @@ describe("emptying the rack", () => {
   it("offers nothing to clear where the rack holds nothing", () => {
     const instrument = createInstrument(manualClock());
     expect(markupOf(instrument)).not.toContain(CLEAR_ALL_LABEL);
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     expect(markupOf(instrument)).toContain(CLEAR_ALL_LABEL);
   });
 });
@@ -440,7 +440,7 @@ describe("the rack's own fold", () => {
   // durable, no history entry (plan §2).
   it("writes nothing durable when it is folded shut", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const before = JSON.stringify(instrument.probe().decks.a);
     const sent = vi.spyOn(instrument, "send");
     const folds: boolean[] = [];
@@ -464,16 +464,16 @@ describe("the rack's own fold", () => {
   // fold, so a rack that held its own would forget it every time that one was used (P64).
   it("draws what the fold it was handed says, holding none of its own", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     const shut = markupOf(instrument, [true, () => {}]);
     expect(shut).toMatch(/aria-pressed="true"[^>]*data-slot="toggle"/u);
     // Everything under the heading, gone: the cards, the landing slot and the add control.
-    expect(shut).not.toContain('aria-label="Filter 1"');
+    expect(shut).not.toContain('aria-label="EQ 1"');
     expect(shut).not.toContain('data-slot="rack-landing"');
     expect(shut).not.toContain('aria-label="Add an Effect to Yard A"');
 
-    expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="Filter 1"');
+    expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="EQ 1"');
   });
 
   // P73: the heading is the control. What the two cases above press is the heading's own text,
@@ -500,14 +500,14 @@ describe("the effect rack's layout", () => {
     expect(markup).toMatch(/class="[^"]*flex-wrap[^"]*"/u);
     expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(2);
     // P34: a row is a card, so its head can carry the handle and its controls above the knobs.
-    expect(markup).toMatch(/data-slot="card"[^>]*aria-label="Filter 1"/u);
-    const first = markup.indexOf('aria-label="Filter 1"');
-    const second = markup.indexOf('aria-label="Filter 2"');
+    expect(markup).toMatch(/data-slot="card"[^>]*aria-label="EQ 1"/u);
+    const first = markup.indexOf('aria-label="EQ 1"');
+    const second = markup.indexOf('aria-label="EQ 2"');
     expect(first).toBeGreaterThan(-1);
     expect(second).toBeGreaterThan(first);
     // Each row carries its own controls, named by instance rather than by effect.
-    expect(markup).toContain('aria-label="Remove Filter 1 from Yard A"');
-    expect(markup).toContain('aria-label="Remove Filter 2 from Yard A"');
+    expect(markup).toContain('aria-label="Remove EQ 1 from Yard A"');
+    expect(markup).toContain('aria-label="Remove EQ 2 from Yard A"');
   });
 
   // The add affordance is one picker outside the instance rows, not a button per registry entry.
@@ -515,7 +515,7 @@ describe("the effect rack's layout", () => {
     const markup = rackMarkup();
 
     expect(markup).toContain('aria-label="Add an Effect to Yard A"');
-    expect(markup).not.toContain("add Filter");
+    expect(markup).not.toContain("add EQ");
     expect(markup).not.toContain("add Delay");
   });
 });
@@ -533,7 +533,7 @@ describe("a card is its knobs", () => {
   it("gives a tape no picture and the same half-width every other card declares", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "tape" });
-    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "eq" });
     const markup = markupOf(instrument);
 
     // Its knobs are there: a card that lost a drawing and not one that lost anything else.
@@ -731,14 +731,14 @@ describe("a card is its knobs", () => {
         instrument: sends,
         deck: "a",
         instance: "one",
-        param: "auto.filter",
+        param: "auto.panner",
         value: 1,
-        name: "Automator 1 Filter",
+        name: "Automator 1 Panner",
       });
       return null;
     }
     renderToStaticMarkup(<Probe />);
-    const slider = findSlider(row, `Automator 1 Filter ${WEIGHT_LABEL}`);
+    const slider = findSlider(row, `Automator 1 Panner ${WEIGHT_LABEL}`);
 
     slider.onValueChange(0.4);
     slider.onValueChange(0.3);
@@ -747,7 +747,7 @@ describe("a card is its knobs", () => {
 
     slider.onValueCommitted(0.25);
     expect(sent).toEqual([
-      { t: "param.set", deck: "a", instance: "one", param: "auto.filter", value: 0.25 },
+      { t: "param.set", deck: "a", instance: "one", param: "auto.panner", value: 0.25 },
     ]);
   });
 
@@ -758,10 +758,10 @@ describe("a card is its knobs", () => {
    */
   it("wears its own entry's icon on the head of every card, poolable or not", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const markup = markupOf(instrument);
 
-    expect(markup).toContain(drawingOf(effectById("filter")));
+    expect(markup).toContain(drawingOf(effectById("eq")));
     // Its own and not merely some icon: a neighbour's drawing is a different drawing.
     expect(markup).not.toContain(drawingOf(effectById("delay")));
   });

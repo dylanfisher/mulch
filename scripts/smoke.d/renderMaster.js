@@ -22,27 +22,30 @@ export const renderMaster = async ({ page }) => {
     });
     // Nothing under the yards: the control every reading below is taken against.
     const bare = await window.mulch.render(session([]));
-    // One filter on the rack that is no yard's, closed onto the tone. It is not in any deck's
+    // One low-pass EQ on the rack that is no yard's, closed onto the tone. It is not in any deck's
     // rack, so if the master rack were not in the signal path this would render the control.
     const master = await window.mulch.render(
       session([
-        { t: "effect.add", deck: null, id: "flt", effect: "filter" },
-        { t: "param.set", deck: null, instance: "flt", param: "filter.cutoff", value: 200 },
+        { t: "effect.add", deck: null, id: "flt", effect: "eq" },
+        { t: "param.set", deck: null, instance: "flt", param: "eq.frequency", value: 200 },
+        { t: "param.set", deck: null, instance: "flt", param: "eq.shape", value: 1 },
       ]),
     );
     // The same take again, so a difference below is the rack and not the machine.
     const again = await window.mulch.render(
       session([
-        { t: "effect.add", deck: null, id: "flt", effect: "filter" },
-        { t: "param.set", deck: null, instance: "flt", param: "filter.cutoff", value: 200 },
+        { t: "effect.add", deck: null, id: "flt", effect: "eq" },
+        { t: "param.set", deck: null, instance: "flt", param: "eq.frequency", value: 200 },
+        { t: "param.set", deck: null, instance: "flt", param: "eq.shape", value: 1 },
       ]),
     );
-    // And the same filter built on the yard and then carried onto the master: one instance, the
+    // And the same EQ built on the yard and then carried onto the master: one instance, the
     // same id and the same value, heard from the rack it was moved into.
     const moved = await window.mulch.render(
       session([
-        { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
-        { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 200 },
+        { t: "effect.add", deck: "a", id: "flt", effect: "eq" },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.frequency", value: 200 },
+        { t: "param.set", deck: "a", instance: "flt", param: "eq.shape", value: 1 },
         { t: "effect.move", from: "a", to: null, instance: "flt", index: 0 },
       ]),
     );
@@ -56,14 +59,14 @@ export const renderMaster = async ({ page }) => {
       // Where the instance ended up, and that it took its value with it.
       yard: probe.decks.a.effects.length,
       held: probe.master.effects.map((entry) => `${entry.id}:${entry.effect}`).join(","),
-      cutoff: probe.master.effects[0]?.params["filter.cutoff"],
+      cutoff: probe.master.effects[0]?.params["eq.frequency"],
     };
   }, RACK_RENDER_SECS);
 
   if (takes.bareDb - takes.masterDb < MASTER_FILTER_DB) {
     fail(
       `an effect on the rack that is no yard's did not reach the output: ${takes.bareDb}dB bare, ` +
-        `${takes.masterDb}dB through the master filter`,
+        `${takes.masterDb}dB through the master EQ`,
       takes,
     );
   }
@@ -74,20 +77,20 @@ export const renderMaster = async ({ page }) => {
       takes,
     );
   }
-  if (takes.yard !== 0 || takes.held !== "flt:filter" || takes.cutoff !== 200) {
+  if (takes.yard !== 0 || takes.held !== "flt:eq" || takes.cutoff !== 200) {
     fail(`a moved instance did not arrive whole — ${JSON.stringify(takes)}`);
   }
   if (Math.abs(takes.movedDb - takes.masterDb) > SAME_TAKE_DB) {
     fail(
-      `a filter moved onto the master sounded unlike one built there: ${takes.movedDb}dB moved, ` +
+      `an EQ moved onto the master sounded unlike one built there: ${takes.movedDb}dB moved, ` +
         `${takes.masterDb}dB built`,
       takes,
     );
   }
   report(
-    `a filter under all the yards took ${(takes.bareDb - takes.masterDb).toFixed(1)}dB off the ` +
+    `a low-pass under all the yards took ${(takes.bareDb - takes.masterDb).toFixed(1)}dB off the ` +
       `offline take and rendered twice within ${Math.abs(takes.masterDb - takes.againDb).toFixed(2)}dB; ` +
-      `the same filter dragged out of the yard's own rack onto it rendered within ` +
+      `the same EQ dragged out of the yard's own rack onto it rendered within ` +
       `${Math.abs(takes.movedDb - takes.masterDb).toFixed(2)}dB of that, carrying its 200Hz with it`,
   );
 };

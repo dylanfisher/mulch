@@ -5,7 +5,7 @@ import { fail, report } from "./harness.js";
 export const rackControls = async ({ page }) => {
   // P4 rides the same browser: bypass, reorder and remove through the visible rack controls,
   // each an ordinary command, then undo and redo of that whole sequence. What it leaves behind
-  // — one bypassed filter — is what the save, reload and archive assertions below carry.
+  // — one bypassed EQ — is what the save, reload and archive assertions below carry.
   const rack = page.getByLabel("Yard A Effects");
   await rack.scrollIntoViewIfNeeded();
   const beforeRack = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
@@ -36,39 +36,39 @@ export const rackControls = async ({ page }) => {
       id,
       effect,
     });
-  await add("rack-filter", "filter");
+  await add("rack-eq", "eq");
   await add("rack-delay", "delay");
-  await rackIs("filter,delay", "");
-  await rack.getByRole("switch", { name: "Enable Filter 1 on Yard A" }).click();
-  await rackIs("filter,delay", "filter");
+  await rackIs("eq,delay", "");
+  await rack.getByRole("switch", { name: "Enable EQ 1 on Yard A" }).click();
+  await rackIs("eq,delay", "eq");
   // P34: reordering is a drag of the card's handle, and the arrow keys on that same focused
   // handle are its keyboard path — the one the two arrow buttons used to be (0062). The keyboard
   // is what the browser checks: it is the path a pointer drag cannot prove is reachable.
   const handle = rack.getByRole("button", { name: "Reorder Delay 1 on Yard A" });
   await handle.focus();
   await handle.press("ArrowUp");
-  await rackIs("delay,filter", "filter");
+  await rackIs("delay,eq", "eq");
   await rack.getByRole("button", { name: "Remove Delay 1 from Yard A" }).click();
-  await rackIs("filter", "filter");
+  await rackIs("eq", "eq");
   // One press per operation, both ways: a rack edit is one durable transaction (0023).
   await page.getByRole("button", { name: "undo" }).click();
-  await rackIs("delay,filter", "filter");
+  await rackIs("delay,eq", "eq");
   await page.getByRole("button", { name: "undo" }).click();
-  await rackIs("filter,delay", "filter");
+  await rackIs("eq,delay", "eq");
   await page.getByRole("button", { name: "redo" }).click();
-  await rackIs("delay,filter", "filter");
+  await rackIs("delay,eq", "eq");
   await page.getByRole("button", { name: "redo" }).click();
-  await rackIs("filter", "filter");
-  // P13's browser half: a rack holds two instances of one entry, so a second filter joins the
+  await rackIs("eq", "eq");
+  // P13's browser half: a rack holds two instances of one entry, so a second EQ joins the
   // first and the two are bypassed one at a time (0030).
-  await add("rack-filter-2", "filter");
-  await rackIs("filter,filter", "filter");
-  await rack.getByRole("switch", { name: "Enable Filter 2 on Yard A" }).click();
-  await rackIs("filter,filter", "filter,filter");
-  await rack.getByRole("switch", { name: "Enable Filter 1 on Yard A" }).click();
-  await rackIs("filter,filter", "filter");
-  await rack.getByRole("button", { name: "Remove Filter 1 from Yard A" }).click();
-  await rackIs("filter", "filter");
+  await add("rack-eq-2", "eq");
+  await rackIs("eq,eq", "eq");
+  await rack.getByRole("switch", { name: "Enable EQ 2 on Yard A" }).click();
+  await rackIs("eq,eq", "eq,eq");
+  await rack.getByRole("switch", { name: "Enable EQ 1 on Yard A" }).click();
+  await rackIs("eq,eq", "eq");
+  await rack.getByRole("button", { name: "Remove EQ 1 from Yard A" }).click();
+  await rackIs("eq", "eq");
   const rackOps = await page.evaluate(
     (after) =>
       window.mulch
@@ -82,7 +82,7 @@ export const rackControls = async ({ page }) => {
   // error would mean the UI is doing something the command model is not (0023).
   const rackCount = (t) => rackOps.filter((kind) => kind === t).length;
   if (
-    // Three additions and three bypasses: the last of each belongs to P13's second filter, which
+    // Three additions and three bypasses: the last of each belongs to P13's second EQ, which
     // the same button added and the same controls bypassed on its own (0030).
     rackCount("effect.added") !== 3 ||
     rackCount("effect.bypass.changed") !== 3 ||
@@ -128,11 +128,11 @@ export const rackControls = async ({ page }) => {
   if (holds.length !== 3 || holds.some((value) => value !== 30)) {
     fail(`rack smoke: the hourglass did not ask for the wait it already read — ${holds}`);
   }
-  // Out again, so what this scenario leaves behind is the one bypassed filter the reload carries.
+  // Out again, so what this scenario leaves behind is the one bypassed EQ the reload carries.
   await page.evaluate(() =>
     window.mulch.send({ t: "effect.remove", deck: "a", instance: "rack-auto" }),
   );
-  await rackIs("filter", "filter");
+  await rackIs("eq", "eq");
 
   report(
     "rack bypassed, reordered and removed through its controls, undone and redone one press each, " +

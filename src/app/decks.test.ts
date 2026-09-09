@@ -211,7 +211,7 @@ describe("the deck list", () => {
     // Everything the removed deck held comes back with it, not merely its place in the list.
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
-    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
     instrument.send({
       t: "automation.set",
       deck: "a",
@@ -242,12 +242,12 @@ const loadedYard = (calls: string[]) => {
   const instrument = createInstrument(manualClock(), () => engineDouble(calls));
   instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
   instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
-  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
   instrument.send({
     t: "param.set",
     deck: "a",
     instance: "flt",
-    param: "filter.cutoff",
+    param: "eq.frequency",
     value: 900,
   });
   instrument.send({ t: "effect.bypass", deck: "a", instance: "flt", bypassed: true });
@@ -348,7 +348,7 @@ describe("duplicating a yard", () => {
     await settle();
 
     const copied = instrument.probe().decks[long]?.effects ?? [];
-    expect(copied.map((entry) => entry.effect)).toEqual(["filter", "delay"]);
+    expect(copied.map((entry) => entry.effect)).toEqual(["eq", "delay"]);
     for (const entry of copied) expect(entry.id.length).toBeLessThanOrEqual(DURABLE_TEXT_MAX);
     expect(new Set(copied.map((entry) => entry.id)).size).toBe(copied.length);
   });

@@ -168,7 +168,7 @@ const performing = async (instrument: Instrument): Promise<void> => {
   await settle();
   instrument.send({ t: "deck.loop", deck: "a", in: 0.5, out: 1.5 });
   instrument.send({ t: "param.set", deck: "a", param: "deck.speed", value: 2 });
-  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "eq" });
   await settle();
 };
 
@@ -199,6 +199,9 @@ describe("deck.flatten", () => {
       "param.set",
       "param.set",
       "effect.add",
+      "param.set",
+      "param.set",
+      "param.set",
       "param.set",
       "effect.bypass",
       "deck.loop",
@@ -266,7 +269,7 @@ describe("deck.flatten", () => {
     const { instrument, specs } = fixture();
     await instrument.ready;
     await performing(instrument);
-    instrument.send({ t: "effect.add", deck: null, id: "mst", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: null, id: "mst", effect: "eq" });
     await settle();
 
     instrument.send({ t: "deck.flatten", deck: "a", id: "flat-1" });

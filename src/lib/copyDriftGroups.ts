@@ -421,6 +421,12 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         hint: "The most an EQ's band lays over the field, or takes out of it.",
       },
       {
+        id: "look.stagger",
+        wild: "max",
+        label: "Stagger",
+        hint: "How far the outermost band slides when a panner is spread all the way.",
+      },
+      {
         id: "look.sharpen",
         wild: "max",
         label: "Sharpen",

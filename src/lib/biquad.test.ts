@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { magnitudeAt, magnitudeDbAt, peakingCoefficients } from "./biquad";
+import { biquadCoefficients, magnitudeAt, magnitudeDbAt } from "./biquad";
 
 const RATE = 48_000;
 const peaking = (frequency: number, gainDb: number, q: number) =>
-  peakingCoefficients(frequency, gainDb, q, RATE);
+  biquadCoefficients("peaking", frequency, gainDb, q, RATE);
 const db = (frequency: number, gainDb: number, q: number, at: number) =>
   magnitudeDbAt(peaking(frequency, gainDb, q), at, RATE);
 
@@ -61,7 +61,63 @@ describe("peaking biquad response", () => {
     expect(() => peaking(0, 6, 1)).toThrow(/frequency/u);
     expect(() => peaking(1_000, 6, 0)).toThrow(/q/u);
     expect(() => peaking(24_000, 6, 1)).toThrow(/Nyquist/u);
-    expect(() => peakingCoefficients(1_000, 6, 1, 0)).toThrow(/sampleRate/u);
+    expect(() => biquadCoefficients("peaking", 1_000, 6, 1, 0)).toThrow(/sampleRate/u);
     expect(() => magnitudeAt(peaking(1_000, 6, 1), 30_000, RATE)).toThrow(/Nyquist/u);
+  });
+});
+
+/**
+ * The three shapes the band gained with `eq.shape` (0322). The node is what actually filters, and
+ * the browser smoke measures it; what is asserted here is that the maths this file states is that
+ * filter and not another one, to a precision a dB window cannot reach.
+ */
+describe("the pass shapes", () => {
+  const shaped = (
+    shape: "lowpass" | "highpass" | "bandpass",
+    frequency: number,
+    q: number,
+    at: number,
+  ) => magnitudeDbAt(biquadCoefficients(shape, frequency, 0, q, RATE), at, RATE);
+
+  it("keeps one side of the corner and takes the other away", () => {
+    // A low-pass passes what is under its corner and falls away above it — and at the bottom of the
+    // Q knob the corner itself stands at unity, which is what makes that unit a lift and not a
+    // factor: the value is the height of the peak in decibels, so a tenth of one is flat.
+    expect(shaped("lowpass", 1_000, 0.1, 1_000)).toBeCloseTo(0.1, 2);
+    expect(shaped("lowpass", 1_000, 0.1, 60)).toBeCloseTo(0, 1);
+    expect(shaped("lowpass", 1_000, 0.1, 8_000)).toBeLessThan(-30);
+    // And a high-pass is the same line the other way about, off the same corner.
+    expect(shaped("highpass", 1_000, 0.1, 1_000)).toBeCloseTo(0.1, 2);
+    expect(shaped("highpass", 1_000, 0.1, 16_000)).toBeCloseTo(0, 1);
+    expect(shaped("highpass", 1_000, 0.1, 60)).toBeLessThan(-30);
+    // A band-pass keeps its own middle whole and takes both skirts, which is the one shape whose
+    // cut is two-sided — and its peak is unity, because the specification normalizes it there.
+    expect(shaped("bandpass", 1_000, 1, 1_000)).toBeCloseTo(0, 2);
+    expect(shaped("bandpass", 1_000, 1, 120)).toBeLessThan(-15);
+    expect(shaped("bandpass", 1_000, 1, 8_000)).toBeLessThan(-15);
+  });
+
+  it("reads Q as the resonant peak in decibels on a pass, and as a width on a band-pass", () => {
+    // The one place the specification's units part company with the peaking shape's: a low-pass's
+    // Q is stated in dB, and it is the height of the lift at the corner rather than a factor.
+    for (const decibels of [3, 6, 12]) {
+      expect(shaped("lowpass", 1_000, decibels, 1_000)).toBeCloseTo(decibels, 0);
+    }
+    // A band-pass's is a quality factor: higher is narrower, which is a deeper cut a fixed
+    // distance off the middle.
+    const wide = shaped("bandpass", 1_000, 0.5, 2_000);
+    const narrow = shaped("bandpass", 1_000, 4, 2_000);
+    expect(narrow).toBeLessThan(wide);
+  });
+
+  it("leaves the gain out of every shape but the peaking one", () => {
+    for (const shape of ["lowpass", "highpass", "bandpass"] as const) {
+      expect(biquadCoefficients(shape, 1_000, 12, 1, RATE)).toEqual(
+        biquadCoefficients(shape, 1_000, -12, 1, RATE),
+      );
+    }
+    expect(biquadCoefficients("peaking", 1_000, 12, 1, RATE)).not.toEqual(
+      biquadCoefficients("peaking", 1_000, -12, 1, RATE),
+    );
   });
 });

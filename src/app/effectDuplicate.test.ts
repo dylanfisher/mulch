@@ -104,7 +104,7 @@ describe("effect.duplicate", () => {
   // way a yard's copy lands under the yard it came from (0111, P113).
   it("lands the copy immediately after the instance it copies", async () => {
     const { instrument } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     instrument.send({ t: "effect.add", deck: "a", id: "three", effect: "eq" });
 
@@ -112,8 +112,8 @@ describe("effect.duplicate", () => {
     await turns();
 
     expect(rackOf(instrument)).toEqual([
-      ["one", "filter"],
-      ["copy", "filter"],
+      ["one", "eq"],
+      ["copy", "eq"],
       ["two", "delay"],
       ["three", "eq"],
     ]);
@@ -201,35 +201,35 @@ describe("effect.duplicate", () => {
   // back together or not at all (0078, 0092).
   it("takes the whole copy back on one undo", async () => {
     const { instrument } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({
       t: "param.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 320,
     });
 
     instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
     await turns();
-    expect(instanceIn(instrument, "two").params["filter.cutoff"]).toBe(320);
+    expect(instanceIn(instrument, "two").params["eq.frequency"]).toBe(320);
 
     instrument.send({ t: "history.undo" });
     await turns();
 
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
-    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(320);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
+    expect(instanceIn(instrument, "one").params["eq.frequency"]).toBe(320);
   });
 
   it("reports an instance the rack does not hold and changes nothing", async () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     instrument.send({ t: "effect.duplicate", deck: "a", instance: "gone", id: "two" });
     await turns();
 
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
-    expect(calls.added).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
+    expect(calls.added).toEqual([["one", "eq"]]);
     expect(events.at(-1)).toMatchObject({ t: "error" });
   });
 
@@ -237,13 +237,13 @@ describe("effect.duplicate", () => {
   // values it had rather than being rewritten by the copy's.
   it("refuses a copy onto an id the rack already holds", async () => {
     const { instrument, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
     instrument.send({
       t: "param.set",
       deck: "a",
       instance: "one",
-      param: "filter.cutoff",
+      param: "eq.frequency",
       value: 320,
     });
 
@@ -251,7 +251,7 @@ describe("effect.duplicate", () => {
     await turns();
 
     expect(rackOf(instrument)).toEqual([
-      ["one", "filter"],
+      ["one", "eq"],
       ["two", "delay"],
     ]);
     expect(instanceIn(instrument, "two").effect).toBe("delay");
@@ -263,13 +263,13 @@ describe("effect.duplicate", () => {
   // than on the caller — exactly as `deck.duplicate`'s does (0078).
   it("reports a missing copy id as malformed wire input, and adds nothing", async () => {
     const { instrument, calls, events } = rackInstrument();
-    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
 
     instrument.send(wire('{"t":"effect.duplicate","deck":"a","instance":"one"}'));
     await turns();
 
-    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
-    expect(calls.added).toEqual([["one", "filter"]]);
+    expect(rackOf(instrument)).toEqual([["one", "eq"]]);
+    expect(calls.added).toEqual([["one", "eq"]]);
     expect(events.at(-1)).toMatchObject({ t: "error" });
   });
 });

@@ -31,7 +31,7 @@ const FADE_DROP_DB = 3;
 /**
  * How long P149's warmed take actually warms for. It is not what the take asks for — a take begun
  * at the ear asks for the whole performance behind it — it is what the export shortens that ask
- * to: the longest memory in this lane's rack, which is a filter and a sine and so is the floor
+ * to: the longest memory in this lane's rack, which is an EQ and a sine and so is the floor
  * every rack gets (0239). It has to be whole fingerprint windows, so that the windows of that take
  * land on the windows of a longer render of the same commands and the two can be compared window
  * for window; the assertions below refuse a settle that is not, rather than report the

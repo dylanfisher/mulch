@@ -208,12 +208,12 @@ if (loaded?.duration !== GEN_SECS) {
 const liveEffects = of("effect.added", "a");
 if (
   liveEffects.length !== 2 ||
-  liveEffects[0]?.effect !== "filter" ||
+  liveEffects[0]?.effect !== "eq" ||
   liveEffects[0]?.index !== 0 ||
   liveEffects[1]?.effect !== "delay" ||
   liveEffects[1]?.index !== 1
 ) {
-  fail(`deck a: effects not appended filter → delay — ${JSON.stringify(liveEffects)}`);
+  fail(`deck a: effects not appended eq → delay — ${JSON.stringify(liveEffects)}`);
 }
 
 // Every session write reaches the log, including the loop: an agent reading only the stream
@@ -251,12 +251,12 @@ const midflight = deck.probes.at(0) ?? fail("deck smoke printed no probe");
 if (midflight.decks.a.playing !== true) fail("probe: deck a is not playing mid-fixture");
 if (midflight.decks.a.loop?.out !== 0.25) fail("probe: deck a loop was not recorded");
 const midRack = midflight.decks.a.effects;
-if (midRack.map((entry) => entry.effect).join(",") !== "filter,delay") {
-  fail(`probe: deck a rack is not filter,delay — ${JSON.stringify(midRack)}`);
+if (midRack.map((entry) => entry.effect).join(",") !== "eq,delay") {
+  fail(`probe: deck a rack is not eq,delay — ${JSON.stringify(midRack)}`);
 }
 // A value lookup is (instance, param): each entry carries its own numbers (0030).
 if (
-  midRack[0].params["filter.cutoff"] !== 8000 ||
+  midRack[0].params["eq.frequency"] !== 8000 ||
   midRack[1].params["delay.time"] !== 0.05 ||
   midRack[1].params["delay.feedback"] !== 0.2 ||
   midRack[1].params["delay.mix"] !== 0.1
@@ -335,13 +335,13 @@ const renderEffects = render.events.filter((e) => e.t === "effect.added");
 if (
   renderEffects.length !== 2 ||
   renderEffects[0]?.deck !== "a" ||
-  renderEffects[0]?.effect !== "filter" ||
+  renderEffects[0]?.effect !== "eq" ||
   renderEffects[0]?.index !== 0 ||
   renderEffects[1]?.deck !== "b" ||
   renderEffects[1]?.effect !== "delay" ||
   renderEffects[1]?.index !== 0
 ) {
-  fail(`render: effect events do not describe filter then delay — ${JSON.stringify(renderEffects)}`);
+  fail(`render: effect events do not describe eq then delay — ${JSON.stringify(renderEffects)}`);
 }
 
 // Asserted whatever the golden says, because a golden is only as good as what was blessed:
@@ -371,7 +371,7 @@ if (tailWindows.filter((db) => db === -120).length < 3) {
 
 const renderProbe = render.probes.at(-1) ?? fail("the render printed no final probe");
 if (
-  renderProbe.decks.a.effects.map((entry) => entry.effect).join(",") !== "filter" ||
+  renderProbe.decks.a.effects.map((entry) => entry.effect).join(",") !== "eq" ||
   renderProbe.decks.b.effects.map((entry) => entry.effect).join(",") !== "delay"
 ) {
   fail("render probe does not preserve the per-deck effect order");
