@@ -524,4 +524,118 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
       },
     ],
   },
+  {
+    title: "Meadow",
+    hint: "The field a yard named for a grass stands in: fine tall strokes clumped into tufts, leaning as far as its own adjective says.",
+    entries: [
+      {
+        id: "meadow.stroke",
+        wild: "min",
+        label: "Stroke",
+        hint: "How far apart the strokes stand, in device pixels.",
+      },
+      {
+        id: "meadow.tuft",
+        wild: "min",
+        label: "Tuft",
+        hint: "How far apart the tufts the strokes clump into stand, in the same pixels.",
+      },
+      {
+        id: "meadow.slant",
+        wild: "max",
+        label: "Slant",
+        hint: "How far the strokes lean off vertical at the wildest wind, as a share of the tile's height.",
+      },
+      {
+        id: "meadow.depth",
+        wild: "max",
+        label: "Depth",
+        hint: "How much of the picture's ink the strokes take where they are thinnest.",
+      },
+    ],
+  },
+  {
+    title: "Bloom",
+    hint: "The field a yard named for a flower stands in: a lattice of soft warm heads over a cool ground.",
+    entries: [
+      {
+        id: "bloom.blob",
+        wild: "min",
+        label: "Head",
+        hint: "How far apart the heads stand, in device pixels.",
+      },
+      {
+        id: "bloom.round",
+        wild: "max",
+        label: "Round",
+        hint: "How far each head is drawn in toward its own middle; higher is a scatter over more ground.",
+      },
+      {
+        id: "bloom.depth",
+        wild: "max",
+        label: "Depth",
+        hint: "How much of the picture's ink the ground between the heads takes.",
+      },
+    ],
+  },
+  {
+    title: "Water",
+    hint: "The field a yard named for a reed stands in: a fine rippled grating with a few sparse tall blades standing in it.",
+    entries: [
+      {
+        id: "water.ripple",
+        wild: "min",
+        label: "Ripple",
+        hint: "How far apart the ripples run down the picture, in device pixels.",
+      },
+      {
+        id: "water.wave",
+        wild: "min",
+        label: "Swell",
+        hint: "How wide the slow swell that bends the ripples across the picture is, in the same pixels.",
+      },
+      {
+        id: "water.swell",
+        wild: "max",
+        label: "Bend",
+        hint: "How far that swell carries one ripple, in the same pixels.",
+      },
+      {
+        id: "water.blade",
+        wild: "min",
+        label: "Blades",
+        hint: "How far apart the blades standing in the water are, in the same pixels.",
+      },
+      {
+        id: "water.depth",
+        wild: "max",
+        label: "Depth",
+        hint: "How much of the picture's ink the troughs take.",
+      },
+    ],
+  },
+  {
+    title: "Canopy",
+    hint: "The field a yard named for a tree stands in: a dense dark mass with scattered light breaking through it.",
+    entries: [
+      {
+        id: "canopy.gap",
+        wild: "min",
+        label: "Gap",
+        hint: "How far apart the breaks in the leaf mass stand, in device pixels.",
+      },
+      {
+        id: "canopy.through",
+        wild: "max",
+        label: "Through",
+        hint: "How narrow each break is; higher is a denser mass with fewer ways through it.",
+      },
+      {
+        id: "canopy.depth",
+        wild: "max",
+        label: "Depth",
+        hint: "How much of the picture's ink the mass takes where it is closed.",
+      },
+    ],
+  },
 ];

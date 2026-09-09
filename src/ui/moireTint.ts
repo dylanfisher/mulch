@@ -6,16 +6,20 @@
  *   No bake a frame: the band is one tile written once a colour and moved on its own transform,
  *   exactly as the screen is (0129, 0070).
  * @instead The ramp itself, and the orbit the whole picture's ink runs on → src/lib/moireColour.ts
- *   and `INK_RAMP_TOKENS` in src/ui/moireScreen.ts, which this reads and never restates. The
+ *   and `sceneStops` in src/ui/moireScreen.ts, which this reads and never restates — the band is
+ *   the yard's own scene's ramp, so the wash and the tile under it cannot disagree about what the
+ *   ramp is (0329). The
  *   screen the band lies over → src/ui/moireScreen.ts. Where the reading rests → `MoireRowSet` in
  *   src/ui/moireRowsField.ts; keeping it across a rebuilt set → src/ui/moireCarry.ts.
  */
 import { DRIFT_DISPERSE_REACH, easedToward, type ScreenInk, wrap } from "@/lib/moire";
-import { type Ink, ramp } from "@/lib/moireColour";
+import { ramp } from "@/lib/moireColour";
 import { heardLevel } from "@/lib/moireSound";
 import { tunable } from "@/lib/moireTuning";
 import { denormalize } from "@/lib/range";
-import { INK_RAMP_TOKENS, inkOf } from "@/ui/moireScreen";
+import { inkOf, sceneStops } from "@/ui/moireScreen";
+import { sceneOf } from "@/ui/scene/scenes";
+import type { YardScene } from "@/lib/yardScene";
 
 /**
  * The band as the field reads it: how strongly it lies over the ink on 0..1, how many picture
@@ -93,7 +97,13 @@ export function tintTravelInto(
  */
 const TINT_TILE_PX = 1024;
 
-/** How many colours' bands are held: one per scheme a session has seen, and a spare. */
+/**
+ * How many colours' bands are held: one per scheme a session has seen, and a spare — and, since the
+ * band is read along the yard's own scene's ramp (0329), one per `(colour, scene, light)` a page is
+ * showing rather than one per colour. A rack past that room re-bakes a band when a canvas's own key
+ * moves, which is a scheme flip or a remount and never a frame; a band is one row of
+ * `TINT_TILE_PX`, so the re-bake is a fraction of a tile's.
+ */
 const TINT_TILES = 4;
 
 /** The band written once per colour, keyed by the ink it was written for. */
@@ -105,17 +115,19 @@ const washes = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: str
 /** The band's transform, one object refilled: a per-frame paint allocates nothing (0070). */
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
-/** The five stops, resolved: one list refilled on a build. */
-const stops: Ink[] = INK_RAMP_TOKENS.map(() => [0, 0, 0, 0]);
-
 /**
  * One span of the band, a pixel wide a stop: the ramp read forward over the first half and back
  * over the second, so the two ends of the tile are the same ink and the pattern repeats along the
  * picture with no seam. Written through `ramp` off the same tokens the screen reads, so the band
  * and the tile cannot disagree about what the ramp is, and no colour is spelled here (0236).
  */
-function bandFor(canvas: HTMLCanvasElement, color: string): HTMLCanvasElement | null {
-  const held = bands.get(color);
+function bandFor(
+  canvas: HTMLCanvasElement,
+  color: string,
+  yard: Readonly<YardScene>,
+  key: string,
+): HTMLCanvasElement | null {
+  const held = bands.get(key);
   if (held !== undefined) return held;
   const tile = document.createElement("canvas");
   tile.width = TINT_TILE_PX;
@@ -123,10 +135,11 @@ function bandFor(canvas: HTMLCanvasElement, color: string): HTMLCanvasElement | 
   const ink = tile.getContext("2d");
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
-  const own = inkOf(color);
-  INK_RAMP_TOKENS.forEach((token, at) => {
-    stops[at] = token === null ? own : inkOf(style.getPropertyValue(token).trim());
-  });
+  // The yard's own scene's five stops, read here and never restated (`sceneStops`,
+  // src/ui/moireScreen.ts): the band and the tile under it cannot disagree about what the ramp is.
+  // Local, because what comes back is that module's own buffer — held past this call it would name
+  // whatever the next tile's ramp is (0070 keeps the buffer; this keeps it out of two files).
+  const stops = sceneStops(sceneOf(yard.scene), yard, style, inkOf(color));
   const field = ink.createImageData(TINT_TILE_PX, 1);
   const pixels = field.data;
   for (let x = 0; x < TINT_TILE_PX; x++) {
@@ -139,7 +152,7 @@ function bandFor(canvas: HTMLCanvasElement, color: string): HTMLCanvasElement | 
     pixels[at + 3] = 255;
   }
   ink.putImageData(field, 0, 0);
-  bands.set(color, tile);
+  bands.set(key, tile);
   for (const oldest of bands.keys()) {
     if (bands.size <= TINT_TILES) break;
     bands.delete(oldest);
@@ -152,14 +165,18 @@ function washOf(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
   color: string,
+  yard: Readonly<YardScene>,
 ): CanvasPattern | null {
+  // The colour and the yard's own reading together: two yards in one colour stand in two fields,
+  // so one band cannot answer for both (0329).
+  const key = `${color}|${yard.scene}|${yard.light}`;
   const held = washes.get(canvas);
-  if (held !== undefined && held.key === color) return held.pattern;
-  const band = bandFor(canvas, color);
+  if (held !== undefined && held.key === key) return held.pattern;
+  const band = bandFor(canvas, color, yard, key);
   if (band === null) return null;
   const pattern = context.createPattern(band, "repeat");
   if (pattern === null) return null;
-  washes.set(canvas, { pattern, key: color });
+  washes.set(canvas, { pattern, key });
   return pattern;
 }
 
@@ -175,9 +192,10 @@ export function tintThrough(
   context: CanvasRenderingContext2D,
   color: string,
   tint: Readonly<MoireTint>,
+  yard: Readonly<YardScene>,
 ): void {
   if (tint.strength <= 0) return;
-  const pattern = washOf(canvas, context, color);
+  const pattern = washOf(canvas, context, color, yard);
   if (pattern === null) return;
   const { width, height } = canvas;
   const span = tint.spread * width;

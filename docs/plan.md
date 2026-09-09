@@ -41,7 +41,28 @@ scene is `src/lib/yardScene.ts`, beside `src/lib/copyYard.ts`. A scene's colours
 `src/ui/tokens.css` and nowhere else (0236). Adding a scene is one file, one name in the contract,
 one entry per plant that names it, its tokens, and one group on the tuning panel.
 
-1.  **A yard's picture is a scene its name names.** _(bench-06)_ **Durable shape moved: none.**
+bench-06 landed on 2026-09-09 as
+[0329](decisions/0329-a-yards-picture-is-a-scene-its-name-names.md); `yardScene`
+(src/lib/yardScene.ts) reads a name into a scene, a light and a wind by a table per bank, the
+contract is src/lib/moireScene.ts and the four grounds are one file each under src/ui/scene/,
+refused at load by src/ui/scene/scenes.ts. Four things moved off the step's own text and are in §4:
+the scene is the tile's ground and its ramp while the film — the gratings, the beat, the three
+channels and the band — stays where it was rather than going, so every alpha case the screen already
+had still holds; the wind is two amplitudes and no rate, the screen having no clock; a light is one
+token rather than a second row of five; and the tunable ids are `<scene>.<term>`, because an id is
+`group.name` with one dot and the group per scene is what the step asked for. The registry's own
+cases are src/ui/scene/scenes.test.ts rather than src/lib/moireScene.test.ts, `src/lib` not being
+allowed to import `src/ui`, and the painter's four are src/ui/moireCanvasScene.test.ts, that file's
+neighbour standing within forty lines of the hard cap. Review moved three things: the three banks
+the reading keys on are now declared _as_ the grouping in src/lib/copyYard.ts and flattened from it,
+so no yard word is written twice; `latticeAxis` was lifted into the contract as `sceneAxis`, the
+scenes being its second caller; and a scene's tunables are read inside the bake, so the tile key
+carries a count of how many times any tuning has moved and the tiles are cleared when one does —
+without which every slider the bench argues a ground on was inert in the app. The next free decision
+number is 0330.
+
+1.  **A yard's picture is a scene its name names.** _(bench-06, landed 0329)_ **Durable shape
+    moved: none.**
     The name is already durable — minted once by `mintYardName` and carried in `deck.add`
     (src/ui/actions.ts:44) — and a scene is a reading of it, the way a picture may rest on a
     reading precisely because nothing about it is stored (0145). Two tabs on one session draw the
@@ -202,8 +223,7 @@ count-1 stream golden and the transport's three cases are files of their own bec
 src/lib/playerWalk.test.ts and src/audio/playerLanding.test.ts were each within a few lines of the
 hard cap; src/audio/player.ts crossed it, so the companions are built in
 src/audio/playerSparks.ts; and a spark may still land on its landing's own slot, so the walk case
-asserts the count and the grid rather than "none equal to its own". The next free decision number
-is 0329.
+asserts the count and the grid rather than "none equal to its own".
 
 1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
@@ -547,6 +567,54 @@ teaching it feature semantics.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**A tile is no longer shared between yards, and the cache is not resized** (bench-06, 0329). The
+screen's tile is keyed by the field a yard's name reads as, so two yards that differ only in their
+plant hold two tiles where they used to hold one. `TILE_CACHE` stays at 48 and `PLAYER_TINTS` at 4:
+the room is now spent across as many `(scene, light, wind)` triples as the page is showing, so a
+rack of six yards all playing songs asks for more tints than the cache holds and pays a build on the
+paint that revisits one. Raising the cap is the obvious answer and was not taken — a tile is a
+hundred pixels by a few hundred, so the cap is megabytes rather than the kilobytes its own paragraph
+claims, and picking a bigger number without measuring the memory is guessing twice. The two
+paragraphs that size these numbers now say what the key made true.
+
+**The film stays and the scene is the ground and the ramp** (bench-06, 0329). The step said "the
+monitor tile goes; its motions become terms every scene reads". Its motions did become that, and the
+tile did not go: the two gratings, the blob lattice they beat into, the three channels a lag apart
+and the rolling band are still `build`'s, and what a scene adds is a ground multiplied into the
+tile's alpha and five stops the row's ink is read along. Taking the film out would have rewritten
+every case in src/ui/moireScreen.test.ts — the floor, the fringe, the divergence, the ramp — against
+four grounds that had not been drawn yet, on the same step that first draws them. What it costs is
+that a scene cannot yet say a mark is _not_ a filmed monitor: every field is under the same fine
+grid. The seam is one call and the terms are already the scene's to read, so a later step that wants
+a scene to spend the film's own depth moves numbers rather than structure.
+
+**A wind is two amplitudes, not a lean and a recovery** (bench-06, 0329). The step asked the
+adjective to set "how far the field leans and how fast it recovers". Nothing in the screen carries a
+clock — every motion in it rides a row's phase (0126) — so there is no rate for a recovery to be
+stated as, and inventing one would be a second way the picture moves that nothing else agreed to.
+`SCENE_WIND_TERMS` is a `lean`, baked into the ground on the rebuild, and a `sway` scaling the
+screen's own shear and breath on the frame. A yard called Hushed leans and sways a fraction of one
+called Wild; neither of them settles at its own pace.
+
+**A light is one token, not a second row of five** (bench-06, 0329). The step said "the air is a
+second row of stops the ramp is mixed toward". Five stops per light against six lights is thirty
+tokens and thirty chances to say inconsistently what a frost does; `SCENE_LIGHT_TERMS` is one token
+and one share, mixed into every stop of whichever ramp is being read, so a frost cools a meadow and
+a canopy the same way. What it cannot do is recolour one end of a ramp without the other.
+
+**A tunable is `<scene>.<term>`** (bench-06, 0329). The step asked for `tunable("scene.<name>.…")`.
+An id is `group.name` and the registry refuses anything else (`src/lib/moireTuning.ts`), the group
+heading being the part before the dot — which is exactly the group-per-scene the same paragraph
+asks for. So the ids are `meadow.stroke`, `bloom.blob`, `water.ripple`, `canopy.gap`, and the four
+groups on the panel are named by the scenes themselves rather than by a prefix nobody would read.
+
+**The scene bench draws the grounds in one ink, not through their own ramps** (bench-06, 0329). The
+four stages on the drift bench are inked ground-to-foreground like every stage but the ramp's, so
+what they argue about is the marks. Drawing each through its own five stops would have made the
+bench's "exactly one picture is read through the ramp of five" case say five, which is the case that
+keeps the bench about moves rather than about the palette (0247). The colour is judged where it
+lands instead: four yards shot at 1:1 through `./scripts/drive --shot`.
 
 **The hold is bounded by the dial, not by the burst** (bench-09, 0326). The step said the beat and
 its halvings "at any tempo an analysis produces lie inside the delay's own range (0.01…2 s)", and

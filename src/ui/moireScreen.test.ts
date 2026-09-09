@@ -7,6 +7,10 @@
 // Every case here stands on the same two pitches and the same tile, so splitting the file would
 // separate assertions about one screen. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// One dependency over: the yard's own reading is what the painter now films a scene through, and
+// every case here paints one — importing it through another module would be a second name for it
+// (0007, principle 1).
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -17,6 +21,7 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
+import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
 import { arrivedInk, PRODUCT } from "@/ui/moireCanvasPainted";
 import {
@@ -209,6 +214,10 @@ function paintedOn(
     [],
     shapeRest(),
     tintRest(),
+    // Every case here paints the one scene that rests on the caller's own resolved ink, so what the
+    // film does to the picture is read against the picture the instrument drew before it had scenes
+    // (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
+    YARD_SCENE_REST,
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).

@@ -67,6 +67,7 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
+import { type YardScene, yardScene } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import {
@@ -382,13 +383,28 @@ function useRecurrence(recurrence: RecurrenceLength): string {
  * same number of cycles at the strip's height and at the overlay's, because a small picture is a
  * smaller picture and not a different one (0098).
  */
+/**
+ * The field this yard's picture is of, read off its own name. A name never changes, so this reads
+ * once a yard: the scene its plant stands in, the light its air puts that scene under, and the wind
+ * its adjective sets (`yardScene`, src/lib/yardScene.ts, 0329).
+ */
+function useYardScene(name: string): YardScene {
+  return useMemo(() => yardScene(name), [name]);
+}
+
+// One line over, and the line is the reading: the picture's own set, its cadence and its painting
+// are one hook, and cutting the yard's reading out of it would hand the callback a memo from a
+// scope that knows nothing else about the painting (0007).
+// oxlint-disable-next-line max-lines-per-function
 function useMoirePicture(
   instrument: Instrument,
   deck: DeckId,
   state: DeckState,
+  name: string,
   animating: boolean,
 ): { rows: MoireRow[]; recurrence: string } & CanvasSurface {
   const { rows, recurrence, refill } = useMoireRows(instrument, deck, state);
+  const yard = useYardScene(name);
   const said = useRecurrence(recurrence);
   // The set the read has just filled and not the session's own: a run holding six is six rows the
   // session cannot account for, and the window they are drawn across is theirs too (`moireRows`).
@@ -420,9 +436,10 @@ function useMoirePicture(
         set.looks,
         set.shape,
         set.tint,
+        yard,
       );
     },
-    [refill],
+    [refill, yard],
   );
   // The cadence itself never changes identity, so the budget under it is built once and asks the
   // ref for its length (`paced`, src/ui/frame.ts).
@@ -473,8 +490,12 @@ const Recurrence = ({ says }: { says: string }) => (
   </Says>
 );
 
-/** What both sizes need to draw one yard's drift: who to peek, which yard, and what it holds. */
-type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
+/**
+ * What both sizes need to draw one yard's drift: who to peek, which yard, what it holds, and what
+ * it is called — the name, because the field the picture is of is a reading of it and of nothing
+ * else (`yardScene`, src/lib/yardScene.ts, 0329).
+ */
+type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState; name: string };
 
 /**
  * The shell's own header, worn by the screen the large picture covers: the yard's label sits where
@@ -536,6 +557,7 @@ export function MoireOverlay({
   instrument,
   deck,
   state,
+  name,
   onClose,
   onPopOut,
   doc,
@@ -549,6 +571,7 @@ export function MoireOverlay({
     instrument,
     deck,
     state,
+    name,
     state.playing,
   );
   useClosedByEscape(onClose, doc);
@@ -668,10 +691,18 @@ export function MoireStrip({
   instrument,
   deck,
   state,
+  name,
   className,
 }: MoireProps & { className?: string }) {
   const { covering, apart, zoom, popOut, close } = useZoomedDrift(deck, (doc, shut) => (
-    <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={shut} doc={doc} />
+    <MoireOverlay
+      instrument={instrument}
+      deck={deck}
+      state={state}
+      name={name}
+      onClose={shut}
+      doc={doc}
+    />
   ));
   // Not while the overlay is over it: the same rows are painted large on top and the one underneath
   // draws where nobody can see it — two frame callbacks and two peeks a frame for one picture
@@ -680,6 +711,7 @@ export function MoireStrip({
     instrument,
     deck,
     state,
+    name,
     state.playing && !covering,
   );
   const { cursor, press } = useDriftGesture(zoom, popOut);
@@ -710,6 +742,7 @@ export function MoireStrip({
           instrument={instrument}
           deck={deck}
           state={state}
+          name={name}
           onClose={close}
           onPopOut={popOut}
         />

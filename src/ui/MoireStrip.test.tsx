@@ -92,6 +92,9 @@ import { driftPress, MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
 import { paintsPerFrame } from "@/ui/moireRows";
 import { SHELL_WIDTH } from "@/ui/shell";
 
+/** The yard every case here draws: a name the reading takes a meadow, no air and a quiet wind from. */
+const NAMED = "Gentle Moss past the Stairs";
+
 const instrument = () => createInstrument(manualClock());
 const emptyDeck = (): DeckState => {
   const deck = instrument().state.getState().decks.a;
@@ -100,7 +103,9 @@ const emptyDeck = (): DeckState => {
 };
 
 const render = (state: DeckState) =>
-  renderToStaticMarkup(<MoireStrip instrument={instrument()} deck="a" state={state} />);
+  renderToStaticMarkup(
+    <MoireStrip instrument={instrument()} deck="a" state={state} name={NAMED} />,
+  );
 
 /**
  * A yard with a loop, and the close a render is handed: both hoisted out of the tests that use
@@ -182,7 +187,13 @@ describe("MoireStrip", () => {
     // A picture already in a window of its own is handed no pop-out and shows none.
     expect(
       renderToStaticMarkup(
-        <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+        <MoireOverlay
+          instrument={instrument()}
+          deck="a"
+          state={looped}
+          name={NAMED}
+          onClose={closed}
+        />,
       ),
     ).not.toContain(MOIRE_POP_OUT);
   });
@@ -202,7 +213,13 @@ describe("MoireStrip", () => {
     // Over this page the picture is a thing covering the instrument, so it wears the shell's
     // header and lays out to the one measure every screen does (0074).
     const covering = renderToStaticMarkup(
-      <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+      <MoireOverlay
+        instrument={instrument()}
+        deck="a"
+        state={looped}
+        name={NAMED}
+        onClose={closed}
+      />,
     );
     expect(covering).toContain("<header");
     expect(covering).toContain(SHELL_WIDTH);
@@ -215,6 +232,7 @@ describe("MoireStrip", () => {
         instrument={instrument()}
         deck="a"
         state={looped}
+        name={NAMED}
         onClose={closed}
         // oxlint-disable-next-line no-unsafe-type-assertion -- the two members the hook uses
         doc={elsewhere as unknown as Document}
@@ -272,9 +290,17 @@ describe("MoireStrip", () => {
     // four cycles across a strip's height the rows fill their own band and the small picture reads
     // as a blob; the finer lines follow from the window, not from a second set of drawing rules.
     seen.cycles.length = 0;
-    renderToStaticMarkup(<MoireStrip instrument={instrument()} deck="a" state={looped} />);
     renderToStaticMarkup(
-      <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+      <MoireStrip instrument={instrument()} deck="a" state={looped} name={NAMED} />,
+    );
+    renderToStaticMarkup(
+      <MoireOverlay
+        instrument={instrument()}
+        deck="a"
+        state={looped}
+        name={NAMED}
+        onClose={closed}
+      />,
     );
 
     expect(seen.cycles).toEqual([MOIRE_CYCLES, MOIRE_CYCLES]);
@@ -294,7 +320,13 @@ describe("MoireStrip", () => {
       closed.mockClear();
       seen.effects.length = 0;
       renderToStaticMarkup(
-        <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+        <MoireOverlay
+          instrument={instrument()}
+          deck="a"
+          state={looped}
+          name={NAMED}
+          onClose={closed}
+        />,
       );
       // One effect, and it is the key: the canvas is stubbed above, so nothing else registers.
       expect(seen.effects).toHaveLength(1);
@@ -337,6 +369,7 @@ describe("MoireStrip", () => {
           instrument={instrument()}
           deck="a"
           state={looped}
+          name={NAMED}
           onClose={closed}
           // oxlint-disable-next-line no-unsafe-type-assertion -- the two members the hook uses
           doc={elsewhere as unknown as Document}

@@ -34,3 +34,12 @@ built once a session rather than once a pass. Nothing bakes a frame (0129).
 
 **Tuned, not stored** (0299): the orbit's seconds and its wander are `tunable`s in the "Colour"
 group; the ladder is bake-side and stays a const.
+
+**Amended, [0329](0329-a-yards-picture-is-a-scene-its-name-names.md).** The five stops named above
+are no longer the picture's ramp; they are the **meadow's**, one scene of four, and each of the
+other three declares five of its own in `src/ui/scene/`. `INK_RAMP_TOKENS` is gone and `sceneStops`
+resolves whichever ramp the yard's own name reads as, mixed toward the light its air names. The
+shape holds — five stops, the caller's own resolved ink at the middle, token names and never
+colours — and so does the orbit; what is no longer true is "no new token": a bloom, a water, a
+canopy and five lights name eleven between them, declared in `src/ui/tokens.css` and registered
+there.

@@ -7,9 +7,11 @@
  *   written back into its declaration (0299).
  * @instead Which numbers are tunable at all — each one, with its reasons, in the file that spends
  *   it (every `tunable(` call under src/lib and src/ui). The panel that moves them →
- *   src/ui/MoireTuning.tsx. What is *not* tunable: a number a tile is baked under, a reach a row
- *   set is built from, or a kernel the worker runs — those are consts still, for the reasons
- *   beside them.
+ *   src/ui/MoireTuning.tsx. What is *not* tunable: a reach a row set is built from, or a kernel the
+ *   worker runs — those are consts still, for the reasons beside them. A number a *tile* is baked
+ *   under may be tunable, and a scene's are (0329), on one condition: what the tile is keyed by has
+ *   to move when the number does, or the slider is answered out of a cache and does nothing
+ *   (`tuned`, src/ui/moireScreen.ts).
  */
 import { clamp } from "./range.ts";
 

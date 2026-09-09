@@ -27,7 +27,6 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import {
-  cosTurn,
   DRIFT_DISPERSE_REACH,
   DRIFT_FRINGE_REACH,
   DRIFT_REST,
@@ -41,10 +40,20 @@ import {
 } from "@/lib/moire";
 import { type Ink, ramp } from "@/lib/moireColour";
 import { gratingKeep } from "@/lib/moireGrating";
-import { denormalize } from "@/lib/range";
+import {
+  type Scene,
+  type SceneTerms,
+  SCENE_LIGHT_TERMS,
+  SCENE_RAMP_STOPS,
+  SCENE_WIND_TERMS,
+  sceneAxis,
+} from "@/lib/moireScene";
+import { sceneOf } from "@/ui/scene/scenes";
+import type { YardScene } from "@/lib/yardScene";
+import { clamp, denormalize } from "@/lib/range";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
 import { viewOf } from "@/ui/canvasSurface";
-import { tunable } from "@/lib/moireTuning";
+import { subscribeTuning, tunable } from "@/lib/moireTuning";
 
 /**
  * How far apart the lit columns of the screen this picture is filmed off are, in CSS pixels. CSS
@@ -99,25 +108,19 @@ export const SCREEN_FLOOR = 0.6;
 const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as const;
 
 /**
- * The ramp the picture's ink is read along, cool end first, with the caller's own resolved ink at
- * the stop `null` marks — the middle, so a picture at rest is still the `text-*` token it asked
- * for. Two of these were the fourth crossing of the colour boundary (docs/boundaries.md), taken
- * deliberately and written down first
- * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)): the picture was one
- * resolved token and a fringe over it, so every yard read as the same hue whatever it was playing.
- * Five stops is the structure bench's ramp, with the ground left off because the alpha is the
- * caller's ([0301](../../docs/decisions/0301-the-ink-orbits-a-ramp-of-five.md)): the two channel
- * tokens that stand between the inks and the caller's own are tokens the file already reads, so
- * the ramp crosses no boundary the two inks had not. Token names and not colours, for the reason
- * `CHANNEL_TOKENS` are, and registered as `<color>` beside them.
+ * How far the yard's own hue travel carries the read off the scene's own rest, in units of the
+ * ramp. One, because the travel is stated on the same 0..1 the ramp is and the meadow — the scene
+ * that rests at the middle stop — has to reach both ends of it exactly as the picture did before
+ * there were scenes ([0301](../../docs/decisions/0301-the-ink-orbits-a-ramp-of-five.md),
+ * [0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)). A scene resting off
+ * the middle reaches one end sooner and the other not at all, which is what makes a bloom warm
+ * whatever it is playing (0329).
  */
-export const INK_RAMP_TOKENS = [
-  "--drift-cool",
-  "--screen-green",
-  null,
-  "--screen-red",
-  "--drift-hot",
-] as const;
+const SCENE_HUE_REACH = 1;
+
+/** Where on its own ramp a scene is read, at where the picture's hue has travelled to. */
+export const sceneHue = (scene: Scene, hue: number): number =>
+  clamp(scene.rest + SCENE_HUE_REACH * (hue - DRIFT_REST.hue), 0, 1);
 
 /**
  * How far a third of a cell is pushed onto its own channel. A subpixel neither tints the picture
@@ -232,13 +235,7 @@ export const blobKeep = (
   lag = 0,
   depth = BLOB_DEPTH,
 ): number =>
-  blobFrom(latticeAxis(x / beatPx(pitch) - lag), latticeAxis(y / beatPx(rowPitch) - lag), depth);
-
-/**
- * How bright one axis of a lattice is at `turn` of its own beat cell: half of `cosTurn`, which is
- * the one cosine this app's gratings are built out of and not a painter's private copy of it.
- */
-const latticeAxis = (turn: number): number => 0.5 + 0.5 * cosTurn(turn);
+  blobFrom(sceneAxis(x / beatPx(pitch) - lag), sceneAxis(y / beatPx(rowPitch) - lag), depth);
 
 /** What a lattice keeps where its two axes stand at `across` and `down`, cutting at `depth`. */
 const blobFrom = (across: number, down: number, depth: number): number =>
@@ -292,8 +289,8 @@ export const channelKeep = (
   const harmonic = channel + 1;
   const slope = channel - 1;
   return blobFrom(
-    mix(latticeAxis(across), latticeAxis(harmonic * across + slope * down), disperse),
-    mix(latticeAxis(down), latticeAxis(harmonic * down - slope * across), disperse),
+    mix(sceneAxis(across), sceneAxis(harmonic * across + slope * down), disperse),
+    mix(sceneAxis(down), sceneAxis(harmonic * down - slope * across), disperse),
     CHANNEL_FRINGE,
   );
 };
@@ -427,8 +424,30 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * the picture's rest walks it both ways all the while the yard sounds, so a full swing is up to
  * `2 · INK_WANDER · HUE_STEPS` stops visited twice an orbit — held, each is one build a session
  * and never one a frame. Still a few kilobytes: a tile is one beat wide.
+ *
+ * **And a scene is part of what a tile is of, so a rack of yards no longer shares one** (0329). Two
+ * yards named for different plants, or under different airs, hold two tiles where before this they
+ * held the same one — so this room is spent across as many `(scene, light, wind)` triples as the
+ * page is showing, and the eviction that first evicted the tile every resting yard shared now
+ * evicts a yard's own. What a miss costs is still the build below on a later paint and never one on
+ * a frame: the tile is one beat wide, and the room is kilobytes.
  */
 const TILE_CACHE = 48;
+
+/**
+ * How many times a tunable has moved since the page loaded. **Part of every tile's key**, because a
+ * scene's numbers are read inside the build and nothing else in that key names them: without this,
+ * a slider the bench argues a ground on would be inert here — the held pattern would answer for a
+ * ground that is no longer what the scene draws, and the tiles map would hand back one baked under
+ * the number before the move (`moireTuning.ts` @instead: a number a tile is baked under). One
+ * counter and not the values themselves, because the key is written on the frame path and reading
+ * a dozen handles there would allocate (0070).
+ */
+let tuned = 0;
+subscribeTuning(() => {
+  tuned += 1;
+  tiles.clear();
+});
 
 /**
  * What a screen is keyed by that is colour rather than shape: the travelled ink above, rounded onto
@@ -500,21 +519,51 @@ export function inkOf(css: string): Ink {
 }
 
 /** The five stops, resolved: one list refilled on a build, so a build allocates a ramp and no more. */
-const stops: Ink[] = INK_RAMP_TOKENS.map(() => [0, 0, 0, 0]);
+const stops: Ink[] = Array.from({ length: SCENE_RAMP_STOPS }, (): Ink => [0, 0, 0, 0]);
 
 /**
- * The ink the picture is actually laid down in: the one its caller resolved, read along the ramp
- * above by where the picture's own hue has got to. At the middle it is the caller's ink and no
- * token is read; at either end it is that end's token, and between two stops it is the straight
- * mix of them (`ramp`, src/lib/moireColour.ts). The alpha stays the caller's, because how solid
- * the picture is belongs to the surface it is on and not to what colour it went (0141).
+ * The scene's own five stops, resolved and mixed toward the light the yard's air puts it under.
+ * Refilled in place and handed back, for the reason every other matrix in this file is: this runs
+ * on a build, and a build allocates a ramp and no more.
+ *
+ * The stop the scene marks `null` is the caller's own resolved ink, so a scene resting there is
+ * the picture the instrument drew before a yard's name said which field it stood in — and the
+ * light reaches that stop too, because an air is what the whole field is seen through and a light
+ * that spared the caller's own ink would leave every yard the same colour at rest (0329).
  */
-function rampInk(ink: Ink, style: CSSStyleDeclaration, hue: number): Ink {
-  if (hue === DRIFT_REST.hue) return ink;
-  INK_RAMP_TOKENS.forEach((token, at) => {
-    stops[at] = token === null ? ink : inkOf(style.getPropertyValue(token).trim());
+export function sceneStops(
+  scene: Scene,
+  yard: Readonly<YardScene>,
+  style: CSSStyleDeclaration,
+  ink: Ink,
+): readonly Ink[] {
+  const light = SCENE_LIGHT_TERMS[yard.light];
+  const lit = light.token === null ? null : inkOf(style.getPropertyValue(light.token).trim());
+  scene.ramp.forEach((token, at) => {
+    const stop = token === null ? ink : inkOf(style.getPropertyValue(token).trim());
+    const own = stops[at] ?? [0, 0, 0, 0];
+    for (const channel of [0, 1, 2, 3]) {
+      const from = stop[channel] ?? 0;
+      own[channel] = lit === null ? from : from + ((lit[channel] ?? 0) - from) * light.amount;
+    }
+    stops[at] = own;
   });
-  const read = ramp(stops, hue);
+  return stops;
+}
+
+/**
+ * The ink the picture is actually laid down in: the scene's ramp read at where the picture's own
+ * hue has carried it off that scene's rest. The alpha stays the caller's, because how solid the
+ * picture is belongs to the surface it is on and not to what colour it went (0141).
+ */
+function rampInk(
+  ink: Ink,
+  style: CSSStyleDeclaration,
+  scene: Scene,
+  yard: Readonly<YardScene>,
+  hue: number,
+): Ink {
+  const read = ramp(sceneStops(scene, yard, style, ink), sceneHue(scene, hue));
   read[3] = ink[3];
   return read;
 }
@@ -536,13 +585,22 @@ function screenOf(
   pitch: number,
   rowPitch: number,
   tint: ScreenInk,
+  yard: Readonly<YardScene>,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
-  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}`;
+  // Where the ink is *read*, not where the travel stands: a scene resting off the middle of its own
+  // ramp reaches one end before the travel does, and every step past that end is the same tile
+  // (`sceneHue`). Keyed by the read, so those steps share one build rather than paying for one each.
+  const read = sceneHue(sceneOf(yard.scene), tint.hue);
+  // The yard's own reading is part of what a tile is *of*, so two yards in different fields hold
+  // two tiles rather than one they fight over — and a name never changes, so a yard's three terms
+  // move the key exactly once, when its picture is first drawn (0329).
+  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${read}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${tuned}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const width = beatPx(pitch);
-  const made = tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch, tint);
+  const made =
+    tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch, tint, yard);
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
   if (pattern === null) return null;
@@ -552,9 +610,14 @@ function screenOf(
 
 /**
  * One tile, written a pixel at a time — the one loop over the pixels there is, and it runs on a
- * rebuild and never on a frame (0129). Every pixel is the row's own ink, pushed onto whichever of
- * the three channels lights its third of the cell, and dimmed by the gratings, the blob and the
- * band crossing at that point.
+ * rebuild and never on a frame (0129). Every pixel is the row's own ink, read along the yard's own
+ * scene's ramp, pushed onto whichever of the three channels lights its third of the cell, and
+ * dimmed by the gratings, the blob, the band and the scene's own ground crossing at that point.
+ *
+ * **The scene is the ground and the ramp; the film is everything else.** What a yard's name says is
+ * which marks the ink is cut out of and which five stops it is read along; the gratings, the beat
+ * they make, the three channels and the rolling band are terms every scene reads, so a parameter
+ * that moved the screen still moves the scene (0329).
  */
 // oxlint-disable-next-line max-lines-per-function
 function build(
@@ -566,6 +629,7 @@ function build(
   pitch: number,
   rowPitch: number,
   tint: ScreenInk,
+  yard: Readonly<YardScene>,
 ): HTMLCanvasElement | null {
   const tile = document.createElement("canvas");
   tile.width = width;
@@ -573,7 +637,10 @@ function build(
   const ink = tile.getContext("2d");
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
-  const row = rampInk(inkOf(color), style, tint.hue);
+  const scene = sceneOf(yard.scene);
+  const terms: SceneTerms = { width, height, lean: SCENE_WIND_TERMS[yard.wind].lean };
+  const row = rampInk(inkOf(color), style, scene, yard, tint.hue);
+  const depth = scene.depth.value;
   const gains = CHANNEL_TOKENS.map((token) =>
     channelGain(inkOf(style.getPropertyValue(token).trim()), tint.saturate),
   );
@@ -582,8 +649,13 @@ function build(
   for (let y = 0; y < height; y++) {
     const down = rowKeep(y, rowPitch) * bandKeep(y, height);
     for (let x = 0; x < width; x++) {
-      // How dark the blob is: one lattice, and the only one the alpha knows about.
-      const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
+      // How dark the blob is, and how much of the field's own mass stands here: one lattice and one
+      // ground, and the only two things the alpha knows about.
+      const keep =
+        down *
+        columnKeep(x, pitch) *
+        blobKeep(x, y, pitch, rowPitch) *
+        (1 - depth * (1 - scene.ground(x, y, terms)));
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
       // the row's ink and never more of it than the row had.
       const lit = channelFringe(x, y, pitch, rowPitch, tint.fringe, tint.disperse);
@@ -624,6 +696,7 @@ export function inkThrough(
   color: string,
   ink: Readonly<ScreenInk>,
   wind: number,
+  yard: Readonly<YardScene>,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -638,8 +711,13 @@ export function inkThrough(
   tinted.disperse = stepped(ink.disperse, DRIFT_DISPERSE_REACH);
   tinted.hue = steppedHue(ink.hue);
   tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
-  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
+  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted, yard);
   if (pattern === null) return;
+  // How far the yard's own adjective lets the field sway, on the two motions that are a sway: a
+  // hushed yard breathes and leans a fraction of what a wild one does, and a still one all but
+  // stands. The lean the same adjective bakes into the ground is the other half of the same
+  // reading, and it is baked because what leans in a field is the field and not the light (0329).
+  const sway = SCENE_WIND_TERMS[yard.wind].sway;
   // Each over the span the term comes round in, so every one of them arrives back where it left
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.
   rolled.f = bandTurns(rows) * tilePx(canvas.height, rowPitch);
@@ -650,12 +728,12 @@ export function inkThrough(
   rolled.e = (termTurns(rows, "crawl") + wind) * beatPx(pitch);
   turnedScale(
     rolled,
-    1 + (BREATH_PX.value / pitch) * Math.sin(TAU * termTurns(rows, "breath")),
+    1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),
     TAU * TURN_TURNS.value * Math.sin(TAU * termTurns(rows, "turn")),
   );
   // The lean, added to the term the turn already wrote: a skew on the tile as a whole, sweeping
   // through rest like the other three rather than sitting at one offset.
-  rolled.c += TAU * SHEAR_TURNS.value * Math.sin(TAU * termTurns(rows, "shear"));
+  rolled.c += sway * TAU * SHEAR_TURNS.value * Math.sin(TAU * termTurns(rows, "shear"));
   pattern.setTransform(rolled);
   context.fillStyle = pattern;
 }

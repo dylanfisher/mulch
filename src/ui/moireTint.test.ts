@@ -4,6 +4,7 @@
  *   seconds and stands still with them, that a halted yard washes nothing, and that the one fill it
  *   costs lands through the ink the cut left and hands the context back as it found it (0302).
  */
+import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
@@ -130,12 +131,12 @@ describe("the band washed across the picture", () => {
     // oxlint-disable-next-line no-unsafe-type-assertion
     const ink = context as unknown as CanvasRenderingContext2D;
     // A band at nothing lays nothing and builds nothing, which is every halted yard.
-    tintThrough(canvas, ink, "the token the wash was asked in", tintRest());
+    tintThrough(canvas, ink, "the token the wash was asked in", tintRest(), YARD_SCENE_REST);
     expect(fills).toEqual([]);
     expect(wrote).toEqual([]);
     // One fill, atop the ink, at the band's strength, and the context handed back.
     const tint = { strength: 0.3, spread: 0.5, phase: 0.25 };
-    tintThrough(canvas, ink, "the token the wash was asked in", tint);
+    tintThrough(canvas, ink, "the token the wash was asked in", tint, YARD_SCENE_REST);
     expect(fills).toEqual([{ over: "source-atop", alpha: 0.3, style: pattern }]);
     expect(context.globalCompositeOperation).toBe("source-over");
     expect(context.globalAlpha).toBe(1);
@@ -145,7 +146,13 @@ describe("the band washed across the picture", () => {
     const [first] = moves;
     expect(first?.a).toBeCloseTo(((0.5 * 400) / (wrote[0] ?? 0)) * 4, 10);
     expect(first?.e).toBeCloseTo(-0.25 * 0.5 * 400, 10);
-    tintThrough(canvas, ink, "the token the wash was asked in", { ...tint, phase: 0.5 });
+    tintThrough(
+      canvas,
+      ink,
+      "the token the wash was asked in",
+      { ...tint, phase: 0.5 },
+      YARD_SCENE_REST,
+    );
     expect(wrote.length).toBe(1);
     expect(moves.length).toBe(2);
     expect(moves[1]?.e).toBeCloseTo(-0.5 * 0.5 * 400, 10);

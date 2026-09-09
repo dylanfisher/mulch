@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { SCENE_NAMES } from "@/lib/moireScene";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
 import { SKETCH_DRIFTS, SketchPage } from "@/ui/sketch/SketchPage";
 
@@ -31,7 +32,7 @@ function stageOf(id: string, next: string | undefined): string {
 
 describe("SketchPage draws where the picture goes, eight ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(5);
+    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");
@@ -60,6 +61,25 @@ describe("SketchPage draws where the picture goes, eight ways", () => {
       return chips.length === INKING_STOPS.ramp.length;
     });
     expect(ramped.map((entry) => entry.id)).toEqual(["ramp"]);
+  });
+});
+
+describe("the bench draws every scene", () => {
+  /**
+   * A scene that lands in the painter without standing on this bench beside the other three is a
+   * field nobody argued about at 1:1 (0247, 0329) — so the bench draws one stage per name in the
+   * contract, under the one term of the reading a hand can move: the wind's own lean.
+   */
+  it("puts one stage on the bench for every name in the contract", () => {
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    for (const name of SCENE_NAMES) {
+      expect(drawn, `${name} is not on the bench`).toContain(name);
+      const stage = stageOf(name, SKETCH_DRIFTS[drawn.indexOf(name) + 1]?.id);
+      expect(stage, `${name} draws no canvas`).toContain("<canvas");
+      expect(stage, `${name} says nothing of its lean`).toMatch(
+        new RegExp(`data-said="${name}"[^>]*>[^<]*lean`, "u"),
+      );
+    }
   });
 });
 

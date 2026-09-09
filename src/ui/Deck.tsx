@@ -465,6 +465,7 @@ export function Deck({
             instrument={instrument}
             deck={deck}
             state={shown}
+            name={name}
             className="min-w-0 flex-1 self-center"
           />
         )}
@@ -532,7 +533,7 @@ export function Deck({
 
           {/* Under the peaks and above the rack: the peaks say what one pass sounds like, and
               this says what the passes do to each other over time. */}
-          <StripFollowing instrument={instrument} deck={deck} state={shown} />
+          <StripFollowing instrument={instrument} deck={deck} state={shown} name={name} />
 
           {/* Below the drift and above the rack, in the same language every other thing a yard
               holds is drawn in: what it moves is where inside the loop the deck is reading — the

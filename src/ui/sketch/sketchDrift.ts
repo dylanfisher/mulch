@@ -11,7 +11,9 @@
  *   src/ui/moireScreen.ts, none of which this reads.
  */
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
+import type { SceneName } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
+import { sceneOf } from "@/ui/scene/scenes";
 import {
   FIELD_ASPECT,
   FIELD_DEPTH,
@@ -171,4 +173,35 @@ export const bandsField: SketchDriftField = (x, y, amount) => {
   const inside = cellInk(cellLobes(cx, cy, qx, qy, level * 0.5), lit(weave(x, y)));
   const lip = rim(edge, CELL.rim);
   return clamp((0.08 + 0.92 * level) * inside * (1 - lip) + lip, 0, 1);
+};
+
+/**
+ * How tall one scene's ground is drawn on this bench, in the device pixels a scene is written in.
+ * The bench's picture is one unit high, and a scene's marks are stated in the pixels of a screen
+ * tile — so this is the one number that says how much of a real tile a bench picture is, and it is
+ * a whole tile of the film's own rows at the display the bench is judged on (0329).
+ */
+export const SCENE_BENCH_PX = 110;
+
+/** The dial every scene is drawn under: how far the yard's own wind leans the field. */
+export const SCENE_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.5 };
+
+/**
+ * One scene's own ground, drawn at the bench's scale: the same function the screen writes its tile
+ * with, read at this picture's pixels rather than a tile's, so what is judged here is the ground
+ * that lands and never a drawing of it (principle 1). The dial is the lean, which is the one term
+ * of the reading a hand can move without renaming the yard.
+ */
+export const sceneField = (name: SceneName): SketchDriftField => {
+  const scene = sceneOf(name);
+  return (x, y, amount) =>
+    clamp(
+      scene.ground(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX, {
+        width: FIELD_ASPECT * SCENE_BENCH_PX,
+        height: SCENE_BENCH_PX,
+        lean: amount,
+      }),
+      0,
+      1,
+    );
 };

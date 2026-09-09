@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { MOIRE_TUNE, MOIRE_TUNE_COPY, MOIRE_TUNE_RESET, tuningPrompt } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
+import { SCENE_NAMES } from "@/lib/moireScene";
 import { SHARD_DOWN, SHARD_REACH, SHARD_STEP } from "@/lib/moireShards";
 import { snapToStep } from "@/lib/range";
 import { resetTuning, setTuning, tunings } from "@/lib/moireTuning";
@@ -49,6 +50,20 @@ describe("DriftTuning", () => {
       }
     }
     for (const { group } of groups) expect(group.hint).not.toBe("");
+  });
+
+  it("holds one group per scene, and every number a scene declares under it", () => {
+    // A scene's numbers are argued on the bench and moved on the panel (0247, 0329), so each of the
+    // four has a group of its own — the group heading is the part of a tunable id before the dot,
+    // so the scene's name is the group by construction and cannot drift from it.
+    const groups = grouped(tunings());
+    for (const name of SCENE_NAMES) {
+      const title = name[0]?.toUpperCase() + name.slice(1);
+      const own = groups.find((group) => group.group.title === title);
+      expect(own, `no group for ${name}`).toBeDefined();
+      expect(own?.rows.length ?? 0, name).toBeGreaterThan(0);
+      for (const { handle } of own?.rows ?? []) expect(handle.id.split(".")[0], name).toBe(name);
+    }
   });
 
   it("refuses a tunable with no words and words with no tunable", () => {

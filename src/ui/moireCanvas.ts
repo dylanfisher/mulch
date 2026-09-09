@@ -90,6 +90,7 @@ import { cutField } from "@/ui/moireCanvasField";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
+import type { YardScene } from "@/lib/yardScene";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 import { type MoireTint, tintThrough } from "@/ui/moireTint";
@@ -526,6 +527,13 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `shape`, how that same rack shapes the whole field (`shapeTravelInto`, src/ui/moireShape.ts,
  * 0278): how tight a lattice stands over it, which is a pattern and costs a fill, and how far the
  * warp's wander has gone round, which the bend above is slid on.
+ *
+ * And `yard`, the field this picture is of, read off the yard's own name and nothing else
+ * (`yardScene`, src/lib/yardScene.ts, 0329): the scene its plant stands in, the light its air puts
+ * that scene under, and the wind its adjective sets. Handed in rather than read here, because the
+ * name belongs to the surface and a painter that read the store would be a second reader of it —
+ * and nothing about it is stored, because a reading of a name that is already durable is not a
+ * second fact that can disagree with the first (0145).
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -544,6 +552,7 @@ export function paintMoire(
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
   tinting: Readonly<MoireTint>,
+  yard: Readonly<YardScene>,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -583,7 +592,7 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color, tint, wind.drift);
+  inkThrough(canvas, context, rows, color, tint, wind.drift, yard);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the
@@ -593,7 +602,7 @@ export function paintMoire(
   // And the band of the ramp washed over what is left, through the ink and never over the window
   // the gratings agree on: after the cut, so the colour lies on the picture and not on the ground
   // the cut takes back out (`tintThrough`, src/ui/moireTint.ts, 0302).
-  tintThrough(canvas, context, color, tinting);
+  tintThrough(canvas, context, color, tinting, yard);
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).
   endPainting();

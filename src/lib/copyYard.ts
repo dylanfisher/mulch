@@ -10,27 +10,60 @@
  */
 import { pick, twoPartName, words } from "./copy.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
+import {
+  type SceneLight,
+  type SceneName,
+  type SceneWind,
+  SCENE_LIGHTS,
+  SCENE_NAMES,
+  SCENE_WINDS,
+} from "./moireScene.ts";
+
+/** One bank flattened out of the grouping that is the bank: the words, in the grouping's own order. */
+const banked = (grouped: readonly (readonly string[])[]): readonly [string, ...string[]] => {
+  const [first, ...rest] = grouped.flat();
+  if (first === undefined)
+    throw new Error("A bank grouped into nothing is a bank nobody can draw.");
+  return [first, ...rest];
+};
 
 /**
- * The first half of every name: what the yard is like. Forty-eight of them against forty-eight
- * plants is 2304 pairs before the places multiply it, so the first repeat is expected well past
- * any session's worth of yards (0149, 0317). Titlecase, like every label the instrument writes
- * (0059).
+ * The first half of every name: what the yard is like, **under the wind that adjective sets**
+ * (0329). Forty-eight of them against forty-eight plants is 2304 pairs before the places multiply
+ * it, so the first repeat is expected well past any session's worth of yards (0149, 0317).
+ * Titlecase, like every label the instrument writes (0059).
+ *
+ * The grouping is the bank rather than a second copy of it: a word exists in exactly one place, so
+ * an adjective cannot be drawn without a wind and a wind cannot name a word nobody draws
+ * (principle 1).
  */
-export const YARD_ADJECTIVES = words(
-  "Quiet North Low Bright Slow Wild Deep Warm Far Still South High Soft Dim " +
-    "Green Damp Dry Old Near Cool Pale Sheltered Windy Hidden " +
-    "Gentle Shady Sunny Misty Hushed Crooked Wide Narrow Lonely Tangled Silver Golden " +
-    "Rusty Mossy Weathered Sleepy Broad Distant Little Upper Lower Inner Outer Winding",
-);
+export const YARD_ADJECTIVES_BY_WIND: Readonly<Record<SceneWind, readonly string[]>> = {
+  still: words("Slow Deep Still Dim Damp Sheltered Hidden Shady Misty Hushed Mossy Sleepy Inner"),
+  quiet: words("Quiet Low Far Soft Old Near Pale Gentle Narrow Lonely Rusty Distant Little Lower"),
+  breeze: words("North Bright Warm South Green Dry Cool Sunny Wide Silver Golden Broad"),
+  windy: words("High Windy Crooked Weathered Upper Outer"),
+  wild: words("Wild Tangled Winding"),
+};
 
-/** The second: what is growing there. House-and-garden, like the emoji pool it is drawn beside. */
-export const YARD_PLANTS = words(
-  "Fern Thicket Clover Willow Bramble Rush Sorrel Cedar Nettle Moss Hedgerow Alder " +
-    "Bracken Heather Ivy Laurel Birch Foxglove Yarrow Thistle Reed Hawthorn Lichen Orchard " +
-    "Comfrey Meadowsweet Elder Rowan Hazel Blackthorn Gorse Broom Vetch Campion Cowslip Primrose " +
-    "Bindweed Teasel Mullein Woodruff Bugle Speedwell Chicory Tansy Mallow Betony Sedge Aspen",
-);
+export const YARD_ADJECTIVES = banked(SCENE_WINDS.map((wind) => YARD_ADJECTIVES_BY_WIND[wind]));
+
+/**
+ * The second: what is growing there, **under the scene it stands in** (0329). House-and-garden,
+ * like the emoji pool it is drawn beside, and grouped for the reason the adjectives are.
+ */
+export const YARD_PLANTS_BY_SCENE: Readonly<Record<SceneName, readonly string[]>> = {
+  meadow: words(
+    "Fern Clover Sorrel Nettle Moss Bracken Heather Thistle Lichen Gorse Broom Vetch Teasel Mullein",
+  ),
+  bloom: words(
+    "Foxglove Yarrow Hawthorn Orchard Comfrey Meadowsweet Elder Blackthorn Campion Cowslip " +
+      "Primrose Bindweed Woodruff Bugle Speedwell Chicory Tansy Mallow Betony",
+  ),
+  water: words("Rush Reed Sedge"),
+  canopy: words("Thicket Willow Bramble Cedar Hedgerow Alder Ivy Laurel Birch Rowan Hazel Aspen"),
+};
+
+export const YARD_PLANTS = banked(SCENE_NAMES.map((scene) => YARD_PLANTS_BY_SCENE[scene]));
 
 /**
  * The third, and the one that turns a pair of words into somewhere: where on the ground it is. It
@@ -85,27 +118,21 @@ export const YARD_PLACE_NOUNS: readonly [string, ...string[]] = [
 export const YARD_AIR_WORDS = words("in through");
 
 /**
- * What the air is drawn against, and the entries a scene reads a name by (bench-06): a light or a
- * weather, never a joined phrase, so the reading is a table on this bank and not on the join.
+ * What the air is drawn against, **under the light it puts a scene in** (0329): a light or a
+ * weather, never a joined phrase, so the reading is a table on this bank and not on the join. The
+ * day is not a group here and cannot be — it is what a name with *no* air reads as, and an air that
+ * named the day would be a phrase saying nothing (0317).
  */
-export const YARD_AIR_NOUNS: readonly [string, ...string[]] = [
-  "Falling Dusk",
-  "Moonlight",
-  "Frost",
-  "Soft Rain",
-  "Low Sunlight",
-  "First Light",
-  "Late Light",
-  "Thin Mist",
-  "Low Cloud",
-  "Long Shadows",
-  "Falling Snow",
-  "Grey Light",
-  "Night Air",
-  "Warm Wind",
-  "Sea Fog",
-  "Cold Light",
-];
+export const YARD_AIR_NOUNS_BY_LIGHT: Readonly<Record<SceneLight, readonly string[]>> = {
+  day: [],
+  dusk: ["Falling Dusk", "Late Light", "Long Shadows"],
+  moon: ["Moonlight", "Night Air"],
+  frost: ["Frost", "Falling Snow", "Sea Fog", "Cold Light"],
+  rain: ["Soft Rain", "Thin Mist", "Low Cloud", "Grey Light"],
+  sun: ["Low Sunlight", "First Light", "Warm Wind"],
+};
+
+export const YARD_AIR_NOUNS = banked(SCENE_LIGHTS.map((light) => YARD_AIR_NOUNS_BY_LIGHT[light]));
 
 /** The second: one small living thing or quiet object, on its own coin, for the same reason. */
 export const YARD_DETAILS: readonly [string, ...string[]] = [

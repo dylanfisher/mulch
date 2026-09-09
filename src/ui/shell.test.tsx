@@ -1,3 +1,4 @@
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -33,6 +34,7 @@ const SURFACES = {
       instrument={drifting}
       deck="a"
       state={deckIn(drifting.state.getState().decks, "a")}
+      name={INITIAL_YARD_NAME}
       onClose={() => {}}
     />,
   ),

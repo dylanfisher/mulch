@@ -34,3 +34,8 @@ travelled, and is carried across a rebuild (`carryTint`) for the ink's reason.
 **A halted yard washes nothing.** The strength's target is nought and the travel has no clock, so it
 arrives there outright and the phase stands where the last frame put it: a halted picture is painted
 on a commit in the screen's own ink (0144), which is the picture every yard drew before this.
+
+**Amended, [0329](0329-a-yards-picture-is-a-scene-its-name-names.md).** The band is read off
+`sceneStops` rather than `INK_RAMP_TOKENS`, which is gone: the wash is the yard's own scene's five
+stops under its own light, so the band and the tile under it still cannot disagree about what the
+ramp is. Its tile is keyed by the colour and that reading together.

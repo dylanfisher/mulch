@@ -30,6 +30,12 @@ import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchDriftBands } from "@/ui/sketch/drift/SketchDriftBands";
+import {
+  SketchDriftBloom,
+  SketchDriftCanopy,
+  SketchDriftMeadow,
+  SketchDriftWater,
+} from "@/ui/sketch/drift/SketchDriftScenes";
 import { SketchDriftBlobs } from "@/ui/sketch/drift/SketchDriftBlobs";
 import { SketchDriftRamp } from "@/ui/sketch/drift/SketchDriftRamp";
 import { SketchDriftTerrace } from "@/ui/sketch/drift/SketchDriftTerrace";
@@ -208,6 +214,50 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "beside the shatter's slices in src/ui/moireCanvasField.ts: the finished field is already taken back out through LENS_SLICES bands, and a cell is a rectangular slice drawn with its own drawImage offset per frame, its offset the band's level off the analyser the wash already reads. Frame-side — no bake, no key — and bounded like the shatter at a ceiling under one cell; the lattice underneath is the first entry's bake.",
     Content: SketchDriftBands,
+  },
+  {
+    id: "meadow",
+    label: "The Meadow",
+    thesis:
+      "The picture is a field, and which field it is, is already written on the yard: the plant names the scene. Fine tall strokes clumped into tufts and leaning as one, which is what a Heather, a Bracken or a Thistle stands in.",
+    trades:
+      "the one picture every yard drew. A rack of six is six fields rather than six settings of one, so nothing on the page reads as a family any more except by its ramp; and a scene is fixed at a yard's birth, because there is no rename.",
+    built:
+      "the ground in src/ui/scene/meadow.ts, read by build in src/ui/moireScreen.ts where the tile's alpha is written: the film's gratings, blobs and band multiply into it and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle.",
+    Content: SketchDriftMeadow,
+  },
+  {
+    id: "bloom",
+    label: "The Bloom",
+    thesis:
+      "The second scene, and the one that says a scene is a colour as well as a ground: a lattice of soft warm heads over a cool ground, which is what a Foxglove, a Campion or a Mallow stands in. It rests past the middle stop of its own ramp, so it is warm before it has played a note.",
+    trades:
+      "the picture at rest being the caller's own resolved ink. Every scene but the meadow rests somewhere else on its ramp, so a yard is coloured by its name before anything has claimed a hue — which is the point, and which is one more thing between the token a surface asked for and what it sees.",
+    built:
+      "the ground and the five stops in src/ui/scene/bloom.ts, resolved by sceneStops in src/ui/moireScreen.ts and read at sceneHue. Bake-side: the stops are read once a tile and the ramp is read once, not per pixel.",
+    Content: SketchDriftBloom,
+  },
+  {
+    id: "water",
+    label: "The Water",
+    thesis:
+      "A fine rippled grating with a few sparse tall blades standing in it, which is what a Reed, a Rush or a Sedge stands in — three plants of forty-eight, and the smallest of the four fields on purpose: a scene nobody draws is a scene nobody argues about.",
+    trades:
+      "legibility on the strip at the finest ripple. A ripple near the film's own row pitch beats with it, which is the instrument's whole subject at the field's scale and a shimmer at this one — the dial for it is water.ripple and it is judged at the 1:1 crop.",
+    built:
+      "the ground in src/ui/scene/water.ts, its four numbers declared as tunables under one group in src/lib/copyDriftGroups.ts. Bake-side, like every scene: src/ui/moireScreen.ts writes it a pixel at a time on the rebuild.",
+    Content: SketchDriftWater,
+  },
+  {
+    id: "canopy",
+    label: "The Canopy",
+    thesis:
+      "A dense dark mass with scattered light breaking through it, which is what a Willow, a Birch or a Hazel stands in. It takes the most of the picture's ink of the four: what a canopy is, is the light it does not let past.",
+    trades:
+      "the floor. The screen keeps SCREEN_FLOOR of the picture's ink averaged over a tile and a scene spends against that, so the deepest ground is the one closest to being a grille — canopy.depth is the dial that says how close, and the floor is asserted against the meadow, which is the scene the film's own cases paint.",
+    built:
+      "the ground in src/ui/scene/canopy.ts, multiplied into the tile's alpha beside the blob lattice in build, src/ui/moireScreen.ts. Bake-side, and the registry that refuses a scene with no file is src/ui/scene/scenes.ts.",
+    Content: SketchDriftCanopy,
   },
 ];
 

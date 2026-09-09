@@ -143,6 +143,11 @@ export const playerRowPitch = (part: SongPart | null): number =>
  * cache holds, and a song that has been round once is asking for tiles that are already built.
  * Coarser than the eye needs to tell two tints apart, and coarse on purpose: which region of the
  * song is standing is what a tint says, and *which part* is what the angle and the spacing say.
+ *
+ * **That room is now per yard rather than shared** (0329): a tile is keyed by the field its yard's
+ * name reads as, so two yards playing songs ask for two sets of these and share none of them. Four
+ * is what keeps one yard's song inside the cache; a rack of many yards all playing songs is over
+ * it, and what that costs is a build on the paint that revisits a tint — plan §4.
  */
 export const PLAYER_TINTS = 4;
 

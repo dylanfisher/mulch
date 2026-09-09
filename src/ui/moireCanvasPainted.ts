@@ -9,6 +9,7 @@
  */
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
+import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { type MoireTint, tintRest } from "@/ui/moireTint";
@@ -125,6 +126,11 @@ export function painterOn(stubGlobal: StubGlobal) {
       // And the band washed over the picture: none unless a case says otherwise, which is every
       // halted yard and the picture drawn before there was a band (`tintRest`, src/ui/moireTint.ts).
       tinting = tintRest(),
+      // And the field the picture is of, read off a yard's own name: the rest unless a case says
+      // otherwise, which is the meadow under no air in a quiet wind — the one scene that rests on
+      // the caller's own ink, so a case about anything else draws the picture the instrument drew
+      // before it had scenes (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
+      yard = YARD_SCENE_REST,
     }: {
       frames?: number;
       advance?: number;
@@ -138,6 +144,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       looks?: readonly MoireLook[];
       shape?: MoireShape;
       tinting?: MoireTint;
+      yard?: YardScene;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -295,6 +302,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         looks,
         shape,
         tinting,
+        yard,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.
