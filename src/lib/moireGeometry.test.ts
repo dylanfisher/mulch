@@ -453,6 +453,8 @@ const alphaAt = (field: Uint8ClampedArray, index: number): number => field[index
 // it writes, which reads worse than the nest (0007).
 // oxlint-disable max-depth
 describe("curvedField", () => {
+  // Every pixel of the tile under every geometry, profile and place is two seconds here and past
+  // the five-second default on a hosted runner, so the sweep names its own time.
   it("writes the byte the arithmetic it was written from writes, at every pixel", () => {
     const ref = geometryRef(TILE_W, TILE_H);
     const shipped = new Uint8ClampedArray(TILE_W * TILE_H * 4);
@@ -506,7 +508,7 @@ describe("curvedField", () => {
     // The exemption is load-bearing rather than decorative: if this ever reads zero, the harness
     // has stopped covering the case it was widened for and the slack above can go.
     expect(exempted).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   /**
    * And the claim the two fractal coordinates can carry. **The kernel, and not the field.**

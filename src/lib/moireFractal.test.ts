@@ -469,6 +469,8 @@ describe("the roam", () => {
   });
 
   /** The band is the bound 0272 measured, and the roam widens it by nothing at either extreme. */
+  // Nine stops over every second of both clocks is ~105k roams with four assertions each: three
+  // seconds here, past the five-second default on a hosted runner, so the sweep names its own time.
   it("stays inside the band with the travel at any stop, and reaches its edge", () => {
     const out = fractalStopsRest();
     let widest = 0;
@@ -489,7 +491,7 @@ describe("the roam", () => {
       }
     }
     expect(widest).toBeCloseTo(1, 3);
-  });
+  }, 30_000);
 
   /** Two lengths with no common measure, so the figure the picture roams is never the same twice. */
   it("roams on two clocks that never come round together", () => {
