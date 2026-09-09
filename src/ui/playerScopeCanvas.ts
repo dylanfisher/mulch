@@ -229,13 +229,13 @@ export function paintScope(
     paintBlock(context, block, size, hairline);
     paintWait(context, block, size, hairline);
     paintMoved(context, block, size, hairline);
-    if (block.spark !== null) {
-      // The ghost has no rung of its own: it is the landing sounding once more, so it stands one
+    for (const spark of block.sparks) {
+      // A ghost has no rung of its own: it is the landing sounding once more, so each stands one
       // rung tall at the level it was thrown at, under the block that threw it (P123).
       const { top, tall } = standOf(PLAYER_REPEATS_MIN, size.height);
-      context.globalAlpha = inkOf(index, geometry.at) * block.spark.level * SPARK_FADE;
+      context.globalAlpha = inkOf(index, geometry.at) * spark.level * SPARK_FADE;
       context.fillRect(
-        block.spark.at * size.width,
+        spark.at * size.width,
         top,
         Math.max(hairline, 2 * hairline),
         Math.max(hairline, tall),

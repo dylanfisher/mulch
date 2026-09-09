@@ -187,7 +187,23 @@ apart, so a name that says "never a step" cannot carry a flurry of `[0, 0.1]` �
 step's second test asserting a per-seed win the numbers do not always give — a smooth lane lays as
 few as six gaps, and at a span of 9.5 seed 1 hands smooth the wider spread — so the unevenness is
 read as a mean over 64 seeds at three spans, and what the jitter itself contributes is said once
-against the region rather than measured through a lane. The next free decision number is 0328.
+against the region rather than measured through a lane.
+
+bench-11 landed on 2026-09-09 as
+[0328](decisions/0328-a-landings-sparks-are-counted-and-spaced-by-one-delay.md); `SparkSpec` gains
+`sparkCount`, a whole 1…4 refused by the wire's own key set (0026), stepped in
+src/lib/playerKnobs.ts, captioned "Count" and drawn as the spark row's fourth dial. The walk draws
+one `travelFrom` per companion into `sparked.slots`, and `sparkStartOf` — the one arithmetic both
+the transport and the picture of the walk read — puts the last of them on the delay and the rest
+evenly before it, so the count is a rhythm and the 0175 bound is untouched. `sparkPosition` on the
+per-frame read became `sparkPositions`, refilled in place, and the peaks mount four cursors of
+which only the sounding ones show. Three things moved off the step's own text, all below: the
+count-1 stream golden and the transport's three cases are files of their own because
+src/lib/playerWalk.test.ts and src/audio/playerLanding.test.ts were each within a few lines of the
+hard cap; src/audio/player.ts crossed it, so the companions are built in
+src/audio/playerSparks.ts; and a spark may still land on its landing's own slot, so the walk case
+asserts the count and the grid rather than "none equal to its own". The next free decision number
+is 0329.
 
 1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
@@ -406,7 +422,7 @@ held: ["eq.shape"] }` — a low-pass whose edge stands above hearing is transpar
     - **A dial for variety.** A character is a name for a region, not a knob (0152, 0309).
     - **Reordering the five.** Their order is the row's order.
 
-5.  **A landing throws as many sparks as its Count says.** _(bench-11)_ **Durable shape moved:
+5.  **A landing throws as many sparks as its Count says.** _(bench-11, landed 0328)_ **Durable shape moved:
     `PlayerSpec` gains `sparkCount`, a whole number 1…`PLAYER_SPARK_COUNT_MAX`, default 1.** The
     wire validator's exact keys grow by one; a stored session of the old shape is discarded, not
     repaired (0026).
@@ -652,3 +668,38 @@ apart, which is the step. On a lane of 16s at those odds a step arrives within a
 region ships at `flurry: [0, 0]` and the character keeps the word its tooltip gives it. The variety
 the name promises is the pace and the reach, which are drawn per lane and jittered per move; the
 flurry was only ever the judder restless already owns.
+
+**A spark may still land on its landing's own slot** (bench-11, 0328). The step's first test asked
+that a sparking landing carry "as many slots as the count, none equal to its own", which the walk
+does not promise and P123 explicitly refuses: each companion's slot is one ordinary `travelFrom`
+jump, and that jump may roll home or wrap the grid back onto the landing — a redraw would spend a
+second draw per landing and move the stream. The case asserts what is true instead: the list is as
+long as the count, every slot is inside the grid, and nearly every landing's three are three
+different slots. The pre-existing case one block up already reads the same way for a single spark.
+
+**The count's cases are two test files of their own** (bench-11, 0328). The step named
+src/lib/playerWalk.test.ts, src/audio/player.test.ts and src/audio/playerLanding.test.ts; those
+three stood at 799, 738 and 776 lines against the 800-line hard cap, so the walk's two cases and
+`sparkStartOf`'s are in src/lib/playerSpark.test.ts and the transport's three in
+src/audio/playerSparkCount.test.ts — the shape bench-09 used for the same reason. The transport's
+file imports `deck`, `PLAYER`, `SLOT` and `SPAN` from src/audio/player.test.ts the way
+src/audio/playerArm.test.ts already does, which re-runs that suite's 30 cases: the count moved from
+2381 to 2419, of which +8 are new cases and +30 are those re-executions.
+
+**A third `jumping` fixture stands** (bench-11, 0328). Review's Reuse lens counted
+`{ seed: 11, ...PLAYER_DEFAULTS, ...fields }` in src/lib/playerWalk.test.ts, src/lib/playerBed.test.ts
+and now src/lib/playerSpark.test.ts — the third occurrence principle 3 names. It stands: this
+instrument's convention is that each test file declares the spec it is asking about
+(src/audio/playerLanding.test.ts says so in as many words, citing principle 2), the helper is five
+lines, and the only import-based route — exporting it from src/lib/playerWalk.test.ts the way
+src/audio/playerSparkCount.test.ts imports from src/audio/player.test.ts — would re-execute that
+file's 37 cases to save them. A shared `playerWalkDouble.ts` is the answer if a fourth arrives.
+
+**The companions are built in a module of their own** (bench-11, 0328). src/audio/player.ts was 795
+lines and the count's arithmetic put it at 811, past the hard cap no waiver applies to. `buildSparks`
+and the `Spark` type moved to src/audio/playerSparks.ts, which takes the landing's fader, its
+window, the `readSlot` the landing itself is read through and the tuning of its own source — so the
+companion and the landing still differ by nothing but a slot, a level and a start, and player.ts is
+back to 763. The diff touches scripts/smoke.d/renderPlayer.js as well: `sparkCount: 1` on the
+fixture spec, a `counted` render at the top of the dial, one `fail(` for it and one clause in the
+lane's report. No assertion, `fail(` or scenario was removed.

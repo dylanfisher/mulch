@@ -340,6 +340,7 @@ export const PLAYER_PART_KNOBS = [
   "spark",
   "sparkLevel",
   "sparkDelay",
+  "sparkCount",
   "burst",
   "vary",
   "varyChance",

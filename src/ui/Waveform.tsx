@@ -24,6 +24,7 @@ import {
   type RefObject,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -48,6 +49,7 @@ import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
 import { bedGround } from "@/lib/playerBed";
+import { PLAYER_SPARK_COUNT_MAX } from "@/lib/playerSpark";
 import type { BedZone } from "@/lib/playerZone";
 import { useOnFrame } from "@/ui/frame";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
@@ -77,11 +79,21 @@ type Sweep = Tracked & {
  * nothing (0070). The string is still built — a surface cannot be known unmoved without its value
  * being read — and never rounded, so what is compared is exactly what would have been drawn.
  */
-type Worn = { playhead: string; spark: string; left: string; width: string; meter: string };
+type Worn = {
+  playhead: string;
+  /** One remembered transform per spark cursor, as many as a landing may throw. */
+  sparks: string[];
+  left: string;
+  width: string;
+  meter: string;
+};
 
 /** The four surfaces the frame writes through, gathered once: an object built per frame is an
  *  allocation (0070). */
-type Surfaces = Record<"playhead" | "spark" | "ground" | "meter", RefObject<HTMLDivElement | null>>;
+type Surfaces = Record<"playhead" | "ground" | "meter", RefObject<HTMLDivElement | null>> & {
+  /** The spark cursors, in the order they were drawn — one per companion a landing may throw. */
+  sparks: RefObject<(HTMLDivElement | null)[]>;
+};
 
 /**
  * One frame of the transport off one read: the playhead, the spark's cursor, the ground the loop
@@ -112,17 +124,20 @@ export function paintTransport(
       worn.playhead = moved;
     }
   }
-  const cursor = surfaces.spark.current;
-  const spark = at.player.sparkPosition;
-  if (cursor !== null) {
+  const sparks = at.player.sparkPositions;
+  for (const [index, cursor] of surfaces.sparks.current.entries()) {
+    if (cursor === null) continue;
     // Off the peaks entirely where there is none to show, rather than parked at zero: a cursor
-    // standing still at the left edge is a spark the instrument is claiming to play.
-    cursor.style.display = spark === null ? "none" : "";
-    if (spark !== null) {
+    // standing still at the left edge is a spark the instrument is claiming to play. Which is
+    // every cursor past the count of what is actually reading, so a landing that threw two shows
+    // two and not four.
+    const spark = sparks[index];
+    cursor.style.display = spark === undefined ? "none" : "";
+    if (spark !== undefined) {
       const moved = `translateX(${secsToPx(spark, duration, width)}px)`;
-      if (worn.spark !== moved) {
+      if (worn.sparks[index] !== moved) {
         cursor.style.transform = moved;
-        worn.spark = moved;
+        worn.sparks[index] = moved;
       }
     }
   }
@@ -184,11 +199,26 @@ export function Waveform({
   onFile: (file: File) => void;
 }) {
   const playheadRef = useRef<HTMLDivElement>(null);
-  /** The spark's own read position: a second cursor on the same peaks, in the quieter ink, drawn
-   *  only while the landing the clock is inside threw one. The same ref and the same frame, never
+  /** The sparks' own read positions: one more cursor on the same peaks each, in the quieter ink,
+   *  drawn only while the landing the clock is inside is sounding it. `PLAYER_SPARK_COUNT_MAX` of
+   *  them, held rather than drawn per frame — the count is a dial a hand turns mid-pass, and a
+   *  cursor mounted on its move would be a ref filled a frame late. The same frame, never
    *  a second loop (§2), and never a second playhead — the deck's read head is the landing's,
    *  which is why a spark rides that landing's entry at all (0166, 0175). */
-  const sparkRef = useRef<HTMLDivElement>(null);
+  const sparkRefs = useRef<(HTMLDivElement | null)[]>([]);
+  /** One setter per cursor, built once: a ref callback minted in the render is a new prop every
+   *  render, which is a detach and a reattach of every cursor per frame (0070). */
+  const setSparkRef = useMemo(
+    () =>
+      Array.from(
+        { length: PLAYER_SPARK_COUNT_MAX },
+        (_, index) =>
+          (node: HTMLDivElement | null): void => {
+            sparkRefs.current[index] = node;
+          },
+      ),
+    [sparkRefs],
+  );
   /** Where the loop is actually being read, when the mulcher has moved it off the ground the
    *  handles are on: the same span at the same length, some number of the loop's own sixteenths
    *  along — a whole bed of them, or any part of one since the crawl (0183, 0185). A
@@ -385,10 +415,16 @@ export function Waveform({
 
   /** What each surface last wore, and the refs the frame writes it through — both held, never
    *  rebuilt on a render or a frame (0070). */
-  const worn = useRef<Worn>({ playhead: "", spark: "", left: "", width: "", meter: "" });
+  const worn = useRef<Worn>({
+    playhead: "",
+    sparks: Array.from({ length: PLAYER_SPARK_COUNT_MAX }, () => ""),
+    left: "",
+    width: "",
+    meter: "",
+  });
   const surfaces = useRef<Surfaces>({
     playhead: playheadRef,
-    spark: sparkRef,
+    sparks: sparkRefs,
     ground: bedRef,
     meter: meterRef,
   });
@@ -474,16 +510,20 @@ export function Waveform({
               data-slot="playhead"
               className="absolute inset-y-0 left-0 w-px bg-foreground"
             />
-            {/* The quieter read drawn in the quieter ink: `muted-foreground` and not the
-                playhead's own, so which of the two the pattern is standing on is legible at a
-                glance rather than a matter of which one moved (0175). Hidden until a frame says
-                where it is. */}
-            <div
-              ref={sparkRef}
-              data-slot="spark-playhead"
-              className="absolute inset-y-0 left-0 w-px bg-muted-foreground"
-              style={HIDDEN}
-            />
+            {/* The quieter reads drawn in the quieter ink: `muted-foreground` and not the
+                playhead's own, so which of them the pattern is standing on is legible at a
+                glance rather than a matter of which one moved (0175). One per companion a landing
+                may throw, each hidden until a frame says where it is — so a pattern at a count of
+                one shows the one cursor it always showed. */}
+            {Array.from({ length: PLAYER_SPARK_COUNT_MAX }, (_, index) => (
+              <div
+                key={index}
+                ref={setSparkRef[index]}
+                data-slot="spark-playhead"
+                className="absolute inset-y-0 left-0 w-px bg-muted-foreground"
+                style={HIDDEN}
+              />
+            ))}
           </>
         )}
       </div>

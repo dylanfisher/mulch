@@ -109,14 +109,15 @@ export function playerDials({ deck, burst, ...dialled }: PlayerDialsProps): Reac
       </PlayerGroup>
       {/* What a landing does with the slot it has been given, which is everything that
           moves nothing the landing after it stands on: the gate that cuts inside a repeat,
-          the hole that never opens (P118), which way it reads (P121), the spark it throws,
-          how loud that is and how far into the landing it begins (P123, 0175), and the
+          the hole that never opens (P118), which way it reads (P121), the sparks it throws,
+          how loud those are, how far into the landing they begin and how many there are
+          (P123, 0175), and the
           ladder its rate climbs (0118, 0167). */}
       <PlayerGroup label={PLAYER_GROUP_LABELS.sound}>
         {/* In the order a hand reads them across: the gate then the hole — the two that take
             sound away without moving anything (P118) — the spark then how loud it is then how
-            far into the landing it begins (P123, 0175), then which way the landing reads and
-            the ladder its rate climbs (P121, 0167). All three of the spark's own are on the
+            far into the landing it begins then how many it throws (P123, 0175), then which way
+            the landing reads and the ladder its rate climbs (P121, 0167). All four of the spark's own are on the
             row rather than behind the Spark dial's marker for one reason: they shape no draw,
             and 0124 puts behind a marker only the amounts that shape the draw the dial they
             sit on bounds. */}
@@ -125,6 +126,7 @@ export function playerDials({ deck, burst, ...dialled }: PlayerDialsProps): Reac
         <PlayerDial knob="spark" {...dialled} />
         <PlayerDial knob="sparkLevel" {...dialled} />
         <PlayerDial knob="sparkDelay" {...dialled} />
+        <PlayerDial knob="sparkCount" {...dialled} />
         <PlayerDial knob="reverse" {...dialled} />
         <PlayerRate {...runProps} />
       </PlayerGroup>

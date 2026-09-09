@@ -11,6 +11,7 @@
  */
 import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
+import { sparkStartOf } from "./playerSpark.ts";
 import type { SongPlace } from "./playerSongs.ts";
 import type { PlayerStep } from "./playerWalk.ts";
 
@@ -100,8 +101,8 @@ export type ScopeBlock = {
   /** Which tier's round this landing is the last jump of, or null where the run carries straight
    *  on. Off the `place` the step carries, which is the one thing that advances the tiers (0221). */
   edge: ScopeEdge;
-  /** The ghost it threw, or null where it threw none. */
-  spark: ScopeSpark | null;
+  /** The ghosts it threw, empty where it threw none — one per companion (P123). */
+  sparks: ScopeSpark[];
 };
 
 /**
@@ -262,6 +263,8 @@ export function scopeGeometry(
       splits.push(end / secs);
     }
     const to = end / secs;
+    /** Bound once so the ghosts below read one nullable rather than four. */
+    const sparked = step.sparked;
     blocks.push({
       slot: step.slot,
       from,
@@ -283,14 +286,18 @@ export function scopeGeometry(
       edge: edgeOf(step.place),
       // Where the transport opens it: a fraction of the landing's own window less a seam, which is
       // the same arithmetic `armStep` writes the ghost's own fade at (0175, src/audio/player.ts).
-      spark:
-        step.sparked === null
-          ? null
-          : {
-              slot: step.sparked.slot,
-              at: from + (step.sparked.delay * Math.max(0, end - began - PLAYER_FADE_SECS)) / secs,
-              level: step.sparked.level,
-            },
+      sparks:
+        sparked === null
+          ? []
+          : sparked.slots.map((slot, index) => ({
+              slot,
+              at:
+                from +
+                (sparkStartOf(index, sparked.slots.length, sparked.delay) *
+                  Math.max(0, end - began - PLAYER_FADE_SECS)) /
+                  secs,
+              level: sparked.level,
+            })),
     });
     began += whole;
     previous = step.bed;

@@ -15,7 +15,7 @@ import { PLAYER_DROP_MAX } from "../../src/lib/playerDrop.ts";
 import { PLAYER_CAST_MAX } from "../../src/lib/playerCast.ts";
 import { PLAYER_SLOTS } from "../../src/lib/playerSlots.ts";
 import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
-import { PLAYER_SPARK_DELAY_MAX } from "../../src/lib/playerSpark.ts";
+import { PLAYER_SPARK_COUNT_MAX, PLAYER_SPARK_DELAY_MAX } from "../../src/lib/playerSpark.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
@@ -71,7 +71,7 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops, cast, delay }) => {
+    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops, cast, delay, count }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -156,6 +156,10 @@ export const renderPlayer = async ({ page }) => {
         // in the app leaves it: what these render is what they rendered before a spark could be
         // held back, and the third render below is what says the field reaches the file (P132).
         sparkDelay: 0,
+        // And one companion where it throws any, which is where a switch pressed in the app leaves
+        // the count: what these render is what they rendered before a landing could throw more
+        // than one, and the last spark render below is what says the field reaches the file (P123).
+        sparkCount: 1,
         gate,
         burst,
         vary,
@@ -240,6 +244,7 @@ export const renderPlayer = async ({ page }) => {
         sparkless,
         sparking,
         delayed,
+        counted,
         synced,
         syncedAgain,
         loose,
@@ -282,6 +287,19 @@ export const renderPlayer = async ({ page }) => {
         // a delay no unit test can hear (P132, plan §3).
         window.mulch.render(
           grain({ ...pattern(11, 0), spark: 1, sparkLevel: 1, sparkDelay: delay }),
+        ),
+        // And the same pattern throwing as many companions as the dial allows, each held back to
+        // its share of that delay. The count draws a jump per spark, so this is a walk of its own
+        // as well as more sound — which is exactly the claim: the field reaches the file rather
+        // than stopping at the spec (P123, plan §3).
+        window.mulch.render(
+          grain({
+            ...pattern(11, 0),
+            spark: 1,
+            sparkLevel: 1,
+            sparkDelay: delay,
+            sparkCount: count,
+          }),
         ),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
@@ -337,6 +355,7 @@ export const renderPlayer = async ({ page }) => {
         sparkless: sparkless.fingerprint,
         sparking: sparking.fingerprint,
         delayed: delayed.fingerprint,
+        counted: counted.fingerprint,
         home: home.fingerprint,
         moved: moved.fingerprint,
         crawled: crawled.fingerprint,
@@ -368,6 +387,7 @@ export const renderPlayer = async ({ page }) => {
       rests: PLAYER_REST_MAX,
       drops: PLAYER_DROP_MAX,
       delay: PLAYER_SPARK_DELAY_MAX / 2,
+      count: PLAYER_SPARK_COUNT_MAX,
       cast: PLAYER_CAST_MAX,
     },
   );
@@ -481,6 +501,14 @@ export const renderPlayer = async ({ page }) => {
       delayed: rendered.delayed,
     });
   }
+  // And so does the count: the same walk seed at the same level and the same delay, with four
+  // companions per landing instead of one, is a different file — four regions of the loop sounding
+  // across each landing rather than one (P123).
+  if (asText(rendered.counted) === asText(rendered.delayed)) {
+    fail("a landing throwing four sparks rendered the same file as one throwing a single spark", {
+      counted: rendered.counted,
+    });
+  }
 
   // The ground the loop is read on reaches the file. A bed is the one thing in this module that
   // moves the *window* rather than moving inside it, so the proof is a pattern that walks the same
@@ -558,7 +586,8 @@ export const renderPlayer = async ({ page }) => {
       "and a pattern dropping every landing rendered silence, and a sparking one was louder " +
       `than itself unsparked in ${louder.length} of ` +
       `${rendered.sparking.rmsDb.length} windows, and a spark held back half a landing rendered ` +
-      "a file of its own, and a ground kept for every second jump rendered a file of its own " +
+      "a file of its own, as did a landing throwing four of them, " +
+      "and a ground kept for every second jump rendered a file of its own " +
       "against the same pattern wandering",
   );
 };

@@ -85,6 +85,7 @@ const PLAYER: PlayerSpec = {
   spark: 0,
   sparkLevel: 0.5,
   sparkDelay: 0,
+  sparkCount: 1,
   burst: SLOT,
   vary: 0,
   varyChance: 1,
@@ -362,7 +363,7 @@ describe("a sparking landing", () => {
       // in: the pair is built together and the queue keeps only the first of them.
       expect(sparking.sources[at * 2]?.started[0]?.[1]).toBeCloseTo(step.slot * SLOT, 9);
       expect(sparking.sources[at * 2 + 1]?.started[0]?.[1]).toBeCloseTo(
-        (step.sparked?.slot ?? Number.NaN) * SLOT,
+        (step.sparked?.slots[0] ?? Number.NaN) * SLOT,
         9,
       );
     });
@@ -400,7 +401,7 @@ describe("a sparking landing", () => {
       expect(spark?.started[0]?.[0]).toBeCloseTo(landing?.started[0]?.[0] ?? Number.NaN, 9);
       expect(spark?.stopped[0]).toBeCloseTo(landing?.stopped[0] ?? Number.NaN, 9);
       expect((spark?.loopEnd ?? 0) - (spark?.loopStart ?? 0)).toBeCloseTo(
-        clamped(step.sparked?.slot ?? Number.NaN),
+        clamped(step.sparked?.slots[0] ?? Number.NaN),
         9,
       );
       expect(sparking.gainNodes[PRE_PLAYER_GAINS + at * 2 + 1]?.gain.value).toBe(LEVEL);
@@ -408,7 +409,7 @@ describe("a sparking landing", () => {
     // And the clamp really does bite on this burst: some spark loops a window its landing does not,
     // which is what says the line above is the spark's own slot rather than the landing's.
     expect(
-      steps.some((step) => clamped(step.sparked?.slot ?? Number.NaN) !== clamped(step.slot)),
+      steps.some((step) => clamped(step.sparked?.slots[0] ?? Number.NaN) !== clamped(step.slot)),
     ).toBe(true);
   });
 
@@ -444,7 +445,7 @@ describe("a sparking landing", () => {
     const host = jumping({ spark: 1 });
     const first = playerSequence({ ...PLAYER, spark: 1 }, 1)[0];
     // The spark of the first landing is somewhere else in the loop, or this proves nothing.
-    expect(first?.sparked?.slot).not.toBe(first?.slot);
+    expect(first?.sparked?.slots[0]).not.toBe(first?.slot);
     host.now((host.sources[0]?.started[0]?.[0] ?? 0) + into);
     host.voice.peek(out);
     // The first landing of any pattern is slot 0 — a play begins at the top of the loop.
@@ -520,22 +521,23 @@ describe("a delayed spark", () => {
     const host = jumping({ spark: 1, sparkDelay: HALF });
     const first = playerSequence({ ...PLAYER, spark: 1, sparkDelay: HALF }, 1)[0];
     // The companion is somewhere else in the loop, or this proves nothing.
-    expect(first?.sparked?.slot).not.toBe(first?.slot);
+    expect(first?.sparked?.slots[0]).not.toBe(first?.slot);
     const at = host.sources[0]?.started[0]?.[0] ?? Number.NaN;
     const begins = host.sources[1]?.started[0]?.[0] ?? Number.NaN;
     // Inside the landing but before the companion's own start: the landing is reading and the
     // spark is not, so the peaks have one cursor to paint.
     host.now((at + begins) / 2);
     host.voice.peek(out);
-    expect(out.player.sparkPosition).toBeNull();
+    expect(out.player.sparkPositions).toEqual([]);
     expect(out.position).toBeCloseTo((begins - at) / 2, 6);
     // And a quarter of a slot after it began: the landing goes on answering off its own slot and
     // the companion answers off the slot it was thrown at.
     const into = SLOT / 4;
     host.now(begins + into);
     host.voice.peek(out);
-    expect(out.player.sparkPosition).toBeCloseTo(
-      (first?.sparked?.slot ?? Number.NaN) * SLOT + into,
+    expect(out.player.sparkPositions).toHaveLength(1);
+    expect(out.player.sparkPositions[0]).toBeCloseTo(
+      (first?.sparked?.slots[0] ?? Number.NaN) * SLOT + into,
       6,
     );
     // Wrapped on the landing's own slot, which is what a landing longer than its burst does: four

@@ -135,14 +135,15 @@ describe("the scope's geometry", () => {
    * source actually starts (0175).
    */
   it("puts a spark's ghost at its own slot and its own delay", () => {
-    const step = landing({ burst: 1, sparked: { slot: 11, level: 0.5, delay: 0.5 } });
+    const step = landing({ burst: 1, sparked: { slots: [11], level: 0.5, delay: 0.5 } });
     const { blocks, secs } = scopeGeometry([step, landing({ slot: 2 })], 0, SLOT_SECS);
-    const spark = blocks[0]?.spark;
+    const spark = blocks[0]?.sparks[0];
+    expect(blocks[0]?.sparks).toHaveLength(1);
     expect(spark?.slot).toBe(11);
     expect(spark?.level).toBe(0.5);
     expect(spark?.at).toBeCloseTo((0.5 * (1 - PLAYER_FADE_SECS)) / secs, 10);
     // A landing that threw none draws none, rather than a ghost at nothing.
-    expect(blocks[1]?.spark).toBeNull();
+    expect(blocks[1]?.sparks).toEqual([]);
   });
 
   /** A sheet with nothing in it is no blocks, rather than a division by a length of zero. */

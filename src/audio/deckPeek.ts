@@ -37,15 +37,18 @@ export type PlayerPeek = {
    */
   at: number | null;
   /**
-   * Where the spark of the landing the clock is inside is reading, in buffer seconds, or null
-   * wherever there is none — a landing that threw one, and a delayed one only once its own start
-   * has passed (0175). A second reported position on the one queue entry and never a second queue:
-   * the deck's own `position` above goes on answering off the landing, which is why a spark rides
-   * that landing's entry at all (0166). The jumps module's rather than the deck's, because a deck
-   * that is not jumping has no such read to report — and named for the position it is rather than
-   * for the field it comes from: `spark` on the spec is the odds a landing throws one.
+   * Where each spark of the landing the clock is inside is reading, in buffer seconds — empty
+   * wherever there is none, and holding only the ones actually sounding, since a delayed spark
+   * enters the list only once its own start has passed (0175). Reported positions on the one queue
+   * entry and never a second queue: the deck's own `position` above goes on answering off the
+   * landing, which is why a spark rides that landing's entry at all (0166). The jumps module's
+   * rather than the deck's, because a deck that is not jumping has no such read to report — and
+   * named for the positions they are rather than for the field they come from: `spark` on the spec
+   * is the odds a landing throws any, and `sparkCount` how many that is.
+   *
+   * Refilled in place like every other list on this read, never replaced (0070).
    */
-  sparkPosition: number | null;
+  sparkPositions: number[];
   /**
    * The part a hand has queued to play next, or null where the run is keeping its own order — a
    * launch grid's ring. Held until the jump is *heard*: the pass draws it seconds ahead of the
@@ -132,7 +135,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meters: new Map(),
   grown: new Map(),
   waits: new Map(),
-  player: { step: null, at: null, sparkPosition: null, armed: null },
+  player: { step: null, at: null, sparkPositions: [], armed: null },
 });
 
 /** What a deck with no graph behind it reads as. Emptied in place, never replaced. */
@@ -147,6 +150,6 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.waits.clear();
   out.player.step = null;
   out.player.at = null;
-  out.player.sparkPosition = null;
+  out.player.sparkPositions.length = 0;
   out.player.armed = null;
 }

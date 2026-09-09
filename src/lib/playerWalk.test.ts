@@ -117,9 +117,9 @@ const SWITCH_LEAVES = [
 ];
 
 /** One step with its spark's level taken off it, so two walks that differ only in that dial are
- *  compared by every other field — the spark's slot included (P123). */
+ *  compared by every other field — the sparks' slots included (P123). */
 const apartFromLevel = (steps: readonly PlayerStep[]) =>
-  steps.map(({ sparked, ...step }) => ({ ...step, sparkSlot: sparked?.slot ?? null }));
+  steps.map(({ sparked, ...step }) => ({ ...step, sparkSlots: sparked?.slots ?? null }));
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -674,13 +674,13 @@ describe("a landing that throws a spark", () => {
     // Inside the grid, and somewhere the landing is not: a spark is a second region of the loop.
     expect(
       every.every((step) => {
-        const slot = step.sparked?.slot ?? -1;
+        const slot = step.sparked?.slots[0] ?? -1;
         return Number.isInteger(slot) && slot >= 0 && slot < PLAYER_SLOTS;
       }),
     ).toBe(true);
     // Somewhere else, nearly always: the jump may wrap or come home onto the landing's own slot,
     // which is the jump answering and not a case the walk draws again for (P123).
-    expect(every.filter((step) => step.sparked?.slot !== step.slot).length).toBeGreaterThan(32);
+    expect(every.filter((step) => step.sparked?.slots[0] !== step.slot).length).toBeGreaterThan(32);
     // The jump it lands on is drawn from the one stream the pattern is a function of, so a pattern
     // that sparks walks somewhere a pattern that does not never reaches.
     expect(slots(every)).not.toEqual(slots(playerSequence(jumping({}), 64)));

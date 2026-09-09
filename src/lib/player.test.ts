@@ -31,6 +31,7 @@ import {
 } from "./playerRepeats.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN } from "./playerCast.ts";
 import { PLAYER_BED_PERS } from "./playerBed.ts";
+import { PLAYER_SPARK_COUNT_MAX, PLAYER_SPARK_COUNT_MIN } from "./playerSpark.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
 import { PLAYER_DISTANCE_MAX, PLAYER_PHRASE_MAX, PLAYER_SLOTS } from "./playerSlots.ts";
@@ -90,6 +91,7 @@ const SPEC: PlayerSpec = {
   spark: 0,
   sparkLevel: 0.5,
   sparkDelay: 0,
+  sparkCount: 1,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -728,6 +730,30 @@ describe("the player's pattern", () => {
    * burst is a number inside the seconds range that replaced it, which is exactly why the key set
    * has to be the gate. Pre-release, such a spec is discarded and never repaired (0026, 0135).
    */
+  /**
+   * And a spec from before a landing could throw more than one companion, which is the same
+   * refusal one field along: it carries no `sparkCount`, so the key set discards it whole rather
+   * than filling the field in at a default — pre-release there are no migrations (0026, P123).
+   * The bound is a whole number floored at one, because nought is not a spark nobody hears, it is
+   * a second way to say the Spark dial is off (src/lib/playerSpark.ts).
+   */
+  it("refuses a spec from before a landing could throw more than one spark", () => {
+    const { sparkCount: _count, ...before } = SPEC;
+    expect(() => assertPlayer(before, "a player")).toThrow(/expected/u);
+    expect(() => assertPlayer(before, "a player")).toThrow(/sparkCount/u);
+    expect(() =>
+      assertPlayer({ ...SPEC, sparkCount: PLAYER_SPARK_COUNT_MIN - 1 }, "a player"),
+    ).toThrow(/outside/u);
+    expect(() =>
+      assertPlayer({ ...SPEC, sparkCount: PLAYER_SPARK_COUNT_MAX + 1 }, "a player"),
+    ).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, sparkCount: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(assertPlayer({ ...SPEC, sparkCount: PLAYER_SPARK_COUNT_MAX }, "a player")).toEqual({
+      ...SPEC,
+      sparkCount: PLAYER_SPARK_COUNT_MAX,
+    });
+  });
+
   it("refuses a spec from before the count had its own door, on its key set", () => {
     const { repeatsChance: _c, repeatsSpread: _s, repeatsHold: _h, ...before } = SPEC;
     expect(() => assertPlayer({ ...before, vary: 0.5 }, "a player")).toThrow(/expected/u);

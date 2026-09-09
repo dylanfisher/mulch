@@ -138,6 +138,9 @@ export const PLAYER_DEFAULTS = {
   // about the walk, and a name pressed at half an amount would promise something about a sample it
   // cannot know. It stands where the switch left it (P132, P123, P118).
   sparkDelay: 0,
+  // And one companion where a landing throws any, which is what a spark was before it could be
+  // counted: the floor of the count is the count that changes nothing (P123).
+  sparkCount: 1,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
   burst: 0.25,
@@ -560,7 +563,7 @@ export function partSignature(voice: PartVoice): PlayerPartKnob[] {
     const distance = Math.abs(voice[knob] - PLAYER_DEFAULTS[knob]) / (dial.max - dial.min);
     if (distance > 0) away.set(knob, distance);
   }
-  // Three passes for the three furthest rather than a sort of all thirty-two: this runs on every
+  // Three passes for the three furthest rather than a sort of all thirty-three: this runs on every
   // render of every row of a song, and a strict `>` is what keeps two knobs at one distance in the
   // order the card draws them.
   const named: PlayerPartKnob[] = [];

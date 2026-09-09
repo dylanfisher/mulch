@@ -143,11 +143,11 @@ describe("Waveform's frame", () => {
     const meter = surface();
     const surfaces = {
       playhead: playhead.ref,
-      spark: spark.ref,
+      sparks: { current: [spark.ref.current] },
       ground: ground.ref,
       meter: meter.ref,
     };
-    const worn = { playhead: "", spark: "", left: "", width: "", meter: "" };
+    const worn = { playhead: "", sparks: [""], left: "", width: "", meter: "" };
     // A deck a bed into its loop, throwing a spark and sounding at half: every surface has a value.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const step = { slot: 0, bed: 1 } as PlayerStep;
@@ -155,7 +155,7 @@ describe("Waveform's frame", () => {
       ...emptyDeckPeek(),
       position: 1.5,
       meter: 0.5,
-      player: { step, at: 0, sparkPosition: 2.5, armed: null },
+      player: { step, at: 0, sparkPositions: [2.5], armed: null },
     };
     const loop = { in: 1, out: 3 };
     paintTransport(read, 10, loop, null, 200, surfaces, worn);

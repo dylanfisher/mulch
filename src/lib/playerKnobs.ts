@@ -69,6 +69,8 @@ import {
   PLAYER_SPREAD_MIN,
 } from "./playerRungs.ts";
 import {
+  PLAYER_SPARK_COUNT_MAX,
+  PLAYER_SPARK_COUNT_MIN,
   PLAYER_SPARK_DELAY_MAX,
   PLAYER_SPARK_DELAY_MIN,
   PLAYER_SPARK_LEVEL_MAX,
@@ -188,6 +190,10 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // shapes no draw either — the walk rolls whether a landing sparks and where, and both of the
   // spark's amounts are carried rather than drawn (0124, 0175).
   sparkDelay: { min: PLAYER_SPARK_DELAY_MIN, max: PLAYER_SPARK_DELAY_MAX },
+  // And how many of them one roll is worth — a count of companions and so stepped whole, the way
+  // every other count on this card is. Carried beside the level and the delay for their reason: it
+  // shapes no draw the Spark dial bounds, it says how many jumps that dial's own roll takes (0124).
+  sparkCount: { min: PLAYER_SPARK_COUNT_MIN, max: PLAYER_SPARK_COUNT_MAX, step: 1 },
   /**
    * The other dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —

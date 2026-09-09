@@ -71,6 +71,8 @@ import {
   type SessionGround,
 } from "./sessionGround.ts";
 import {
+  PLAYER_SPARK_COUNT_MAX,
+  PLAYER_SPARK_COUNT_MIN,
   PLAYER_SPARK_DELAY_MAX,
   PLAYER_SPARK_DELAY_MIN,
   PLAYER_SPARK_LEVEL_MAX,
@@ -175,7 +177,7 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
  * filled in at a legal value of their own — the four the song is drawn by and the two dials the
  * ground is walked by at their floors, its words at the quiet one of each, the cast at its whole,
  * which is the one of them whose floor is not the identity — and thrown away again. There is exactly one validator for what a number of this
- * module may be, and a part's numbers are that module's numbers — a second copy of thirty-two
+ * module may be, and a part's numbers are that module's numbers — a second copy of thirty-three
  * bounds here is the one thing principle 1 refuses, and it is the copy that would drift the first
  * time a range moved.
  */
@@ -421,6 +423,14 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
       PLAYER_SPARK_DELAY_MAX,
       `${at} sparkDelay`,
     ),
+    // A count of companions and so a whole number, floored at one: nought is not a spark nobody
+    // hears, it is a second way to say the Spark dial is off (src/lib/playerSpark.ts).
+    sparkCount: whole(
+      raw["sparkCount"],
+      PLAYER_SPARK_COUNT_MIN,
+      PLAYER_SPARK_COUNT_MAX,
+      `${at} sparkCount`,
+    ),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     varyChance: within(
@@ -585,6 +595,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         spark: player.spark,
         sparkLevel: player.sparkLevel,
         sparkDelay: player.sparkDelay,
+        sparkCount: player.sparkCount,
         burst: player.burst,
         vary: player.vary,
         varyChance: player.varyChance,

@@ -228,7 +228,7 @@ const block = (from: number, to: number, wait: ScopeBlock["wait"]): ScopeBlock =
   moved: false,
   wait,
   edge: null,
-  spark: null,
+  sparks: [],
 });
 
 const render = (state: DeckState, solo: string | null = null) =>

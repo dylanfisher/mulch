@@ -6,7 +6,8 @@
  *   burst's seconds are and nothing else about the clock. The deck that owns this →
  *   src/audio/deck.ts: it holds the buffer, the loop and the plan, and hands all three over here.
  *   Where the seams of one step fall, and the shapes they are drawn along →
- *   src/audio/playerSeam.ts. The contract this fills, which is read a tier up →
+ *   src/audio/playerSeam.ts. The companions a sparking landing hangs under its own fader →
+ *   src/audio/playerSparks.ts. The contract this fills, which is read a tier up →
  *   src/audio/playerVoice.ts.
  */
 // Over the 400-line cap by one section: the shared jump clock (0097) reaches four places in the
@@ -34,6 +35,7 @@ import { songsOnset, soloSongs } from "@/lib/playerSongs";
 import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
+import { buildSparks, type ReadSlot, type Spark } from "./playerSparks";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
@@ -41,25 +43,17 @@ type Scheduled = {
   source: AudioBufferSourceNode;
   fader: GainNode;
   /**
-   * The second, quieter source this landing threw, or null where it threw none — held on the
-   * landing's own entry and never as an entry of its own. That is the whole of what a spark costs
-   * the queue: `position` scans this list for the latest entry the clock is at or past, so a
-   * companion sitting in it would win that scan and the deck's read head would follow the spark
-   * instead of the landing, which is where the pattern actually is (P123).
+   * The quieter sources this landing threw, empty where it threw none — held on the landing's own
+   * entry and never as entries of their own. That is the whole of what a spark costs the queue:
+   * `position` scans this list for the latest entry the clock is at or past, so a companion
+   * sitting in it would win that scan and the deck's read head would follow the spark instead of
+   * the landing, which is where the pattern actually is (P123).
    *
-   * Its level gain is held here too, and for the reason the source is: what a step is made of is
-   * what a step has to let go of, and a node dropped from this list without being disconnected is
-   * still wired into the chain.
+   * Their level gains are held here too, and for the reason the sources are: what a step is made
+   * of is what a step has to let go of, and a node dropped from this list without being
+   * disconnected is still wired into the chain.
    */
-  spark: {
-    source: AudioBufferSourceNode;
-    level: GainNode;
-    /** Where it reads and the window it loops there, so the cursor below can answer off it. */
-    slot: number;
-    span: number;
-    /** And when it began, which is the one instant it does not share with the landing (0175). */
-    at: number;
-  } | null;
+  sparks: Spark[];
   at: number;
   ends: number;
   /**
@@ -205,8 +199,10 @@ export function createDeckPlayer(
     if (at >= 0) queue.splice(at, 1);
     step.source.disconnect();
     step.fader.disconnect();
-    step.spark?.source.disconnect();
-    step.spark?.level.disconnect();
+    for (const spark of step.sparks) {
+      spark.source.disconnect();
+      spark.level.disconnect();
+    }
   }
 
   /**
@@ -299,12 +295,7 @@ export function createDeckPlayer(
     // it is a function precisely so the spark and the landing that threw it share one copy of that
     // arithmetic (P123, principle 1). See docs/decisions/0007-reviewed-oversized-functions.md.
     // oxlint-disable-next-line max-lines-per-function
-    const readSlot = (
-      slot: number,
-      into: AudioNode,
-      begins: number,
-      tune: (source: AudioBufferSourceNode) => void,
-    ): { source: AudioBufferSourceNode; span: number } => {
+    const readSlot: ReadSlot = (slot, into, begins, tune) => {
       // The bed resolved once for the two things that need it — where the slot begins and where
       // its own bed ends — rather than folded twice per source (principle 1, and one modulo).
       const ground = bedStart(grid, step.bed);
@@ -371,63 +362,27 @@ export function createDeckPlayer(
       climb(node.playbackRate, deckSpeed);
     });
     /**
-     * The companion, where this landing threw one: a second source at another slot, through a gain
-     * held at its level and into the landing's *own* fader. Everything a spark has that is not its
-     * slot, its level and how far into the landing it begins it takes from the landing — the same
-     * window, the same count, the same stop, the same direction, and every seam but the one it
-     * opens on — because it hangs under the fader those seams are written on
-     * (P123). It is held here rather than pushed onto the queue as an entry of its own: `position`
-     * answers off the latest entry the clock is at or past, and a companion in that list would win
-     * the scan and walk the cursor away from the pattern (docs/plan.md, P123).
+     * The companions, where this landing threw any — built where they are declared, and handed
+     * the landing's own fader and the tuning of its own source so the two can differ by nothing
+     * but a slot, a level and a start (P123, src/audio/playerSparks.ts).
      */
-    const spark =
-      step.sparked === null
-        ? null
-        : (() => {
-            const level = ctx.createGain();
-            level.connect(fader);
-            // A fraction of the landing's own window less a seam, and the fraction is the whole
-            // bound: no reading of the dial can start a spark at or after its own stop, at any
-            // burst, count or rate, so nothing downstream checks that one did (0175, 0166).
-            const begins = at + step.sparked.delay * Math.max(0, ends - at - PLAYER_FADE_SECS);
-            // The one seam a spark writes for itself: undelayed it opens under a fader still at
-            // zero, delayed it would step the sum by a whole second read in one sample (0104,
-            // 0175). Straight rather than equal-power — it opens over its own silence — and no
-            // automation at all at none, so that pattern lays the graph it always laid.
-            if (begins > at) {
-              level.gain.value = 0;
-              level.gain.setValueAtTime(0, begins);
-              level.gain.linearRampToValueAtTime(step.sparked.level, begins + PLAYER_FADE_SECS);
-            } else {
-              level.gain.value = step.sparked.level;
-            }
-            const read = readSlot(step.sparked.slot, level, begins, (node) => {
-              // The landing's own speed and pitch, copied off its source rather than bound: the
-              // chain holds exactly one source and writes a live speed or pitch change onto that
-              // one (0031, src/audio/chain.ts), so a companion handed to `bindSource` would take
-              // the move away from the landing it is meant to hang under — and the two would then
-              // read at two rates, which is the one thing a spark may never do (P123).
-              // The whole ladder and not only the rung it starts on: a spark that kept the
-              // first rate while its landing climbed would be the two reading at two rates,
-              // which is the one thing a spark may never do (P123, 0167).
-              climb(node.playbackRate, deckSpeed);
-              node.detune.value = source.detune.value;
-            });
-            return {
-              source: read.source,
-              level,
-              slot: step.sparked.slot,
-              span: read.span,
-              at: begins,
-            };
-          })();
+    const sparks = buildSparks(ctx, fader, step.sparked, at, ends, readSlot, (node) => {
+      // The landing's own speed and pitch, copied off its source rather than bound: the chain
+      // holds exactly one source and writes a live speed or pitch change onto that one (0031,
+      // src/audio/chain.ts), so a companion handed to `bindSource` would take the move away from
+      // the landing it is meant to hang under — and the two would then read at two rates, which is
+      // the one thing a spark may never do (P123). The whole ladder and not only the rung it
+      // starts on, for that same reason (P123, 0167).
+      climb(node.playbackRate, deckSpeed);
+      node.detune.value = source.detune.value;
+    });
 
     seam(fader, step, at, ends, spans);
 
     const scheduled: Scheduled = {
       source,
       fader,
-      spark,
+      sparks,
       at,
       ends,
       next,
@@ -523,9 +478,9 @@ export function createDeckPlayer(
     const dropping = queue.filter((entry) => entry.at > from);
     for (const step of dropping) {
       step.source.stop();
-      // And its companion, which is a started source like any other: a landing dropped ahead of the
-      // clock takes its spark with it, or the spark sounds over the pattern that replaced it (P123).
-      step.spark?.source.stop();
+      // And its companions, which are started sources like any other: a landing dropped ahead of
+      // the clock takes its sparks with it, or they sound over the pattern that replaced it (P123).
+      for (const spark of step.sparks) spark.source.stop();
       release(step);
     }
     const first = dropping[0];
@@ -577,20 +532,18 @@ export function createDeckPlayer(
   }
 
   /**
-   * Where the spark of `step` is reading at `at`, or null wherever there is none — no pass, a
-   * landing that threw none, or a delayed one whose own start is still ahead.
+   * Where one spark of `step` is reading at `at`, or null wherever it is not reading — no pass, or
+   * a delayed one whose own start is still ahead.
    *
-   * A second answer off the same entry and never a second queue: `position` goes on answering off
-   * the landing, which is precisely why a spark rides the landing's entry (0166), so the cursor
-   * the peaks paint for it is asked for separately (0175). The step is handed in rather than
-   * scanned for again: `standingAt` walks the whole queue and `peek` has just called it, and this
-   * is the per-frame read (0070).
+   * One answer per companion off the same entry and never a second queue: `position` goes on
+   * answering off the landing, which is precisely why a spark rides the landing's entry (0166), so
+   * the cursors the peaks paint for them are asked for separately (0175). The step is handed in
+   * rather than scanned for again: `standingAt` walks the whole queue and `peek` has just called
+   * it, and this is the per-frame read (0070).
    */
-  const sparkPositionOf = (step: Scheduled | null, at: number): number | null => {
+  const sparkPositionOf = (step: Scheduled, spark: Spark, at: number): number | null => {
     if (running === null) return null;
     const { grid } = running;
-    const spark = step?.spark ?? null;
-    if (step === null || spark === null) return null;
     // The landing's window is what `readInto` sums over, so a spark held back is the difference
     // of two reads of it: how far the landing has read now, less how far it had read when the
     // spark started. That keeps the two on one ladder — the companion is stepped at the
@@ -765,7 +718,23 @@ export function createDeckPlayer(
       const entry = running === null ? null : standingAt(at);
       out.step = entry?.step ?? null;
       out.at = entry?.ordinal ?? null;
-      out.sparkPosition = sparkPositionOf(entry, at);
+      // Written by index and shortened only on the frame the count actually changes, which is what
+      // 0070 asks of every list a sixty-times-a-second read fills: `length = 0` on the way in is a
+      // write per frame exactly as `clear()` is, and this list is the same length on almost all of
+      // them. The same shape a rack trims its grown rows with (src/audio/effects/rack.ts).
+      //
+      // Only the ones actually reading are written, so a delayed spark whose own start is still
+      // ahead has no cursor rather than a parked one — and since a spark's start rises with its
+      // index, the ones sounding are always a prefix and a reading never lands on another's
+      // cursor (src/lib/playerSpark.ts).
+      let reading = 0;
+      if (entry !== null) {
+        for (const spark of entry.sparks) {
+          const where = sparkPositionOf(entry, spark, at);
+          if (where !== null) out.sparkPositions[reading++] = where;
+        }
+      }
+      if (out.sparkPositions.length !== reading) out.sparkPositions.length = reading;
       // Armed until it is heard, not until it is drawn: a jump is drawn seconds ahead of the clock.
       out.armed = pending ?? (landing !== null && landing.at > at ? landing.part : null);
     },
@@ -786,9 +755,11 @@ export function createDeckPlayer(
         step.source.stop();
         step.source.disconnect();
         step.fader.disconnect();
-        step.spark?.source.stop();
-        step.spark?.source.disconnect();
-        step.spark?.level.disconnect();
+        for (const spark of step.sparks) {
+          spark.source.stop();
+          spark.source.disconnect();
+          spark.level.disconnect();
+        }
       }
     },
   };

@@ -44,6 +44,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   spark: "Spark",
   sparkLevel: "Level",
   sparkDelay: "Delay",
+  sparkCount: "Count",
   burst: "Burst",
   vary: "Vary",
   varyChance: "Chance",
@@ -116,11 +117,13 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   reverse:
     "The odds one landing reads its slot backwards. Zero plays every landing the way the sample runs; anything more turns some of them around without moving where or how long they land.",
   spark:
-    "The odds one landing throws a second, quieter one at another slot, so two regions of the loop sound at once and in rhythm. Zero sounds one region at a time.",
+    "The odds one landing throws quieter ones at other slots, so several regions of the loop sound at once and in rhythm. Zero sounds one region at a time. How many it throws is the Count beside it.",
   sparkLevel:
-    "How loud a spark is against the landing that threw it. All the way is two equal reads at once; none of it silences the spark and leaves the landing alone.",
+    "How loud each spark is against the landing that threw it. All the way is every one of them as loud as the landing, which at a count above one is a stack; none of it silences them and leaves the landing alone.",
   sparkDelay:
-    "How far into the landing its spark begins, as a fraction of the landing's own window. None of it sounds the two together; all the way holds it back to the landing's last seam, so it can never outlast the landing it rides whatever the burst is — and where a gate has cut that far, there is nothing left of the landing for it to sound through.",
+    "How far into the landing the last of its sparks begins, as a fraction of the landing's own window — the rest stand evenly between it and the landing's start. None of it sounds them all with the landing; all the way holds the last back to the landing's last seam, so none can outlast the landing it rides whatever the burst is — and where a gate has cut that far, there is nothing left of the landing for it to sound through.",
+  sparkCount:
+    "How many sparks a landing that throws any throws. One is a single companion under the landing; more spread evenly across the delay above, so the last of them lands where that dial says and the rest stand between it and the landing's start.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may stray either way, in seconds — the burst's own unit, so the two dials read against each other. A reading under one second is milliseconds.",

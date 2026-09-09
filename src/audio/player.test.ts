@@ -129,6 +129,7 @@ export const PLAYER: PlayerSpec = {
   spark: 0,
   sparkLevel: 0.5,
   sparkDelay: 0,
+  sparkCount: 1,
   // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
   // case below was written around back when the number said "slots" and meant this length.
   burst: SLOT,
@@ -148,7 +149,7 @@ export const PLAYER: PlayerSpec = {
   cast: PLAYER_CAST_MAX,
 };
 /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
-const PRE_PLAYER_GAINS = 2;
+export const PRE_PLAYER_GAINS = 2;
 
 export const jumping = (patch: Partial<PlayerSpec> = {}, span = SPAN) => {
   const host = deck();

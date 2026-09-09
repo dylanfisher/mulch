@@ -118,24 +118,26 @@ export type PlayerStep = {
    */
   reversed: boolean;
   /**
-   * The second, quieter landing this one throws, or null where it throws none — which is every
-   * landing of a pattern whose `spark` is zero. Where it reads, how loud it is and how far into
-   * this landing it begins — a fraction of this landing's own window, so no value of it can put
+   * The quieter landings this one throws, or null where it throws none — which is every
+   * landing of a pattern whose `spark` is zero. Where each reads, how loud they are and how far
+   * into this landing the last of them begins — a fraction of this landing's own window, so no value of it can put
    * the spark outside the entry it rides (0175) — and nothing
    * else: everything a spark has that is not one of those three it takes from the landing that
    * threw it — the same window, the same count, the same seams, the same direction — which is what makes
-   * it a companion rather than a step of its own (P123, src/audio/player.ts).
+   * it a companion rather than a step of its own (P123, src/audio/playerSparks.ts). One level and one
+   * delay for the whole list and never one of each per spark: the spacing is arithmetic on that
+   * delay (`sparkStartOf`, src/lib/playerSpark.ts) rather than a second clock (0124).
    *
    * Rolled per landing off `spark`, exactly as the hole and the reversal above it are, so a pattern
    * that sparks nothing rolls nothing and lays down the stream it laid before this field existed.
-   * Where it lands is one ordinary jump from the landing — `travelFrom`, off this walk's own
-   * generator and never a second one — so a spark obeys the distance and the lean the pattern is
+   * Where each lands is one ordinary jump from the landing — `travelFrom`, off this walk's own
+   * generator and never a second one, one jump per spark — so a spark obeys the distance and the lean the pattern is
    * already walking under. Which means it may land on the landing's own slot: a home roll, or a
    * move that wraps the grid back onto it. That is the jump answering rather than a case to draw
    * again — a redraw would spend a second draw per landing — and what it comes to is the landing
    * sounding once more at the spark's level, which is a level and not a click (P123).
    */
-  sparked: { slot: number; level: number; delay: number } | null;
+  sparked: { slots: number[]; level: number; delay: number } | null;
   /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
@@ -644,7 +646,14 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // is what keeps the stream the one it laid before a landing could throw one (P123).
       sparked:
         voice.spark > 0 && random() < voice.spark
-          ? { slot: travelFrom(slot), level: voice.sparkLevel, delay: voice.sparkDelay }
+          ? {
+              // One jump per companion, drawn off this walk's own generator in a row: at a count
+              // of one that is exactly the single draw a sparking landing took before the count
+              // existed, which is what keeps that pattern's stream the stream it laid (P123).
+              slots: Array.from({ length: voice.sparkCount }, () => travelFrom(slot)),
+              level: voice.sparkLevel,
+              delay: voice.sparkDelay,
+            }
           : null,
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.

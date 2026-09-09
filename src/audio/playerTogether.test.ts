@@ -120,6 +120,7 @@ const PLAYER: PlayerSpec = {
   spark: 0,
   sparkLevel: 0.5,
   sparkDelay: 0,
+  sparkCount: 1,
   burst: SLOT,
   vary: 0,
   varyChance: 1,

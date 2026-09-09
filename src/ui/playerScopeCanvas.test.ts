@@ -65,7 +65,7 @@ const blockOf = (repeats: number, over: Partial<ScopeBlock> = {}): ScopeBlock =>
   moved: false,
   wait: null,
   edge: null,
-  spark: null,
+  sparks: [],
   ...over,
 });
 
@@ -211,7 +211,7 @@ describe("paintScope", () => {
   it("puts a spark where it opens, one rung tall and quieter than the landing that threw it", () => {
     const drawn = recorder();
     const spark = { slot: 5, at: 0.25, level: 1 };
-    paintScope(drawn.canvas, sheet([blockOf(8, { spark })]), 0, "ink");
+    paintScope(drawn.canvas, sheet([blockOf(8, { sparks: [spark] })]), 0, "ink");
     const drawnSpark = landings(drawn.marks).at(-1);
     expect(drawnSpark?.x).toBeCloseTo(WIDTH / 4, 6);
     expect(drawnSpark?.y).toBeCloseTo(HEIGHT - tallOf(1), 6);

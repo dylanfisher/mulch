@@ -114,6 +114,7 @@ const PLAYER: PlayerSpec = {
   spark: 0,
   sparkLevel: 0.5,
   sparkDelay: 0,
+  sparkCount: 1,
   burst: SLOT,
   vary: 0,
   varyChance: 1,
@@ -191,6 +192,6 @@ describe("what a jumping deck reports", () => {
     // was in: this read is the transport's and it stops with it.
     host.voice.stop();
     host.voice.peek(out);
-    expect(out.player).toEqual({ step: null, at: null, sparkPosition: null, armed: null });
+    expect(out.player).toEqual({ step: null, at: null, sparkPositions: [], armed: null });
   });
 });

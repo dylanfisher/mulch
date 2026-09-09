@@ -37,12 +37,15 @@ const flatten = (node: unknown): Node[] => {
   return [node.props, ...flatten(node.props.children)];
 };
 
-/** The box the burst is timed in, which is where both gestures belong (0195). */
-const timing = (drawn: unknown): Node[] => {
-  const box = flatten(drawn).find((node) => node.label === PLAYER_GROUP_LABELS.timing);
-  if (box === undefined) throw new Error("the dials drew no How It Is Timed box");
+/** The controls of the box `label` names, which is how a case asks what one box drew. */
+const boxed = (drawn: unknown, label: string): Node[] => {
+  const box = flatten(drawn).find((node) => node.label === label);
+  if (box === undefined) throw new Error(`the dials drew no ${label} box`);
   return flatten(box.children);
 };
+
+/** The box the burst is timed in, which is where both gestures belong (0195). */
+const timing = (drawn: unknown): Node[] => boxed(drawn, PLAYER_GROUP_LABELS.timing);
 
 const found = (drawn: unknown, label: string): Node | undefined =>
   timing(drawn).find((node) => node["aria-label"] === label);
@@ -137,5 +140,19 @@ describe("the burst's own two gestures", () => {
     expect(timing(drawn).some((node) => node.knob === "burst")).toBe(true);
     expect(found(drawn, TAP)).toBeUndefined();
     expect(found(drawn, BEAT)).toBeUndefined();
+  });
+});
+
+/**
+ * P123: the count is the spark's fourth dial, and it stands on the spark's own run of the sound
+ * box rather than behind the Spark dial's marker — it shapes no draw that dial bounds, which is
+ * the rule the level and the delay are already on (0124).
+ */
+describe("the spark's own run", () => {
+  it("draws four dials, the count last of them", () => {
+    const drawn = boxed(dials(controls()), PLAYER_GROUP_LABELS.sound)
+      .map((node) => node.knob)
+      .filter((knob) => knob !== undefined && knob.startsWith("spark"));
+    expect(drawn).toEqual(["spark", "sparkLevel", "sparkDelay", "sparkCount"]);
   });
 });

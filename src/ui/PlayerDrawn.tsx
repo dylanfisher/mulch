@@ -90,7 +90,7 @@ export function PlayerDrawn({
           if (badge !== null) badge.textContent = part === undefined ? UNDRAWN : partBadge(part.id);
           if (length !== null) {
             // What a drawn part says about itself besides its name: a part is a spec now, and a
-            // spec is thirty-two numbers rather than a word — so what a row can read out is how
+            // spec is thirty-three numbers rather than a word — so what a row can read out is how
             // long it lasts, which is the one field of a part a listener counts (0176).
             length.textContent =
               part === undefined ? UNDRAWN : `${part.length} ${PLAYER_PART_LENGTH_LABEL}`;

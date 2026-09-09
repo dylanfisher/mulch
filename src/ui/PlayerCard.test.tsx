@@ -155,7 +155,8 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , gate, drop, spark, sparkLevel, sparkDelay, reverse] = handlers(element);
+    const [, , , gate, drop, spark, sparkLevel, sparkDelay, sparkCount, reverse] =
+      handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -174,7 +175,7 @@ describe("the jumps card", () => {
       deck: "a",
       player: { ...PLAYER, reverse: 0.75 },
     });
-    // The three a spark is, beside them on the same row and on the same one command (P123, 0175).
+    // The four a spark is, beside them on the same row and on the same one command (P123, 0175).
     spark?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -193,6 +194,13 @@ describe("the jumps card", () => {
       t: "deck.player",
       deck: "a",
       player: { ...PLAYER, sparkDelay: 0.5 },
+    });
+    // And the fourth, which is how many that one roll is worth (P123).
+    sparkCount?.(3);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, sparkCount: 3 },
     });
   });
 
@@ -292,10 +300,11 @@ describe("the jumps card", () => {
 
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    // Nine dials before it: the Ground box is the song's since 0184, so it stands with the
+    // Ten dials before it: the Ground box is the song's since 0184, so it stands with the
     // arrangement *below* the three boxes a part carries rather than between How It Sounds and
-    // How It Is Timed — and nothing of it is ahead of the burst any more.
-    const [, , , , , , , , , burst] = handlers(element);
+    // How It Is Timed — and nothing of it is ahead of the burst any more. The tenth is the
+    // spark's own count (P123).
+    const [, , , , , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -536,7 +545,7 @@ describe("the jumps card", () => {
     // place no index of loop lengths can name (`bedGround`, src/lib/playerBed.ts).
     vi.spyOn(instrument, "peek").mockReturnValue({
       ...emptyDeckPeek(),
-      player: { step: { ...step, bed: 8 }, at: 0, sparkPosition: null, armed: null },
+      player: { step: { ...step, bed: 8 }, at: 0, sparkPositions: [], armed: null },
     });
     pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
     expect(sent).toHaveBeenCalledTimes(1);
@@ -560,7 +569,7 @@ describe("the jumps card", () => {
     const step = playerSequence(PLAYER, 1)[0]!;
     vi.spyOn(instrument, "peek").mockReturnValue({
       ...emptyDeckPeek(),
-      player: { step: { ...step, bed: 0 }, at: 0, sparkPosition: null, armed: null },
+      player: { step: { ...step, bed: 0 }, at: 0, sparkPositions: [], armed: null },
     });
     pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
     expect(sent).not.toHaveBeenCalled();
