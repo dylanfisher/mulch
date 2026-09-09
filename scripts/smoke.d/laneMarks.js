@@ -10,10 +10,10 @@ export const lanePreview = async ({ page }) => {
   await page.keyboard.down("Alt");
   // The mark is named for the slot that owns the value, because two instances of one effect
   // would otherwise give two knobs the same name (0030).
-  const cutoffMark = page.getByLabel("Yard A EQ 1 Freq Automation");
+  const cutoffMark = page.getByLabel("Yard A EQ/Filter 1 Freq Automation");
   await cutoffMark.scrollIntoViewIfNeeded();
   await cutoffMark.hover();
-  await page.getByLabel(/^Yard A EQ 1 Freq Lane, \d+ points$/u).waitFor();
+  await page.getByLabel(/^Yard A EQ\/Filter 1 Freq Lane, \d+ points$/u).waitFor();
   // One mark per lane and no more: a knob that owns nothing has nothing to show.
   const laneMarks = await page.evaluate(
     () => document.querySelectorAll('[data-automated="true"]').length,
@@ -25,7 +25,7 @@ export const lanePreview = async ({ page }) => {
   const sample = () =>
     page.evaluate(() => {
       const indicator = document.querySelector(
-        '[aria-label="EQ 1"] [role="slider"][aria-label="Freq"] line',
+        '[aria-label="EQ/Filter 1"] [role="slider"][aria-label="Freq"] line',
       );
       const dot = document.querySelector('[data-slot="lane-playhead"]');
       return {
@@ -42,7 +42,7 @@ export const lanePreview = async ({ page }) => {
     await page.waitForFunction(
       (before) => {
         const indicator = document.querySelector(
-          '[aria-label="EQ 1"] [role="slider"][aria-label="Freq"] line',
+          '[aria-label="EQ/Filter 1"] [role="slider"][aria-label="Freq"] line',
         );
         const dot = document.querySelector('[data-slot="lane-playhead"]');
         const now = {

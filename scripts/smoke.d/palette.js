@@ -27,7 +27,7 @@ export const commandPalette = async ({ page }) => {
     fail(`palette smoke: the palette opened offering ${offered} entries`);
   }
 
-  // "Add Yard" is the whole query and matches exactly one label: "Add EQ to Yard A" and the
+  // "Add Yard" is the whole query and matches exactly one label: "Add EQ/Filter to Yard A" and the
   // Go To rows carry both words but never that pair, so the first row is the one Enter takes.
   await filter.fill("Add Yard");
   await page.waitForFunction(() => document.querySelectorAll('[role="option"]').length === 1);

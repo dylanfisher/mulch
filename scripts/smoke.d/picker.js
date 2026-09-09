@@ -22,7 +22,7 @@ export const effectPicker = async ({ page }) => {
   const expected = [
     "Panner",
     "Delay",
-    "EQ",
+    "EQ/Filter",
     "Compressor",
     "Reverb",
     "Tape",

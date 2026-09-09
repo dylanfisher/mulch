@@ -497,7 +497,7 @@ const explainedCaption = (label: string): string => {
 describe("Knob caption", () => {
   /**
    * The caption's line box is spent whether or not the label wraps into it. A rack card is as
-   * tall as its knobs, so one two-word label — "EQ Gain", "Pre-delay" — would otherwise make its
+   * tall as its knobs, so one two-word label — "Band Gain", "Pre-delay" — would otherwise make its
    * card taller than the card beside it and the rack stop reading as a row (P64). The class is
    * asserted rather than a measured height because nothing here lays anything out; the height
    * itself is measured in the browser, by ./scripts/smoke.d/rackRow.js.

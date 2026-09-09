@@ -4,7 +4,7 @@ import { fail, settledBox } from "./harness.js";
 /**
  * How many knobs Option reveals here: both decks' automatable deck parameters — gain and pan —
  * plus the three automatable parameters of the single EQ instance deck a is holding at this point
- * in the scenario order, which is every knob on that card but its Shape (0322). Counted rather than
+ * in the scenario order, which is every knob on that card — its Shape is a picker and not a knob (0322, 0325). Counted rather than
  * read from the registry, because this half of the smoke is plain Node and `src/audio/params.ts`
  * reaches its own imports without extensions. `src/audio/params.test.ts` pins the automatable list
  * exactly, so nothing joins it without someone arriving here.

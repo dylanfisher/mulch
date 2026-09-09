@@ -25,11 +25,11 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "delay.feedback": "How much of each repeat is fed back in, so how many repeats there are.",
   "delay.mix": "How much of the delayed sound is heard beside the dry one, from none to all.",
   "eq.frequency": "The frequency the band lifts or cuts around, in hertz.",
-  "eq.gain": "How far that band is lifted or cut, in decibels.",
+  "eq.gain": "How far that band is lifted or cut, in decibels. The Peak shape alone hears it.",
   "eq.q": "How narrow the band is. Higher is a tighter piece of the spectrum.",
   "eq.shape":
-    "Which shape the band is: a peaking lift or cut, or a low-pass, high-pass or band-pass. " +
-    "The Gain is heard by the peaking shape alone.",
+    "Which shape the band is: a Peak that lifts or cuts, or a low-pass, high-pass or band-pass " +
+    "that keeps one side of its frequency and takes the other away.",
   "comp.threshold": "The level above which the compressor starts pressing, in decibels.",
   "comp.ratio": "How hard it presses what is over the threshold, as a ratio to 1.",
   "comp.attack":
@@ -109,7 +109,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
     "fast it gets there.",
   "auto.panner": "How often a panner is drawn against the rest of the pool. None is never.",
   "auto.delay": "How often a delay is drawn against the rest of the pool. None is never.",
-  "auto.eq": "How often an EQ is drawn against the rest of the pool. None is never.",
+  "auto.eq": "How often an EQ/Filter is drawn against the rest of the pool. None is never.",
   "auto.compressor": "How often a compressor is drawn against the rest of the pool. None is never.",
   "auto.reverb": "How often a reverb is drawn against the rest of the pool. None is never.",
   "auto.tape": "How often a tape is drawn against the rest of the pool. None is never.",

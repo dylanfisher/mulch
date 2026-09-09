@@ -25,7 +25,7 @@ import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById, type EffectId } from "@/audio/effects/registry";
-import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
+import { isAutomationParam, PARAMS, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { rackIn, type RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -37,6 +37,7 @@ import { clearEffectsCommand, duplicateEffectCommand, randomizeEffectCommand } f
 import { EffectMove } from "@/ui/EffectMove";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
+import { ParameterChoice } from "@/ui/ParameterChoice";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
@@ -291,17 +292,36 @@ function EffectCard({
             about which thing instead, and comes off the row into the grid below (P172). */}
         {plugin.params
           .filter((param) => !isPoolWeight(param.id))
-          .map((param) => (
-            <ParameterKnob
-              key={param.id}
-              {...whose}
-              param={param.id}
-              value={paramIn(entry.params, param.id)}
-              lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
-              drawn={(isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null}
-              playing={playing}
-            />
-          ))}
+          .map((param) =>
+            // A value that named its steps is picked by name rather than turned to: the control is
+            // keyed on what the parameter declares and never on the effect's id, which is the rule
+            // every face here already keeps (0055, 0205, 0325). Read through the index and not off
+            // `param` itself, because a plugin's list is `as const satisfies` and its literal type
+            // carries only the keys that entry actually wrote — the index is where a declaration
+            // is the whole `ParamSpec` (src/audio/params.ts).
+            PARAMS[param.id].choices === undefined ? (
+              <ParameterKnob
+                key={param.id}
+                {...whose}
+                param={param.id}
+                value={paramIn(entry.params, param.id)}
+                lane={
+                  (isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null
+                }
+                drawn={(isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null}
+                playing={playing}
+              />
+            ) : (
+              <ParameterChoice
+                key={param.id}
+                instrument={instrument}
+                deck={deck}
+                instance={entry.id}
+                param={param.id}
+                value={paramIn(entry.params, param.id)}
+              />
+            ),
+          )}
         {/* The pool itself, as a grid of named things under the dials rather than eight more
             numbers among them (P172). A card declaring no weight grows none. */}
         <PoolGrid {...whose} plugin={plugin} params={entry.params} bounds={entry.bounds} />

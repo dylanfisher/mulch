@@ -107,7 +107,7 @@ describe("choosing an entry from the picker", () => {
   // mints its own opaque id (0030).
   it("mints a fresh instance id per press", () => {
     const { instrument, tree } = rendered();
-    const chosen = find(tree, "Add EQ to Yard A");
+    const chosen = find(tree, "Add EQ/Filter to Yard A");
 
     chosen?.onClick?.();
     chosen?.onClick?.();

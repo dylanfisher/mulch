@@ -2,6 +2,11 @@
  * @role The contract every effect plugin implements: identity, owned parameter declarations,
  *   graph construction, parameter binding, and disposal.
  */
+// Over the soft cap by the paragraph beside each field: this file is the contract itself, so its
+// length is the number of things a plugin may say about itself and not how much it decides. Every
+// entry in the registry reads these declarations, so a half of them in a second file is a contract
+// nobody would think to read whole. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
@@ -24,6 +29,16 @@ export type ParamSpec = {
   precision: number;
   /** Discrete choices remain numbers, quantized to this interval from `min`. */
   step?: number;
+  /**
+   * What each step of this parameter is called, from `min` upward — present on a parameter whose
+   * value is a choice between named things rather than an amount of something. A rack draws one
+   * of these as a picker in its knob's place, reading the names and sending the index (0325).
+   *
+   * The list must name every step and no more: exactly `(max - min) / step + 1` entries, refused
+   * at `defineEffect` otherwise, because a list a name short is a shape a hand can stand the node
+   * in and never pick again.
+   */
+  choices?: readonly string[];
   /**
    * Present when moving this parameter makes its plugin rebuild something — a buffer, a curve —
    * rather than write a number, which is what a run of such moves cannot be asked for at a
@@ -144,8 +159,8 @@ export type EffectInstance<Param extends string = string> = {
  * How present an effect is, and the value at which it is not present at all.
  *
  * Declared rather than assumed because the plugins spell it six ways: a delay and a reverb are
- * absent at a mix of nothing, a peaking EQ at a gain of nothing, a compressor at a ratio of one,
- * and a lowpass filter at the *top* of its own range. There is no shared parameter id to look for
+ * absent at a mix of nothing, a compressor at a ratio of one, a panner at no spread, and the
+ * EQ/Filter — a low-pass — at the *top* of its own frequency (0325). There is no shared parameter id to look for
  * and no value that means the same thing twice, so "turn this effect down to nothing" is a fact
  * only the plugin can state (0202).
  *
@@ -391,10 +406,45 @@ export const workletParam = (node: AudioWorkletNode, id: string): AudioParam => 
   return param;
 };
 
-/** Preserve each plugin's literal ids while checking the complete contract. */
+/**
+ * Preserve each plugin's literal ids while checking the complete contract.
+ *
+ * The one rule answered here rather than in `validateEffects` is the choice list's own, because it
+ * is a rule about one declaration and needs no other entry to read it: a parameter that names its
+ * steps names every one of them. A list that disagrees with the steps is a picker that cannot
+ * reach a shape the node can stand in, or an index nothing is called — and it is refused where
+ * the plugin is written rather than at the registry's load, so the file that got it wrong is the
+ * file the throw names.
+ */
 export function defineEffect<
   const Id extends string,
   const Params extends readonly ParamDeclaration[],
 >(effect: Effect<Id, Params>): Effect<Id, Params> {
+  for (const param of effect.params) {
+    if (param.choices === undefined) continue;
+    if (param.step === undefined) {
+      throw new Error(`a parameter naming its choices must be stepped: ${param.id}`);
+    }
+    // Rounded, and the rounding checked: `(1 - -1) / 0.1` is 19.999999999999996 in binary
+    // floating point, and a list of twenty correct names refused as the wrong length would name
+    // the wrong fault.
+    const span = (param.max - param.min) / param.step;
+    const steps = Math.round(span) + 1;
+    if (Math.abs(span - Math.round(span)) > 1e-9) {
+      throw new Error(`a parameter's range must be a whole number of steps: ${param.id}`);
+    }
+    if (param.choices.length !== steps) {
+      throw new Error(
+        `a parameter must name every one of its steps: ${param.id} has ${steps} and names ${param.choices.length}`,
+      );
+    }
+    // And a choice takes no lane, for the reason a `rebuild` takes none (0090): a picker is one
+    // press and shows no lane, arms under no modifier and offers no motion menu, so a lane on a
+    // parameter drawn as one would be a value a hand picked and the next pass overwrote, with
+    // nothing on screen saying why. Refused here rather than left to the rack to draw around.
+    if (param.automation !== undefined) {
+      throw new Error(`a parameter naming its choices cannot take a lane: ${param.id}`);
+    }
+  }
   return effect;
 }

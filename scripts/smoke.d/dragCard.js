@@ -24,7 +24,7 @@ export const dragCardAcrossRow = async ({ page }) => {
     fail(`drag smoke: the rack was ${before} — this scenario drags the eq past the panner`);
   }
 
-  const eq = await rack.getByLabel("EQ 1", { exact: true }).boundingBox();
+  const eq = await rack.getByLabel("EQ/Filter 1", { exact: true }).boundingBox();
   const panner = await rack.getByLabel("Panner 1", { exact: true }).boundingBox();
   // Abreast, not stacked: a drag that only moved down the page would prove the old rule too.
   if (Math.abs(panner.y - eq.y) > eq.height / 2 || panner.x <= eq.x + eq.width / 2) {
@@ -33,7 +33,9 @@ export const dragCardAcrossRow = async ({ page }) => {
     );
   }
 
-  const handle = await rack.getByRole("button", { name: "Reorder EQ 1 on Yard A" }).boundingBox();
+  const handle = await rack
+    .getByRole("button", { name: "Reorder EQ/Filter 1 on Yard A" })
+    .boundingBox();
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await page.mouse.down();
   // Onto the panner's own centre, in steps, so the gesture sees the moves a person's would make.

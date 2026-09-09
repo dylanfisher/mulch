@@ -77,10 +77,11 @@ import { clamp, normalize } from "@/lib/range";
 const turnAt = (frequency: number): number => normalize(frequency, 20, 20_000, "log");
 
 /**
- * And the same three of an EQ, whose own declaration is the one that puts its silence in the middle
- * of a range (src/audio/effects/eq.ts, 0202): how present a band at one gain is heard to be —
- * whichever side of flat it stands — and where its gain, its frequency and its Q stand on their own
- * knobs.
+ * And the same three of a band. How present it is, here, is read off the gain whichever side of
+ * flat it stands — which is **this suite's own reading and not the entry's**: what the EQ/Filter
+ * declares is a presence on its frequency (src/audio/effects/eq.ts, 0325), and what these cases
+ * are about is the maths a look does with a presence, at whatever number it is handed. Spelled
+ * here so a case reads as a band standing somewhere, and never taken for the declaration.
  */
 const gainHeard = (gain: number): number => clamp(Math.abs(gain) / 12, 0, 1);
 const gainTurn = (gain: number): number => normalize(gain, -24, 24, "linear");
@@ -491,11 +492,10 @@ describe("what a look is", () => {
       expect(bandTaper(edge)).toBeLessThan(bandTaper(edge - 1));
       expect(bandTaper(edge)).toBeGreaterThan(0);
     }
-    // At eq's own declared silence and full (src/audio/effects/eq.ts, 0202) a band standing at its
-    // default draws nothing at all — a peaking EQ ships flat — and one lifted by six decibels is
-    // visibly a band and a long way off the most this pass can do. Both readings come off the one
-    // knob: how far the gain stands from flat is the presence, and which side of it, the term — so
-    // a cut of six is drawn exactly as hard as a lift of six, the other way round.
+    // A band nothing is heard of draws nothing at all, and one heard halfway is visibly a band and
+    // a long way off the most this pass can do. Read at the gain either side of flat, because
+    // which way a band goes is the term and how much of it there is is the presence — so a cut is
+    // drawn exactly as hard as a lift of the same size, the other way round.
     expect(bandAlpha(gainHeard(0))).toBe(0);
     expect(bandAlpha(gainHeard(6))).toBeGreaterThan(0);
     expect(bandAlpha(gainHeard(6))).toBeLessThan(BAND_CEILING.value);

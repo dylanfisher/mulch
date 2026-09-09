@@ -65,6 +65,10 @@ export const renderLanes = async ({ page }) => {
           { t: "param.set", deck: "a", instance: "dly", param: "delay.time", value: 0.12 },
           { t: "param.set", deck: "a", instance: "dly", param: "delay.mix", value: 0.5 },
           { t: "effect.add", deck: "a", id: "eq1", effect: "eq" },
+          // The peaking shape, said rather than assumed: the Q lane below is heard as a band
+          // whose skirt reaches the tone, which is a peaking band and not the low-pass this
+          // entry now ships as (0325).
+          { t: "param.set", deck: "a", instance: "eq1", param: "eq.shape", value: 0 },
           { t: "param.set", deck: "a", instance: "eq1", param: "eq.frequency", value: 1_400 },
           { t: "param.set", deck: "a", instance: "eq1", param: "eq.gain", value: 18 },
           ...(lane === null

@@ -89,8 +89,10 @@ export const burstValue: ReadingParser = (text, min, max) => {
 
 /** The caption under the dial, written once because it is drawn plain and inside a tooltip
  * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
- * so every card in a rack row measures one height (0093). */
-const CAPTION = "h-[2lh] w-full text-center type-eyebrow text-muted-foreground";
+ * so every card in a rack row measures one height (0093). Exported because a parameter drawn as a
+ * picker rather than as a dial wears the identical caption in the identical box, and a second
+ * spelling of it is a rack row that measures two heights (src/ui/ParameterChoice.tsx). */
+export const CAPTION = "h-[2lh] w-full text-center type-eyebrow text-muted-foreground";
 
 /**
  * How wide a compact dial's readout column is, in characters: the widest of what the dial's own

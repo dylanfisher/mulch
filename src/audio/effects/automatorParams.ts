@@ -190,7 +190,7 @@ export const params = [
   // the module-order note on `createAutomator` (0203, 0204).
   { id: "auto.panner", label: "Panner", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.delay", label: "Delay", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  { id: "auto.eq", label: "EQ", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
+  { id: "auto.eq", label: "EQ/Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   {
     id: "auto.compressor",
     label: "Comp",

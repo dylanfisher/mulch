@@ -5,9 +5,15 @@
  * because that is the tier where `src/lib`'s words and `src/audio`'s registry are both reachable
  * — the same reason the effect name pools are checked from the registry's own test.
  */
+// One import per list of words this file is owed a sentence from, so the count grows with how
+// many such lists the instrument has rather than with what this file decides. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import { PARAM_IDS } from "@/audio/params";
+import { EFFECTS } from "@/audio/effects/registry";
+import { PARAM_IDS, PARAMS } from "@/audio/params";
+import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
 import { PARAM_TOOLTIPS } from "@/lib/copyParams";
 import {
   ACTION_TOOLTIPS,
@@ -64,6 +70,28 @@ const agrees = (says: Record<string, string>, keys: readonly string[]) => {
 describe("the words every control says", () => {
   it("has a sentence for every parameter the registry declares", () => {
     agrees(PARAM_TOOLTIPS, PARAM_IDS);
+  });
+
+  /**
+   * The band and the filter are one entry, so the word for it is one word: everywhere a reader is
+   * shown "EQ" they are shown "EQ/Filter" (0325). Asked of every list of user-facing words this
+   * file can already reach, because the miss it exists to catch is a sentence in a file nobody
+   * thought to grep — a tuning hint, a knob's own label — rather than the entry's own name.
+   */
+  it("calls the band and the filter one thing everywhere a reader sees it", () => {
+    const words = [
+      ...Object.values(PARAM_TOOLTIPS),
+      ...EFFECTS.map((effect) => effect.label),
+      ...PARAM_IDS.map((id) => PARAMS[id].label),
+      ...MOIRE_TUNE_GROUPS.flatMap((group) => [group.title, group.hint]),
+      ...MOIRE_TUNE_GROUPS.flatMap((group) => group.entries).flatMap((entry) => [
+        entry.label,
+        entry.hint,
+      ]),
+    ];
+    expect(words.filter((said) => /\bEQ\b(?!\/Filter)/u.test(said))).toEqual([]);
+    // And the fuller name is actually said somewhere, so the case cannot pass by the word going.
+    expect(words.filter((said) => said.includes("EQ/Filter")).length).toBeGreaterThan(0);
   });
 
   it("has a sentence for every action the icon vocabulary declares", () => {

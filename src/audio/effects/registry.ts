@@ -271,8 +271,10 @@ export function validateEffects(effects: readonly Effect[]): void {
           throw new Error(`effect is full where it is silent: ${effect.id}.${presence.param}`);
         }
       } else if (spec.default === presence.silent) {
-        // The EQ's own case, caught here rather than left to sound like nothing: an entry whose
-        // default is its silence has to say what being present means.
+        // Caught here rather than left to sound like nothing: an entry whose default is its
+        // silence has to say what being present means. It was the EQ's own case until its
+        // presence moved off the gain it ships flat at (0325); no entry trips it now, which is
+        // the rule holding rather than the rule going.
         throw new Error(`effect is silent at its own default: ${effect.id}.${presence.param}`);
       }
       const heldSeen = new Set<string>();

@@ -7,7 +7,7 @@
 import { EqualizerIcon } from "@phosphor-icons/react/Equalizer";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
-import { EQ_SHAPE_MAX, eqShapeAt } from "@/lib/biquad";
+import { EQ_SHAPE_DEFAULT, EQ_SHAPE_MAX, EQ_SHAPE_NAMES, eqShapeAt } from "@/lib/biquad";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import {
   defineEffect,
@@ -26,8 +26,14 @@ const shapeParam = {
   label: "Shape",
   min: 0,
   max: EQ_SHAPE_MAX,
-  default: 0,
+  // Where the band ships: an open low-pass at a kilohertz, which is the shape a hand reaches an
+  // EQ/Filter for first and the one an automator grows it as. A stored 0 is still the peaking
+  // shape and is read as it is; only where a fresh one starts has moved (0026, 0325).
+  default: EQ_SHAPE_DEFAULT,
   precision: 0,
+  // And the four names, in the list's own order — the picker's items, spelled beside the shapes
+  // themselves so the card and the node cannot name two different things (src/lib/biquad.ts).
+  choices: EQ_SHAPE_NAMES,
   // A discrete choice on this instrument is a number stepped by one (contract.ts). No `rebuild`:
   // a shape is one string written onto a node that is already built, which is the cheapest move
   // any knob here makes — declaring one would only defer it to a gesture that never ends.
@@ -47,7 +53,7 @@ const graphParams = [
   },
   {
     id: "eq.gain",
-    label: "EQ Gain",
+    label: "Band Gain",
     min: -24,
     max: 24,
     default: 0,
@@ -75,20 +81,27 @@ const isGraphParam = (param: EqParamId): param is GraphParamId => param !== shap
 
 export const eqEffect = defineEffect({
   id: "eq",
-  label: "EQ",
+  label: "EQ/Filter",
   width: "half",
   face: "knobs",
-  // A peaking biquad at a gain of nothing is flat at whatever frequency and Q it is set to, so
-  // those two need not be held: the band is there and lifts nothing (0202).
-  // A peaking band ships flat, so its default is its own silence — this is the entry that made
-  // `full` a field: all the way in is a band actually lifted (0202).
+  // **The presence is the frequency, because the band ships as a low-pass** (0325). A gain of
+  // nought is flat for the peaking shape and for no other, so the pair this entry used to declare
+  // — silent at a gain of nought, with the shape held — only described the shape it no longer
+  // ships in. A low-pass whose edge stands above hearing is a wire: nothing below 20kHz is
+  // touched, which is what silent means here (it is transparent, not silent).
   //
-  // **And the shape is held**, which is what keeps that pair true now that there are four of them
-  // (0322): a gain of nought is flat for the peaking shape and for no other, so a run that drew a
-  // low-pass and then faded its gain from nought to twelve would be fading a knob nothing is
-  // hearing while the whole top of the band stayed cut. Held, an automator-grown EQ grows in the
-  // one shape whose silence this pair describes — and the entry stays in the growable pool.
-  presence: { param: "eq.gain", silent: 0, full: 12, held: ["eq.shape"] },
+  // **The shape is still held**, and for the same reason it was: the silence above is a low-pass's
+  // and not a band-pass's, and a run that drew a band-pass would be opening its edge to 20kHz and
+  // hearing a band-pass all the way up. Held, an automator-grown EQ/Filter arrives as a sweep
+  // closing down from open, which is the sound a filter is grown for — and the entry stays in the
+  // growable pool.
+  //
+  // `full` is 500Hz rather than the declared default of a kilohertz: at a kilohertz a low-pass has
+  // taken the air off a sound and not much else, which is a place arriving and nobody noticing,
+  // and at 500 the whole top of it is gone and the arrival is the thing that happened. Below that
+  // is a filter closed rather than a filter in, and a place that arrives as a rumble would be one
+  // more effect the run is louder without (0202).
+  presence: { param: "eq.frequency", silent: 20_000, full: 500, held: ["eq.shape"] },
   icon: EqualizerIcon,
   drift: "peak",
   geometry: "linear",
@@ -113,8 +126,8 @@ export const eqEffect = defineEffect({
   ],
   // One band of the picture stood out of the rest of it, where the band sits: the frequency walks
   // it up the field, the Q says how deep it is, and the gain says which way it goes — read for a
-  // direction and not for a share, because how far the gain stands from flat is already the
-  // presence above (0287). And the shape says which of the two bands it is: the peaking one lifted
+  // direction and not for a share, because a lift and a cut of the same size are the same amount
+  // of effect and the opposite picture (0287). And the shape says which of the two bands it is: the peaking one lifted
   // or cut at the frequency, and a pass one drawn as everything past its own edge taken out (0322).
   look: "band",
   lookFrom: [

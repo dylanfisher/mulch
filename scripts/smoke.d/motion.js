@@ -17,10 +17,10 @@ export const motionDrawn = async ({ page }) => {
   // The character row is a toggle group pressed on what the session holds, so the press is the
   // ordinary one a hand makes: the marker, then a name, then a count (0314).
   await page.keyboard.down("Alt");
-  const marker = page.getByLabel("Yard A EQ 1 Freq Automation");
+  const marker = page.getByLabel("Yard A EQ/Filter 1 Freq Automation");
   await marker.scrollIntoViewIfNeeded();
   await marker.click();
-  await page.getByLabel("Yard A EQ 1 Freq Smooth").click();
+  await page.getByLabel("Yard A EQ/Filter 1 Freq Smooth").click();
   await page.waitForFunction(
     () => window.mulch.probe().decks.a.effects[0]?.drawn["eq.frequency"] !== undefined,
   );
@@ -28,7 +28,7 @@ export const motionDrawn = async ({ page }) => {
   const points = await page.evaluate(
     () => window.mulch.probe().decks.a.effects[0]?.automation["eq.frequency"]?.length ?? 0,
   );
-  await page.getByLabel("Yard A EQ 1 Freq Redraw every 2 passes").click();
+  await page.getByLabel("Yard A EQ/Filter 1 Freq Redraw every 2 passes").click();
   await page.waitForFunction(
     () => window.mulch.probe().decks.a.effects[0]?.drawn["eq.frequency"]?.redraw === 2,
   );

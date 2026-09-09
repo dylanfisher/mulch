@@ -26,7 +26,7 @@ import { PARAMS } from "@/audio/params";
 import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { effectById, EFFECTS, effectForParam, isGrowable, validateEffects } from "./registry";
-import type { Effect, ParamDeclaration } from "./contract";
+import { defineEffect, type Effect, type ParamDeclaration } from "./contract";
 
 const unbuilt = (id: string, param: string, drift: DriftProfile = "cross"): Effect => ({
   id,
@@ -303,8 +303,9 @@ describe("effect registry", () => {
     }).toThrow(/effect holds its own presence: one\.one\.a/u);
   });
 
-  // The EQ's own case: a peaking band ships flat, so an entry whose default is its silence has to
-  // say what being all the way in means, or it fades from nothing to nothing.
+  // An entry whose default is its silence has to say what being all the way in means, or it fades
+  // from nothing to nothing. It was the EQ's own case, and is nobody's since that presence moved
+  // (0325) — which is why the case is asked of a fixture and not of the registry.
   it("rejects an entry that is silent at its own default, and a full that is not", () => {
     const one = unbuilt("one", "one.a");
     expect(() => {
@@ -571,6 +572,34 @@ describe("effect registry", () => {
     expect(() => {
       validateEffects([{ ...one, params: [param] }]);
     }).toThrow(/cannot take a lane/u);
+  });
+
+  /**
+   * The choice list's own rule, answered where a plugin is written rather than where the registry
+   * loads: a parameter that names its steps names every one of them, or a picker built from the
+   * list cannot reach a value the node can stand in (0325).
+   */
+  it("refuses a parameter whose choices disagree with its own steps", () => {
+    const one = unbuilt("one", "one.pick");
+    // Built off the fixture's own parameter with its lane dropped, which is the rule below.
+    const { automation: _laned, ...amount } = one.params[0]!;
+    const picked = { ...amount, max: 2, step: 1, choices: ["A", "B", "C"] } as const;
+    expect(() => defineEffect({ ...one, params: [picked] })).not.toThrow();
+    expect(() => defineEffect({ ...one, params: [{ ...picked, choices: ["A", "B"] }] })).toThrow(
+      /name every one of its steps/u,
+    );
+    expect(() =>
+      defineEffect({ ...one, params: [{ ...picked, choices: ["A", "B", "C", "D"] }] }),
+    ).toThrow(/name every one of its steps/u);
+    // And an amount cannot be named at all: without a step there is nothing for a name to stand
+    // for, and the list would be four words over a continuum.
+    const { step: _dropped, ...unstepped } = picked;
+    expect(() => defineEffect({ ...one, params: [unstepped] })).toThrow(/must be stepped/u);
+    // Nor may a choice hold a lane: a picker draws none, so a lane on one is a name a hand picked
+    // and the next pass wrote over, with nothing on screen to say so.
+    expect(() => defineEffect({ ...one, params: [{ ...picked, automation: "linear" }] })).toThrow(
+      /cannot take a lane/u,
+    );
   });
 
   it("indexes parameter ownership without another declaration", () => {

@@ -316,7 +316,7 @@ describe("Deck effect rack", () => {
 
     // A card is numbered among its own effect's instances, so one filter and one delay are both
     // the first of their kind; the rack's order is the order they are rendered in (0076).
-    expect(markup.indexOf('aria-label="EQ 1"')).toBeLessThan(
+    expect(markup.indexOf('aria-label="EQ/Filter 1"')).toBeLessThan(
       markup.indexOf('aria-label="Delay 1"'),
     );
     // The picker never runs out: a rack holds any number of instances of one entry (0030).

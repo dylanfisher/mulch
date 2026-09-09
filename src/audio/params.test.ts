@@ -280,7 +280,7 @@ describe("the parametric EQ's registry entry", () => {
       default: 1_000,
       curve: "log",
     });
-    expect(PARAMS["eq.gain"]).toMatchObject({ label: "EQ Gain", min: -24, max: 24, default: 0 });
+    expect(PARAMS["eq.gain"]).toMatchObject({ label: "Band Gain", min: -24, max: 24, default: 0 });
     expect(PARAMS["eq.q"]).toMatchObject({ label: "Q", min: 0.1, max: 18, default: 1 });
     // Every automation target's label is what the picker and its aria-label say, so two targets
     // sharing one would be two lanes nobody could tell apart.
@@ -304,15 +304,15 @@ describe("how much of a rack entry is heard", () => {
     // nothing, and one spread all the way is heard whole.
     expect(at("panner", { "panner.spread": 0 })).toBe(0);
     expect(at("panner", { "panner.spread": 1 })).toBe(1);
-    // And `full` where the plugin declared one, because a peaking band ships flat and its default
-    // *is* its silence.
-    expect(at("eq", { "eq.gain": 0 })).toBe(0);
-    expect(at("eq", { "eq.gain": 6 })).toBe(0.5);
-    // And how far the knob stands from transparent, whichever side of it: the EQ is the one entry
-    // whose silence is in the middle of its own range, and a band cut by six decibels is as much of
-    // an effect as one lifted by six — which is the picture the band draws the opposite way (0287).
-    expect(at("eq", { "eq.gain": -6 })).toBe(0.5);
-    expect(at("eq", { "eq.gain": -24 })).toBe(1);
+    // And `full` where the plugin declared one: the EQ/Filter ships as a low-pass, so it is silent
+    // at the *top* of its frequency and all the way in at the 500Hz it declares (0325).
+    expect(at("eq", { "eq.frequency": 20_000 })).toBe(0);
+    expect(at("eq", { "eq.frequency": 500 })).toBe(1);
+    // And how far the knob stands from transparent, whichever side of it: this one grows downward
+    // from its silence, so a signed reading would put every filter in the picture below nothing,
+    // and a corner closed past `full` is a filter more in rather than less (0287).
+    expect(at("eq", { "eq.frequency": 10_250 })).toBe(0.5);
+    expect(at("eq", { "eq.frequency": 20 })).toBe(1);
     // An entry with no honest presence answers nothing at all rather than a whole or a nought: it
     // is the plugin saying there is no value at which it is not there, and a caller weighing what is
     // heard cannot weigh that (principle 5, 0148's shape).

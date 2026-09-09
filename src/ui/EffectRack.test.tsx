@@ -34,7 +34,14 @@ import { DrawsToggle, PoolEntry, WeightRow } from "@/ui/PoolEntries";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
-import { drawingOf, findLabelled, markupOf, POOL, type Labelled } from "@/ui/effectRackDouble";
+import {
+  dialsOf,
+  drawingOf,
+  findLabelled,
+  markupOf,
+  POOL,
+  type Labelled,
+} from "@/ui/effectRackDouble";
 import type { Command, Envelope } from "@/app/commands";
 
 /**
@@ -133,8 +140,8 @@ const switchProps = (
   const { checked, onCheckedChange } = headControl(
     instrument,
     "one",
-    "EQ 1",
-    "Enable EQ 1 on Yard A",
+    "EQ/Filter 1",
+    "Enable EQ/Filter 1 on Yard A",
     bypassed,
   );
   if (checked === undefined || onCheckedChange === undefined) {
@@ -151,20 +158,6 @@ const rackMarkup = (): string => {
   instrument.send({ t: "effect.bypass", deck: "a", instance: "two", bypassed: true });
   return markupOf(instrument);
 };
-
-/**
- * Which dials a card draws, by the name each one carries: every knob is one wrapper and its own
- * dial names it first, so this is the knob row read out in the order it is laid.
- */
-const dialsOf = (markup: string): string[] =>
-  markup
-    .split('data-automation="')
-    .slice(1)
-    .map((knob) => {
-      const named = /aria-label="([^"]*)"/u.exec(knob);
-      if (named === null) throw new Error("a knob rendered with no name");
-      return named[1]!;
-    });
 
 /** Which parameters a held popover offers a window on, in the order its rows are laid. */
 function paramsOf(node: ReactNode): string[] {
@@ -210,10 +203,10 @@ describe("the effect rack's controls", () => {
   // independently (0030).
   it("reports the effect running as a switch per instance", () => {
     const markup = rackMarkup();
-    expect(markup).toMatch(/data-slot="switch"[^>]*aria-label="Enable EQ 1 on Yard A"/u);
-    // EQ 1 is running, so its switch is on; EQ 2 is bypassed, so its switch is off.
-    expect(markup).toMatch(/aria-checked="true"[^>]*aria-label="Enable EQ 1 on Yard A"/u);
-    expect(markup).toMatch(/aria-checked="false"[^>]*aria-label="Enable EQ 2 on Yard A"/u);
+    expect(markup).toMatch(/data-slot="switch"[^>]*aria-label="Enable EQ\/Filter 1 on Yard A"/u);
+    // The first is running, so its switch is on; the second is bypassed, so its switch is off.
+    expect(markup).toMatch(/aria-checked="true"[^>]*aria-label="Enable EQ\/Filter 1 on Yard A"/u);
+    expect(markup).toMatch(/aria-checked="false"[^>]*aria-label="Enable EQ\/Filter 2 on Yard A"/u);
     // The word is gone with the flip: a toggle that reads right needs no caption (0055).
     expect(markup).not.toContain(">Bypass<");
     // The state's own picture went with the Toggle: a state is a switch and an action has an
@@ -227,10 +220,10 @@ describe("the effect rack's controls", () => {
   // label that names which instance it acts on.
   it("keeps the once-per-press controls as labelled buttons", () => {
     const markup = rackMarkup();
-    for (const label of ["Remove EQ 1 from Yard A", "Reorder EQ 2 on Yard A"]) {
+    for (const label of ["Remove EQ/Filter 1 from Yard A", "Reorder EQ/Filter 2 on Yard A"]) {
       expect(markup).toMatch(new RegExp(`data-slot="button"[^>]*aria-label="${label}"`, "u"));
     }
-    expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove EQ 1 from Yard A"/u);
+    expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove EQ\/Filter 1 from Yard A"/u);
   });
 
   // P34: the two arrow buttons are gone, and the handle is what reordering is reached through
@@ -239,7 +232,7 @@ describe("the effect rack's controls", () => {
     const markup = rackMarkup();
     expect(markup).not.toContain("Earlier");
     expect(markup).not.toContain("Later");
-    expect(markup).toContain('aria-label="Reorder EQ 1 on Yard A"');
+    expect(markup).toContain('aria-label="Reorder EQ/Filter 1 on Yard A"');
   });
 });
 
@@ -277,8 +270,8 @@ describe("what a card is called", () => {
 
     // The same labels, in the rack's new order rather than in new words.
     expect(new Set(after)).toEqual(new Set(before));
-    expect(before).toContain("EQ 1");
-    expect(before).toContain("EQ 2");
+    expect(before).toContain("EQ/Filter 1");
+    expect(before).toContain("EQ/Filter 2");
     expect(before).toContain("Delay 1");
   });
 
@@ -319,7 +312,7 @@ describe("copying a card", () => {
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
 
-    headControl(instrument, "one", "EQ 1", "Duplicate EQ 1 on Yard A").onClick?.();
+    headControl(instrument, "one", "EQ/Filter 1", "Duplicate EQ/Filter 1 on Yard A").onClick?.();
 
     expect(sent).toHaveBeenCalledTimes(1);
     expect(sent).toHaveBeenCalledWith(
@@ -356,7 +349,7 @@ describe("the die on a card's head", () => {
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
 
-    headControl(instrument, "one", "EQ 1", "Randomize EQ 1 on Yard A").onClick?.();
+    headControl(instrument, "one", "EQ/Filter 1", "Randomize EQ/Filter 1 on Yard A").onClick?.();
 
     const commands = groupOf(sent.mock.calls[0]?.[0]);
     expect(commands.map((command) => setOf(command).param)).toEqual(effectParamIds("eq"));
@@ -380,7 +373,7 @@ describe("the die on a card's head", () => {
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "eq" });
     const sent = vi.spyOn(instrument, "send");
     const press = (): Command[] => {
-      headControl(instrument, "one", "EQ 1", "Randomize EQ 1 on Yard A").onClick?.();
+      headControl(instrument, "one", "EQ/Filter 1", "Randomize EQ/Filter 1 on Yard A").onClick?.();
       return groupOf(sent.mock.calls.at(-2)?.[0]);
     };
     expect(press()).not.toEqual(press());
@@ -469,11 +462,11 @@ describe("the rack's own fold", () => {
     const shut = markupOf(instrument, [true, () => {}]);
     expect(shut).toMatch(/aria-pressed="true"[^>]*data-slot="toggle"/u);
     // Everything under the heading, gone: the cards, the landing slot and the add control.
-    expect(shut).not.toContain('aria-label="EQ 1"');
+    expect(shut).not.toContain('aria-label="EQ/Filter 1"');
     expect(shut).not.toContain('data-slot="rack-landing"');
     expect(shut).not.toContain('aria-label="Add an Effect to Yard A"');
 
-    expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="EQ 1"');
+    expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="EQ/Filter 1"');
   });
 
   // P73: the heading is the control. What the two cases above press is the heading's own text,
@@ -500,14 +493,14 @@ describe("the effect rack's layout", () => {
     expect(markup).toMatch(/class="[^"]*flex-wrap[^"]*"/u);
     expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(2);
     // P34: a row is a card, so its head can carry the handle and its controls above the knobs.
-    expect(markup).toMatch(/data-slot="card"[^>]*aria-label="EQ 1"/u);
-    const first = markup.indexOf('aria-label="EQ 1"');
-    const second = markup.indexOf('aria-label="EQ 2"');
+    expect(markup).toMatch(/data-slot="card"[^>]*aria-label="EQ\/Filter 1"/u);
+    const first = markup.indexOf('aria-label="EQ/Filter 1"');
+    const second = markup.indexOf('aria-label="EQ/Filter 2"');
     expect(first).toBeGreaterThan(-1);
     expect(second).toBeGreaterThan(first);
     // Each row carries its own controls, named by instance rather than by effect.
-    expect(markup).toContain('aria-label="Remove EQ 1 from Yard A"');
-    expect(markup).toContain('aria-label="Remove EQ 2 from Yard A"');
+    expect(markup).toContain('aria-label="Remove EQ/Filter 1 from Yard A"');
+    expect(markup).toContain('aria-label="Remove EQ/Filter 2 from Yard A"');
   });
 
   // The add affordance is one picker outside the instance rows, not a button per registry entry.

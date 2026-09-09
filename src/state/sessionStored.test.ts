@@ -53,7 +53,7 @@ const STORED_RACK = [
     id: "flt",
     effect: "eq",
     bypassed: false,
-    params: { "eq.frequency": 1000, "eq.gain": 0, "eq.q": 1, "eq.shape": 0 },
+    params: { "eq.frequency": 1000, "eq.gain": 0, "eq.q": 1, "eq.shape": 1 },
     automation: {
       "eq.frequency": [
         { at: 0, value: 400 },

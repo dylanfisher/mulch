@@ -69,6 +69,9 @@ export const exportParity = async ({ page }) => {
             // rack that were not in that graph would be a second signal path (0321,
             // docs/boundaries.md).
             { t: "effect.add", deck: null, id: "mst", effect: "eq" },
+            // The peaking shape, so the gain below is a band actually lifted: this entry ships as
+            // a low-pass now, which hears no gain at all (0325).
+            { t: "param.set", deck: null, instance: "mst", param: "eq.shape", value: 0 },
             { t: "param.set", deck: null, instance: "mst", param: "eq.gain", value: 6 },
             { t: "deck.play", deck: "a" },
           ],

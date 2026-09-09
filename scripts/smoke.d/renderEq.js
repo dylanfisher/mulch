@@ -22,6 +22,9 @@ export const renderEq = async ({ page }) => {
         // the windows measure is the EQ and never the bus protecting itself.
         { t: "param.set", deck: "a", param: "deck.gain", value: 0.08 },
         { t: "effect.add", deck: "a", id: "eq1", effect: "eq" },
+        // The peaking shape, said rather than assumed: the entry ships as a low-pass now, and
+        // what these six windows measure is a band lifted and cut at a frequency (0325).
+        { t: "param.set", deck: "a", instance: "eq1", param: "eq.shape", value: 0 },
         { t: "param.set", deck: "a", instance: "eq1", param: "eq.q", value: 8 },
         {
           t: "automation.set",

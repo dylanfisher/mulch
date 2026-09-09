@@ -18,8 +18,9 @@ import { positive } from "./guards.ts";
  * src/lib may not import src/audio (docs/map.md) and the look needs the same list the node does:
  * two spellings of which shape index means which shape is principle 1's own failure.
  *
- * Peaking first, because that is where the band ships and the one shape whose silence the entry's
- * presence describes — a gain of nought is flat only for a shape that reads the gain at all.
+ * Peaking first because that is the order the knob stepped through before there was a picker, and
+ * a stored shape is the number this list gives it (0026): the band ships as a low-pass now, and
+ * where it ships is `EQ_SHAPE_DEFAULT` below rather than which end of this list it sits at.
  */
 export const EQ_SHAPES = ["peaking", "lowpass", "highpass", "bandpass"] as const;
 
@@ -27,6 +28,25 @@ export type EqShape = (typeof EQ_SHAPES)[number];
 
 /** The top of the shape knob's own range: a discrete choice is a number stepped by one (0322). */
 export const EQ_SHAPE_MAX = EQ_SHAPES.length - 1;
+
+/**
+ * What a hand calls each of those shapes, in the same order — the words the card's own picker
+ * offers, and the only place a shape is named as a value anyone picks. Spelled here, beside the
+ * shapes themselves,
+ * rather than in the plugin: two lists of four in two files is one list that can be reordered in
+ * one of them, and then the picker names a shape the node is not standing in (principle 1).
+ *
+ * `lowpass` is spelled "Low-pass" and not "Lowpass": what a reader is picking from is a family of
+ * passes, and the hyphen is what makes the three of them read as one.
+ */
+export const EQ_SHAPE_NAMES = ["Peak", "Low-pass", "High-pass", "Band-pass"] as const;
+
+/**
+ * Where the band ships: an open low-pass, which is the shape a hand reaches for first and the one
+ * this entry is grown as (src/audio/effects/eq.ts). Read out of the list rather than written as a
+ * 1, so the index and the shape cannot drift apart.
+ */
+export const EQ_SHAPE_DEFAULT = EQ_SHAPES.indexOf("lowpass");
 
 /**
  * Which shape a value stands for. Quantized to a whole number, because a discrete choice on this

@@ -289,8 +289,8 @@ describe("the effect automator", () => {
     // Everything but what the presence holds down, the presence itself included: it is drawn like
     // any other value, at the point its plugin declares `full` at until a hand widens the window.
     // The pool the fixture builds on, which is the registry's own two native-node entries. The
-    // EQ's shape is not in its list: it is what the presence holds down, so a run never draws it
-    // and every grown EQ stands in the one shape a gain of nought is silent in (0322).
+    // EQ/Filter's shape is not in its list: it is what the presence holds down, so a run never
+    // draws it and every grown one stands in the low-pass its silence describes (0322, 0325).
     const [panner, eq] = POOL;
     expect(eq === undefined ? [] : drawnParamIds(eq)).toEqual(["eq.frequency", "eq.gain", "eq.q"]);
     // And the panner draws two: its three stages are held for the reason the EQ's shape is, because
@@ -351,9 +351,10 @@ describe("the effect automator", () => {
     // the arrival's own filing, not the retire that would overwrite it a tick later. The seed is
     // one whose opening ticks draw an EQ at all — which is the entry this case is about.
     const { ctx, instance } = built(3, 5, 60);
-    // The EQ is silent at a gain of nothing — the middle of its own range — so this window is
-    // exactly that point, and the value drawn inside it is exactly the number `silent` names.
-    instance.setBounds?.({ "eq.gain": { min: 0, max: 0 } });
+    // The EQ/Filter is silent at the top of its own frequency, where a low-pass is a wire, so this
+    // window is exactly that point and the value drawn inside it is exactly what `silent` names
+    // (0325).
+    instance.setBounds?.({ "eq.frequency": { min: 20_000, max: 20_000 } });
     instance.pump?.(0, 8);
     ctx.advance(1);
     instance.pump?.(ctx.currentTime, 8);

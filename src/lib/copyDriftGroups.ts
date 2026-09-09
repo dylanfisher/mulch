@@ -418,7 +418,7 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         id: "look.band",
         wild: "max",
         label: "Band",
-        hint: "The most an EQ's band lays over the field, or takes out of it.",
+        hint: "The most an EQ/Filter's band lays over the field, or takes out of it.",
       },
       {
         id: "look.stagger",
@@ -472,7 +472,7 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         id: "look.bandEdges",
         wild: "min",
         label: "Band edges",
-        hint: "How many nested slices an EQ's band is laid in; more is a softer rim.",
+        hint: "How many nested slices an EQ/Filter's band is laid in; more is a softer rim.",
       },
       {
         id: "look.blockHardenings",

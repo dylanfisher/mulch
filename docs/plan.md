@@ -146,7 +146,20 @@ beside, near, past, behind, beyond) and two for the air (in, through). Review re
 and caught the air's first bank saying "through Frost" and "toward Low Sun", so the air is a medium
 now — its words are the two that cross the whole bank, and the two nouns that were moments are
 spelled as mediums, "Falling Dusk" and "Low Sunlight". bench-06 still reads the air by its nouns,
-and its own paragraph names those two by their new spelling. The next free decision number is 0325.
+and its own paragraph names those two by their new spelling.
+
+bench-08 landed on 2026-09-08 as
+[0325](decisions/0325-a-choice-is-picked-by-name-and-the-eq-ships-as-a-filter.md);
+`ParamDeclaration` gains `choices`, refused at `defineEffect` for a list that disagrees with the
+steps, and `ParameterChoice` draws such a parameter as a select in the knob's place — the same
+column, caption and `data-automation` mark, and the same `param.set`. The EQ/Filter ships as a
+low-pass at a kilohertz, its shape picked from Peak, Low-pass, High-pass and Band-pass, and its
+presence moved to the frequency: silent at 20kHz, full at 500Hz, the shape still held. Two things
+the step's own text asked for could not stand: "EQ Gain" becomes "Band Gain" rather than "Gain",
+because two automatable parameters may not share a label and the yard's own Gain has it
+(src/audio/params.ts) — §4; and the two smoke renders that measured a peaking band now say
+`eq.shape` 0 rather than lean on the default. bench-09 reuses the declaration-keyed control this
+step introduced, by the same rule and in the same place. The next free decision number is 0326.
 
 1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
@@ -198,7 +211,7 @@ and its own paragraph names those two by their new spelling. The next free decis
     - **A rename command.** A minted name stays what it is (0317).
 
 2.  **The EQ is the EQ/Filter, its shape is a choice a hand picks by name, and it ships as a
-    low-pass.** _(bench-08)_ **Durable shape moved: the default of `eq.shape` moves from peaking
+    low-pass.** _(bench-08, landed 0325)_ **Durable shape moved: the default of `eq.shape` moves from peaking
     to low-pass.** A stored value is still a whole number over `EQ_SHAPES`; a session built before
     this step holds the same numbers and is read as it is (0026). Nothing else durable changes: the
     id `eq` and the ids `eq.*` are keys and stay.
@@ -504,3 +517,41 @@ reading, "beneath the Stairs toward Dusk", cannot be minted, and neither can a n
 rather than stood behind ("the Stone Path"). The air multiplies by two rather than eight, 32
 readings against 16. Widening either family again means splitting it in two, which is a per-noun
 word list by another name and is what the step refused.
+
+**The EQ's gain is Band Gain, not Gain** (bench-08, 0325). The step asked for "EQ Gain" to become
+"Gain"; two automatable parameters may not share a label, and `deck.gain` is already Gain — the rule
+is a load-time throw in src/audio/params.ts, written there because the marker and the preview name a
+lane by its label alone. "Band Gain" is what carries the step's actual requirement, which is that no
+user-facing word says "EQ" bare, and it stays a two-word label so the caption box a rack row is
+measured by is the one it already was. Making it "Gain" means renaming the yard's own dial or
+loosening that rule, and neither is this step.
+
+**A presence names one parameter, so it is right for one shape** (bench-08, 0325). Review found
+the reading, not a test: a fresh EQ/Filter, and a flat Peak picked by hand, are both heard at 0.97
+and draw a near-full band, where before this step a freshly added one was heard at nought and drew
+none. A 1kHz low-pass is audible and reading it near-whole is honest; a flat Peak is not, and the
+ADR's own argument for `full` — that a kilohertz is "a place arriving and nobody noticing" — is
+about where an automator fades to and not about what the picture weighs, which is the one
+declaration being read two ways. The reading reaches the band's alpha, the tail's weight
+and the shape's (src/lib/moireBand.ts, moireWind.ts, moireShape.ts), so what moved is which shape
+the picture is honest about. A presence that reads the shape is a second field on the contract and
+was not taken. `effectHeard` also reads a presence as a distance along the parameter, so a grown
+filter's is linear across a range the knob turns logarithmically — the gain's own crudeness, moved.
+And with the shape held at low-pass, `eq.gain` is drawn over -24…24dB where the node does not read
+it, and stirred there too — `stir` skips only what is held, the presence and what has no lane — so a
+grown place schedules ramps nothing hears. Inert rather than wrong, at the cost of the schedule; a
+window on it would be a second presence.
+
+**Three browser renders now say the peaking shape rather than assume it** (bench-08, 0325).
+scripts/smoke.d/renderEq.js, renderLanes.js and parity.js each set a gain or a Q on a band and
+measured it, which is the peaking shape; each gained one `param.set` of `eq.shape` to 0 — parity's
+found by review, its `eq.gain` of 6 having become inert. No assertion, `fail(` or window moved; the
+moved default is what made the assumption visible.
+
+**The picker's column is a third wider than a dial's** (bench-08, 0325). A name is wider than three
+digits, so `ParameterChoice` is `w-24` where `Knob` is `w-16`, and the EQ/Filter's row went from
+~280px of content to ~312px — one more viewport band in which that row wraps and its card stands a
+line taller than the card beside it (0093). Both layout smokes pass as they stand
+(scripts/smoke.d/rackRow.js, and the 360px reflow), and the row already wrapped at the narrow end
+before this step, so what changed is where the band falls and not that there is one. Narrower means
+truncating "High-pass" in its own trigger, which is a picker that cannot be read.

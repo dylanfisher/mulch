@@ -30,6 +30,22 @@ export const markupOf = (
   );
 };
 
+/**
+ * Which controls a card draws, by the name each one carries: every one of them is one marked
+ * wrapper whose control names it first, so this is the row read out in the order it is laid — a
+ * dial or a picker alike, which is the point of the mark (0325). Here rather than in either
+ * suite, because both read the row and two spellings of the read are two rows (principle 1).
+ */
+export const dialsOf = (markup: string): string[] =>
+  markup
+    .split('data-automation="')
+    .slice(1)
+    .map((control) => {
+      const named = /aria-label="([^"]*)"/u.exec(control);
+      if (named === null) throw new Error("a control rendered with no name");
+      return named[1]!;
+    });
+
 /** One press-able control out of a held tree: the props of the element carrying this label. */
 export type Labelled = {
   "aria-label"?: string;

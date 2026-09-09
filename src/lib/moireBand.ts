@@ -84,11 +84,11 @@ export const BAND_CEILING = tunable("look.band", 0.5, { min: 0, max: 1, step: 0.
 
 /**
  * How hard the band is drawn: how present the picture has travelled the instance to, under the
- * ceiling. **The gain is read twice and weighed once** — once here as the presence the entry
- * already declares it as (`presence: { param: "eq.gain" }`, 0202) and once as the term that says
- * which way the band goes, which is the filter's answer and not the bloom's (0286). A share off the
- * same knob on top of the presence would square the gain, and a band at half its range would all
- * but vanish.
+ * ceiling. **The presence is weighed once and the gain is not weighed at all** — how present the
+ * entry is comes off the frequency, which is where the EQ/Filter declares its silence (0202,
+ * 0325), and the gain reaches the band only as the term that says which way it goes, which is the
+ * filter's answer and not the bloom's (0286). A share off a knob on top of the presence would
+ * square that knob, and a band at half its range would all but vanish.
  *
  * **So this weighs no share, and takes nothing from `weighed`** (src/lib/moireLook.ts), which is the
  * soften's answer for the soften's reason (0286): the helper states a presence times a share, and a
@@ -145,8 +145,8 @@ export const bandTaper = (edge: number): number => 1 - edge / BAND_EDGES.value;
 const bandPass: LookPass = (into, source, presence, terms) => {
   into.drawImage(source, 0, 0);
   const alpha = bandAlpha(presence);
-  // A band at a gain of nothing is flat, and one the picture has not travelled to yet is the field
-  // it came from — and the draw above is the one that says so.
+  // A band the picture has not travelled to — an entry standing at its own silence, or one still
+  // arriving — is the field it came from, and the draw above is the one that says so.
   if (alpha <= 0) return;
   const { width, height } = source;
   const middle = bandCentre(terms.position ?? 0) * height;
