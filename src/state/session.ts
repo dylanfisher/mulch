@@ -155,6 +155,13 @@ export type Session = {
    * clock is: a ground more than one yard reads is no one yard's to move (0313).
    */
   ground: SessionGround;
+  /**
+   * The rack that is no yard's, and the third durable fact belonging to more than one deck: the
+   * sum of every yard runs through it before the limiter, so what it holds is heard on all of
+   * them. Exactly a rack — an instance carries its own values, lanes, bounds and bypass, and every
+   * other field a yard holds is a yard's (0030, 0321).
+   */
+  master: { effects: SessionEffect[] };
 };
 
 /**
@@ -242,8 +249,12 @@ const drawnProjection = <Id extends ParamId>(
   return projected;
 };
 
-/** One rack entry, durable: its identity, what it is, its bypass, its values, lanes and bounds. */
-const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
+/**
+ * One rack entry, durable: its identity, what it is, its bypass, its values, lanes and bounds.
+ * Exported because the host compares one rack against another through it — a projection is what
+ * makes "the same rack" a question with one answer (0021, src/app/engine.ts).
+ */
+export const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
   id: entry.id,
   effect: entry.effect,
   bypassed: entry.bypassed,
@@ -297,6 +308,9 @@ export function sessionSnapshot(state: SessionState): Session {
     })),
     sync: state.sync,
     ground: { ...state.ground },
+    // Through the very same projection a yard's rack comes through, so one master rack has
+    // exactly one JSON and history compares the two the same way (0021, 0321).
+    master: { effects: state.master.effects.map(effectSnapshot) },
   };
 }
 
@@ -499,6 +513,18 @@ function validateSpentDeckIds(value: unknown, held: readonly DeckId[]): void {
 }
 
 /**
+ * The rack that is no yard's, through the one rack validator a deck's own comes through — and
+ * nothing beside it, because a rack that is no yard's holds exactly its instances (0321). A master
+ * instance of an entry this build no longer registers discards the session rather than being
+ * repaired (0026).
+ */
+function validateMaster(value: unknown): void {
+  const master = objectAt(value, "session.master");
+  exactKeys(master, ["effects"], "session.master");
+  validateRack(master.effects, "session.master.effects");
+}
+
+/**
  * The one validator: stored JSON is this build's shape or it is not a session. There is no
  * migration to reach for, so every caller's failure path is the same one — discard it (0026).
  */
@@ -506,7 +532,7 @@ export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
   exactKeys(
     session,
-    ["activeDeck", "deckList", "decks", "spentDeckIds", "clips", "sync", "ground"],
+    ["activeDeck", "deckList", "decks", "spentDeckIds", "clips", "sync", "ground", "master"],
     "session",
   );
 
@@ -556,6 +582,7 @@ export function validateSession(value: unknown): Session {
       `session.ground.leader is not a held deck: ${JSON.stringify(ground.leader)}`,
     );
   }
+  validateMaster(session.master);
   // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return value as Session;

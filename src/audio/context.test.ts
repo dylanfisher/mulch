@@ -25,6 +25,13 @@ const CHANNEL_PEAKS = [0.5, 0.75];
 
 type Edge = [from: string, to: string, channel?: number];
 
+/**
+ * The gains the bus builds, in the order it builds them: what every deck lands in, the sum the
+ * master rack hands back — which is where the meter is tapped and what feeds the limiter — and the
+ * rack's own input between the two (0321).
+ */
+const GAIN_NAMES = ["input", "summed", "rack"] as const;
+
 /** Every AudioParam the limiter is set through — only the value is ever written. */
 const param = () => ({ value: 0 });
 
@@ -47,6 +54,7 @@ function fakeContext(
   /** Every analyser the bus built, so what it set on them can be read back. */
   const taps: { smoothingTimeConstant: number }[] = [];
   let analysers = 0;
+  let gains = 0;
 
   const node = (name: string) => ({
     name,
@@ -59,7 +67,11 @@ function fakeContext(
 
   const context = {
     destination: node("destination"),
-    createGain: () => Object.assign(node("input"), { gain: param() }),
+    // The bus builds its gains in one fixed order and each one plays a different part, so the fake
+    // names them by that order: what everything lands in, the sum the rack hands back, and the
+    // rack's own input inside it (`createMasterBus`, `createEffectRack`).
+    createGain: () =>
+      Object.assign(node(GAIN_NAMES[gains++] ?? `gain-${gains}`), { gain: param() }),
     createDynamicsCompressor: () =>
       Object.assign(node("limiter"), {
         threshold: param(),
@@ -123,17 +135,23 @@ describe("the master bus", () => {
     const { context, edges, windows } = fakeContext();
     const bus = createMasterBus(context);
 
-    // The signal path, and the tap on the input end of it. Past the ceiling nothing can read above
-    // it, so a meter taken after the clip could never say the output was too hot — the one thing it
-    // exists to say. As a set, sorted: which node feeds which is the claim, and the order the
-    // connections happen to be issued in is not.
+    // The signal path, and the tap on the far side of the master rack. Past the ceiling nothing
+    // can read above it, so a meter taken after the clip could never say the output was too hot —
+    // the one thing it exists to say. As a set, sorted: which node feeds which is the claim, and
+    // the order the connections happen to be issued in is not.
     expect(new Set(edges.map(String))).toEqual(
       new Set(
         [
-          ["input", "limiter"],
+          // Everything the decks sum to, through the master rack — empty here, so its own input
+          // passes straight to the sum — and only then into the limiter (0321).
+          ["input", "rack"],
+          ["rack", "summed"],
+          ["summed", "limiter"],
           ["limiter", "clip"],
           ["clip", "destination"],
-          ["input", "splitter"],
+          // And the tap on the sum rather than on the input: a master effect can make the output
+          // too hot, which is the one thing this meter exists to say.
+          ["summed", "splitter"],
           ["splitter", "analyser-0", 0],
           ["splitter", "analyser-1", 1],
         ].map(String),

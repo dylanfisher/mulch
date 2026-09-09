@@ -30,6 +30,7 @@ import {
   INITIAL_DECK_ID,
   spendDeckIds,
   type DeckId,
+  type RackId,
   type SessionState,
   type SessionStore,
 } from "@/state/store";
@@ -46,39 +47,46 @@ type Stage = (
   held: ReadonlySet<EffectInstanceId>,
 ) => GroupedEditCommand[];
 
-// The order, written once. An instance's values follow its addition and its bypass follows both,
-// because each names an instance the rack must already hold (0023, 0030); a lane follows the
-// value it falls back to; a loop follows the source it is clamped into.
-const STAGES: readonly Stage[] = [
-  (deck, preset) =>
-    preset.source === null ? [] : [{ t: "deck.load", deck, source: preset.source }],
-  (deck, preset) =>
-    DECK_PARAM_IDS.map((param) => ({ t: "param.set", deck, param, value: preset.params[param] })),
-  (deck, preset, held): GroupedEditCommand[] => [
-    ...preset.effects
+/**
+ * One stage of a *rack's* restoration, addressed by the rack rather than the yard — so the six
+ * stages that are about instances are written once and replayed onto a yard's rack and onto the
+ * master's alike (0320, principle 1). `held` is what that rack already carries, exactly as above.
+ */
+type RackStage = (
+  rack: RackId,
+  effects: readonly SessionEffect[],
+  held: ReadonlySet<EffectInstanceId>,
+) => GroupedEditCommand[];
+
+// The rack half of the order, written once. An instance's values follow its addition, its bounds
+// follow the values, its bypass follows both, its lanes follow the value each falls back to, and
+// what drew a lane follows the lane (0023, 0027, 0030, 0208, 0314).
+const RACK_STAGES: readonly RackStage[] = [
+  (rack, effects, held): GroupedEditCommand[] => [
+    ...effects
       .filter((entry) => !held.has(entry.id))
       .map((entry): GroupedEditCommand => ({
         t: "effect.add",
-        deck,
+        deck: rack,
         id: entry.id,
         effect: entry.effect,
       })),
-    // Only when something survived: a fresh deck receives the instances in order already, and a
+    // Only when something survived: a fresh rack receives the instances in order already, and a
     // reorder per entry would be a command that moves nothing.
     ...(held.size === 0
       ? []
-      : preset.effects.map((entry, index): GroupedEditCommand => ({
+      : effects.map((entry, index): GroupedEditCommand => ({
           t: "effect.reorder",
-          deck,
+          deck: rack,
           instance: entry.id,
           index,
         }))),
   ],
-  (deck, preset) =>
-    preset.effects.flatMap((entry) =>
+  (rack, effects) =>
+    effects.flatMap((entry) =>
       effectParamIds(entry.effect).map((param) => ({
         t: "param.set",
-        deck,
+        deck: rack,
         instance: entry.id,
         param,
         value: paramIn(entry.params, param),
@@ -88,31 +96,64 @@ const STAGES: readonly Stage[] = [
   // bound names an instance the rack must already hold, and nothing about it depends on a value
   // (0208). Only the windows the preset carries — a parameter with none is the parameter's own
   // declared range, which is where a fresh instance already stands.
-  (deck, preset) => preset.effects.flatMap((entry) => boundsCommands(deck, entry.id, entry.bounds)),
+  (rack, effects) => effects.flatMap((entry) => boundsCommands(rack, entry.id, entry.bounds)),
   // Stated for every entry, not only the bypassed ones: an instance the preset kept may already
   // be bypassed, and a preset that says otherwise has to be able to say so. Setting the flag it
   // already holds is a silent no-op, the way setting a parameter to its own value is (0030).
-  (deck, preset) =>
-    preset.effects.map((entry) => ({
+  (rack, effects) =>
+    effects.map((entry) => ({
       t: "effect.bypass",
-      deck,
+      deck: rack,
       instance: entry.id,
       bypassed: entry.bypassed,
     })),
+  (rack, effects) =>
+    effects.flatMap((entry) =>
+      effectAutomationParamIds(entry.effect).flatMap((param) => {
+        const lane = entry.automation[param];
+        return lane === undefined
+          ? []
+          : [{ t: "automation.set", deck: rack, instance: entry.id, param, points: lane }];
+      }),
+    ),
+  (rack, effects) =>
+    effects.flatMap((entry) => drawnCommands(rack, entry.id, entry.effect, entry.drawn)),
+];
+
+/**
+ * The whole of one rack's restoration, in the stage order above. The master's is exactly this and
+ * nothing else, because a rack that is no yard's holds nothing but its instances (0321).
+ */
+export function rackRestorationCommands(
+  rack: RackId,
+  effects: readonly SessionEffect[],
+  held: ReadonlySet<EffectInstanceId> = NOTHING_HELD,
+): GroupedEditCommand[] {
+  return RACK_STAGES.flatMap((stage) => stage(rack, effects, held));
+}
+
+// The order, written once. An instance's values follow its addition and its bypass follows both,
+// because each names an instance the rack must already hold (0023, 0030); a lane follows the
+// value it falls back to; a loop follows the source it is clamped into.
+const STAGES: readonly Stage[] = [
+  (deck, preset) =>
+    preset.source === null ? [] : [{ t: "deck.load", deck, source: preset.source }],
+  (deck, preset) =>
+    DECK_PARAM_IDS.map((param) => ({ t: "param.set", deck, param, value: preset.params[param] })),
+  // The rack's own six, through the one declaration a master rack is restored by too, so a yard's
+  // instances and the master's arrive by exactly the same commands in exactly the same order
+  // (`RACK_STAGES`, principle 1). Interleaved with the deck's own lanes below, which is where the
+  // stage order has always put them.
+  (deck, preset, held) => RACK_STAGES[0]!(deck, preset.effects, held),
+  (deck, preset, held) => RACK_STAGES[1]!(deck, preset.effects, held),
+  (deck, preset, held) => RACK_STAGES[2]!(deck, preset.effects, held),
+  (deck, preset, held) => RACK_STAGES[3]!(deck, preset.effects, held),
   (deck, preset) =>
     DECK_AUTOMATION_PARAM_IDS.flatMap((param) => {
       const lane = preset.automation[param];
       return lane === undefined ? [] : [{ t: "automation.set", deck, param, points: lane }];
     }),
-  (deck, preset) =>
-    preset.effects.flatMap((entry) =>
-      effectAutomationParamIds(entry.effect).flatMap((param) => {
-        const lane = entry.automation[param];
-        return lane === undefined
-          ? []
-          : [{ t: "automation.set", deck, instance: entry.id, param, points: lane }];
-      }),
-    ),
+  (deck, preset, held) => RACK_STAGES[4]!(deck, preset.effects, held),
   // After the lanes, and it has to be: an empty `automation.set` clears the sibling beside it, so
   // a drawn state written first is one the lane arriving would throw away (0314).
   (deck, preset) =>
@@ -120,8 +161,7 @@ const STAGES: readonly Stage[] = [
       const drawn = preset.drawn[param];
       return drawn === undefined ? [] : [{ t: "automation.drawn", deck, param, drawn }];
     }),
-  (deck, preset) =>
-    preset.effects.flatMap((entry) => drawnCommands(deck, entry.id, entry.effect, entry.drawn)),
+  (deck, preset, held) => RACK_STAGES[5]!(deck, preset.effects, held),
   (deck, preset) =>
     preset.loop === null
       ? []
@@ -147,7 +187,7 @@ const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
  * empty `automation.set` clears the sibling beside it.
  */
 export function drawnCommands(
-  deck: DeckId,
+  deck: RackId,
   instance: EffectInstanceId,
   effect: SessionEffect["effect"],
   drawn: SessionEffect["drawn"],
@@ -161,7 +201,7 @@ export function drawnCommands(
 }
 
 export function boundsCommands(
-  deck: DeckId,
+  deck: RackId,
   instance: EffectInstanceId,
   bounds: EffectBounds,
 ): GroupedEditCommand[] {
@@ -314,6 +354,9 @@ export function restorationCommands(session: Session): Command[] {
     for (const { id: deck } of session.deckList)
       commands.push(...stage(deck, deckIn(session.decks, deck), NOTHING_HELD));
   }
+  // The rack that is no yard's, after every yard's own and before the clock: it is built by the
+  // very same commands, addressed with null (`rackRestorationCommands`, 0320, 0321).
+  commands.push(...rackRestorationCommands(null, session.master.effects));
   // The clock the yards jump on, after every deck exists and before any of them is played: one
   // command for the session rather than one per yard (0097). Null sends nothing, the way a
   // restored deck's null player does — both callers of this list build a host that has never
@@ -327,6 +370,22 @@ export function restorationCommands(session: Session): Command[] {
   if (session.activeDeck !== null) commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
 }
+
+/**
+ * One stored rack, copied entry for entry into the live shape — which is the same shape, so this
+ * is a deep copy and never a rebuild. Written once, because a yard's rack and the one that is no
+ * yard's are the same list of instances (0030, 0321).
+ */
+const restoredRack = (effects: readonly SessionEffect[]): SessionEffect[] =>
+  effects.map((entry) => ({
+    id: entry.id,
+    effect: entry.effect,
+    bypassed: entry.bypassed,
+    params: { ...entry.params },
+    automation: structuredClone(entry.automation),
+    drawn: structuredClone(entry.drawn),
+    bounds: structuredClone(entry.bounds),
+  }));
 
 /**
  * A stored session's whole restoration, for the one caller that boots into a live store: the
@@ -384,15 +443,7 @@ export function restoredSessionState(
         params: { ...stored.params },
         automation: structuredClone(stored.automation),
         drawn: structuredClone(stored.drawn),
-        effects: stored.effects.map((entry): SessionEffect => ({
-          id: entry.id,
-          effect: entry.effect,
-          bypassed: entry.bypassed,
-          params: { ...entry.params },
-          automation: structuredClone(entry.automation),
-          drawn: structuredClone(entry.drawn),
-          bounds: structuredClone(entry.bounds),
-        })),
+        effects: restoredRack(stored.effects),
         source: stored.source === null ? null : { ...stored.source },
         duration: deckIn(durations, deck),
         // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
@@ -410,5 +461,8 @@ export function restoredSessionState(
     clips: structuredClone(session.clips),
     sync: session.sync,
     ground: { ...session.ground },
+    // The rack that is no yard's, copied through the very same projection a yard's rack comes
+    // through: it holds nothing the graph derives, so nothing here is rebuilt (0321).
+    master: { effects: restoredRack(session.master.effects) },
   };
 }

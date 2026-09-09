@@ -191,11 +191,13 @@ export const laneRead = (lane: string): RowRead => ({
  * two files spelled apart would hand a rebuilt set the wrong row's share and nothing would say so
  * (`RowRead.key`, principle 1). One word each: there is one loop, one macro row, one wash and one
  * session row in a picture, and the two the structure is cut at are told apart by which of the two
- * they are.
+ * they are. The rack that is no yard's carries a prefix of its own: its instances are in every
+ * yard's picture, so a master row keyed as a rack row would share a name with a yard's own (0320).
  */
 export const ROW_KEYS = {
   lane: "lane:",
   rack: "rack:",
+  master: "master:",
   grown: "grown:",
   tier: "tier:",
   loop: "loop",

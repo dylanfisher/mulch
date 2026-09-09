@@ -258,6 +258,27 @@ describe("deck.flatten", () => {
     expect(instrument.probe().decks.a!.player).toEqual(JUMPING);
   });
 
+  // The rack that is no yard's is a fact about the session, not about this yard: baking it into
+  // one yard's samples would apply it a second time on playback, and it cannot be taken off
+  // afterwards the way the deck's own parameters are — the other yards are still going through it
+  // (0321).
+  it("renders the loop without the rack that is no yard's, and leaves that rack alone", async () => {
+    const { instrument, specs } = fixture();
+    await instrument.ready;
+    await performing(instrument);
+    instrument.send({ t: "effect.add", deck: null, id: "mst", effect: "filter" });
+    await settle();
+
+    instrument.send({ t: "deck.flatten", deck: "a", id: "flat-1" });
+    await settle();
+
+    const sent = specs[0]!.envelopes.filter(
+      (input) => !("cmd" in input) && "deck" in input && input.deck === null,
+    );
+    expect(sent).toEqual([]);
+    expect(instrument.probe().master.effects.map((entry) => entry.id)).toEqual(["mst"]);
+  });
+
   it("refuses when the yard changed under the render, and stores nothing", async () => {
     const { instrument, calls, events, blobs } = fixture();
     await instrument.ready;

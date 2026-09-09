@@ -63,6 +63,7 @@ import {
   moireRows as builtRows,
   refillRows as filledRows,
   type MoireLane,
+  NO_MASTER,
 } from "@/ui/moireRows";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
@@ -84,7 +85,9 @@ const moireRows = (
   cut: SourceCut,
   playerPeriod: number | null = null,
   grown: GrownRun = NO_GROWN,
-): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, grown, null);
+  /** And no master rack, which is what every case here but the master's own is written against. */
+  master: readonly SessionEffect[] = NO_MASTER,
+): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, grown, null, master);
 
 /** An output with nothing in it: a lane's row and an instance's are read off neither end of it. */
 const SILENT_MASTER = emptyMasterPeek();

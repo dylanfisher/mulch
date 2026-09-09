@@ -16,7 +16,7 @@ import { LATTICE_CELLS, LATTICE_LEAN, LATTICE_REACH } from "@/lib/moireLattice";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { carryShape } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { moireRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER } from "@/ui/moireRows";
 import {
   rackShape,
   SHAPE_HEARD_SECS,
@@ -102,12 +102,12 @@ describe("how the standing rack shapes the picture", () => {
 
   it("carries where the shape had got to onto a rebuilt set, and never where it is going", () => {
     const standing = [instance("a", { params: { "reverb.wet": 1 } })];
-    const was = moireRows([], standing, 4, PLAIN_CUT, null, NO_GROWN, null);
+    const was = moireRows([], standing, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     shapeTravelInto(was.shape, was.shaping, quiet, SHAPE_SECS.value / 4, true, 0.5);
     const tight = was.shape.cells;
     const wandered = was.shape.sway;
     expect(wandered).toBeGreaterThan(0);
-    const now = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const now = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     expect(now.shape).toEqual(shapeRest());
     carryShape(was, now);
     expect(now.shape.cells).toBe(tight);

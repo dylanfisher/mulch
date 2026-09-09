@@ -62,7 +62,7 @@ import { loopStand, playerGroundSecs, playerRowPeriod, playerRowStand } from "@/
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
-import { moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
 import { carryGround } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { emptyMasterPeek } from "@/audio/context";
@@ -205,8 +205,8 @@ describe("the picture's own field", () => {
     // A struck source stands well above its own mean and a sustained one sits near it, which is
     // what chooses the wave; the onsets per second are what set the spacing.
     expect(struck.crest).toBeGreaterThan(held.crest);
-    const one = moireRows([], [], 4, sourceCut(struck, 2), null, NO_GROWN, null);
-    const other = moireRows([], [], 4, sourceCut(held, 2), null, NO_GROWN, null);
+    const one = moireRows([], [], 4, sourceCut(struck, 2), null, NO_GROWN, null, NO_MASTER);
+    const other = moireRows([], [], 4, sourceCut(held, 2), null, NO_GROWN, null, NO_MASTER);
     // The reference row, the field's own broad row over it, and the session's (0213, P167).
     expect(one.rows).toHaveLength(3);
     expect(one.rows[0]?.reference).toBe(true);
@@ -215,9 +215,11 @@ describe("the picture's own field", () => {
     expect(one.rows).not.toEqual(other.rows);
     // And the same source twice is the same picture: nothing here is stored, so this has to be a
     // function of the analysis and of nothing else.
-    expect(one.rows).toEqual(moireRows([], [], 4, sourceCut(struck, 2), null, NO_GROWN, null).rows);
+    expect(one.rows).toEqual(
+      moireRows([], [], 4, sourceCut(struck, 2), null, NO_GROWN, null, NO_MASTER).rows,
+    );
     // A yard with nothing measured draws what the reference row drew before there was a source.
-    const bare = moireRows([], [], 4, sourceCut(null, 0), null, NO_GROWN, null).rows[0];
+    const bare = moireRows([], [], 4, sourceCut(null, 0), null, NO_GROWN, null, NO_MASTER).rows[0];
     expect(bare?.profile).toBe(PLAIN_PROFILE);
     expect(bare?.pitch).toBe(DRIFT_REST.pitch);
   });
@@ -245,7 +247,7 @@ describe("the picture's own field", () => {
     const analysis = analyzeBeats([whole], RATE);
     const secs = 12;
     const cut = sourceCut(analysis, secs);
-    const { rows, reads } = moireRows([], [], 4, cut, null, NO_GROWN, null);
+    const { rows, reads } = moireRows([], [], 4, cut, null, NO_GROWN, null, NO_MASTER);
     const reference = rows[0];
     if (reference === undefined) throw new Error("the picture has no reference row");
     const at = (position: number): number => {
@@ -316,7 +318,8 @@ describe("the picture's own field", () => {
       RATE,
     );
     const loop: Loop = { in: 0, out: 1 };
-    const { rows, reads } = moireRows([], [], 4, sourceCut(analysis, secs), null, NO_GROWN, null);
+    const cut = sourceCut(analysis, secs);
+    const { rows, reads } = moireRows([], [], 4, cut, null, NO_GROWN, null, NO_MASTER);
     const reference = rowAt(rows, 0);
     const field = rowAt(rows, -2);
     const peek = emptyDeckPeek();
@@ -356,14 +359,13 @@ describe("the picture's own field", () => {
   it("travels the field toward a moved ground across frames rather than arriving at it", () => {
     const RATE = 48_000;
     const secs = 4;
-    const analysis = analyzeBeats(
-      [renderGen("click-train", { secs, sampleRate: RATE, hz: 4 })],
-      RATE,
-    );
+    const clicks = [renderGen("click-train", { secs, sampleRate: RATE, hz: 4 })];
+    const analysis = analyzeBeats(clicks, RATE);
+    const cut = sourceCut(analysis, secs);
     const loop: Loop = { in: 0, out: 1 };
     // A jumping yard, because a yard that is not jumping has no landing to time a travel in.
     const period = playerRowPeriod(JUMPING);
-    const { rows, reads } = moireRows([], [], 4, sourceCut(analysis, secs), period, NO_GROWN, null);
+    const { rows, reads } = moireRows([], [], 4, cut, period, NO_GROWN, null, NO_MASTER);
     const identity = [...rows];
     const [reference, field, module] = [rowAt(rows, -3), rowAt(rows, -2), rowAt(rows, 0)];
     expect([reads.at(-3)?.heard, reads.at(-2)?.ground, reads[0]?.tier]).not.toContain(null);
@@ -415,7 +417,7 @@ describe("the picture's own field", () => {
     const secs = 4;
     const period = playerRowPeriod(JUMPING);
     const built = (): ReturnType<typeof moireRows> =>
-      moireRows([], [], 4, PLAIN_CUT, period, NO_GROWN, null);
+      moireRows([], [], 4, PLAIN_CUT, period, NO_GROWN, null, NO_MASTER);
     const was = built();
     const peek = emptyDeckPeek();
     peek.player.step = standingOn(48);
@@ -445,7 +447,8 @@ describe("the picture's own field", () => {
       RATE,
     );
     const loop: Loop = { in: 0, out: 1 };
-    const { rows, reads } = moireRows([], [], 4, sourceCut(analysis, secs), null, NO_GROWN, null);
+    const cut = sourceCut(analysis, secs);
+    const { rows, reads } = moireRows([], [], 4, cut, null, NO_GROWN, null, NO_MASTER);
     const reference = rowAt(rows, 0);
     const field = rowAt(rows, -2);
     const peek = emptyDeckPeek();
@@ -526,7 +529,7 @@ describe("the picture's own field", () => {
    * (0128, 0213).
    */
   it("lays the field's own row over the picture and rises every row with the wash", () => {
-    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     const field = rowAt(rows, -2);
     // Last of all, on the loop's own period, at the coarse end of the band every row is drawn in —
     // so what it makes with the rest is a larger moiré and not a second hatch among them.
@@ -581,8 +584,8 @@ describe("the picture's own field", () => {
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
   it("lays one row for the whole session over every picture, on the session's own clock", () => {
-    const loose = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null);
-    const synced = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, 1.5);
+    const loose = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
+    const synced = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, 1.5, NO_MASTER);
     const session = rowAt(loose.rows, -1);
     // Last of all, after the wash: what the yard is running decides the window and the recurrence,
     // and this row is not the yard's.
@@ -600,7 +603,7 @@ describe("the picture's own field", () => {
     // And it is the same row in every picture: two yards open side by side are beaten against one
     // layer and drift together, which is what a picture of the session is and what a second
     // per-deck reading would not be.
-    const other = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, 1.5);
+    const other = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, 1.5, NO_MASTER);
     expect(rowAt(other.rows, -1)).toEqual(rowAt(synced.rows, -1));
     expect(session.geometry).toBe(LINEAR_GEOMETRY);
     expect(session.profile).toBe(PLAIN_PROFILE);
@@ -616,13 +619,13 @@ describe("the picture's own field", () => {
     expect(bandTurns(synced.rows)).not.toBe(0);
     // Even where the yard has no loop at all, which is the one picture where this row is the only
     // axis in it: a band riding the session's clock is not the deck's read position.
-    const loopless = moireRows([lane], [], 0, PLAIN_CUT, null, NO_GROWN, 0.75);
+    const loopless = moireRows([lane], [], 0, PLAIN_CUT, null, NO_GROWN, 0.75, NO_MASTER);
     refillRows(loopless.rows, loopless.reads, peek, 1, null, 0, null, masterAt(1, 0.5), ARRIVED);
     expect(rowAt(loopless.rows, -1).period).toBe(0.75);
     expect(bandTurns(loopless.rows)).toBe(0);
     // And nothing at all onto a picture that holds nothing of its own: one row of somebody else's
     // session is not this yard's picture arriving.
-    expect(moireRows([], [], 0, PLAIN_CUT, null, NO_GROWN, 1.5).rows).toEqual([]);
+    expect(moireRows([], [], 0, PLAIN_CUT, null, NO_GROWN, 1.5, NO_MASTER).rows).toEqual([]);
 
     // The phase included — it runs on the session's own clock, so two yards reading two places in
     // two files still stand it in the same place.
@@ -644,7 +647,7 @@ describe("the picture's own field", () => {
    * time domain and never a spectrum (`rmsMagnitude`, `spectralTilt`, src/lib/peaks.ts).
    */
   it("cuts the session's row at nothing over silence and deeper as the output grows", () => {
-    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     const session = rowAt(rows, -1);
     const yardRow = rowAt(rows, 0);
     // Built at no depth of its own, like the wash row: a session nobody can hear draws exactly the
@@ -708,7 +711,7 @@ describe("the picture's own field", () => {
         ],
       ],
     ]);
-    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, grown, null);
+    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, grown, null, NO_MASTER);
     const peek = { ...emptyDeckPeek(), grown };
     const fractal = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
     if (fractal === undefined) throw new Error("the picture holds no fractal row");

@@ -42,6 +42,12 @@ export type EffectRack = {
   /** Rewire the rack into `order`, which must be a permutation of the instances it holds. */
   reorder(order: readonly EffectInstanceId[]): void;
   /**
+   * The instances it is holding, in its own signal order — the list the rewires above are written
+   * against, answered rather than counted a second time by whoever needs it. What a rack rebuilt
+   * to be a restored session's has to take away first (src/app/engine.ts).
+   */
+  held(): EffectInstanceId[];
+  /**
    * What every instance in the signal path whose plugin exposes one is reading right now, written
    * into `out` keyed by instance id and refilled in place — a reading and never a setting, asked
    * per frame and gone (`meter`, ./contract.ts). An instance whose plugin exposes none, and one
@@ -220,6 +226,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       });
       instance.dispose();
     },
+    held: () => [...order],
     reorder: (next) => {
       if (
         next.length !== order.length ||

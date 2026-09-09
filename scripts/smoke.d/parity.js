@@ -63,6 +63,12 @@ export const exportParity = async ({ page }) => {
             { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
             { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
             { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 3200 },
+            // And one on the rack that is no yard's, so the master rack is inside the graph this
+            // parity is taken of: it is built by the one `createMasterBus` both hosts call, and a
+            // rack that were not in that graph would be a second signal path (0321,
+            // docs/boundaries.md).
+            { t: "effect.add", deck: null, id: "mst", effect: "eq" },
+            { t: "param.set", deck: null, instance: "mst", param: "eq.gain", value: 6 },
             { t: "deck.play", deck: "a" },
           ],
           wav: true,
@@ -152,6 +158,7 @@ export const exportParity = async ({ page }) => {
   }
   report(
     `offline export matches ${parity.frames * parity.channels} shared-graph ` +
-      `samples within ${WAV_QUANTIZATION_EPSILON} (max ${parity.maxDelta})`,
+      `samples within ${WAV_QUANTIZATION_EPSILON} (max ${parity.maxDelta}), a yard's own rack and ` +
+      "the one under all of them both inside that graph",
   );
 };

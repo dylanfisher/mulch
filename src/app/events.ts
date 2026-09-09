@@ -11,7 +11,7 @@ import type { MotionDrawn } from "@/lib/motion";
 import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId } from "@/lib/source";
 import type { ClipId, EffectBound } from "@/state/session";
-import type { DeckId } from "@/state/store";
+import type { DeckId, RackId } from "@/state/store";
 import type { Loop } from "@/lib/timeline";
 import type { SessionGround } from "@/lib/sessionGround";
 
@@ -56,10 +56,10 @@ export type EventBody =
   | { t: "deck.stopped"; deck: DeckId; reason: StopReason }
   // `instance` is absent for a deck parameter and names the rack entry for an effect's: a value
   // belongs to the pair, not to the parameter alone (0030).
-  | { t: "param.changed"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }
+  | { t: "param.changed"; deck: RackId; instance?: EffectInstanceId; param: ParamId; value: number }
   | {
       t: "automation.changed";
-      deck: DeckId;
+      deck: RackId;
       instance?: EffectInstanceId;
       param: ParamId;
       points: AutomationPoint[];
@@ -71,7 +71,7 @@ export type EventBody =
    */
   | {
       t: "automation.drawn";
-      deck: DeckId;
+      deck: RackId;
       instance?: EffectInstanceId;
       param: ParamId;
       drawn: MotionDrawn | null;
@@ -82,19 +82,19 @@ export type EventBody =
   // from, the way `deck.duplicated` does for a yard (0092).
   | {
       t: "effect.duplicated";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       to: EffectInstanceId;
       effect: EffectId;
     }
   // Every rack event carries both the instance that moved and what it is an instance of, because
   // two of them can be the same effect (0030).
-  | { t: "effect.added"; deck: DeckId; instance: EffectInstanceId; effect: EffectId; index: number }
+  | { t: "effect.added"; deck: RackId; instance: EffectInstanceId; effect: EffectId; index: number }
   // The rack as it was actually rewired. Bypass is named for the change, like
   // `deck.loop.changed`, because it carries both directions (0023).
   | {
       t: "effect.bypass.changed";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       effect: EffectId;
       bypassed: boolean;
@@ -102,7 +102,7 @@ export type EventBody =
   /** The window as it was actually held, clamped into the parameter's own range, or null. */
   | {
       t: "effect.bounds.changed";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       effect: EffectId;
       param: EffectParamId;
@@ -115,7 +115,7 @@ export type EventBody =
    */
   | {
       t: "effect.dismissed";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       effect: EffectId;
       place: EffectInstanceId;
@@ -123,18 +123,31 @@ export type EventBody =
   /** `index` is where the instance was, so a reader knows what left the signal order. */
   | {
       t: "effect.removed";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       effect: EffectId;
       index: number;
     }
   | {
       t: "effect.reordered";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       effect: EffectId;
       from: number;
       to: number;
+    }
+  /**
+   * One instance carried out of one rack and into another, whole. It names both addresses and the
+   * slot it landed on — null being the rack that is no yard's — because "where it went" is the
+   * pair and not one of them (0320).
+   */
+  | {
+      t: "effect.moved";
+      from: RackId;
+      to: RackId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      index: number;
     }
   // The shared jump clock as it was actually held, in seconds, or null for yards each keeping
   // their own time. One event for the session rather than one per yard: it is one fact (0097).

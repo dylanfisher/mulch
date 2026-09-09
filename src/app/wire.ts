@@ -11,7 +11,7 @@ import { normalizeAutomationLane } from "@/lib/automation";
 import { assertMotionDrawn } from "@/lib/motion";
 import { assertDurableText, finite, flag, isRecord } from "@/lib/guards";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
-import { assertDeckId } from "@/state/store";
+import { assertDeckId, assertRackId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
 
 /**
@@ -51,6 +51,7 @@ const COMMAND_HISTORY = {
   "effect.remove": "group",
   "effect.bounds": "group",
   "effect.reorder": "group",
+  "effect.move": "alone",
   "session.import": "alone",
   "session.sync": "alone",
   "session.ground": "alone",
@@ -104,11 +105,40 @@ export const expandsIntoGroup = (command: Command): boolean =>
   command.t === "clip.apply" ||
   command.t === "deck.duplicate" ||
   command.t === "deck.flatten" ||
-  command.t === "effect.duplicate";
+  command.t === "effect.duplicate" ||
+  command.t === "effect.move";
 
 /** The same set, asked of a command that is already typed — which path it arrived by. */
 export const isGroupableEdit = (command: Command): command is GroupedEditCommand =>
   isGroupableKind(command.t);
+
+/**
+ * Which groupable commands take a rack address rather than a yard's id, read off the union itself:
+ * a command whose `deck` admits null is one the master may be named on (0320). Asked as a type
+ * rather than as a hand-written list, for the reason `COMMAND_HISTORY` above is — a rack command
+ * left out of a hand-written list is one refused at the wire by a guard nobody updated.
+ */
+type RackAddressed = {
+  [T in GroupedEditCommand["t"]]: null extends Extract<GroupedEditCommand, { t: T }>["deck"]
+    ? T
+    : never;
+}[GroupedEditCommand["t"]];
+
+/**
+ * And the list itself, checked against that type in both directions: `satisfies` refuses a name
+ * that is not rack-addressed, and the total record refuses one that is and was left out.
+ */
+const RACK_ADDRESSED = {
+  "param.set": true,
+  "automation.set": true,
+  "automation.span": true,
+  "automation.drawn": true,
+  "effect.add": true,
+  "effect.bypass": true,
+  "effect.remove": true,
+  "effect.bounds": true,
+  "effect.reorder": true,
+} as const satisfies Record<RackAddressed, true>;
 
 /**
  * The one wire validation of a groupable command, for both paths one can arrive by: inside a
@@ -127,7 +157,10 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
   if (!isGroupableKind(raw.t)) {
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
-  assertDeckId(raw.deck, `${raw.t} deck`);
+  // A rack-addressed command may name the master, which is no yard and therefore not a deck id
+  // (0320); everything else names a yard the way it always did.
+  if (Object.hasOwn(RACK_ADDRESSED, raw.t)) assertRackId(raw.deck, `${raw.t} deck`);
+  else assertDeckId(raw.deck, `${raw.t} deck`);
   // The two fields beyond the deck that `deck.add` carries: the emoji and name drawn for it
   // (0057).
   if (raw.t === "deck.add") {

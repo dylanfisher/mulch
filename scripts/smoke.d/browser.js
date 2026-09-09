@@ -38,6 +38,7 @@ import { renderDynamics } from "./renderDynamics.js";
 import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
 import { renderPlayer } from "./renderPlayer.js";
+import { renderMaster } from "./renderMaster.js";
 import { renderRack } from "./renderRack.js";
 import { renderShift } from "./renderShift.js";
 import { renderAutomator } from "./renderAutomator.js";
@@ -131,6 +132,7 @@ const LANES = [
       exportAudioFile,
       exportReleasesSamples,
       renderRack,
+      renderMaster,
       renderAutomator,
       renderTape,
       renderEq,

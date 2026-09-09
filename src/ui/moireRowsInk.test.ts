@@ -18,7 +18,7 @@ import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { emptyMasterPeek } from "@/audio/context";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { carryInk } from "@/ui/moireCarry";
-import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows as filledRows } from "@/ui/moireRows";
 import { shapeRest } from "@/ui/moireShape";
 
 /** An output with nothing in it: the picture drawn before there was anything to hear. */
@@ -32,7 +32,7 @@ const FRESH = 0;
 
 /** A yard's picture, with one row of it saying the loudest thing in the picture about colour. */
 const claiming = (hue: number): ReturnType<typeof moireRows> => {
-  const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+  const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
   const loudest = set.rows[0];
   if (loudest === undefined) throw new Error("a picture drawn with no rows in it");
   loudest.hue = hue;
@@ -76,7 +76,7 @@ describe("the picture's own ink", () => {
     expect(halfway).toBeGreaterThan(DRIFT_REST.hue);
     expect(halfway).toBeLessThan(1);
 
-    const now = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const now = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     expect(now.ink.hue).toBe(DRIFT_REST.hue);
     carryInk(was, now);
     expect(now.ink.hue).toBe(halfway);

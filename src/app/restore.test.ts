@@ -267,6 +267,7 @@ describe("restoration command order", () => {
       decks: {},
       spentDeckIds: ["a"],
       clips: [],
+      master: { effects: [] },
       sync: null,
       ground: SESSION_GROUND_DEFAULTS,
     });

@@ -40,7 +40,7 @@ import {
   growthLeft,
   holdLeft,
 } from "@/lib/copyAuto";
-import type { DeckId } from "@/state/store";
+import type { RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
 import { START, SWEEP } from "@/ui/Knob";
@@ -206,7 +206,7 @@ export function GrownRows({
   playing,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   params: EffectParamValues;
   playing: boolean;

@@ -296,7 +296,12 @@ src/ui/PlayerGroundZone.tsx, both at the 400-line warning, and src/lib/player.te
 case to src/lib/playerZone.test.ts at the hard cap. bench-03 landed on 2026-09-08 as
 [0319](decisions/0319-a-motion-is-carried-between-knobs-and-dies-with-the-tab.md); the clipboard is
 src/ui/motionClipboard.ts, `rescaleLane` sits beside `stretchLane` in src/lib/automation.ts, and
-the two presses are a row of src/ui/MotionMenu.tsx. The next free decision number is 0320.
+the two presses are a row of src/ui/MotionMenu.tsx. bench-04 landed on 2026-09-08 as
+[0320](decisions/0320-an-effects-address-is-a-rack-not-a-yard.md) and
+[0321](decisions/0321-the-session-holds-one-rack-under-all-the-yards.md); `RackId` is
+`DeckId | null`, `session.master` is a rack and nothing else, `createEffectRack` is called once
+inside `createMasterBus`, and `effect.move` carries an instance between two racks as one history
+entry. The next free decision number is 0322.
 
 2.  **A ground is bounded by a zone the hand marked.** _(bench-02, landed 0318)_ **Durable shape moved: a
     yard's ground gains a zone.** One item, one gate.
@@ -396,7 +401,7 @@ AutomationRange; drawn: MotionDrawn | null }`, subscribed to with `useSyncExtern
     a hand holds for two seconds. _Copying only the character and the count._ A hand that pressed
     Copy on a lane it likes means the lane.
 
-4.  **An effect's address is a rack, not a yard.** _(bench-04)_ **Durable shape moved: the session
+4.  **An effect's address is a rack, not a yard.** _(bench-04, landed 0320, 0321)_ **Durable shape moved: the session
     holds a rack of its own, and every effect command names a rack.** Two items, one gate. The
     expensive step of the four.
 
@@ -446,6 +451,31 @@ AutomationRange; drawn: MotionDrawn | null }`, subscribed to with `useSyncExtern
     **The outcome wanted:** a tape and a compressor under all the yards, heard on everything and
     riding lanes of their own; and a delay dragged out of one yard's rack into another's, still
     bypassed, still automated, still the same instance.
+
+    **The outcome:** landed as written, in two decisions rather than the one the ordering sentence
+    named: `RackId = DeckId | null` and `effect.move` are [0320](decisions/0320-an-effects-address-is-a-rack-not-a-yard.md),
+    and the session's own rack is [0321](decisions/0321-the-session-holds-one-rack-under-all-the-yards.md).
+    `param.set` and the automation trio widened with the rack operations, which the step's own text
+    did not name: a master instance holds exactly the parameters and lanes its plugin declares, and
+    a second set of commands for that pair is what principle 1 refuses — the cost is one guard, at
+    the reducer's top, refusing `deck: null` with no instance beside it. The meter moved to the far
+    side of the master rack, because a master effect can make the output too hot and that is the one
+    thing the meter exists to say. `rackRestorationCommands` came out of the per-deck stage list and
+    is now the one declaration of a rack's restoration order, replayed onto a yard's and the
+    master's alike; a rollback rebuilds the master rack in place inside `prepareRestore`'s commit,
+    because there is one bus and it cannot be prepared beside itself. The rack contract came out of
+    src/app/engine.ts into src/app/audioEngine.ts at the hard cap, and the per-instance row builder
+    out of src/ui/moireRows.ts into src/ui/moireRack.ts — the field module could not host it without
+    closing the loop moireRowsField → moireGrown → moireRowsField. The browser proof is
+    scripts/smoke.d/renderMaster.js: 21.8dB off an offline take, the same take twice to the digit,
+    and a filter moved off a yard's rack rendering within 0.00dB of one built on the master; the
+    parity lane now carries a master instance too, so the rack that is no yard's is inside the one
+    graph both hosts render through. Review caught four things and each has its own test: a flatten
+    was baking the master rack into a yard's samples and then playing them through it again, a move
+    onto a rack already holding that id destroyed the source's copy, `automation.span` was the one
+    rack reducer that threw at its caller instead of refusing on the log, and the master's arming
+    tick neither stopped on a closed context nor restarted when a bypass put its only growing
+    instance back.
 
     **Tests that must fail first.** src/state/session.test.ts: a session validates with a master
     rack, and one holding a master instance of an unregistered entry is discarded (0026).
@@ -627,6 +657,29 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**A card is carried between racks by a menu and not yet by a drag** (bench-04, 0320). The step
+asked for two gestures on one command, and the "Move to" item is the one that landed. `useListDrag`
+measures one list's slots at the press and captures the pointer on that list; carrying a card into
+another rack means a hit test against every other rack's list on each move and a second measurement
+of the list under the pointer, and the same hook is worn by the yard list in src/ui/App.tsx, which
+must not grow a cross-list drop. What is lost is reach, not capability: the command, the reducer,
+the graph and the undo are all in, and the menu sends exactly the command a drag would.
+
+**The picture reads a master instance's row and not its run** (bench-04, 0321). A master instance
+gets a row of the field in every yard's picture, cut and reached the way a yard's rack instance is;
+what it does not get is a row per effect a master automator has _grown_, nor its meter breathing the
+row. Both are per-frame reads of one yard's `DeckPeek`, and a master automator's population would
+have to travel into every open picture at once. The master's own card reads both through
+`peek(null)`, which is the whole of the read this step gave it, so nothing is dark — the yard's
+picture is simply silent about what a master automator is standing.
+
+**A master lane's clock is a second copy of the deck's cycle walk** (bench-04, 0321).
+`createMasterEffects` arms its lanes against `ctx.currentTime` with the same
+`MAX_AUTOMATION_CYCLES` / `AUTOMATION_HORIZON_SECS` arithmetic `src/audio/deck.ts` uses. Lifting the
+one out of the other was refused on principle 3: it is the second occurrence, and the deck's version
+is entangled with a plan, a lane hold across silence and a player — none of which a rack with no
+transport under it has. A third rack that arms lanes is where the abstraction is owed.
 
 **A carried motion keeps the span it was drawn at** (bench-03, 0319). `rescaleLane` moves a lane's
 values onto the range it lands in and leaves its times exactly where they were, so a motion pasted

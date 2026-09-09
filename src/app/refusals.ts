@@ -1,13 +1,14 @@
 /**
- * @role The two questions a command that needs sound asks before it does anything: whether there
- *   is an audio host at all, and whether the deck it names holds any. Each refusal has one wording
+ * @role The questions a command asks before it does anything: whether there is an audio host at
+ *   all, whether the deck it names holds any sound, and what a rack is called when the answer is
+ *   no. Each refusal has one wording
  *   here rather than one per handler — a deck with nothing loaded is one fact however it was
  *   reached, and the refusal tests match these strings (principle 1).
  * @instead What a command does once they are answered → src/app/execute.ts and the files it
  *   dispatches to, which is where these were written until the hard line cap made the second
  *   caller a move (0045, 0181). The graph they reach for → src/app/engine.ts.
  */
-import { deckIn, type DeckId } from "@/state/store";
+import { deckIn, type DeckId, type RackId } from "@/state/store";
 import type { Command } from "./commands";
 import type { Engine } from "./engine";
 import type { Runtime } from "./runtime";
@@ -33,3 +34,6 @@ export function refuseUnloaded(rt: Runtime, deck: DeckId): boolean {
   rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
   return true;
 }
+
+/** What a rack is called on the log: a yard by its id, and the one that is no yard's by name. */
+export const rackSaid = (rack: RackId): string => (rack === null ? "master" : `deck ${rack}`);

@@ -1,4 +1,5 @@
-/** @role One deck's registry-rendered ordered effect rack and its performance commands. */
+/** @role One rack's registry-rendered ordered effect cards and its performance commands — a
+ *   yard's own, and the one that is no yard's, which are the same rack at two addresses (0320). */
 // Over the soft cap: what is here is one card's head, one card's body and the rack around them,
 // and the file grows with how many things a card offers rather than with how much it decides —
 // the die, the copy, the bin and the switch are four of them. See
@@ -18,7 +19,7 @@ import {
   EFFECTS_CLEAR_TOOLTIP,
   effectsClearTitle,
   EFFECTS_LABEL,
-  yardLabel,
+  rackLabel,
 } from "@/lib/copy";
 import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
@@ -26,13 +27,14 @@ import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/
 import { effectById, type EffectId } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
-import { deckIn, type DeckId, type DeckState } from "@/state/store";
+import { rackIn, type RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Switch } from "@/ui/components/switch";
 import { Toggle } from "@/ui/components/toggle";
 import { clearEffectsCommand, duplicateEffectCommand, randomizeEffectCommand } from "@/ui/actions";
+import { EffectMove } from "@/ui/EffectMove";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -61,7 +63,7 @@ export function SlotControls({
   bypassed,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   /** Which registry entry this instance is, which is what says how many knobs a draw fills and
    *  what each of them may be drawn to (`effectParamDraws`, src/audio/params.ts). */
@@ -105,7 +107,7 @@ export function SlotControls({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label={`Randomize ${label} on ${yardLabel(deck)}`}
+          aria-label={`Randomize ${label} on ${rackLabel(deck)}`}
           onClick={randomize}
         >
           <ACTION_ICONS.randomize />
@@ -115,17 +117,20 @@ export function SlotControls({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label={`Duplicate ${label} on ${yardLabel(deck)}`}
+          aria-label={`Duplicate ${label} on ${rackLabel(deck)}`}
           onClick={duplicate}
         >
           <ACTION_ICONS.duplicate />
         </Button>
       </Says>
+      {/* Between the copy and the bin, because it is the other thing a hand does to a whole card
+          and it is not a removal: copy makes a second one, this carries this one (0320). */}
+      <EffectMove instrument={instrument} deck={deck} instance={instance} label={label} />
       <Says what={ACTION_TOOLTIPS.remove}>
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label={`Remove ${label} from ${yardLabel(deck)}`}
+          aria-label={`Remove ${label} from ${rackLabel(deck)}`}
           onClick={remove}
         >
           <ACTION_ICONS.remove />
@@ -140,7 +145,7 @@ export function SlotControls({
         <Switch
           size="sm"
           checked={!bypassed}
-          aria-label={`Enable ${label} on ${yardLabel(deck)}`}
+          aria-label={`Enable ${label} on ${rackLabel(deck)}`}
           onCheckedChange={toggleRunning}
         />
       </Says>
@@ -172,7 +177,7 @@ const FACE_BODY: Record<
   EffectFace,
   ComponentType<{
     instrument: Instrument;
-    deck: DeckId;
+    deck: RackId;
     instance: EffectInstanceId;
     /**
      * The instance's own durable values. A face is drawn from the per-frame read, but a control
@@ -209,7 +214,7 @@ function EffectCard({
   playing,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   entry: SessionEffect;
   ordinal: number;
   handle: DragHandleProps;
@@ -244,7 +249,7 @@ function EffectCard({
               size="icon-sm"
               variant="ghost"
               className="cursor-grab touch-none"
-              aria-label={`Reorder ${label} on ${yardLabel(deck)}`}
+              aria-label={`Reorder ${label} on ${rackLabel(deck)}`}
               {...handle}
             >
               <ACTION_ICONS.reorder />
@@ -325,10 +330,16 @@ export function EffectRack({
   fold,
 }: {
   instrument: Instrument;
-  deck: DeckId;
-  state: DeckState;
+  deck: RackId;
   /**
-   * Whether this yard's effects are folded shut, and the call that changes it — held by the yard
+   * What this rack holds, and whether anything a lane could ride is sounding — the two facts a
+   * card needs and the only two a rack that is no yard's can answer. A yard hands its own state's
+   * pair down; the master's `playing` is any yard playing, because that is when a master lane is
+   * being heard (0321).
+   */
+  state: { effects: SessionEffect[]; playing: boolean };
+  /**
+   * Whether this rack's effects are folded shut, and the call that changes it — held by the yard
    * rather than here, because this rack is rendered under the yard's own fold and state living
    * in it would be thrown away every time that one is used. The pair is passed whole because the
    * rack both reads it and sets it. A view preference either way: no command, nothing durable,
@@ -340,7 +351,7 @@ export function EffectRack({
   // The two things this list answers for itself: the order the session holds it in, re-read on
   // release, and the one command a reorder of a rack is (0111).
   const order = useCallback(
-    () => deckIn(instrument.state.getState().decks, deck).effects.map((entry) => entry.id),
+    () => rackIn(instrument.state.getState(), deck).effects.map((entry) => entry.id),
     [instrument, deck],
   );
   const reorder = useCallback(
@@ -383,7 +394,7 @@ export function EffectRack({
     // can tell from its neighbour (0030, P48).
     <section
       className="flex flex-col items-start gap-2"
-      aria-label={`${yardLabel(deck)} ${EFFECTS_LABEL}`}
+      aria-label={`${rackLabel(deck)} ${EFFECTS_LABEL}`}
     >
       {/* The heading is the fold. Folded or open is a state the section is left in, so it is a
           Toggle reporting `aria-pressed`, and the caret turns with the state rather than being a
@@ -421,7 +432,7 @@ export function EffectRack({
                     size="xs"
                     variant="ghost"
                     className="text-muted-foreground"
-                    aria-label={`${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                    aria-label={`${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${rackLabel(deck)}`}
                   >
                     {CLEAR_ALL_LABEL}
                   </Button>
@@ -433,7 +444,7 @@ export function EffectRack({
               <Button
                 size="xs"
                 variant="destructive"
-                aria-label={`Confirm ${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${yardLabel(deck)}`}
+                aria-label={`Confirm ${CLEAR_ALL_LABEL} ${EFFECTS_LABEL} on ${rackLabel(deck)}`}
                 onClick={clear}
               >
                 {EFFECTS_CLEAR_CONFIRM_LABEL}

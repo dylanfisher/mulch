@@ -20,7 +20,7 @@ import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
-import { moireRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
 import { ROW_KEYS } from "@/ui/moireRowsField";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
@@ -49,7 +49,7 @@ const STOOD = fractalStopsRest();
 describe("the lattice the rack stands in", () => {
   it("stands a lattice over a rack holding anything, and cuts it as loud as the output is", () => {
     // No rack, no lattice: the picture drawn before there was a rack in it (0278).
-    const bare = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const bare = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     expect(bare.reads.some((read) => read.lattice)).toBe(false);
     // A bypassed entry is not in the picture, and neither is its lattice.
     const held = {
@@ -62,7 +62,7 @@ describe("the lattice the rack stands in", () => {
       bounds: {},
     };
     expect(
-      moireRows([lane], [held], 4, PLAIN_CUT, null, NO_GROWN, null).reads.some(
+      moireRows([lane], [held], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER).reads.some(
         (read) => read.lattice,
       ),
     ).toBe(false);
@@ -76,6 +76,7 @@ describe("the lattice the rack stands in", () => {
       null,
       NO_GROWN,
       null,
+      NO_MASTER,
     );
     expect(reads.filter((read) => read.lattice)).toHaveLength(1);
     expect(reads.at(-1)?.key).toBe(ROW_KEYS.lattice);

@@ -39,7 +39,7 @@ import {
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
 import { denormalize, normalize } from "@/lib/range";
 import type { EffectBound, EffectBounds } from "@/state/session";
-import type { DeckId } from "@/state/store";
+import type { RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Says } from "@/ui/Says";
@@ -72,7 +72,7 @@ export function WeightRow({
   name,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   param: ParamId;
   value: number;
@@ -159,7 +159,7 @@ export function DrawsToggle({
   name,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   param: ParamId;
   value: number;
@@ -205,7 +205,7 @@ function BoundRow({
   name,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   param: EffectParamId;
   bound: EffectBound | undefined;
@@ -297,7 +297,7 @@ export function PoolEntry({
   name,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   plugin: GrowablePlugin;
   /** Which parameter this entry's weight is, off `WEIGHT_OF` and never named a second time here. */
@@ -430,7 +430,7 @@ export function PoolGrid({
   name,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   instance: EffectInstanceId;
   /** The card's own entry, whose declared parameters say which of the pool it reaches. */
   plugin: (typeof EFFECTS)[number];

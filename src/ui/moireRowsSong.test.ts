@@ -61,7 +61,12 @@ import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { DeckState } from "@/state/store";
 import type { Loop } from "@/lib/timeline";
-import { moireRows as builtRows, refillRows as filledRows, type MoireLane } from "@/ui/moireRows";
+import {
+  moireRows as builtRows,
+  NO_MASTER,
+  refillRows as filledRows,
+  type MoireLane,
+} from "@/ui/moireRows";
 import { NO_GROWN } from "@/ui/moireGrown";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 import { shapeRest } from "@/ui/moireShape";
@@ -81,7 +86,8 @@ const moireRows = (
   loopPeriod: number,
   cut: SourceCut,
   playerPeriod: number | null = null,
-): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, NO_GROWN, null);
+): MoireRowSet =>
+  builtRows(lanes, effects, loopPeriod, cut, playerPeriod, NO_GROWN, null, NO_MASTER);
 
 /** An output with nothing in it: the module's rows are read off the walk and never off the bus. */
 const SILENT_MASTER = emptyMasterPeek();

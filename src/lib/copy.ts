@@ -145,6 +145,24 @@ export function yardLabel(deck: string): string {
 }
 
 /**
+ * The rack that is no yard's, named the way a yard is: one word, built in one place, so every
+ * control that says which rack it belongs to reads the same (0320). Everything the yards sum to
+ * runs through it, which is what the word is for.
+ */
+export const MASTER_LABEL = "Master";
+
+/** The word the item that carries an instance to another rack wears. Titlecase (0059). */
+export const MOVE_TO_LABEL = "Move To";
+
+/**
+ * Which rack a control belongs to, said out loud: a yard by its name, and the one that is no
+ * yard's by the word above. The one place the two answers meet, so an aria-label never has to ask
+ * (principle 1).
+ */
+export const rackLabel = (rack: string | null): string =>
+  rack === null ? MASTER_LABEL : yardLabel(rack);
+
+/**
  * One pool, written as a line of words rather than a line per word. The pools are long enough now
  * (0149) that a literal array of each is most of this file, and the hard cap docs/map.md sets is
  * not a judgment call. Split once as the module loads and returned as the non-empty tuple the
@@ -298,6 +316,7 @@ export const ACTION_TOOLTIPS = {
     "Draw every knob on this effect somewhere new, across the whole range each of them has. One press, one undo — what it was is one step back.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
+  move: "Take this effect off this rack and put it on another one. It keeps its settings, its lanes and whether it is running — nothing is copied, and it lands at the end of the rack it goes to.",
   goTo: "Scroll to this yard.",
   debugConsole: "Show what the audio thread, the event ring and the decode cache are doing.",
   undo: "Take back the last thing you did.",

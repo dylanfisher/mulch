@@ -41,7 +41,7 @@ import {
   rackLooks,
   type MoireLook,
 } from "@/ui/moireLooks";
-import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows as filledRows } from "@/ui/moireRows";
 import { DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
 import type { SessionEffect } from "@/state/session";
@@ -494,7 +494,7 @@ describe("the looks a standing rack gives the picture", () => {
   });
 
   it("rests on the set beside the wash and the age, read once and never per row", () => {
-    const built = moireRows([], scatters(3), 4, PLAIN_CUT, null, NO_GROWN, null);
+    const built = moireRows([], scatters(3), 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     expect(built.looks.map((look) => look.key)).toEqual(["scatter 0", "scatter 1", "scatter 2"]);
     const held = built.looks;
     // The per-frame read writes the wash and travels the ink; it never rebuilds this. What it is
@@ -540,6 +540,7 @@ describe("the looks a standing rack gives the picture", () => {
       null,
       NO_GROWN,
       null,
+      NO_MASTER,
     );
     looksTravelInto(built.looks, SHAPE_SECS.value, SHAPE_SECS.value, true);
     expect(built.ink.saturate).toBe(0);

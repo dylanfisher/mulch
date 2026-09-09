@@ -57,6 +57,7 @@ import {
   recurrenceLabel,
   type RecurrenceLength,
 } from "@/lib/recurrence";
+import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
@@ -126,6 +127,9 @@ function useSessionRows(
   rate: number,
   period: number,
   sync: number | null,
+  /** What the rack that is no yard's holds: it is heard on this yard, so it is in this picture
+   *  (`masterInto`, src/ui/moireRack.ts, 0320). */
+  master: readonly SessionEffect[],
 ): { session: MoireRowSet; grow: (grown: GrownRun) => MoireRowSet } {
   // Keyed on the two things a row can live in and nothing else, so a load or a fold leaves the
   // rows — and through them the estimate — exactly as they were (P54). A knob an effect declared a
@@ -147,8 +151,9 @@ function useSessionRows(
     [rate, state.loop, state.player],
   );
   const grow = useCallback(
-    (grown: GrownRun) => moireRows(lanes, state.effects, period, cut, playerPeriod, grown, sync),
-    [cut, lanes, state.effects, period, playerPeriod, sync],
+    (grown: GrownRun) =>
+      moireRows(lanes, state.effects, period, cut, playerPeriod, grown, sync, master),
+    [cut, lanes, master, state.effects, period, playerPeriod, sync],
   );
   const session = useMemo(() => grow(NO_GROWN), [grow]);
   return { session, grow };
@@ -197,7 +202,11 @@ function useMoireRows(
   // (`sessionInto`, src/ui/moireRowsField.ts, 0097).
   const readSync = useCallback(() => instrument.state.getState().sync, [instrument]);
   const sync = useSyncExternalStore(instrument.state.subscribe, readSync, readSync);
-  const { session, grow } = useSessionRows(state, rate, period, sync);
+  // And the rack that is no yard's, subscribed to for the reason the clock is: an effect added
+  // under all the yards is a new row in every open picture (`masterInto`, 0320).
+  const readMaster = useCallback(() => instrument.state.getState().master.effects, [instrument]);
+  const standing = useSyncExternalStore(instrument.state.subscribe, readMaster, readMaster);
+  const { session, grow } = useSessionRows(state, rate, period, sync, standing);
   /** The set a frame paints, and the one it was grown from — the same object until a run moves. */
   const painted = useRef(session);
   const from = useRef(session);

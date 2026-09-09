@@ -137,6 +137,10 @@ const GRAPH_CALLERS = {
     "src/audio/effects/rack.ts",
     "src/audio/chain.ts",
     "src/audio/effects/automator.ts",
+    // And the master bus, which builds exactly one — between the sum of the decks and the
+    // limiter, on the one call both hosts make, so an offline render runs through the same rack
+    // rather than a second one beside it (0321).
+    "src/audio/context.ts",
   ],
 };
 for (const file of walk(SRC)) {

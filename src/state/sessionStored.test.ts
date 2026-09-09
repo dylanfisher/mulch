@@ -165,6 +165,7 @@ const STORED_SESSION = {
   clips: [STORED_CLIP],
   sync: 0.5,
   ground: { per: "second", leader: null, every: 4, wanders: true, reach: "nudge", way: "either" },
+  master: { effects: [] },
 };
 
 const withClips = (clips: unknown) => ({ ...STORED_SESSION, clips });
@@ -422,10 +423,32 @@ describe("stored clips", () => {
     expect(() => validateSession(withoutGround)).toThrow(/expected \[/u);
   });
 
+  /**
+   * The rack that is no yard's is validated as the rack it is, by the one rack validator a
+   * yard's own comes through — so a master instance of an entry this build no longer registers
+   * discards the whole session rather than being repaired (0026, 0321).
+   */
+  it("accepts a session holding a master rack, and refuses one whose entry is unregistered", () => {
+    const held = validateSession({ ...STORED_SESSION, master: { effects: STORED_RACK } });
+    expect(held.master.effects.map((entry) => entry.id)).toEqual(["flt", "dly"]);
+
+    expect(() =>
+      validateSession({
+        ...STORED_SESSION,
+        master: { effects: [{ ...STORED_RACK[0], effect: "nowhere" }] },
+      }),
+    ).toThrow(/not registered: nowhere/u);
+    const { master: _dropped, ...withoutMaster } = STORED_SESSION;
+    expect(() => validateSession(withoutMaster)).toThrow(/expected \[/u);
+    expect(() => validateSession({ ...STORED_SESSION, master: { effects: [], extra: 1 } })).toThrow(
+      /session.master has keys/u,
+    );
+  });
+
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
     expect(() => validateSession(withoutClips)).toThrow(
-      /expected \[activeDeck, clips, deckList, decks, ground, spentDeckIds, sync\]/u,
+      /expected \[activeDeck, clips, deckList, decks, ground, master, spentDeckIds, sync\]/u,
     );
   });
 });

@@ -19,7 +19,7 @@ import { emptyMasterPeek } from "@/audio/context";
 import { carryArrivals } from "@/ui/moireCarry";
 import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import type { MoireRowSet } from "@/ui/moireRowsField";
@@ -38,7 +38,7 @@ const instance = (id: string): DeckState["effects"][number] => ({
 });
 
 const built = (effects: DeckState["effects"]): MoireRowSet =>
-  moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null);
+  moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
 
 /**
  * One read of a set, `elapsed` seconds on from the last, on a yard that is sounding — which is what

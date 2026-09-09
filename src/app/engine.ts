@@ -14,242 +14,48 @@
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
-import { playerSounding, type PlayerSpec } from "@/lib/player";
-import type { SongPartId } from "@/lib/playerSong";
+import { playerSounding } from "@/lib/player";
 import { groundIsLed, groundTicksBy, type SessionGround } from "@/lib/sessionGround";
 import type { GroundClock } from "@/audio/playerVoice";
-import { createMasterBus, type MasterPeek } from "@/audio/context";
+import { createMasterBus } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
-import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
+import { createDeckVoice, type DeckVoice } from "@/audio/deck";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import type { GrowthBounds } from "@/lib/effectGrowth";
-import type { EffectId } from "@/audio/effects/registry";
 import {
   DECK_AUTOMATION_PARAM_IDS,
   DECK_PARAM_IDS,
   effectAutomationParamIds,
   paramIn,
-  type AutomationParamId,
-  type EffectParamValues,
-  type ParamId,
 } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
 import { encodeWav } from "@/lib/wav";
-import type { AutomationPoint } from "@/lib/automation";
-import { isGenSource, type BlobId, type GenSource, type SourceRef } from "@/lib/source";
-import type { Session, SessionEffect } from "@/state/session";
+import { isGenSource } from "@/lib/source";
+import { effectSnapshot, type SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
   deckIn,
   type DeckId,
   fromDecks,
+  MASTER_HOLDS_NO_PARAMS,
   patchDeck,
+  type RackId,
   type SessionStore,
 } from "@/state/store";
+import type { MasterEffects } from "@/audio/masterEffects";
+import { PEAK_COLUMNS, type AudioEngine, type DecodedSource, type Emit } from "./audioEngine";
 import type { Analyzer } from "./analysis";
-import type { EventBody } from "./events";
-import type { Loop } from "@/lib/timeline";
 // oxlint-enable import/max-dependencies
 
-/** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
-export type Emit = (body: EventBody, at?: number) => void;
-
-/**
- * The resolution peaks are computed at — fixed, and deliberately decoupled from any canvas
- * width, so "once per load" stays literally true: a resize resamples these columns, it never
- * recomputes them (docs/plan.md §4).
- */
-export const PEAK_COLUMNS = 2048;
-
-/**
- * A source decoded once: the buffer a voice plays and the columns a surface draws from, held
- * together because every caller of the decode cache wants both and neither is worth computing
- * twice for one blob.
- */
-export type DecodedSource = { buffer: AudioBuffer; peaks: Peaks };
-
-/**
- * What a surface needs to draw a source it does not own: the columns, and how long the decoded
- * audio actually is — the duration a clip's stored loop is drawn against, since a clip records a
- * loop and a source reference but never a length.
- */
-export type SourceShape = { peaks: Peaks; duration: number };
-
-export type Engine = {
-  /** Give this host a voice for a deck the session has just added. */
-  addDeck(deck: DeckId): void;
-  /** Dispose the voice, its peaks and any measurement still in flight for a departing deck. */
-  removeDeck(deck: DeckId): void;
-  /** Renders the source and hands it to the deck. Returns its duration in seconds. */
-  load(deck: DeckId, source: GenSource): number;
-  /**
-   * Decodes unchanged imported bytes through this engine's owning context — once per blob id,
-   * so a source another deck, a restore preparation or a clip thumbnail already decoded is
-   * simply handed over. `blob` is only read on a miss.
-   */
-  loadBlob(
-    deck: DeckId,
-    blobId: BlobId,
-    blob: () => Promise<Blob>,
-    current: () => boolean,
-  ): Promise<number | null>;
-  /**
-   * The drawable shape of any source the session names, whether or not a deck is holding it —
-   * what a clip's thumbnail is drawn from. A stored source goes through the same decode cache a
-   * load does, so a thumbnail costs nothing that a load has already paid for.
-   */
-  sourcePeaks(source: SourceRef, blob: () => Promise<Blob>): Promise<SourceShape>;
-  /**
-   * Starts one deck a lookahead from now. Decks played inside one drain land together without
-   * being told to: `currentTime` does not advance inside a synchronous task, so each of them
-   * samples the same clock — which is what makes the header's one press start every yard on the
-   * same frame (P66), and what `scripts/smoke.d/keyboard.js` checks by comparing their starts.
-   */
-  play(deck: DeckId): void;
-  /** Stops and rewinds to the top of the loop — the deck's next play starts there (0038). */
-  stop(deck: DeckId): void;
-  /** Stops and holds the playhead, so the deck's next play carries on from there (0038). */
-  pause(deck: DeckId): void;
-  /** Moves the playhead: where the next play begins, or where a playing deck carries on (0041). */
-  seek(deck: DeckId, position: number): void;
-  /** Includes a source still waiting inside the transport lookahead. */
-  planned(deck: DeckId): boolean;
-  setLoop(deck: DeckId, inSecs: number, outSecs: number): Loop | null;
-  /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
-  setPlayer(deck: DeckId, player: PlayerSpec | null): void;
-  /**
-   * Hear one part of this deck's song on its own, over and over, or hand the whole song back with
-   * null — answering whether it did. A transport state and not an edit, the way a seek is not
-   * (0041, 0190) — false is a deck with no pass to wind, which the caller says on the log.
-   */
-  soloPlayer(deck: DeckId, part: SongPartId | null): boolean;
-  /**
-   * Queue one part of this deck's song to play next, landing at the next part boundary, or let
-   * it go with null — answering whether it did. Transport on the solo's terms: false is a deck
-   * with no pass to queue over, or one soloing a part, which the caller says on the log.
-   */
-  armPlayer(deck: DeckId, part: SongPartId | null): boolean;
-  /**
-   * Hold the session's shared jump clock, or drop it when `sync` is null. It reaches every voice
-   * this host holds and every one it builds afterwards, because the clock is the session's and
-   * not any deck's (0097).
-   */
-  setSync(sync: number | null): void;
-  /**
-   * Hold the session's shared ground, whole. It reaches every voice for the reason the clock does
-   * — it is the session's and not any deck's — and a voice reads it only while its own pattern
-   * has Together on (0313).
-   */
-  setGround(ground: SessionGround): void;
-  setParam(deck: DeckId, instance: EffectInstanceId | null, param: ParamId, value: number): void;
-  setAutomation(
-    deck: DeckId,
-    instance: EffectInstanceId | null,
-    param: AutomationParamId,
-    lane: readonly AutomationPoint[],
-    base: number,
-  ): void;
-  addEffect(
-    deck: DeckId,
-    instance: EffectInstanceId,
-    effect: EffectId,
-    values: EffectParamValues,
-  ): number;
-  /** Rewire a held instance out of, or back into, the deck's signal path (0023). */
-  setEffectBypass(deck: DeckId, instance: EffectInstanceId, bypassed: boolean): void;
-  /** The windows a hand has put on what one instance's run may draw (0208). */
-  setEffectBounds(deck: DeckId, instance: EffectInstanceId, bounds: GrowthBounds): void;
-  /**
-   * One place of what an instance is growing, let go of by hand rather than by its own clock.
-   * Answers whether that place was still standing (src/audio/effects/contract.ts).
-   */
-  dismissGrown(deck: DeckId, instance: EffectInstanceId, place: EffectInstanceId): boolean;
-  removeEffect(deck: DeckId, instance: EffectInstanceId): void;
-  /** Rewire the rack into the given order, which must be its own instances rearranged. */
-  reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
-  /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
-  peek(deck: DeckId, out: DeckPeek): void;
-  /**
-   * The other per-frame read: the whole output's stereo peak, written into `out`. Beside the
-   * per-deck one rather than derived from it — a sum of deck meters is not what the bus carries
-   * (docs/plan.md §3).
-   */
-  masterPeek(out: MasterPeek): void;
-  /**
-   * The deck's own samples between two times, as `.wav` bytes ready to be stored and loaded back
-   * — the one place the instrument mints audio nobody imported (0047). Written in the format
-   * everything decodes rather than re-encoded to whatever the source arrived as (0043).
-   */
-  cropped(deck: DeckId, inSecs: number, outSecs: number): Uint8Array<ArrayBuffer>;
-  /** The peaks computed at the deck's last load, or null before the first one. */
-  peaks(deck: DeckId): Peaks | null;
-  /** The owned context's clock: suspended until a gesture starts it, closed once it is gone. */
-  contextState(): AudioContextState;
-  /** Buffers handed to the analyzer that have not been answered yet; 0 for a host with none. */
-  analyzing(): number;
-  /**
-   * The audio thread's average load over the last update interval, 0..1, or null when nothing is
-   * measuring and when the browser cannot answer — a host without `renderCapacity` reports null
-   * forever rather than a zero nobody measured (principle 5).
-   */
-  renderLoad(): number | null;
-  /**
-   * Start or stop measuring `renderLoad`, the way `measureFrameCost` gates the frame loop's own
-   * number: nothing is measured while nothing is watching, and stopping clears the number rather
-   * than leaving a stale one behind.
-   */
-  measureRenderLoad(enabled: boolean): void;
-  /**
-   * What the decode cache's held buffers weigh, in bytes. This is the number that matters:
-   * AudioBuffers live outside the JS heap, so a heap counter reads flat while
-   * `DECODE_CACHE_LIMIT` holds hundreds of megabytes of samples.
-   */
-  bufferBytes(): number;
-  /**
-   * The hand let go of a knob. Every move a plugin held back because it declared the parameter a
-   * `rebuild` is applied now, at its last value and once — see src/audio/effects/rack.ts.
-   */
-  endGesture(): void;
-  /** Build and validate a complete replacement graph without touching the live one. */
-  prepareRestore(
-    session: Session,
-    blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
-  ): Promise<PreparedRestore>;
-};
-
-export type PreparedRestore = {
-  durations: Record<DeckId, number>;
-  /**
-   * Swap the already prepared graph in; construction and decoding happened before this point.
-   * `restarting` names the decks the caller is about to play again on the far side of the swap:
-   * tearing their voice down is the stop half of a restart, and a restart is reported to nobody
-   * (0052). Every other voice stops for real and says so.
-   */
-  commit(restarting?: ReadonlySet<DeckId>): void;
-  /**
-   * Measure what the committed decks hold. Separate from `commit` because it writes the store,
-   * and the decks it writes to exist only once the caller has replaced the session — a restore
-   * may add decks the live one never held (0029).
-   */
-  measure(): void;
-  /** Release a prepared graph when the repository transaction did not commit. */
-  discard(): void;
-};
+// Re-exported because this file used to declare them and every caller reaches them through it:
+// the contract moved out for the hard cap's sake, and its home is src/app/audioEngine.ts.
+export type { AudioEngine, DecodedSource, Emit, Engine, SourceShape } from "./audioEngine";
+export { PEAK_COLUMNS } from "./audioEngine";
 
 /** The commit default: a restore nobody is carrying a transport across restarts no deck. */
 const EMPTY_RESTARTING: ReadonlySet<DeckId> = new Set();
-
-/**
- * The browser engine's two levers for deterministic offline orchestration: the report barrier,
- * and the automation arming a live deck's wall-clock tick does for itself (src/audio/deck.ts).
- */
-export type AudioEngine = Engine & {
-  syncReports(): Promise<void>;
-  armAutomation(): void;
-};
 
 export const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
   Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
@@ -305,11 +111,66 @@ function makeVoice(
 }
 
 /**
+ * Whether two racks are the same rack, through the one durable projection: a rack state has
+ * exactly one JSON, which is what history's own comparison rests on (0021).
+ */
+const sameRack = (held: readonly SessionEffect[], wanted: readonly SessionEffect[]): boolean =>
+  JSON.stringify(held.map((entry) => effectSnapshot(entry))) ===
+  JSON.stringify(wanted.map((entry) => effectSnapshot(entry)));
+
+/**
+ * The master rack emptied and rebuilt to be exactly what a restored session holds, in the order
+ * restoration already uses: the instances, their windows, their bypass, then their lanes — each
+ * naming an instance the rack must already hold (0023, 0027, 0030, 0208).
+ *
+ * **Nothing happens where the rack is already that rack**, which is most restores: a checkpoint is
+ * the whole session, so an undo of a knob on one yard would otherwise tear down and rebuild every
+ * master instance's nodes — cutting a master reverb's tail on an edit that was nothing to do with
+ * it. A voice does not have this problem because it is prepared beside the live one and crossfaded;
+ * there is one master bus, so the comparison is what stands in for that (0321).
+ */
+// Exported because the one caller is inside `prepareRestore`'s commit, which needs a real
+// AudioContext to reach — and what is worth pinning is the comparison above, not the context.
+export function restoreMaster(
+  master: MasterEffects,
+  held: readonly SessionEffect[],
+  effects: readonly SessionEffect[],
+): void {
+  if (sameRack(held, effects)) return;
+  for (const instance of master.held()) master.removeEffect(instance);
+  for (const entry of effects) {
+    master.addEffect(entry.id, entry.effect, entry.params);
+    master.setEffectBounds(entry.id, entry.bounds);
+  }
+  for (const entry of effects) if (entry.bypassed) master.setEffectBypass(entry.id, true);
+  for (const entry of effects) armInstanceLanes(master, entry);
+}
+
+/**
+ * The instance a call on the master names. The master rack holds no parameter of its own, so a
+ * value or a lane arriving there without one is a caller that skipped the reducer's guard — loud
+ * rather than silently written onto nothing (principle 5, 0321).
+ */
+function onMaster(instance: EffectInstanceId | null, at: string): EffectInstanceId {
+  if (instance === null) throw new TypeError(`${at}: ${MASTER_HOLDS_NO_PARAMS}`);
+  return instance;
+}
+
+/**
+ * The rewires a rack takes wherever it stands: exactly what a yard's voice and the master rack
+ * both answer, so one address resolves to one of them and nothing below has to ask which (0320).
+ */
+type RackHost = Pick<
+  DeckVoice,
+  "setEffectBypass" | "setEffectBounds" | "dismissGrown" | "removeEffect" | "reorderEffects"
+>;
+
+/**
  * Every lane one prepared instance holds, armed against its own binding and its own manual value.
  * An instance's lanes are held beside its values and go with it, so there is nothing here that
  * could name a binding the rack does not have (0030).
  */
-function armInstanceLanes(voice: DeckVoice, entry: SessionEffect): void {
+function armInstanceLanes(voice: Pick<DeckVoice, "setAutomation">, entry: SessionEffect): void {
   for (const param of effectAutomationParamIds(entry.effect)) {
     const lane = entry.automation[param];
     if (lane !== undefined)
@@ -456,6 +317,12 @@ export function createAudioEngine(
   };
 
   /**
+   * The rack one address names: a yard's voice, or the master's own — the one narrowing every
+   * rack call goes through, so no reader below has to ask which it is holding (0320).
+   */
+  const rackAt = (deck: RackId): RackHost => (deck === null ? master.effects : voice(deck));
+
+  /**
    * What a command that halts a voice knows the moment it returns. Only a *start* takes a
    * lookahead to become true, so a stop needs no report to be honest — and it cannot wait for
    * one: a transport still inside its lookahead has nothing to report, which is the window a
@@ -569,6 +436,9 @@ export function createAudioEngine(
     setSync: (next) => {
       sync = next;
       for (const held of voices.values()) held.setSync(next);
+      // And the rack that is no yard's, for the reason a voice gets it: the clock is the
+      // session's, and an instance in the master rack paces itself by it like any other (0097).
+      master.effects.setSync(next);
     },
     setGround: (next) => {
       ground = next;
@@ -579,27 +449,39 @@ export function createAudioEngine(
       for (const [deck, held] of voices) held.setGround(next, groundClock(deck));
     },
     setParam: (deck, instance, param, value) => {
+      if (deck === null) {
+        master.effects.setParam(onMaster(instance, "setParam"), param, value);
+        return;
+      }
       voice(deck).setParam(instance, param, value);
     },
     setAutomation: (deck, instance, param, lane, base) => {
+      if (deck === null) {
+        master.effects.setAutomation(onMaster(instance, "setAutomation"), param, lane, base);
+        return;
+      }
       voice(deck).setAutomation(instance, param, lane, base);
     },
-    addEffect: (deck, instance, effect, values) => voice(deck).addEffect(instance, effect, values),
+    addEffect: (deck, instance, effect, values) =>
+      deck === null
+        ? master.effects.addEffect(instance, effect, values)
+        : voice(deck).addEffect(instance, effect, values),
     setEffectBypass: (deck, instance, bypassed) => {
-      voice(deck).setEffectBypass(instance, bypassed);
+      rackAt(deck).setEffectBypass(instance, bypassed);
     },
     setEffectBounds: (deck, instance, bounds) => {
-      voice(deck).setEffectBounds(instance, bounds);
+      rackAt(deck).setEffectBounds(instance, bounds);
     },
-    dismissGrown: (deck, instance, place) => voice(deck).dismissGrown(instance, place),
+    dismissGrown: (deck, instance, place) => rackAt(deck).dismissGrown(instance, place),
     removeEffect: (deck, instance) => {
-      voice(deck).removeEffect(instance);
+      rackAt(deck).removeEffect(instance);
     },
     reorderEffects: (deck, order) => {
-      voice(deck).reorderEffects(order);
+      rackAt(deck).reorderEffects(order);
     },
     peek: (deck, out) => {
-      voice(deck).peek(out);
+      if (deck === null) master.effects.peek(out);
+      else voice(deck).peek(out);
     },
     masterPeek: (out) => {
       master.peek(out);
@@ -761,6 +643,11 @@ export function createAudioEngine(
           }
           voices = nextVoices;
           loadedPeaks = nextPeaks;
+          // And the rack that is no yard's, rebuilt in place. There is one master bus and
+          // therefore one master rack, so it cannot be prepared beside the live one the way a
+          // voice is — the chain boundary allows exactly one signal path (docs/boundaries.md).
+          restoreMaster(master.effects, store.getState().master.effects, session.master.effects);
+          master.effects.setSync(session.sync);
           // The restored session's clock is this host's from here: a voice added after the swap
           // reads it, and nothing else remembers what the replaced session was jumping on.
           sync = session.sync;
@@ -790,9 +677,14 @@ export function createAudioEngine(
     },
     endGesture: () => {
       for (const deck of voices.values()) deck.endGesture();
+      master.effects.endGesture();
     },
     armAutomation: () => {
       for (const deck of voices.values()) deck.armAutomation();
+      // And the rack that is no yard's, on the same tick: its lanes and its runs are laid across
+      // the same horizon, which is what makes an offline render the performance the live path
+      // would have given (0071, 0321).
+      master.effects.armAutomation();
     },
   };
 }

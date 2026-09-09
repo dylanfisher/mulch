@@ -50,7 +50,7 @@ import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import {
   LOOK_FULL_RATE,
   LOOK_SLOW_HZ,
@@ -135,6 +135,7 @@ const rackSet = (
     null,
     NO_GROWN,
     null,
+    NO_MASTER,
   );
 
 const rackRows = (
@@ -188,7 +189,7 @@ const RUN: Map<EffectInstanceId, GrownEffect[]> = new Map([
  * that happen to read the same here.
  */
 const runRows = (): MoireRow[] => {
-  const set = moireRows([], [], 4, PLAIN_CUT, null, RUN, null);
+  const set = moireRows([], [], 4, PLAIN_CUT, null, RUN, null, NO_MASTER);
   refillRows(
     set.rows,
     set.reads,
@@ -227,7 +228,16 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
    *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
   const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });
-  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
+  const { rows, reads } = moireRows(
+    [],
+    [],
+    0,
+    PLAIN_CUT,
+    playerRowPeriod(spec),
+    NO_GROWN,
+    null,
+    NO_MASTER,
+  );
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
   refillRows(

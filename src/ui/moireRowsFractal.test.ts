@@ -45,7 +45,7 @@ import type { PlayerSpec } from "@/lib/player";
 import type { Loop } from "@/lib/timeline";
 import { drawnGratings } from "@/ui/moireCanvas";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { carryFractal } from "@/ui/moireCarry";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import type { DeckPeek } from "@/audio/deckPeek";
@@ -91,7 +91,7 @@ const pictureOf = (
   grown: Map<EffectInstanceId, GrownEffect[]>,
   playerPeriod: number | null = null,
 ): { set: MoireRowSet; peek: DeckPeek } => {
-  const set = moireRows([], [], 4, PLAIN_CUT, playerPeriod, grown, null);
+  const set = moireRows([], [], 4, PLAIN_CUT, playerPeriod, grown, null, NO_MASTER);
   return { set, peek: { ...emptyDeckPeek(), grown } };
 };
 
@@ -227,7 +227,7 @@ describe("the picture's own structure", () => {
    * population folds to, and `carryFractal` would hand those to the first run that arrives.
    */
   it("leaves the plane alone in a picture with no structure on it", () => {
-    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     const peek = emptyDeckPeek();
     for (const elapsed of [ARRIVED, 1, 0.016]) {
       refillRows(
@@ -293,7 +293,7 @@ describe("the picture's own structure", () => {
     // `boldestRow` skips only a row with no period, so a held row claiming this most resonant of
     // outputs would slide the whole finished field through a structure nobody is standing.
     for (const row of rows) expect(row.lens).toBe(DRIFT_REST.lens);
-    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     expect(drawnGratings(set.rows, 1)).toBeCloseTo(drawnGratings(dry.rows, 1), 9);
 
     // The presence ramp carries the same rows back up with nothing rebuilt.
@@ -370,7 +370,7 @@ describe("the picture's own structure", () => {
     }
     // And a yard growing nothing at all is exactly the picture it was: no row in it claims the
     // dimension, however old the performance behind it.
-    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     readAt(dry, emptyDeckPeek(), ARRIVED, RINGING_MASTER, 1);
     for (const row of dry.rows) expect(row.feedback).toBe(DRIFT_REST.feedback);
   });

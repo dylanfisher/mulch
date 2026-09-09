@@ -23,15 +23,13 @@
 // word for a tier of an arrangement, which a row of one is keyed by and which is named once (P161).
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import {
-  DECK_AUTOMATION_PARAM_IDS,
-  effectAutomationParamIds,
-  paramIn,
-  PARAMS,
-  paramKey,
-} from "@/audio/params";
+import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
 import { effectById } from "@/audio/effects/registry";
 import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
+import { instanceInto, masterInto } from "@/ui/moireRack";
+// Re-exported beside the function that takes it: a caller building a picture needs the builder and
+// the empty rack in one import, and its home is src/ui/moireRack.ts with the row it stands for.
+export { NO_MASTER } from "@/ui/moireRack";
 import { onGround } from "@/ui/moireCarry";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import { rackShape, shapeRest, type MoireShape } from "@/ui/moireShape";
@@ -51,16 +49,13 @@ import { fold } from "@/lib/copy";
 import {
   colourReached,
   driftedCentre,
-  driftReached,
   DRIFT_REST,
   easedCentre,
-  restingCentre,
   turnsOf,
   laneBend,
   LINEAR_GEOMETRY,
   wrap,
   type DriftGeometry,
-  type DriftReach,
   type MoireRow,
   type ScreenInk,
 } from "@/lib/moire";
@@ -97,7 +92,6 @@ import {
 } from "@/lib/playerDrift";
 import { normalize } from "@/lib/range";
 import {
-  isColour,
   laneRead,
   macroInto,
   fractalHeard,
@@ -109,7 +103,6 @@ import {
   fractalInto,
   sessionInto,
   washInto,
-  type ColourRead,
   type MoireRowSet,
   type RowRead,
 } from "@/ui/moireRowsField";
@@ -119,6 +112,7 @@ import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
 import type { Loop } from "@/lib/timeline";
 import type { SongPart } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
+import type { SessionEffect } from "@/state/session";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -184,51 +178,6 @@ export function deckLanes(
     }
   }
   return lanes;
-}
-
-/**
- * Where each value an instance's registry entry declared a way into the picture for stands in its
- * own range, as a turn on 0..1 — what `driftReached` folds into the row. Read off the value the
- * session holds rather than off a lane: a knob at rest still says what its effect is doing, and a
- * lane on that knob goes on bending the row it already bends (0139). Where a lane rides a knob that
- * claims one of the three colour dimensions, `colourReads` below carries that one live (0150).
- */
-export function effectReach(instance: DeckState["effects"][number]): DriftReach[] {
-  return effectById(instance.effect).driftFrom.map(({ param, into }) => {
-    const spec = PARAMS[param];
-    return {
-      into,
-      turn: normalize(paramIn(instance.params, param), spec.min, spec.max, spec.curve),
-    };
-  });
-}
-
-/**
- * The colour dimensions of an instance's row that follow a lane rather than resting where the knob
- * is parked. Only the three: a lane's own row already says the gesture is there, and what a knob
- * under it is doing to the *shape* of the picture is what it is set to (0139). Colour is the one
- * thing a lane may carry, because the dial travels and the picture must travel with it (0150).
- *
- * A lane that never moved is not one: an unmoving line drives nothing, which is the same test
- * `deckLanes` opens with.
- */
-export function colourReads(instance: DeckState["effects"][number]): ColourRead[] {
-  const reads: ColourRead[] = [];
-  const reach = effectById(instance.effect).driftFrom;
-  for (const param of effectAutomationParamIds(instance.effect)) {
-    const lane = instance.automation[param];
-    if (lane === undefined || laneSpan(lane) <= 0) continue;
-    const into = reach.find((each) => each.param === param)?.into;
-    if (into === undefined || !isColour(into)) continue;
-    reads.push({
-      into,
-      key: paramKey(instance.id, param),
-      lane,
-      base: paramIn(instance.params, param),
-      spec: PARAMS[param],
-    });
-  }
-  return reads;
 }
 
 /**
@@ -347,6 +296,9 @@ export function moireRows(
   playerPeriod: number | null,
   grown: GrownRun,
   sync: number | null,
+  /** What the rack that is no yard's holds — in every yard's picture, because it is heard on
+   *  every yard (0320). */
+  master: readonly SessionEffect[],
 ): MoireRowSet {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
@@ -363,31 +315,7 @@ export function moireRows(
   const reads: RowRead[] = lanes.map(({ key }) => laneRead(key));
   for (const instance of effects) {
     if (instance.bypassed) continue;
-    // The fold is still the row's identity — its angle and where in its cycle it starts — and what
-    // the effect is set to is the rest of it, through the dimensions its registry entry declared.
-    const seed = fold(instance.id);
-    const drawn = driftCut(instance.effect);
-    const reach = effectReach(instance);
-    rows.push({
-      ...driftReached(seed, reach, drawn.geometry),
-      phase: 0,
-      pulse: 0,
-      arrival: 1,
-      reference: false,
-      shape: seed,
-      ...drawn,
-    });
-    // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
-    // A lane riding the same instance keeps none: what a lane draws is the gesture (0128). And the
-    // rest its anchor is carried around, on every row whose anchor is its own fold's rather than a
-    // knob's (`restingCentre`, 0229).
-    reads.push({
-      ...READS_NOTHING,
-      key: `${ROW_KEYS.rack}${instance.id}`,
-      instance: instance.id,
-      colour: colourReads(instance),
-      anchor: restingCentre(seed, drawn.geometry, reach),
-    });
+    instanceInto(rows, reads, instance, ROW_KEYS.rack);
     grownInto(rows, reads, grown.get(instance.id));
   }
   playerInto(rows, reads, playerPeriod);
@@ -396,12 +324,21 @@ export function moireRows(
   // rather than repeating: a grown run, and a jumping pattern by the same argument — its steps are
   // drawn from a seed and its row's period is how often it *steps*, never when it comes back
   // (0080, 0089, 0208).
+  // Everything standing behind this picture: the yard's own rack, and the rack that is no yard's
+  // under it. Every field-wide reading below is off this rather than off the yard's alone — a
+  // master instance's look, shape and wind apply to the whole picture, which is what a standing
+  // rack's look has always meant (`rackLooks`, src/ui/moireLooks.ts, 0320).
+  const standing = master.length === 0 ? effects : [...effects, ...master];
   const unbounded =
     playerPeriod !== null ||
-    effects.some((instance) => !instance.bypassed && effectById(instance.effect).grows === true);
+    standing.some((instance) => !instance.bypassed && effectById(instance.effect).grows === true);
   const macro = macroInto(rows, reads, loopPeriod, unbounded);
   washInto(rows, reads, loopPeriod);
   sessionInto(rows, reads, loopPeriod, sync);
+  // And the rack that is no yard's, after the session's own row and for the same reason it comes
+  // last: what this yard is running decides the window and the recurrence, and a rack heard on
+  // every yard is not this yard's (`masterInto`, src/ui/moireRack.ts, 0320).
+  masterInto(rows, reads, master);
   // Then the whole picture is drawn at the scales the rack standing earns — every straight row and
   // not the automator's own alone, which is what makes a run look self-similar rather than deep in
   // one corner (`spreadOctaves`, 0244). Off the same summed presence the support reads, so one run
@@ -417,7 +354,7 @@ export function moireRows(
     rows,
     reads,
     macro.windowSecs,
-    effects.some((instance) => !instance.bypassed),
+    standing.some((instance) => !instance.bypassed),
   );
   // Last, because it is the whole set's bound and not any one row's: every copy past the first is
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
@@ -438,7 +375,7 @@ export function moireRows(
   // about what the entries are *set to* and a rebuild is what a durable move already is
   // (`rackWind`, src/ui/moireWind.ts). Where the wind has actually blown to is the read's, and it
   // is carried onto whatever set replaces this one, exactly as the ink is (`carryWind`).
-  const blowing = rackWind(effects);
+  const blowing = rackWind(standing);
   // And every look that same rack gives the whole picture, in the order the rack holds them: read
   // here for the same reason and off the same standing population, in a pass of its own — where the
   // wind's two numbers are two readings of one tail, this is a reading of a different fact, and
@@ -459,10 +396,10 @@ export function moireRows(
     jolt: joltRest(),
     // And the band washed over it, at nothing: travelled by the read and carried, as the ink is.
     tint: tintRest(),
-    looks: rackLooks(effects),
+    looks: rackLooks(standing),
     // And how it shapes the whole field, read the same way and for the same reason, in a pass of
     // its own: a third fact about the same population (`rackShape`, src/ui/moireShape.ts).
-    shaping: rackShape(effects),
+    shaping: rackShape(standing),
     shape: shapeRest(),
     ...macro,
   };

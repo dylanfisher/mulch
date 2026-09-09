@@ -15,6 +15,7 @@
 
 import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { ArrowLineRightIcon } from "@phosphor-icons/react/ArrowLineRight";
+import { ArrowsLeftRightIcon } from "@phosphor-icons/react/ArrowsLeftRight";
 import { ArrowUpIcon } from "@phosphor-icons/react/ArrowUp";
 import { ArrowUUpLeftIcon } from "@phosphor-icons/react/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
@@ -115,6 +116,10 @@ export const ACTION_ICONS = {
   // apart by their shape; what differs is the sentence each says.
   randomize: DiceFiveIcon,
   apply: ArrowLineRightIcon,
+  // One thing leaving one rack and arriving in another. Not `apply`'s arrow, which is a clip
+  // landing on a yard, and not `duplicate`'s two sheets: nothing is copied, the same instance
+  // stands somewhere else afterwards (0055, 0320).
+  move: ArrowsLeftRightIcon,
   // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
   // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).
   goTo: MapPinIcon,

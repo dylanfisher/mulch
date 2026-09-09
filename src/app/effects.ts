@@ -8,6 +8,10 @@
  *   commands. What an instance's window means to the run inside it →
  *   src/audio/effects/automator.ts.
  */
+// Three lines over the soft cap, read and judged: this is one subject — every reducer a rack
+// command has — and the file grows by one function per command rather than by how much any of
+// them decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   effectAutomationParamIds,
   effectParamDefaults,
@@ -18,11 +22,11 @@ import {
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
 import { clamp } from "@/lib/range";
-import { deckIn, patchDeck, type DeckState } from "@/state/store";
+import { assertRackId, patchRack, rackIn, type RackHeld, type RackId } from "@/state/store";
 import type { EffectBounds, SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
-import { boundsCommands, drawnCommands } from "./restore";
-import { audio } from "./refusals";
+import { boundsCommands, drawnCommands, rackRestorationCommands } from "./restore";
+import { audio, rackSaid } from "./refusals";
 import type { Runtime } from "./runtime";
 
 /**
@@ -31,11 +35,11 @@ import type { Runtime } from "./runtime";
  * rewrite, and two of these is two authorities on what "the rest of the rack is untouched" means.
  */
 export function patchInstance(
-  deck: DeckState,
+  effects: readonly SessionEffect[],
   instance: EffectInstanceId,
   patch: (entry: SessionEffect) => SessionEffect,
 ): SessionEffect[] {
-  return deck.effects.map((entry) => (entry.id === instance ? patch(entry) : entry));
+  return effects.map((entry) => (entry.id === instance ? patch(entry) : entry));
 }
 
 /**
@@ -44,9 +48,9 @@ export function patchInstance(
  * is refused — adding a second instance of an effect the rack already holds is the point (0030).
  */
 export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  if (deck.effects.some((entry) => entry.id === cmd.id)) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance already held: ${cmd.id}` });
+  const held = rackIn(rt.store.getState(), cmd.deck);
+  if (held.effects.some((entry) => entry.id === cmd.id)) {
+    rt.bus.emit({ t: "error", detail: `${rackSaid(cmd.deck)}: instance already held: ${cmd.id}` });
     return;
   }
 
@@ -55,21 +59,19 @@ export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtim
   const params = effectParamDefaults(cmd.effect, cmd.id);
   // Graph construction and reconnection happen first. If either throws, the session and event
   // stream remain unchanged; without a host, the ordered state still behaves like param.set.
-  const index = rt.engine?.addEffect(cmd.deck, cmd.id, cmd.effect, params) ?? deck.effects.length;
-  patchDeck(rt.store, cmd.deck, {
-    effects: [
-      ...deck.effects,
-      {
-        id: cmd.id,
-        effect: cmd.effect,
-        bypassed: false,
-        params,
-        automation: {},
-        drawn: {},
-        bounds: {},
-      },
-    ],
-  });
+  const index = rt.engine?.addEffect(cmd.deck, cmd.id, cmd.effect, params) ?? held.effects.length;
+  patchRack(rt.store, cmd.deck, [
+    ...held.effects,
+    {
+      id: cmd.id,
+      effect: cmd.effect,
+      bypassed: false,
+      params,
+      automation: {},
+      drawn: {},
+      bounds: {},
+    },
+  ]);
   rt.bus.emit({
     t: "effect.added",
     deck: cmd.deck,
@@ -106,7 +108,7 @@ export async function duplicateEffect(
   if (rack === null) return;
   // Refused here rather than left to the `effect.add` inside the group: that one would report
   // the clash and the values behind it would then rewrite the instance already under that id.
-  if (rack.deck.effects.some((entry) => entry.id === cmd.id)) {
+  if (rack.held.effects.some((entry) => entry.id === cmd.id)) {
     rt.bus.emit({ t: "error", detail: `effect.duplicate: instance already held: ${cmd.id}` });
     return;
   }
@@ -151,23 +153,97 @@ export async function duplicateEffect(
 }
 
 /**
+ * One instance carried out of one rack and into another, whole: its id, its values, its lanes,
+ * what drew them, its bounds and its bypass. A move and never a copy — the id does not change, so
+ * `duplicateEffect` above remains the one way a second instance is made (0320).
+ *
+ * It expands the way a copy does, into one grouped, undoable durable edit: a rack instance's nodes
+ * are built inside the rack that holds them, so a move *is* a removal and an arrival, and the
+ * arrival is the very restoration a stored session comes back through (`rackRestorationCommands`,
+ * 0027, 0092). One history entry, so an undo puts it back where it came from (0067).
+ *
+ * A move into the rack it is already in is refused rather than performed: that is `effect.reorder`,
+ * and two commands that reorder a rack is the duplication principle 1 exists to refuse.
+ */
+// Over the line cap by design, exactly as `duplicateEffect` above is: the body is the guards a
+// move owes and one expansion, and the length tracks how many of each there are (0007).
+// oxlint-disable-next-line max-lines-per-function
+export async function moveEffect(
+  cmd: Extract<Command, { t: "effect.move" }>,
+  rt: Runtime,
+): Promise<void> {
+  assertEffectInstanceId(cmd.instance, "effect.move instance");
+  assertRackId(cmd.from, "effect.move from");
+  assertRackId(cmd.to, "effect.move to");
+  if (cmd.from === cmd.to) {
+    throw new TypeError("effect.move: a move inside one rack is effect.reorder");
+  }
+  const state = rt.store.getState();
+  // Both racks resolved before anything moves, so a move naming a yard the session does not hold
+  // throws before the source rack is touched (0029).
+  const from = rackIn(state, cmd.from);
+  const to = rackIn(state, cmd.to);
+  const entry = from.effects.find((held) => held.id === cmd.instance);
+  if (entry === undefined) {
+    rt.bus.emit({
+      t: "error",
+      detail: `${rackSaid(cmd.from)}: instance is not held: ${cmd.instance}`,
+    });
+    return;
+  }
+  // An id is unique inside a rack and only inside one, so two racks may each hold an instance
+  // under the same name. Refused here rather than left to the `effect.add` inside the group: that
+  // one reports the clash and returns, and the values behind it would then rewrite whatever the
+  // target rack was already holding under that id — with the source's copy already removed. The
+  // guard `duplicateEffect` carries, said for the pair (0030).
+  if (to.effects.some((held) => held.id === cmd.instance)) {
+    rt.bus.emit({
+      t: "error",
+      detail: `${rackSaid(cmd.to)}: instance already held: ${cmd.instance}`,
+    });
+    return;
+  }
+  // Where it lands, read against the rack it is joining before it joins: the reorder inside the
+  // group is clamped into that rack once the arrival has made it one longer.
+  const index = clamp(Math.trunc(cmd.index), 0, to.effects.length);
+  await rt.historyGroup([
+    { t: "effect.remove", deck: cmd.from, instance: cmd.instance },
+    ...rackRestorationCommands(cmd.to, [entry]),
+    // Last, because the arrival appends: `effect.add` has only ever meant *at the end*, and an
+    // index field on it would be a second way to say where an instance goes (0111).
+    { t: "effect.reorder", deck: cmd.to, instance: cmd.instance, index },
+  ]);
+  rt.bus.emit({
+    t: "effect.moved",
+    from: cmd.from,
+    to: cmd.to,
+    instance: cmd.instance,
+    effect: entry.effect,
+    index,
+  });
+}
+
+/**
  * The instance an operation names, or an error on the log saying it was not there. Naming an
  * instance the deck does not hold is unanswerable, not malformed: a stale macro is exactly the
  * case the log exists for, and it must change nothing (0023).
  */
 function rackOf(
-  cmd: Extract<Command, { t: `effect.${string}` }>,
+  cmd: Extract<Command, { t: `effect.${string}`; deck: RackId }>,
   rt: Runtime,
-): { deck: DeckState; entry: SessionEffect; index: number } | null {
+): { held: RackHeld; entry: SessionEffect; index: number } | null {
   if (!("instance" in cmd)) throw new TypeError(`${cmd.t} names no instance`);
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  const index = deck.effects.findIndex((entry) => entry.id === cmd.instance);
-  const entry = deck.effects[index];
+  const held = rackIn(rt.store.getState(), cmd.deck);
+  const index = held.effects.findIndex((entry) => entry.id === cmd.instance);
+  const entry = held.effects[index];
   if (entry === undefined) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance is not held: ${cmd.instance}` });
+    rt.bus.emit({
+      t: "error",
+      detail: `${rackSaid(cmd.deck)}: instance is not held: ${cmd.instance}`,
+    });
     return null;
   }
-  return { deck, entry, index };
+  return { held, entry, index };
 }
 
 /**
@@ -206,9 +282,11 @@ export function boundEffect(cmd: Extract<Command, { t: "effect.bounds" }>, rt: R
   const now = bounds[cmd.param];
   if (was?.min === now?.min && was?.max === now?.max) return;
   rt.engine?.setEffectBounds(cmd.deck, cmd.instance, bounds);
-  patchDeck(rt.store, cmd.deck, {
-    effects: patchInstance(rack.deck, cmd.instance, (entry) => ({ ...entry, bounds })),
-  });
+  patchRack(
+    rt.store,
+    cmd.deck,
+    patchInstance(rack.held.effects, cmd.instance, (entry) => ({ ...entry, bounds })),
+  );
   rt.bus.emit({
     t: "effect.bounds.changed",
     deck: cmd.deck,
@@ -269,12 +347,14 @@ export function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: 
   // The graph is rewired first. If it refuses, the session and the log are untouched — and
   // without a host the ordered state still moves, like param.set and effect.add (0023).
   rt.engine?.setEffectBypass(cmd.deck, cmd.instance, cmd.bypassed);
-  patchDeck(rt.store, cmd.deck, {
-    effects: patchInstance(rack.deck, cmd.instance, (entry) => ({
+  patchRack(
+    rt.store,
+    cmd.deck,
+    patchInstance(rack.held.effects, cmd.instance, (entry) => ({
       ...entry,
       bypassed: cmd.bypassed,
     })),
-  });
+  );
   rt.bus.emit({
     t: "effect.bypass.changed",
     deck: cmd.deck,
@@ -291,9 +371,11 @@ export function removeEffect(cmd: Extract<Command, { t: "effect.remove" }>, rt: 
   rt.engine?.removeEffect(cmd.deck, cmd.instance);
   // The instance's values and lanes go with it: they were never the deck's to keep, which is
   // the whole of what instance-scoped identity means (0030).
-  patchDeck(rt.store, cmd.deck, {
-    effects: rack.deck.effects.filter((entry) => entry.id !== cmd.instance),
-  });
+  patchRack(
+    rt.store,
+    cmd.deck,
+    rack.held.effects.filter((entry) => entry.id !== cmd.instance),
+  );
   rt.bus.emit({
     t: "effect.removed",
     deck: cmd.deck,
@@ -307,16 +389,16 @@ export function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
   // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
-  const to = clamp(cmd.index, 0, rack.deck.effects.length - 1);
+  const to = clamp(cmd.index, 0, rack.held.effects.length - 1);
   if (to === rack.index) return;
 
-  const effects = rack.deck.effects.filter((entry) => entry.id !== cmd.instance);
+  const effects = rack.held.effects.filter((entry) => entry.id !== cmd.instance);
   effects.splice(to, 0, rack.entry);
   rt.engine?.reorderEffects(
     cmd.deck,
     effects.map((entry) => entry.id),
   );
-  patchDeck(rt.store, cmd.deck, { effects });
+  patchRack(rt.store, cmd.deck, effects);
   rt.bus.emit({
     t: "effect.reordered",
     deck: cmd.deck,

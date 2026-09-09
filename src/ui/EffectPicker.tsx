@@ -8,10 +8,10 @@
 
 import { useCallback } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { rackLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
-import type { DeckId } from "@/state/store";
+import type { RackId } from "@/state/store";
 import { addEffectCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import {
@@ -30,7 +30,7 @@ function AddEffectItem({
   effect,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   effect: (typeof EFFECTS)[number];
 }) {
   // A rack may hold any number of instances of one entry, so this item is never spent: the
@@ -48,7 +48,7 @@ function AddEffectItem({
           size="sm"
           variant="ghost"
           className="justify-start"
-          aria-label={`Add ${effect.label} to ${yardLabel(deck)}`}
+          aria-label={`Add ${effect.label} to ${rackLabel(deck)}`}
           onClick={add}
         >
           <Icon data-icon="inline-start" />
@@ -59,12 +59,12 @@ function AddEffectItem({
   );
 }
 
-export function EffectPicker({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
+export function EffectPicker({ instrument, deck }: { instrument: Instrument; deck: RackId }) {
   return (
     <Popover>
       <PopoverTrigger
         render={
-          <Button size="sm" variant="outline" aria-label={`Add an Effect to ${yardLabel(deck)}`}>
+          <Button size="sm" variant="outline" aria-label={`Add an Effect to ${rackLabel(deck)}`}>
             <ACTION_ICONS.add data-icon="inline-start" />
             Add Effect
           </Button>
@@ -73,7 +73,7 @@ export function EffectPicker({ instrument, deck }: { instrument: Instrument; dec
       {/* Opens instantly: this popup's entries are clicked by ./scripts/drive, and waiting out a
           100ms enter and exit costs the gate ~450ms for one scenario (0056). */}
       <PopoverContent side="bottom" align="start" className={`w-56 ${INSTANT_POPUP}`}>
-        <PopoverTitle>{`Add to ${yardLabel(deck)}`}</PopoverTitle>
+        <PopoverTitle>{`Add to ${rackLabel(deck)}`}</PopoverTitle>
         {EFFECTS.map((effect) => (
           <AddEffectItem key={effect.id} instrument={instrument} deck={deck} effect={effect} />
         ))}

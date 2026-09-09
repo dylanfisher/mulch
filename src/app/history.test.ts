@@ -111,7 +111,7 @@ const transportEngine = (
       seeks.push({ deck, at: position });
     },
     peek: (deck, out) => {
-      out.position = at.get(deck) ?? 0;
+      out.position = deck === null ? 0 : (at.get(deck) ?? 0);
     },
     prepareRestore: (session) =>
       Promise.resolve({

@@ -42,7 +42,7 @@ import { forgetDriftTiles } from "@/ui/driftTiles";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreenInk";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import { shapeRest } from "@/ui/moireShape";
 
@@ -339,6 +339,7 @@ describe("moireCanvas tiles", () => {
       null,
       NO_GROWN,
       null,
+      NO_MASTER,
     );
     const period = rows[0]?.period ?? 0;
     expect(period).toBeGreaterThan(0);
@@ -380,7 +381,7 @@ describe("moireCanvas tiles", () => {
     // the raw centre it is a bake a painting for as long as the move lasts (0129, 0144).
     forgetDriftTiles();
     const period = playerRowPeriod(CURVED_SPEC);
-    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, period, NO_GROWN, null);
+    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, period, NO_GROWN, null, NO_MASTER);
     const module = rows[0];
     if (module === undefined) throw new Error("the picture has no jumps row");
     // A loop of a second at the top of a four-second file, so a jump has three quarters of the
@@ -430,7 +431,7 @@ describe("moireCanvas tiles", () => {
     // 0144). Two rows are on it, because one structure is cut at two periods (0246).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null, NO_MASTER);
     const peek = { ...emptyDeckPeek(), grown: ONE_PLACE };
     const over = fractalTravelSecs(set.windowSecs);
     expect(over).toBeGreaterThan(0);
@@ -483,7 +484,7 @@ describe("moireCanvas tiles", () => {
     // for the whole of a performance (0142, 0144).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null, NO_MASTER);
     // The read that gives the structure its depth, so the rows are drawn at all — and then both of
     // them stood at the top of their own breath, where the opening is the whole band the age has
     // earned: at the bottom of it every age opens onto the same picture (`fractalZoom`).
@@ -513,7 +514,7 @@ describe("moireCanvas tiles", () => {
     // same reason (`fractalFlight`).
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null, NO_MASTER);
     // The read that gives the structure its depth, so the rows are drawn at all. Their phases stay
     // where it leaves them — at the bottom of the breath, where the opening is exactly one and the
     // only field of the key that moves below is the travel's own.
@@ -547,7 +548,7 @@ describe("moireCanvas tiles", () => {
     // wrap on is the same level of the structure, and the picture has roamed somewhere else in it.
     forgetDriftTiles();
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null, NO_MASTER);
     standingOn(set, ONE_PLACE);
     const level = FRACTAL_FLIGHT_SECS.value / FRACTAL_FLIGHT.value;
     const bakedAt = (sounding: number): number =>
@@ -588,7 +589,7 @@ describe("moireCanvas tiles", () => {
     const worker = standInPort();
     forgetDriftTiles(worker.make);
     vi.stubGlobal("devicePixelRatio", 2);
-    const stood = moireRows([], RUNNING, 4, PLAIN_CUT, null, ONE_PLACE, null);
+    const stood = moireRows([], RUNNING, 4, PLAIN_CUT, null, ONE_PLACE, null, NO_MASTER);
     // The run standing where this population folds to. The first painting asks for every curved
     // row's tile — the automator's own and the two the structure is cut at — and draws nothing,
     // because no row holds one yet; once the worker answers, the painting after it draws all three,
@@ -607,7 +608,7 @@ describe("moireCanvas tiles", () => {
     // Then the turnover: one more place under the same automator, so the rows are rebuilt with the
     // new place's row among them — ahead of the structure's own two — and the structure has
     // travelled to where the larger population folds to.
-    const turned = moireRows([], RUNNING, 4, PLAIN_CUT, null, TWO_PLACES, null);
+    const turned = moireRows([], RUNNING, 4, PLAIN_CUT, null, TWO_PLACES, null, NO_MASTER);
     standingOn(turned, TWO_PLACES);
     apart(turned);
     expect(turned.rows.length).toBeGreaterThan(stood.rows.length);
@@ -671,7 +672,7 @@ describe("moireCanvas tiles", () => {
     const worker = standInPort();
     forgetDriftTiles(worker.make);
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null);
+    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     standingOn(set, new Map());
     const cells = () => worker.asked.filter((one) => one.geometry === LATTICE_GEOMETRY);
     paintedOn(100, 50, set.rows, 3, WINDOW, { frames: 1, shape: { ...shapeRest(), cells: 2 } });
@@ -708,7 +709,7 @@ describe("moireCanvas tiles", () => {
     const worker = standInPort();
     forgetDriftTiles(worker.make);
     vi.stubGlobal("devicePixelRatio", 2);
-    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null);
+    const set = moireRows([], RUNNING, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     standingOn(set, new Map());
     paintedOn(100, 50, set.rows, 3, WINDOW, { frames: 1, shape: { ...shapeRest(), cells: 2 } });
     worker.answer();

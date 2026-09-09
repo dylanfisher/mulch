@@ -27,7 +27,7 @@ import {
   joltRest,
   joltWalked,
 } from "@/ui/moireJolt";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 import type { PlayerPeek } from "@/audio/deckPeek";
@@ -129,7 +129,7 @@ describe("the jolt the picture answers a hit with", () => {
    * which is the same movement the picture used to make only when the rack changed.
    */
   it("lays the field's jolt under every row's own reading", () => {
-    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     const peek = emptyDeckPeek();
     peek.sounding = 1;
     peek.meter = HEARD;

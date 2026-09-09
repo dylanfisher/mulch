@@ -32,9 +32,14 @@ import {
   deckIn,
   holdsDeck,
   laneIn,
+  MASTER_HOLDS_NO_PARAMS,
   type DeckId,
   type DeckState,
   patchDeck,
+  patchRack,
+  type RackHeld,
+  type RackId,
+  rackIn,
   removeDeck,
   reorderDeck,
 } from "@/state/store";
@@ -51,10 +56,11 @@ import {
   patchInstance,
   bypassEffect,
   duplicateEffect,
+  moveEffect,
   removeEffect,
   reorderEffect,
 } from "./effects";
-import { audio, refuseUnloaded } from "./refusals";
+import { audio, rackSaid, refuseUnloaded } from "./refusals";
 import { flattenDeck } from "./flatten";
 // Re-exported rather than moved twice: every caller that already imports the reducer's port
 // from here keeps doing so, and the type itself lives beside the rest of it (0045).
@@ -82,21 +88,33 @@ function assertDeck(rt: Runtime, deck: DeckId): void {
  * rack. `paramReachable` is the single rule, and an unreachable pair is a refusal that changes
  * nothing — the same answer a stale rack macro gets (0023, 0030).
  */
-type ParamTarget = { deck: DeckState } & (
-  | { instance: null; entry: null; param: DeckParamId }
-  | { instance: EffectInstanceId; entry: SessionEffect; param: EffectParamId }
+type ParamTarget = { held: RackHeld } & (
+  | { deck: DeckState; instance: null; entry: null; param: DeckParamId }
+  | {
+      deck: DeckState | null;
+      instance: EffectInstanceId;
+      entry: SessionEffect;
+      param: EffectParamId;
+    }
 );
 
 function targetOf(
-  cmd: { t: string; deck: DeckId; instance?: EffectInstanceId; param: ParamId },
+  cmd: { t: string; deck: RackId; instance?: EffectInstanceId; param: ParamId },
   rt: Runtime,
 ): ParamTarget | null {
   const instance = cmd.instance ?? null;
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  if (!paramReachable(deck.effects, instance, cmd.param)) {
+  const held = rackIn(rt.store.getState(), cmd.deck);
+  // The one guard the master's address needs, at the top of the reducer rather than at every
+  // reader below it: the rack that is no yard's holds no parameter of its own, so a command
+  // naming it without an instance names nothing (0320, 0321).
+  if (held.deck === null && instance === null) {
+    rt.bus.emit({ t: "error", detail: `${rackSaid(cmd.deck)}: ${MASTER_HOLDS_NO_PARAMS}` });
+    return null;
+  }
+  if (!paramReachable(held.effects, instance, cmd.param)) {
     rt.bus.emit({
       t: "error",
-      detail: `deck ${cmd.deck}: ${cmd.param} is not on ${instance ?? "the deck"}`,
+      detail: `${rackSaid(cmd.deck)}: ${cmd.param} is not on ${instance ?? "the deck"}`,
     });
     return null;
   }
@@ -105,11 +123,12 @@ function targetOf(
   // narrow the union it just proved, so this is the one place that says so.
   // oxlint-disable no-unsafe-type-assertion
   if (instance === null) {
-    return { deck, instance, entry: null, param: cmd.param as DeckParamId };
+    if (held.deck === null) throw new Error("the master rack holds no parameters of its own");
+    return { held, deck: held.deck, instance, entry: null, param: cmd.param as DeckParamId };
   }
-  const entry = deck.effects.find((candidate) => candidate.id === instance);
+  const entry = held.effects.find((candidate) => candidate.id === instance);
   if (entry === undefined) throw new Error(`rack lost instance ${instance} while resolving`);
-  return { deck, instance, entry, param: cmd.param as EffectParamId };
+  return { held, deck: held.deck, instance, entry, param: cmd.param as EffectParamId };
   // oxlint-enable no-unsafe-type-assertion
 }
 
@@ -125,23 +144,26 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
       ? clamp(cmd.value, spec.min, spec.max)
       : snapToStep(cmd.value, spec.min, spec.max, spec.step);
 
-  const { deck, instance } = target;
+  const { deck, held, instance } = target;
   if (instance === null) {
-    patchDeck(rt.store, cmd.deck, { params: { ...deck.params, [target.param]: value } });
+    // A deck parameter, so the address is a yard's — `targetOf` refused a null one above.
+    patchDeck(rt.store, cmd.deck!, { params: { ...deck.params, [target.param]: value } });
   } else {
-    patchDeck(rt.store, cmd.deck, {
-      effects: patchInstance(deck, instance, (entry) => ({
+    patchRack(
+      rt.store,
+      cmd.deck,
+      patchInstance(held.effects, instance, (entry) => ({
         ...entry,
         params: { ...entry.params, [target.param]: value },
       })),
-    });
+    );
   }
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
   rt.engine?.setParam(cmd.deck, instance, target.param, value);
   // A lane on this value keeps its shape and re-bases onto the value the knob was just left at.
   if (isAutomationParam(target.param)) {
-    const lane = laneIn(deck, instance, target.param);
+    const lane = laneIn(held, instance, target.param);
     if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, instance, target.param, lane, value);
   }
   rt.bus.emit({
@@ -161,25 +183,28 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
     throw new TypeError(`param does not support automation: ${target.param}`);
   }
 
-  const { deck, instance } = target;
+  const { deck, held, instance } = target;
   // A lane is held where its value is: beside the deck's own parameters, or on the one instance
   // that declares it. Clearing removes the key either way, so one rack state has one JSON (0030).
   // The sibling goes with it: a lane cleared is a lane nothing drew any more, which is 0311's
   // rule written where the fact lives rather than in a knob's ref (0314).
   if (target.instance === null) {
-    const automation = { ...deck.automation };
-    const drawn = { ...deck.drawn };
+    const own = deck!;
+    const automation = { ...own.automation };
+    const drawn = { ...own.drawn };
     if (lane.length === 0) {
       delete automation[target.param];
       delete drawn[target.param];
     } else automation[target.param] = lane;
-    patchDeck(rt.store, cmd.deck, { automation, drawn });
-    rt.engine?.setAutomation(cmd.deck, null, target.param, lane, deck.params[target.param]);
+    patchDeck(rt.store, cmd.deck!, { automation, drawn });
+    rt.engine?.setAutomation(cmd.deck, null, target.param, lane, own.params[target.param]);
   } else {
-    const held = target.instance;
+    const on = target.instance;
     const param = target.param;
-    patchDeck(rt.store, cmd.deck, {
-      effects: patchInstance(deck, held, (current) => {
+    patchRack(
+      rt.store,
+      cmd.deck,
+      patchInstance(held.effects, on, (current) => {
         const automation = { ...current.automation };
         const drawn = { ...current.drawn };
         if (lane.length === 0) {
@@ -188,8 +213,8 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
         } else automation[param] = lane;
         return { ...current, automation, drawn };
       }),
-    });
-    rt.engine?.setAutomation(cmd.deck, held, param, lane, paramIn(target.entry.params, param));
+    );
+    rt.engine?.setAutomation(cmd.deck, on, param, lane, paramIn(target.entry.params, param));
   }
   rt.bus.emit({
     t: "automation.changed",
@@ -212,12 +237,12 @@ function setDrawn(cmd: Extract<Command, { t: "automation.drawn" }>, rt: Runtime)
   if (!isAutomationParam(target.param)) {
     throw new TypeError(`param does not support automation: ${target.param}`);
   }
-  const { deck } = target;
+  const { deck, held } = target;
   // What drew a lane exists exactly while that lane does (0314): a drawn state on a parameter
   // holding none is a fact about nothing, and it would light a character and a count over a knob
   // with nothing to redraw. Unanswerable rather than malformed, like every other command naming
   // something that is not there (0023, principle 5).
-  if (cmd.drawn !== null && laneIn(deck, target.instance, target.param) === undefined) {
+  if (cmd.drawn !== null && laneIn(held, target.instance, target.param) === undefined) {
     rt.bus.emit({
       t: "error",
       detail: `automation.drawn: ${target.param} holds no lane on ${target.instance ?? "the deck"}`,
@@ -229,21 +254,23 @@ function setDrawn(cmd: Extract<Command, { t: "automation.drawn" }>, rt: Runtime)
   const said =
     cmd.drawn === null ? null : { character: cmd.drawn.character, redraw: cmd.drawn.redraw };
   if (target.instance === null) {
-    const drawn = { ...deck.drawn };
+    const drawn = { ...deck!.drawn };
     if (said === null) delete drawn[target.param];
     else drawn[target.param] = said;
-    patchDeck(rt.store, cmd.deck, { drawn });
+    patchDeck(rt.store, cmd.deck!, { drawn });
   } else {
-    const held = target.instance;
+    const on = target.instance;
     const param = target.param;
-    patchDeck(rt.store, cmd.deck, {
-      effects: patchInstance(deck, held, (current) => {
+    patchRack(
+      rt.store,
+      cmd.deck,
+      patchInstance(held.effects, on, (current) => {
         const drawn = { ...current.drawn };
         if (said === null) delete drawn[param];
         else drawn[param] = said;
         return { ...current, drawn };
       }),
-    });
+    );
   }
   rt.bus.emit({
     t: "automation.drawn",
@@ -510,7 +537,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
   // The wire shape of a groupable command is checked in exactly one place, and this is the other
   // door to it: what history.group would refuse arriving in a group is refused arriving alone.
   if (isGroupableEdit(cmd)) assertGroupedEdit(cmd);
-  if ("deck" in cmd && cmd.t !== "deck.add") assertDeck(rt, cmd.deck);
+  // Null is the rack that is no yard's, which is not a deck and is never in `deckList` (0320);
+  // every other address goes through the same guard it always did.
+  if ("deck" in cmd && cmd.t !== "deck.add" && cmd.deck !== null) assertDeck(rt, cmd.deck);
 
   switch (cmd.t) {
     case "deck.add":
@@ -548,7 +577,15 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     // The lane already held, scaled onto the length one gesture asked for, through the one
     // command that writes a lane (0079).
     case "automation.span": {
-      const held = deckIn(rt.store.getState().decks, cmd.deck);
+      const held = rackIn(rt.store.getState(), cmd.deck);
+      // The narrowing at the top of the one reducer that does not go through `targetOf`: the rack
+      // that is no yard's holds no parameter of its own, so a span naming it without an instance
+      // names nothing — refused on the log the way every other one is, never thrown at the caller
+      // (0023, 0320).
+      if (held.deck === null && cmd.instance === undefined) {
+        rt.bus.emit({ t: "error", detail: `${rackSaid(cmd.deck)}: ${MASTER_HOLDS_NO_PARAMS}` });
+        return;
+      }
       const points = stretchLane(laneIn(held, cmd.instance ?? null, cmd.param) ?? [], cmd.span);
       const owner = instanceHalf(cmd.instance);
       setAutomation(
@@ -579,6 +616,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "effect.reorder":
       reorderEffect(cmd, rt);
       return;
+    // One instance out of one rack and into another, as one history entry (0320).
+    case "effect.move":
+      return moveEffect(cmd, rt);
     case "deck.load":
       return load(cmd, rt);
     case "deck.crop":

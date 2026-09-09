@@ -62,6 +62,12 @@ function flattenSession(session: Session, deck: DeckId): Session {
     deckList: session.deckList.filter((entry) => entry.id === deck),
     decks: { [deck]: { ...deckIn(session.decks, deck), player: null } },
     clips: [],
+    // And the rack that is no yard's, which is a fact about the session and not about this yard
+    // (0321). It goes for the reason the deck's own parameters are put back to their defaults
+    // below: a flatten keeps the sound in the samples, and everything that made it has to come
+    // off afterwards or it is applied a second time. This one cannot come off — it is shared, and
+    // the other yards are still going through it — so it is never baked in.
+    master: { effects: [] },
   };
 }
 

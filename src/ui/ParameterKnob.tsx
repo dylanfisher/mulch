@@ -13,7 +13,7 @@
 // oxlint-disable import/max-dependencies, react/immutability
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { rackLabel } from "@/lib/copy";
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
 import type { GroupedEditCommand } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
@@ -29,7 +29,7 @@ import {
   type MotionRedraw,
 } from "@/lib/motion";
 import { mintSeed } from "@/lib/random";
-import type { DeckId } from "@/state/store";
+import type { RackId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import type { PopoverOpenChange } from "@/ui/components/popover";
@@ -80,7 +80,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   playing,
 }: {
   instrument: Instrument;
-  deck: DeckId;
+  deck: RackId;
   /** Which rack instance owns this value, or absent for one the deck owns itself (0030). */
   instance?: EffectInstanceId;
   /** What the owner is called on screen, for the names a reader and ./scripts/smoke read by. */
@@ -99,7 +99,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   playing: boolean;
 }) {
   const spec = PARAMS[param];
-  const where = name === undefined ? yardLabel(deck) : `${yardLabel(deck)} ${name}`;
+  const where = name === undefined ? rackLabel(deck) : `${rackLabel(deck)} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /**
    * This dial's value as text, at the precision the parameter declares — so a cutoff reads whole

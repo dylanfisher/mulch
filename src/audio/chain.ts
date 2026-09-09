@@ -35,9 +35,10 @@ export const METER_WINDOW = 1024;
 /**
  * The narrowing an instance-scoped routing needs: a parameter reached through the rack is one of
  * an effect's, and a deck parameter arriving with an instance id is malformed rather than a
- * different binding to find (0030).
+ * different binding to find (0030). Exported because the rack that is no yard's routes the same
+ * way and through no chain at all (./masterEffects.ts) — one narrowing, and it is loud.
  */
-const asEffectParam = (param: ParamId): EffectParamId => {
+export const asEffectParam = (param: ParamId): EffectParamId => {
   if (isDeckParam(param)) throw new Error(`deck param names no instance: ${param}`);
   return param;
 };

@@ -14,7 +14,7 @@ import { mintYardName } from "@/lib/copyYard";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { SongPartId } from "@/lib/playerSong";
 import type { Clip } from "@/state/session";
-import { deckIn, deckIndexOf, type DeckId, type SessionState } from "@/state/store";
+import { deckIn, deckIndexOf, type DeckId, type RackId, type SessionState } from "@/state/store";
 
 /** The alphabet a deck is named from, before ids stop being things a person says out loud. */
 const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
@@ -123,7 +123,7 @@ export const mintPlayerRunId = (): string => mintInstanceId();
  * Add one instance of a registered effect. A rack may hold any number of instances of one entry,
  * so every call mints a fresh opaque id (0030).
  */
-export function addEffectCommand(deck: DeckId, effect: EffectId): Command {
+export function addEffectCommand(deck: RackId, effect: EffectId): Command {
   return { t: "effect.add", deck, id: mintInstanceId(), effect };
 }
 
@@ -134,7 +134,7 @@ export function addEffectCommand(deck: DeckId, effect: EffectId): Command {
  * is the reducer's, because a caller that listed it would be a second way to build a rack entry
  * (0092).
  */
-export function duplicateEffectCommand(deck: DeckId, instance: EffectInstanceId): Command {
+export function duplicateEffectCommand(deck: RackId, instance: EffectInstanceId): Command {
   return { t: "effect.duplicate", deck, instance, id: mintInstanceId() };
 }
 
@@ -148,7 +148,7 @@ export function duplicateEffectCommand(deck: DeckId, instance: EffectInstanceId)
  * mint above is: this runs on a press and its result travels in the commands (0089).
  */
 export function randomizeEffectCommand(
-  deck: DeckId,
+  deck: RackId,
   instance: EffectInstanceId,
   effect: EffectId,
 ): Command {
@@ -168,12 +168,25 @@ export function randomizeEffectCommand(
 }
 
 /**
+ * Carry one instance out of the rack it is on and onto another, at the end of it. One command:
+ * everything the instance takes with it — its values, its lanes, what drew them, its bounds and
+ * its bypass — is the reducer's, so a control that sent the removal and the arrival would be
+ * spelling out the move rather than asking for it (0092, 0320).
+ *
+ * The index is past every slot the target rack could hold, which is what "at the end" is said as
+ * here: the reducer clamps it into that rack the way `effect.reorder` clamps its own (0111).
+ */
+export function moveEffectCommand(from: RackId, to: RackId, instance: EffectInstanceId): Command {
+  return { t: "effect.move", from, to, instance, index: Number.MAX_SAFE_INTEGER };
+}
+
+/**
  * Take every effect off one rack, as one history entry: an `effect.remove` apiece, so a rack
  * cleared in one press comes back in one undo (0067). The order is the rack's own, read at the
  * press by the control that has it — a command naming an instance keeps meaning the same thing
  * whatever the removals before it did (0023).
  */
-export function clearEffectsCommand(deck: DeckId, instances: readonly EffectInstanceId[]): Command {
+export function clearEffectsCommand(deck: RackId, instances: readonly EffectInstanceId[]): Command {
   return {
     t: "history.group",
     commands: instances.map((instance) => ({ t: "effect.remove", deck, instance })),

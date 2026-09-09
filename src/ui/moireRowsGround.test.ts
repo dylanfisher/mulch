@@ -19,7 +19,7 @@ import { PLAYER_GROUND_TRAVEL, playerGroundSecs } from "@/lib/playerDrift";
 import type { Loop } from "@/lib/timeline";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 
@@ -43,7 +43,7 @@ describe("the loop as the ground", () => {
   it("travels the field to a moved loop over half the loop while the yard sounds, and stands on it outright halted", () => {
     // 0274: a loop is a place the yard really is reading, so a hand moving it across the file is a
     // ground move like a jump is — and the picture is the one surface that could show it (0235).
-    const { rows, reads } = moireRows([], [], 2, PLAIN_CUT, null, NO_GROWN, null);
+    const { rows, reads } = moireRows([], [], 2, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
     const at = reads.findIndex((read) => read.heard !== null);
     const reference = rows[at];
     if (reference === undefined) throw new Error("the picture has no reference row");

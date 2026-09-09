@@ -15,7 +15,7 @@ import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { carryWind } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
-import { moireRows, refillRows as filledRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER, refillRows as filledRows } from "@/ui/moireRows";
 import {
   DRIFT_WIND_SECS,
   DRIFT_WIND_TURNS,
@@ -117,7 +117,7 @@ describe("the wind a standing rack blows the field with", () => {
 
 /** A yard's own picture, whose set carries the reading and the travel across it. */
 const set = (effects: SessionEffect[]): ReturnType<typeof moireRows> =>
-  moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null);
+  moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
 
 // One flat list of the travel's own cases: the drift, the direction and the carry are three halves
 // of one journey, and a case that saw only one of them would not be about a wind at all. See

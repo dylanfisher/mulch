@@ -13,6 +13,8 @@ import {
   spectralTilt,
 } from "@/lib/peaks";
 import { METER_WINDOW } from "./chain";
+import { createEffectRack } from "./effects/rack";
+import { createMasterEffects, type MasterEffects } from "./masterEffects";
 
 /** Where the limiter starts working, in dB. Below it the bus is transparent. */
 export const LIMITER_THRESHOLD_DB = -3;
@@ -116,9 +118,16 @@ export function clearMasterPeek(out: MasterPeek): void {
   out.at = 0;
 }
 
-/** The master bus: the node everything connects into, and the meter tapped off it. */
+/** The master bus: the node everything connects into, the rack it runs through, and the meter. */
 export type MasterBus = {
   input: GainNode;
+  /**
+   * The rack that is no yard's, standing between the sum of the decks and the limiter (0321). It
+   * is built here because this is where the sum is: nothing in this file learns what a deck is,
+   * and the one call both hosts make is this one — so an offline render gets the master rack for
+   * free rather than through a second signal path (docs/boundaries.md).
+   */
+  effects: MasterEffects;
   /**
    * The per-frame read: fills `out` with the loudest |sample| in each channel's meter window.
    * Allocation-free after construction, the same contract `DeckChain.level()` has.
@@ -153,10 +162,17 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
   clip.curve = softClipCurve();
   clip.oversample = "4x";
 
-  input.connect(limiter).connect(clip).connect(ctx.destination);
+  // Where the rack lands, and where the meter is tapped: everything the decks sum to has been
+  // through the master rack by here, so the reading is of what the limiter is about to be handed
+  // rather than of what the yards sent — a master effect can make the output too hot, which is
+  // the one thing a clip indicator exists to say.
+  const summed = ctx.createGain();
+  const effects = createMasterEffects(ctx, createEffectRack(ctx, summed));
+  input.connect(effects.input);
+  summed.connect(limiter).connect(clip).connect(ctx.destination);
 
   const splitter = ctx.createChannelSplitter(2);
-  input.connect(splitter);
+  summed.connect(splitter);
   const tap = (channel: number) => {
     const analyser = ctx.createAnalyser();
     analyser.fftSize = METER_WINDOW;
@@ -194,6 +210,7 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
 
   return {
     input,
+    effects,
     peek: (out) => {
       const left = readLeft();
       const right = readRight();

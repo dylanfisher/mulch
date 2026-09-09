@@ -33,6 +33,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
+import { MasterRack } from "@/ui/MasterRack";
 import { DEV_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
 import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
@@ -232,6 +233,11 @@ function Screen({ instrument }: { instrument: Instrument }) {
         <div className="flex items-center gap-2">
           <AddDeckButton instrument={instrument} />
         </div>
+
+        {/* Under all the yards, because what it holds is heard on all of them and the yards are
+          what a person scrolls through: a rack read after them is a rack that sits after them in
+          the signal too (0321). */}
+        <MasterRack instrument={instrument} />
 
         <DebugConsole instrument={instrument} open={debugConsole} />
 

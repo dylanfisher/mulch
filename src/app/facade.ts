@@ -24,6 +24,7 @@ import {
   type DeckId,
   fromDecks,
   holdsDeck,
+  type RackId,
   replaceSession,
   type SessionReader,
   type SessionState,
@@ -103,7 +104,7 @@ export type Instrument = {
    * writes; each call refills one preallocated object per deck. With no engine it reads zeros,
    * the way probe() reads a silent session.
    */
-  peek(deck: DeckId): Readonly<DeckPeek>;
+  peek(deck: RackId): Readonly<DeckPeek>;
   /**
    * The same read for the whole output: the bus's stereo peak, and what the same two windows say
    * about the sound in them — one preallocated object, zeroed with no engine. Two callers a frame,
@@ -260,7 +261,7 @@ export function createInstrument(
   // The peek scratch: one object per deck, refilled in place on every read, so sixty reads a
   // second cost sixty writes and no garbage (docs/plan.md §4). One allocation per deck ever, on
   // its first read — a deck the session added is a deck a surface may peek (0029).
-  const scratch = new Map<DeckId, DeckPeek>();
+  const scratch = new Map<RackId, DeckPeek>();
   /** The master's own scratch — one object for the whole output, refilled on every read. */
   const masterScratch = emptyMasterPeek();
   // The counters' scratch, for the same reason: stats() is read once a frame while the console
@@ -710,7 +711,10 @@ export function createInstrument(
       // Asked on every read, not only the cold one: the scratch caches a value, never a check.
       // A deck the session has removed is not peekable, and its surviving scratch entry would
       // otherwise keep answering zeros for a name `deckList` no longer holds (0029, principle 5).
-      if (!holdsDeck(store.getState().deckList, deck)) throw new Error(`no deck ${deck}`);
+      // The rack that is no yard's is never in that list and is always there (0320).
+      if (deck !== null && !holdsDeck(store.getState().deckList, deck)) {
+        throw new Error(`no deck ${deck}`);
+      }
       let out = scratch.get(deck);
       if (out === undefined) {
         out = emptyDeckPeek();

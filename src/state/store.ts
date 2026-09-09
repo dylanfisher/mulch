@@ -80,24 +80,69 @@ export function deckIn<T>(decks: Readonly<Record<DeckId, T>>, deck: DeckId): T {
 }
 
 /**
- * The lane a (deck, instance, parameter) is holding, or undefined — the one lane lookup, because
+ * A rack's address: a yard's id, or null for the rack that is no yard's — the master (0320). Null
+ * rather than a reserved id string, because a deck id is opaque and caller-supplied and the
+ * session spends its own, so any literal is one a hand could be handed (0029).
+ */
+export type RackId = DeckId | null;
+
+/** The one guard on a rack address, shared by the command wire and every reducer. */
+export function assertRackId(value: unknown, at: string): asserts value is RackId {
+  if (value === null) return;
+  assertDeckId(value, at);
+}
+
+/**
+ * What the session holds beside its decks: exactly a rack and nothing else. An instance already
+ * carries its own params, lanes, bounds and bypass (0030), and every other field of a yard is a
+ * yard's — a source, a loop, a pattern and the deck parameters (0321).
+ */
+export type MasterState = { effects: SessionEffect[] };
+
+/**
+ * What one rack address names: the instances it holds, and the yard those sit on — null for the
+ * master, which is the whole narrowing. A command naming no instance is a command about a deck's
+ * own parameters, and the master has none (0320, 0321).
+ */
+export type RackHeld = { effects: SessionEffect[]; deck: DeckState | null };
+
+/**
+ * What is said when something names the rack that is no yard's without naming an instance in it.
+ * A master rack holds no parameter of its own (0321), so the pair a value or a lane belongs to is
+ * not complete — one wording, because the lane lookup below and the audio host both refuse it, and
+ * the reducer's own refusal quotes it onto the log (src/app/execute.ts).
+ */
+export const MASTER_HOLDS_NO_PARAMS = "the master rack holds no parameters of its own";
+
+/** The rack one address names, or a loud throw for a yard the session does not hold (0029). */
+export function rackIn(state: SessionState, rack: RackId): RackHeld {
+  if (rack === null) return { effects: state.master.effects, deck: null };
+  const deck = deckIn(state.decks, rack);
+  return { effects: deck.effects, deck };
+}
+
+/**
+ * The lane a (rack, instance, parameter) is holding, or undefined — the one lane lookup, because
  * a value and its lane belong to the pair rather than to the parameter alone (0030).
  */
 export function laneIn(
-  deck: DeckState,
+  held: RackHeld,
   instance: EffectInstanceId | null,
   param: ParamId,
 ): AutomationLane | undefined {
   if (instance === null) {
-    const own: Partial<Record<string, AutomationLane>> = deck.automation;
+    // A rack that is no yard's holds no parameter of its own, so there is no lane to ask about
+    // (0321). Loud for the reason the instance lookup below is: the caller skipped its guard.
+    if (held.deck === null) throw new TypeError(MASTER_HOLDS_NO_PARAMS);
+    const own: Partial<Record<string, AutomationLane>> = held.deck.automation;
     return own[param];
   }
-  const entry = deck.effects.find((current) => current.id === instance);
+  const entry = held.effects.find((current) => current.id === instance);
   // Loud rather than empty: a lane lookup naming an instance the rack does not hold is a caller
   // asking about something that is not there, not a pair that happens to hold no lane.
   if (entry === undefined) throw new TypeError(`rack holds no instance ${instance}`);
-  const held: Partial<Record<string, AutomationLane>> = entry.automation;
-  return held[param];
+  const own: Partial<Record<string, AutomationLane>> = entry.automation;
+  return own[param];
 }
 
 export type DeckState = {
@@ -167,6 +212,12 @@ export type SessionState = {
    * reads is no one yard's to move (0313).
    */
   ground: SessionGround;
+  /**
+   * The rack that is no yard's: everything the decks sum into runs through it before the limiter,
+   * so an instance here is heard on the whole session. Exactly a rack, because every other durable
+   * fact a yard holds is a yard's (0321).
+   */
+  master: MasterState;
 };
 
 const defaultDeck = (): DeckState => ({
@@ -193,6 +244,7 @@ export const createSessionStore = () =>
     clips: [],
     sync: null,
     ground: { ...SESSION_GROUND_DEFAULTS },
+    master: { effects: [] },
   }));
 
 export type SessionStore = ReturnType<typeof createSessionStore>;
@@ -215,6 +267,19 @@ export function patchDeck(
     const next = typeof patch === "function" ? patch(current) : patch;
     return { decks: { ...s.decks, [deck]: { ...current, ...next } } };
   });
+}
+
+/**
+ * Change the instances one rack address holds, leaving every other rack untouched. The rack
+ * writer beside `patchDeck`: a yard's rack still goes through that one, so a subscriber comparing
+ * decks by reference sees a rack move the way it always did (0320).
+ */
+export function patchRack(store: SessionStore, rack: RackId, effects: SessionEffect[]): void {
+  if (rack === null) {
+    store.setState({ master: { effects } });
+    return;
+  }
+  patchDeck(store, rack, { effects });
 }
 
 /** Change which held deck keyboard commands target. `src/app` remains the only caller. */

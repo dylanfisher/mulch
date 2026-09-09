@@ -16,7 +16,7 @@ import type { BlobId, SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
 import type { MotionDrawn } from "@/lib/motion";
 import type { ClipId, EffectBound } from "@/state/session";
-import type { DeckId } from "@/state/store";
+import type { DeckId, RackId } from "@/state/store";
 
 /** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
 export type { SourceRef };
@@ -63,11 +63,14 @@ export type DurableEditCommand =
   // is a pattern nobody asked for (0089).
   | { t: "deck.player"; deck: DeckId; player: PlayerSpec | null }
   // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
-  // rack entry for an effect's, because a rack may hold two delays (0030).
-  | { t: "param.set"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }
+  // rack entry for an effect's, because a rack may hold two delays (0030). `deck` is a rack
+  // address, and null is the master's — which holds no parameter of its own, so a null deck with
+  // no instance beside it is refused at the reducer's top rather than checked by every reader
+  // (0320, 0321).
+  | { t: "param.set"; deck: RackId; instance?: EffectInstanceId; param: ParamId; value: number }
   | {
       t: "automation.set";
-      deck: DeckId;
+      deck: RackId;
       instance?: EffectInstanceId;
       param: ParamId;
       points: AutomationPoint[];
@@ -80,7 +83,7 @@ export type DurableEditCommand =
    */
   | {
       t: "automation.drawn";
-      deck: DeckId;
+      deck: RackId;
       instance?: EffectInstanceId;
       param: ParamId;
       drawn: MotionDrawn | null;
@@ -91,37 +94,53 @@ export type DurableEditCommand =
   // event (0065).
   | {
       t: "automation.span";
-      deck: DeckId;
+      deck: RackId;
       instance?: EffectInstanceId;
       param: ParamId;
       span: number;
     }
   // Adding names the instance id it is creating, the way `deck.add` and `clip.capture` do — so a
   // JSONL file can add two delays and then address each by the name it wrote itself (0029, 0030).
-  | { t: "effect.add"; deck: DeckId; id: EffectInstanceId; effect: EffectId }
+  | { t: "effect.add"; deck: RackId; id: EffectInstanceId; effect: EffectId }
   // One instance again, onto the end of the same rack. `instance` is the one being copied and
   // `id` is the copy's, minted at the call site exactly as `effect.add`'s is, so a replayed file
   // makes the same rack it made the first time (0029, 0078). What the copy carries is the
   // reducer's, because a UI that sent the add, the values and the bypass would be three commands
   // for one gesture (0092).
-  | { t: "effect.duplicate"; deck: DeckId; instance: EffectInstanceId; id: EffectInstanceId }
+  | { t: "effect.duplicate"; deck: RackId; instance: EffectInstanceId; id: EffectInstanceId }
   // The rack operations name an instance, never a rack index: an index is a fact about the rack
-  // at the moment the command was written, and an id keeps meaning the same thing (0023).
-  | { t: "effect.bypass"; deck: DeckId; instance: EffectInstanceId; bypassed: boolean }
-  | { t: "effect.remove"; deck: DeckId; instance: EffectInstanceId }
+  // at the moment the command was written, and an id keeps meaning the same thing (0023). Every
+  // one of them addresses a rack rather than a yard: null is the master's, and it is not an id at
+  // all, so nothing a hand could be handed can name it (0320).
+  | { t: "effect.bypass"; deck: RackId; instance: EffectInstanceId; bypassed: boolean }
+  | { t: "effect.remove"; deck: RackId; instance: EffectInstanceId }
   // One window on one thing an instance's run may draw, or null to give that parameter its own
   // declared range back. One command per window rather than the whole map at once, the way
   // `param.set` is one value rather than a deck's whole set: a hand moves one end of one window,
   // and the parameter it names is the *pool's* rather than the instance's own (0208).
   | {
       t: "effect.bounds";
-      deck: DeckId;
+      deck: RackId;
       instance: EffectInstanceId;
       param: EffectParamId;
       bounds: EffectBound | null;
     }
   /** `index` is the destination position, clamped into the rack the way a param is clamped. */
-  | { t: "effect.reorder"; deck: DeckId; instance: EffectInstanceId; index: number }
+  | { t: "effect.reorder"; deck: RackId; instance: EffectInstanceId; index: number }
+  /**
+   * One instance out of one rack and into another at `index`, carried whole — its id, its values,
+   * its lanes, what drew them, its bounds and its bypass. A move and never a copy, which is what
+   * keeps `effect.duplicate` the one way a second instance is made (0320). A move to the rack the
+   * instance is already in is `effect.reorder` and is refused here, so there are not two commands
+   * that reorder (principle 1).
+   */
+  | {
+      t: "effect.move";
+      from: RackId;
+      to: RackId;
+      instance: EffectInstanceId;
+      index: number;
+    }
   | { t: "session.import"; archive: SessionArchiveHandle }
   // The shared jump clock, in seconds, or null for yards that each keep their own time. Named
   // for the session because that is whose it is: it is the first durable fact belonging to more
@@ -144,7 +163,8 @@ export type DurableEditCommand =
  * a clip command is either a list edit no group needs or — for apply — a group of its own.
  * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
  * `historyGroup`, so a group holding one would be a group inside a group (0078). `effect.duplicate`
- * is the same shape one rack card down (0092), and `deck.flatten` is that shape again, around a
+ * is the same shape one rack card down (0092), `effect.move` is that shape once more — a remove and
+ * a whole restoration, as one entry (0320) — and `deck.flatten` is that shape again, around a
  * render (0112). `session.sync` and `session.ground` name no deck at all, and
  * every groupable command is checked as one that does (src/app/wire.ts).
  */
@@ -158,6 +178,7 @@ export type GroupedEditCommand = Exclude<
       | "deck.duplicate"
       | "deck.flatten"
       | "effect.duplicate"
+      | "effect.move"
       | `clip.${string}`;
   }
 >;
@@ -193,7 +214,7 @@ export type Command =
    * enters no history for the same reason a seek enters none — letting go of a place is as
    * undoable as moving a playhead, which is to say it is not (0041).
    */
-  | { t: "effect.dismiss"; deck: DeckId; instance: EffectInstanceId; place: EffectInstanceId }
+  | { t: "effect.dismiss"; deck: RackId; instance: EffectInstanceId; place: EffectInstanceId }
   | { t: "session.save" }
   /**
    * The elapsed run back to nought: what `probe().at` and `stats().at` read, and so where an

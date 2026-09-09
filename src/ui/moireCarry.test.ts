@@ -14,7 +14,7 @@ import { PLAIN_CUT } from "@/lib/moireSound";
 import { carryLooks } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { looksTravelInto } from "@/ui/moireLooks";
-import { moireRows } from "@/ui/moireRows";
+import { moireRows, NO_MASTER } from "@/ui/moireRows";
 import { SHAPE_SECS } from "@/ui/moireShape";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import type { SessionEffect } from "@/state/session";
@@ -32,7 +32,7 @@ const instance = (id: string, effect: SessionEffect["effect"] = "scatter"): Sess
 
 /** A set built on `effects`, with its looks travelled `secs` of the way in. */
 const set = (effects: SessionEffect[], secs = 0): MoireRowSet => {
-  const built = moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null);
+  const built = moireRows([], effects, 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
   looksTravelInto(built.looks, SHAPE_SECS.value, secs, true);
   return built;
 };
