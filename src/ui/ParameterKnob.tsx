@@ -63,22 +63,13 @@ function openRecording(press: { start: number; value: number } | null, now: numb
   return { start: press.start, points: [{ at: 0, value: press.value }], moved: false };
 }
 
-// Over the line cap by design: what is here is one control's three mutually exclusive gestures —
-// record, clear, plain set — plus the live read that paints the lane and the marker that says
-// which of them this knob is holding. Splitting them means hooks with one caller each and the
-// gesture boundary in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-export const ParameterKnob = memo(function ParameterKnob({
-  instrument,
-  deck,
-  instance,
-  name,
-  param,
-  value,
-  lane,
-  drawn,
-  playing,
-}: {
+/**
+ * Everything one registry-bound dial is drawn from. Named because a control that wraps this one —
+ * the tap and the hold a tapped parameter wears beside it (src/ui/ParameterBeat.tsx) — hands the
+ * whole of it straight through, and a second spelling of the list would be a prop added here and
+ * missing there (principle 1).
+ */
+export type ParameterKnobProps = {
   instrument: Instrument;
   deck: RackId;
   /** Which rack instance owns this value, or absent for one the deck owns itself (0030). */
@@ -97,7 +88,33 @@ export const ParameterKnob = memo(function ParameterKnob({
   drawn: MotionDrawn | null;
   /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
-}) {
+  /**
+   * What every value this dial writes passes through on its way to `param.set` — the turn, the
+   * arrow key, the double-click reset and the point a recording keeps. Absent on all but a tapped
+   * parameter held to the beat, where it is the one rounding in front of the command that its
+   * own tap writes through too (src/ui/ParameterBeat.tsx). It must be stable across renders: this
+   * control is memoised.
+   */
+  round?: (value: number) => number;
+};
+
+// Over the line cap by design: what is here is one control's three mutually exclusive gestures —
+// record, clear, plain set — plus the live read that paints the lane and the marker that says
+// which of them this knob is holding. Splitting them means hooks with one caller each and the
+// gesture boundary in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+export const ParameterKnob = memo(function ParameterKnob({
+  instrument,
+  deck,
+  instance,
+  name,
+  param,
+  value,
+  lane,
+  drawn,
+  playing,
+  round,
+}: ParameterKnobProps) {
   const spec = PARAMS[param];
   const where = name === undefined ? rackLabel(deck) : `${rackLabel(deck)} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
@@ -161,7 +178,11 @@ export const ParameterKnob = memo(function ParameterKnob({
   }, [lane, phase, value]);
 
   const onChange = useCallback(
-    (next: number) => {
+    (raw: number) => {
+      // The one rounding in front of this dial's command, wherever the value came from — a drag,
+      // an arrow key, a reset or a point of a recording — so a parameter held to the beat is held
+      // whichever of them wrote it, and every other parameter hands over what it was turned to.
+      const next = round === undefined ? raw : round(raw);
       const owner = instanceHalf(instance);
       const set = { t: "param.set", deck, ...owner, param, value: next } as const;
       const current = recording.current;
@@ -211,7 +232,7 @@ export const ParameterKnob = memo(function ParameterKnob({
       }
       instrument.send(set);
     },
-    [armed, lane, drawn, instrument, deck, instance, param],
+    [armed, lane, drawn, instrument, deck, instance, param, round],
   );
 
   /**

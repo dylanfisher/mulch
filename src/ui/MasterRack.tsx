@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import type { Instrument } from "@/app/facade";
 import { MASTER_LABEL } from "@/lib/copy";
 import { EffectRack } from "@/ui/EffectRack";
+import { useRackBeat } from "@/ui/ParameterBeat";
 
 /**
  * Under the yards and above nothing, folded shut like every other card fold but the front (0217).
@@ -29,11 +30,17 @@ export function MasterRack({ instrument }: { instrument: Instrument }) {
   const [folded, setFolded] = useState(true);
   const fold = useMemo((): [boolean, (next: boolean) => void] => [folded, setFolded], [folded]);
   const state = useMemo(() => ({ effects, playing }), [effects, playing]);
+  // Nought, because this rack is under every yard and belongs to none: there is no one analysis
+  // and no one rate to read a sounding tempo off, so a tapped parameter here is tapped and never
+  // held — the hold is greyed rather than absent, the way it is on a deck with no grid (0320,
+  // 0326). The holds themselves are still kept here, so a shape this rack could grow a grid for
+  // would need nothing else moved.
+  const beat = useRackBeat(0);
 
   return (
     <section className="flex flex-col gap-2" aria-label={MASTER_LABEL}>
       <div className="type-eyebrow text-muted-foreground">{MASTER_LABEL}</div>
-      <EffectRack instrument={instrument} deck={null} state={state} fold={fold} />
+      <EffectRack instrument={instrument} deck={null} state={state} fold={fold} beat={beat} />
     </section>
   );
 }

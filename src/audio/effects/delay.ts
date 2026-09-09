@@ -37,6 +37,10 @@ const params = [
     // curve the musical window is most of the knob — and the picture's own spacing reads the same
     // travel, so the repeats stand apart across the whole of it rather than at the very top (0294).
     curve: "log",
+    // A gap between two repeats is a length of time a hand can play rather than turn to, so this
+    // knob wears the tap and the hold the burst's does — the one parameter in the registry that
+    // is an interval and not an amount (src/lib/playerBurst.ts).
+    beat: true,
     automation: "linear",
   },
   {

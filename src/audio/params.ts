@@ -4,6 +4,7 @@
  *       a value lookup is (instance, param), because a rack holds instances of entries (0030).
  */
 
+import type { BeatAnalysis } from "@/lib/analysis";
 import { fold } from "@/lib/copy";
 import { clamp, denormalize, snapToStep } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
@@ -237,6 +238,22 @@ export function effectParamDraws(effect: EffectId, draw: () => number): EffectPa
  */
 export const deckRate = (params: Readonly<Record<DeckParamId, number>>): number =>
   playbackRate(params["deck.speed"], params["deck.pitch"], params["deck.tone"]);
+
+/**
+ * The **sounding** beat of a deck in bpm: the tempo its analysis measured, at the rate it is
+ * actually reading its buffer — a source measured at 120 is 240 at 2× — and nought where there is
+ * no grid at all, which is a deck with no analysis or one whose analysis found no tempo (0031,
+ * 0121).
+ *
+ * Beside `deckRate` because it is that lookup and one multiplication, and in one place because
+ * three surfaces ask it: the waveform reads it out rounded, the jumps card rounds a burst onto it
+ * and a rack holds a tapped parameter to it (0326). Three spellings of one formula would be three
+ * places for a rate to be dropped from it (principle 1).
+ */
+export const soundingBpm = (
+  analysis: BeatAnalysis | null,
+  params: Readonly<Record<DeckParamId, number>>,
+): number => (analysis === null ? 0 : analysis.bpm * deckRate(params));
 
 /** Every deck parameter at its default — what a fresh deck starts from, derived not restated. */
 export const DECK_PARAM_DEFAULTS = Object.fromEntries(

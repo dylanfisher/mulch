@@ -78,6 +78,24 @@ describe("a burst held to the beat", () => {
     expect(beatBurst(0.004, 600)).toBeCloseTo(0.00625, 6);
   });
 
+  /**
+   * The dial being written says which divisions are candidates. A registry parameter that declared
+   * `beat` hands over its own range, which is a sub-range of the burst's, and the answer stays
+   * inside it: the delay's Time bottoms out at 10ms where the burst bottoms out at 5, and a
+   * sounding beat of 240bpm has a thirty-second under both (0326).
+   */
+  it("holds to the range of the dial it is writing, not always the burst's", () => {
+    const time = { min: 0.01, max: 2 };
+    // Unbounded, the sixteenth's neighbour below is reachable and is what 0.01 lands on.
+    expect(beatBurst(0.01, 240)).toBeCloseTo(0.0078125, 6);
+    // Bounded by the delay's own floor, the fastest division it can hold is the sixteenth.
+    expect(beatBurst(0.01, 240, time)).toBeCloseTo(0.015625, 6);
+    // And with no step of its own the answer is not stepped onto the burst's, which would move it.
+    expect(beatBurst(0.3, 120, time)).toBeCloseTo(0.25, 12);
+    // A tap answers inside the same range: a mean faster than the floor cannot be written.
+    expect(tapBurst([0, 5], time)).toBeCloseTo(0.01, 6);
+  });
+
   /** A beat with no division inside the range at all holds nothing, so the burst stays put. */
   it("leaves a burst where it is when no division fits", () => {
     expect(beatBurst(0.25, 600_000)).toBe(0.25);

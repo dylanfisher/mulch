@@ -159,7 +159,22 @@ the step's own text asked for could not stand: "EQ Gain" becomes "Band Gain" rat
 because two automatable parameters may not share a label and the yard's own Gain has it
 (src/audio/params.ts) — §4; and the two smoke renders that measured a peaking band now say
 `eq.shape` 0 rather than lean on the default. bench-09 reuses the declaration-keyed control this
-step introduced, by the same rule and in the same place. The next free decision number is 0326.
+step introduced, by the same rule and in the same place.
+
+bench-09 landed on 2026-09-08 as
+[0326](decisions/0326-a-tapped-parameter-is-declared-and-drawn-by-the-rack.md); `ParamSpec` gains
+`beat?: true`, `delay.time` declares it and nothing else does, and `ParameterBeat` draws the burst
+row's own tap and hold beside any dial whose parameter says so — the four exports of
+src/lib/playerBurst.ts imported as they are, and `defineEffect` refusing `beat` on a parameter that
+names its choices or runs outside `PLAYER_BURST_MIN`…`PLAYER_BURST_MAX`. The rounding is one
+optional `round` on `ParameterKnob`, applied to every value that dial writes, which the tap calls
+itself; the holds are a `paramKey`-keyed set the yard keeps beside its folds, and the master rack's
+bpm is nought, so there the tap works and the hold is greyed. Review moved three things off the
+step's own text: the two burst functions gained a `BurstBounds` so the hold answers inside the
+parameter's range and not the burst's, neither gesture sends a `gesture.end`, and the sounding beat
+is one `soundingBpm` rather than a second reading — all three below. The five browser-free cases the step
+asked of src/ui/EffectRack.test.tsx are in src/ui/ParameterBeat.test.tsx instead, because that file
+would otherwise have crossed the 800-line hard cap — §4. The next free decision number is 0327.
 
 1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
@@ -284,7 +299,7 @@ held: ["eq.shape"] }` — a low-pass whose edge stands above hearing is transpar
     - **A migration of stored shapes.** The numbers still name the same shapes; only the default
       moved (0026).
 
-3.  **A delay's time is tapped, and held to the beat.** _(bench-09)_ **Durable shape moved:
+3.  **A delay's time is tapped, and held to the beat.** _(bench-09, landed 0326)_ **Durable shape moved:
     none.** The time stays `delay.time` in seconds; a tap and a hold are two more writers of it,
     and the hold is runtime state the yard keeps beside its folds, as the burst's is.
 
@@ -503,6 +518,66 @@ teaching it feature semantics.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**The hold is bounded by the dial, not by the burst** (bench-09, 0326). The step said the beat and
+its halvings "at any tempo an analysis produces lie inside the delay's own range (0.01…2 s)", and
+asked for all four burst functions imported as they are. That premise is about the _measured_ tempo;
+the beat the same step mandates is the _sounding_ one, `analysis.bpm * deckRate`, four times the
+measured tempo at a doubled speed. A 120bpm loop at 2× makes the thirty-second 7.8ms, under the
+delay's 10ms floor, so a dial turned to its bottom with the hold on wrote a value the reducer
+clamped onto no division at all while the toggle read pressed. `tapBurst` and `beatBurst` take a
+`BurstBounds` now — the burst's own by default, a `ParamSpec` from a rack — and the answer is the
+fastest division that parameter can hold.
+
+**Neither gesture ends its own** (bench-09, 0326). The step said the tap is the burst row's, and the
+burst row's sends no `gesture.end`: a run of presses carries one (instance, parameter) key
+converging on one value, which history keeps as one entry and closes when the presses stop (0067).
+The first landing copied `ParameterChoice`'s `gesture.end` instead, which is right for one press
+writing one value and wrong for a run — four taps left three undos holding intermediate means.
+
+**The die was a fourth writer, and now is not** (bench-09, 0326). The step named the knob, the
+readout and the tap as what passes through the rounding. Review pointed at the card's own die: a
+throw of the whole card with the hold pressed left the time on no division while the toggle read
+pressed, where the precedent it is modelled on — `heldPatch`, which _is_ the mulcher card's patch —
+has no such hole. The rule is `heldValue` now, one exported function, and `randomizeEffectCommand`
+takes a rounding that defaults to the identity every other card's die gets.
+
+**A drawn lane is not rounded** (bench-09, 0326, declined). `delay.time` holds a lane, and a lane
+the menu draws or a paste brings does not pass through the hold. Declined: a lane is a continuous
+sweep and not a value being written, so rounding one would turn a hold into a staircase. A lane a
+hand rode _is_ rounded, because its points are the values that were written and heard — which is
+the rule holding rather than an inconsistency.
+
+**A hold outlives the card it was pressed on** (bench-09, 0326, declined). Review found that the
+rack's set of held keys is never pruned: removing a card leaves its key behind, an undo of that
+removal brings the parameter back held, and `effect.move` carries a card to another rack while the
+hold stays with the first. Declined as coherent rather than wrong. A hold is a view preference of a
+rack, like its fold, and a rack's view preferences do not travel with a card; a hold restored by an
+undo is the state the hand left, and a card moved to another yard is being held to a beat that yard
+does not sound. Nothing durable is written either way (0026).
+
+**The tapped parameter's cases are their own file** (bench-09, 0326). The step put five browser-free
+cases in src/ui/EffectRack.test.tsx; they took that file to 939 lines against a hard cap of 800, and
+the cap is split rather than shaved. src/ui/ParameterBeat.test.tsx holds the tap, the hold, the
+rounding and the grid-less rack, and EffectRack.test.tsx keeps the one case that is about the rack —
+that a card draws the two controls beside a tapped parameter's dial and beside no other. The label
+walk both suites now read a card by moved to src/ui/effectRackDouble.tsx with them.
+
+**A turn of the knob is proved at the knob** (bench-09, 0326). The step wanted the whole of "with the
+hold on, a turn of the knob sends the nearest division of the beat" in the rack's suite. The dial is
+`memo`-wrapped there and its `onChange` is not reachable without unwrapping the memo by hand, so the
+claim is split across the seam it actually crosses: src/ui/ParameterBeat.test.tsx proves the rounding
+the card hands the dial answers the nearest division, and src/ui/ParameterKnob.test.tsx — where the
+knob is already mounted outside a renderer — proves a turn sends what that rounding says. Both were
+watched failing.
+
+**The sounding beat is lifted, not said a third time** (bench-09, 0326). The step allowed a second
+occurrence of `analysis.bpm * deckRate(params)` beside the jumps card's. Review counted three: the
+yard's waveform (src/ui/Waveform.tsx) already spelled the same derivation and only wrapped it in
+`Math.round` for its readout, which is presentation over one fact rather than a second fact. So it
+is `soundingBpm` in src/audio/params.ts, beside `deckRate`, read by all three — the lift the step's
+own text asked for if the readings could disagree, taken because principle 3's threshold was already
+crossed rather than about to be.
 
 **The air keeps two joining words, and six of the place's twelve are out** (bench-07, 0324). The
 step listed eight air words — at, in, under, before, after, toward, through, against — and twelve

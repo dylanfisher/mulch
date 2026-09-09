@@ -2,7 +2,9 @@
  * @role The two ways of arriving at a burst that are not the dial: the mean interval a hand taps
  *   out, and the whole division of the beat a written burst is held to. Pure arithmetic on wall
  *   seconds — no clock, no PRNG, no analysis and no React; the times come in as numbers and the
- *   answer is a burst the dial could have been turned to.
+ *   answer is a burst the dial could have been turned to. Read by the mulcher card's own burst row
+ *   and by every rack parameter that declares `beat` — the delay's Time is the first — which is
+ *   why the four exports are seconds and not a spec's field (src/ui/ParameterBeat.tsx).
  * @instead What a burst *is*, and the range and step it is turned on → src/lib/player.ts and
  *   docs/decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md. The controls that call these
  *   and the sounding beat they hand over → src/ui/PlayerDials.tsx and src/ui/PlayerCard.tsx. The
@@ -20,6 +22,32 @@ import { clamp, snapToStep } from "@/lib/range";
  * that keeps going follows the hand rather than settling on where it started.
  */
 export const PLAYER_TAP_PRESSES = 4;
+
+/**
+ * The dial a tapped length is being written to: its bottom, its top and the step it is turned by,
+ * where it has one. Every answer below lands inside it, because a value outside is one the caller
+ * clamps onto no division at all.
+ *
+ * The burst's own is the default, so the mulcher card asks for nothing. A registry parameter that
+ * declared `beat` hands over its own `ParamSpec`, which is a **sub-range** of the burst's: the
+ * delay's Time bottoms out at 10ms where the burst bottoms out at 5, and the beat the hold rounds
+ * against is the *sounding* one — `analysis.bpm * deckRate`, four times the measured tempo at a
+ * doubled speed — so a thirty-second of it can fall under that floor while still lying inside the
+ * burst's. Answering with it would be a hold that reads pressed over a time on no division at all
+ * (0326).
+ */
+export type BurstBounds = { min: number; max: number; step?: number };
+
+export const PLAYER_BURST_BOUNDS: BurstBounds = {
+  min: PLAYER_BURST_MIN,
+  max: PLAYER_BURST_MAX,
+  step: PLAYER_BURST_STEP,
+};
+
+/** One answer put where the dial can hold it — stepped where the dial has a step, clamped where
+ *  it has none, which is what `snapToStep` does with a step of nought. */
+const landOn = (value: number, bounds: BurstBounds): number =>
+  snapToStep(value, bounds.min, bounds.max, bounds.step ?? 0);
 
 /**
  * The presses this tap is made of after one more at `at`, in milliseconds off a monotonic clock.
@@ -40,12 +68,15 @@ export function tapPress(times: readonly number[], at: number): readonly number[
  * Null for nought presses and for one — an interval needs two — which is what the press returns
  * when there is nothing to write yet rather than a burst it invented.
  */
-export function tapBurst(times: readonly number[]): number | null {
+export function tapBurst(
+  times: readonly number[],
+  bounds: BurstBounds = PLAYER_BURST_BOUNDS,
+): number | null {
   const first = times[0];
   const last = times.at(-1);
   if (first === undefined || last === undefined || times.length < 2) return null;
   const mean = (last - first) / (times.length - 1) / 1000;
-  return snapToStep(mean, PLAYER_BURST_MIN, PLAYER_BURST_MAX, PLAYER_BURST_STEP);
+  return landOn(mean, bounds);
 }
 
 /**
@@ -66,12 +97,16 @@ export const PLAYER_BEAT_DIVISIONS = [1, 1 / 2, 1 / 4, 1 / 8, 1 / 16, 1 / 32] as
  * two divisions is their geometric mean, which is the middle of the dial's own travel between
  * them.
  *
- * Only divisions the dial can name are candidates, and the answer is stepped like any other value
- * it holds: a burst held to the beat is turned by that same dial afterwards, and a value between
+ * Only divisions the dial being written can name are candidates — `bounds`, the burst's own unless
+ * a caller says otherwise — and the answer is stepped like any other value it holds: a burst held to the beat is turned by that same dial afterwards, and a value between
  * two of its steps is one it would move off on the first arrow key. A beat with no division inside
  * the range at all — a bpm no analysis produces — holds nothing, so the burst is left where it is.
  */
-export function beatBurst(burst: number, bpm: number): number {
+export function beatBurst(
+  burst: number,
+  bpm: number,
+  bounds: BurstBounds = PLAYER_BURST_BOUNDS,
+): number {
   // A deck with no analysis, or one whose analysis found no tempo, has no grid at all — its
   // toggle is refused rather than absent (0121, 0173), so a call with one is a caller that
   // skipped that refusal and not a burst to guess at (principle 5).
@@ -81,12 +116,12 @@ export function beatBurst(burst: number, bpm: number): number {
   let nearest = Infinity;
   for (const division of PLAYER_BEAT_DIVISIONS) {
     const secs = beat * division;
-    if (secs < PLAYER_BURST_MIN || secs > PLAYER_BURST_MAX) continue;
+    if (secs < bounds.min || secs > bounds.max) continue;
     const away = Math.abs(Math.log(secs / burst));
     if (away >= nearest) continue;
     nearest = away;
     best = secs;
   }
-  if (best === null) return clamp(burst, PLAYER_BURST_MIN, PLAYER_BURST_MAX);
-  return snapToStep(best, PLAYER_BURST_MIN, PLAYER_BURST_MAX, PLAYER_BURST_STEP);
+  if (best === null) return clamp(burst, bounds.min, bounds.max);
+  return landOn(best, bounds);
 }

@@ -23,7 +23,7 @@ import type { ReactNode } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { partVoice, PLAYER_PART_KNOBS, playerSounding, type PlayerSpec } from "@/lib/player";
-import { deckRate } from "@/audio/params";
+import { soundingBpm } from "@/audio/params";
 import { mintSeed } from "@/lib/random";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -280,14 +280,14 @@ export function PlayerCard({
   );
 
   /**
-   * The beat a held burst is rounded onto, in bpm: the **sounding** one, which is the analysis's
-   * own tempo at the rate the deck is reading its buffer. The same figure the yard's waveform
-   * reads out over the loop this card jumps around inside, and read the same way (0031,
-   * src/ui/Waveform.tsx) — rounded there because it is a readout, and not here because it is
-   * arithmetic. Nought is a deck with no grid: no analysis, or one that found no tempo, which is
-   * the deck whose hold is refused rather than absent (0121, 0173).
+   * The beat a held burst is rounded onto, in bpm: the **sounding** one, off the one place that
+   * arithmetic lives (`soundingBpm`, src/audio/params.ts). The same figure the yard's waveform
+   * reads out over the loop this card jumps around inside — rounded there because it is a readout,
+   * and not here because it is arithmetic (0031, src/ui/Waveform.tsx). Nought is a deck with no
+   * grid: no analysis, or one that found no tempo, which is the deck whose hold is refused rather
+   * than absent (0121, 0173).
    */
-  const beat = state.analysis === null ? 0 : state.analysis.bpm * deckRate(state.params);
+  const beat = soundingBpm(state.analysis, state.params);
 
   const onSwitch = useCallback(
     (pressed: boolean) => {

@@ -31,7 +31,7 @@ import {
 import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckPeek } from "@/audio/deckPeek";
-import { deckRate } from "@/audio/params";
+import { soundingBpm } from "@/audio/params";
 import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import {
@@ -221,11 +221,10 @@ export function Waveform({
   const drop = useFileDrop(onFile);
   const analysis = state.analysis;
   /**
-   * The tempo as it is actually heard. Analysis measures the buffer, and the deck reads that
-   * buffer at whatever speed and pitch ask for, so a source measured at 120 is 240 at 2× — the
-   * number on screen is about what is playing, not about what was decoded (0031).
+   * The tempo as it is actually heard, rounded because this is a readout — the arithmetic itself
+   * is `soundingBpm`, which the jumps card and the rack read too (0031, principle 1).
    */
-  const bpm = analysis === null ? 0 : Math.round(analysis.bpm * deckRate(state.params));
+  const bpm = Math.round(soundingBpm(analysis, state.params));
 
   /**
    * The tone this yard is holding, or null for anything else. A tone draws its own wave live, so

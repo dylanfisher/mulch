@@ -38,10 +38,13 @@ import {
   dialsOf,
   drawingOf,
   findLabelled,
+  labels,
   markupOf,
   POOL,
+  rackBeat,
   type Labelled,
 } from "@/ui/effectRackDouble";
+import type { RackBeat } from "@/ui/ParameterBeat";
 import type { Command, Envelope } from "@/app/commands";
 
 /**
@@ -52,6 +55,7 @@ import type { Command, Envelope } from "@/app/commands";
 const rackTree = (
   instrument: ReturnType<typeof createInstrument>,
   fold: [boolean, (folded: boolean) => void] = [false, () => {}],
+  beat: RackBeat = rackBeat(),
 ): ReactNode => {
   let tree: ReactNode = null;
   function Probe(): null {
@@ -60,6 +64,7 @@ const rackTree = (
       deck: "a",
       state: instrument.state.getState().decks.a!,
       fold,
+      beat,
     });
     return null;
   }
@@ -192,10 +197,6 @@ function keyedParams(node: ReactNode): (string | null)[] {
   }
   return found;
 }
-
-/** Every label the rack writes, in the order it writes them. */
-const labels = (markup: string): string[] =>
-  [...markup.matchAll(/aria-label="([^"]*)"/gu)].map(([, label]) => label!);
 
 describe("the effect rack's controls", () => {
   // The switch is on when the effect is running and off when it is bypassed, which is the way

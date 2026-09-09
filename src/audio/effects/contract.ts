@@ -12,6 +12,7 @@ import type { Icon } from "@phosphor-icons/react";
 import type { ParamBinding } from "@/audio/ramp";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { assertDurableText } from "@/lib/guards";
+import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
 import type { DriftDimension, DriftGeometry } from "@/lib/moire";
 import type { LookName, LookTerm } from "@/lib/moireLook";
 import type { DriftProfile } from "@/lib/moireProfiles";
@@ -39,6 +40,18 @@ export type ParamSpec = {
    * in and never pick again.
    */
   choices?: readonly string[];
+  /**
+   * Present on a parameter that is a **length of time in wall seconds** a hand may tap out or hold
+   * to the beat — the delay's Time is the first. A rack draws the tap and the hold the mulcher's
+   * burst row draws beside such a parameter's knob, keyed on this declaration and never on the
+   * effect's id, and the arithmetic behind both is the burst's own (src/lib/playerBurst.ts).
+   *
+   * That is what fixes the two rules refused at `defineEffect` below: the range has to be a
+   * sub-range of the burst's, because the tap and the hold answer inside `PLAYER_BURST_MIN`…
+   * `PLAYER_BURST_MAX` and nowhere else, and a parameter naming its steps is a choice between
+   * named things rather than a length, so it can be neither tapped nor rounded.
+   */
+  beat?: true;
   /**
    * Present when moving this parameter makes its plugin rebuild something — a buffer, a curve —
    * rather than write a number, which is what a run of such moves cannot be asked for at a
@@ -409,18 +422,41 @@ export const workletParam = (node: AudioWorkletNode, id: string): AudioParam => 
 /**
  * Preserve each plugin's literal ids while checking the complete contract.
  *
- * The one rule answered here rather than in `validateEffects` is the choice list's own, because it
- * is a rule about one declaration and needs no other entry to read it: a parameter that names its
- * steps names every one of them. A list that disagrees with the steps is a picker that cannot
- * reach a shape the node can stand in, or an index nothing is called — and it is refused where
- * the plugin is written rather than at the registry's load, so the file that got it wrong is the
- * file the throw names.
+ * The rules answered here rather than in `validateEffects` are the ones about one declaration that
+ * need no other entry to read them, so they are refused where the plugin is written rather than at
+ * the registry's load and the file that got it wrong is the file the throw names.
+ *
+ * The choice list's own: a parameter that names its steps names every one of them. A list that
+ * disagrees with the steps is a picker that cannot reach a shape the node can stand in, or an
+ * index nothing is called.
+ *
+ * And the tap's: a parameter that says it can be tapped is a length of time the burst's own
+ * arithmetic can answer with, which is a range inside the burst's and a value that is an amount
+ * rather than a name.
  */
 export function defineEffect<
   const Id extends string,
   const Params extends readonly ParamDeclaration[],
 >(effect: Effect<Id, Params>): Effect<Id, Params> {
   for (const param of effect.params) {
+    if (param.beat === true) {
+      // A choice is a name and not a length: there is no interval to tap out between two of them,
+      // and rounding an index onto a division of a beat is arithmetic on a label (0325). Asked
+      // first, because it is the complaint about what the value *is* and the range below is a
+      // complaint about where it runs.
+      if (param.choices !== undefined) {
+        throw new Error(`a parameter naming its choices cannot be tapped: ${param.id}`);
+      }
+      // And the tap and the hold answer with a burst: `tapBurst` steps onto the burst's own range
+      // and `beatBurst` offers only the divisions that lie inside it, so a parameter declaring
+      // `beat` outside that range would be given a tap that can never reach its top or its bottom
+      // (src/lib/playerBurst.ts, principle 5).
+      if (param.min < PLAYER_BURST_MIN || param.max > PLAYER_BURST_MAX) {
+        throw new Error(
+          `a tapped parameter must be seconds inside the burst's own range: ${param.id}`,
+        );
+      }
+    }
     if (param.choices === undefined) continue;
     if (param.step === undefined) {
       throw new Error(`a parameter naming its choices must be stepped: ${param.id}`);

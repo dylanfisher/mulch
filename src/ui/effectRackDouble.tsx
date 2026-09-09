@@ -17,16 +17,29 @@ import type { Instrument, createInstrument } from "@/app/facade";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { EffectRack } from "@/ui/EffectRack";
+import type { RackBeat } from "@/ui/ParameterBeat";
 import { GrownRows } from "@/ui/GrownRows";
+
+/**
+ * A rack's beat as a fixture: a tempo, nothing held, and a hold nobody reads back. A suite that
+ * presses the hold hands its own, so this is what every other case gets — one spelling, because
+ * two would be two racks to keep in step (principle 1).
+ */
+export const rackBeat = (bpm = 0): RackBeat => ({
+  bpm,
+  holds: new Set<string>(),
+  setHold: () => {},
+});
 
 /** The rack as it renders right now, for whatever the instrument currently holds on deck a. */
 export const markupOf = (
   instrument: ReturnType<typeof createInstrument>,
   fold: [boolean, (folded: boolean) => void] = [false, () => {}],
+  beat: RackBeat = rackBeat(),
 ): string => {
   const state = instrument.state.getState().decks.a!;
   return renderToStaticMarkup(
-    <EffectRack instrument={instrument} deck="a" state={state} fold={fold} />,
+    <EffectRack instrument={instrument} deck="a" state={state} fold={fold} beat={beat} />,
   );
 };
 
@@ -46,6 +59,13 @@ export const dialsOf = (markup: string): string[] =>
       return named[1]!;
     });
 
+/**
+ * Every label a rendered rack writes, in the order it writes them. Here rather than in either
+ * suite, because both read a card by the names its controls carry (principle 1).
+ */
+export const labels = (markup: string): string[] =>
+  [...markup.matchAll(/aria-label="([^"]*)"/gu)].map(([, label]) => label!);
+
 /** One press-able control out of a held tree: the props of the element carrying this label. */
 export type Labelled = {
   "aria-label"?: string;
@@ -53,6 +73,8 @@ export type Labelled = {
   /** What a tooltip's trigger becomes: the control itself, handed over rather than wrapped. */
   render?: ReactNode;
   onClick?: () => void;
+  /** Refused rather than absent, which is how every control under a missing fact is drawn (0121). */
+  disabled?: boolean;
   pressed?: boolean;
   onPressedChange?: (next: boolean) => void;
   checked?: boolean;

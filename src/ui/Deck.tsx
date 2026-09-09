@@ -30,7 +30,7 @@ import {
 
 import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
-import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
+import { DECK_PARAM_IDS, isAutomationParam, soundingBpm } from "@/audio/params";
 import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
 import { type SongPartId } from "@/lib/playerSong";
 import type { GridPick } from "@/ui/PlayerGridCell";
@@ -45,6 +45,7 @@ import { Toggle } from "@/ui/components/toggle";
 import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
+import { useRackBeat } from "@/ui/ParameterBeat";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { LoadField } from "@/ui/LoadField";
@@ -259,6 +260,22 @@ export function Deck({
    *  session stays the shape it is (P40, 0026, plan §2). Off to begin with: the burst is wall
    *  seconds and a grid is a thing a hand asks for (0119). */
   const burstHeld = useHeld(false);
+
+  /**
+   * The beat every tapped parameter on this yard's rack is held to, and which of them are being
+   * held — kept here, above the rack's own fold, for the reason that fold is kept here (P64,
+   * 0326). The tempo is the **sounding** one, off the one place that arithmetic lives — the same
+   * `soundingBpm` the yard's waveform reads out and the jumps card rounds its burst onto
+   * (src/audio/params.ts, 0031). Nought is a yard with no grid — no analysis, or one that found no
+   * tempo — whose holds are refused and whose taps are offered anyway (0121, 0173).
+   */
+  // Off the deferred yard and not the store's own, like every other prop the memoised surfaces
+  // below are handed: a rate dial commits on every pointer move, and a beat read urgently would be
+  // a new object into `RackFollowing` on each of them — the whole rack redrawn inside the move,
+  // which is the cost the transition above exists to keep off the hand's path (0307).
+  const rackBeat = useRackBeat(
+    deferred === undefined ? 0 : soundingBpm(deferred.analysis, deferred.params),
+  );
 
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -535,7 +552,13 @@ export function Deck({
             burstHeld={burstHeld}
           />
 
-          <RackFollowing instrument={instrument} deck={deck} state={shown} fold={rackFold} />
+          <RackFollowing
+            instrument={instrument}
+            deck={deck}
+            state={shown}
+            fold={rackFold}
+            beat={rackBeat}
+          />
         </>
       )}
     </section>

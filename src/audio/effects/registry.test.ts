@@ -23,6 +23,7 @@ import {
 import { LOOK_NAMES, LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
 import { PARAMS } from "@/audio/params";
+import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
 import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { effectById, EFFECTS, effectForParam, isGrowable, validateEffects } from "./registry";
@@ -600,6 +601,39 @@ describe("effect registry", () => {
     expect(() => defineEffect({ ...one, params: [{ ...picked, automation: "linear" }] })).toThrow(
       /cannot take a lane/u,
     );
+  });
+
+  /**
+   * The tap's own rule, answered beside the choice list's and for the same reason: a parameter
+   * that says a hand may tap it out is a length of wall seconds the burst's arithmetic can answer
+   * with, and both of those words are checked where the plugin is written (0326).
+   */
+  it("refuses a tap on a parameter that is not seconds of the burst's own range", () => {
+    const one = unbuilt("one", "one.time");
+    const seconds = {
+      ...one.params[0]!,
+      min: PLAYER_BURST_MIN,
+      max: PLAYER_BURST_MAX,
+      default: 0.25,
+      beat: true,
+    } as const;
+    expect(() => defineEffect({ ...one, params: [seconds] })).not.toThrow();
+    // A range inside the burst's is a range the tap can reach every corner of; one outside it at
+    // either end is a knob whose top or bottom no press could ever write.
+    expect(() => defineEffect({ ...one, params: [{ ...seconds, min: 0 }] })).toThrow(
+      /inside the burst's own range/u,
+    );
+    expect(() =>
+      defineEffect({ ...one, params: [{ ...seconds, max: PLAYER_BURST_MAX + 1 }] }),
+    ).toThrow(/inside the burst's own range/u);
+    // And a name is not a length: there is no interval to tap out between two of them.
+    const { automation: _laned, ...amount } = seconds;
+    expect(() =>
+      defineEffect({
+        ...one,
+        params: [{ ...amount, min: 0.005, max: 2.005, step: 1, choices: ["A", "B", "C"] }],
+      }),
+    ).toThrow(/naming its choices cannot be tapped/u);
   });
 
   it("indexes parameter ownership without another declaration", () => {

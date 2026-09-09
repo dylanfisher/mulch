@@ -25,7 +25,13 @@ import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById, type EffectId } from "@/audio/effects/registry";
-import { isAutomationParam, PARAMS, paramIn, type EffectParamValues } from "@/audio/params";
+import {
+  isAutomationParam,
+  PARAMS,
+  paramIn,
+  type EffectParamId,
+  type EffectParamValues,
+} from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { rackIn, type RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -37,6 +43,7 @@ import { clearEffectsCommand, duplicateEffectCommand, randomizeEffectCommand } f
 import { EffectMove } from "@/ui/EffectMove";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
+import { heldValue, ParameterBeat, type RackBeat } from "@/ui/ParameterBeat";
 import { ParameterChoice } from "@/ui/ParameterChoice";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
@@ -62,6 +69,7 @@ export function SlotControls({
   effect,
   label,
   bypassed,
+  round,
 }: {
   instrument: Instrument;
   deck: RackId;
@@ -71,6 +79,8 @@ export function SlotControls({
   effect: EffectId;
   label: string;
   bypassed: boolean;
+  /** What every value this head writes passes through — the card's own (0326). */
+  round?: (param: EffectParamId, value: number) => number;
 }) {
   const toggleRunning = useCallback(
     (running: boolean) => {
@@ -94,9 +104,9 @@ export function SlotControls({
    * `rebuild` has just been handed its move and pays for it there (P63, 0090).
    */
   const randomize = useCallback(() => {
-    instrument.send(randomizeEffectCommand(deck, instance, effect));
+    instrument.send(randomizeEffectCommand(deck, instance, effect, round));
     instrument.send({ t: "gesture.end" });
-  }, [instrument, deck, instance, effect]);
+  }, [instrument, deck, instance, effect, round]);
 
   return (
     <>
@@ -213,6 +223,7 @@ function EffectCard({
   ordinal,
   handle,
   playing,
+  beat,
 }: {
   instrument: Instrument;
   deck: RackId;
@@ -220,8 +231,19 @@ function EffectCard({
   ordinal: number;
   handle: DragHandleProps;
   playing: boolean;
+  /** The beat a tapped parameter on this card is held to, and which of them are (0326). */
+  beat: RackBeat;
 }) {
   const plugin = effectById(entry.effect);
+  /**
+   * What every `param.set` this card sends passes through: the hold's own rounding, said once for
+   * the whole card rather than per control, so the die throws through the same rule the dial and
+   * the tap write through (principle 1, 0326).
+   */
+  const round = useCallback(
+    (param: EffectParamId, value: number) => heldValue(beat, entry.id, param, value),
+    [beat, entry.id],
+  );
   // What this card carries under its knobs, off the entry's own declaration (0205).
   const Body = FACE_BODY[plugin.face];
   // The picture the registry declares for this entry, worn by the card the way the picker and the
@@ -277,6 +299,7 @@ function EffectCard({
             effect={entry.effect}
             label={label}
             bypassed={entry.bypassed}
+            round={round}
           />
         </CardAction>
       </CardHeader>
@@ -292,36 +315,44 @@ function EffectCard({
             about which thing instead, and comes off the row into the grid below (P172). */}
         {plugin.params
           .filter((param) => !isPoolWeight(param.id))
-          .map((param) =>
-            // A value that named its steps is picked by name rather than turned to: the control is
+          .map((param) => {
+            // A value that named its steps is picked by name rather than turned to, and one that
+            // declared itself a length of time wears a tap and a hold beside its dial: both are
             // keyed on what the parameter declares and never on the effect's id, which is the rule
-            // every face here already keeps (0055, 0205, 0325). Read through the index and not off
-            // `param` itself, because a plugin's list is `as const satisfies` and its literal type
-            // carries only the keys that entry actually wrote — the index is where a declaration
-            // is the whole `ParamSpec` (src/audio/params.ts).
-            PARAMS[param.id].choices === undefined ? (
-              <ParameterKnob
-                key={param.id}
-                {...whose}
-                param={param.id}
-                value={paramIn(entry.params, param.id)}
-                lane={
-                  (isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null
-                }
-                drawn={(isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null}
-                playing={playing}
-              />
+            // every face here already keeps (0055, 0205, 0325, 0326). Read through the index and
+            // not off `param` itself, because a plugin's list is `as const satisfies` and its
+            // literal type carries only the keys that entry actually wrote — the index is where a
+            // declaration is the whole `ParamSpec` (src/audio/params.ts).
+            const spec = PARAMS[param.id];
+            if (spec.choices !== undefined) {
+              return (
+                <ParameterChoice
+                  key={param.id}
+                  instrument={instrument}
+                  deck={deck}
+                  instance={entry.id}
+                  param={param.id}
+                  value={paramIn(entry.params, param.id)}
+                />
+              );
+            }
+            // The dial's whole declaration, said once: the tapped parameter's control draws the
+            // same dial and hands it straight through, so a second spelling of this list would be
+            // a knob given a lane in one branch and not in the other (principle 1).
+            const dial = {
+              ...whose,
+              param: param.id,
+              value: paramIn(entry.params, param.id),
+              lane: (isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null,
+              drawn: (isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null,
+              playing,
+            };
+            return spec.beat === undefined ? (
+              <ParameterKnob key={param.id} {...dial} />
             ) : (
-              <ParameterChoice
-                key={param.id}
-                instrument={instrument}
-                deck={deck}
-                instance={entry.id}
-                param={param.id}
-                value={paramIn(entry.params, param.id)}
-              />
-            ),
-          )}
+              <ParameterBeat key={param.id} {...dial} beat={beat} />
+            );
+          })}
         {/* The pool itself, as a grid of named things under the dials rather than eight more
             numbers among them (P172). A card declaring no weight grows none. */}
         <PoolGrid {...whose} plugin={plugin} params={entry.params} bounds={entry.bounds} />
@@ -348,9 +379,17 @@ export function EffectRack({
   deck,
   state,
   fold,
+  beat,
 }: {
   instrument: Instrument;
   deck: RackId;
+  /**
+   * The tempo a tapped parameter on this rack may be held to, and which of them are being held —
+   * the yard's own, and nought on the rack that is no yard's, which hears no one deck (0320,
+   * 0326). It is held above this rack's fold, beside it, for the reason the fold itself is
+   * (src/ui/ParameterBeat.tsx).
+   */
+  beat: RackBeat;
   /**
    * What this rack holds, and whether anything a lane could ride is sounding — the two facts a
    * card needs and the only two a rack that is no yard's can answer. A yard hands its own state's
@@ -491,6 +530,7 @@ export function EffectRack({
                 ordinal={effectOrdinal(state.effects, entry)}
                 handle={dragHandle(index, entry.id, state.effects.length - 1)}
                 playing={state.playing}
+                beat={beat}
               />
             ))}
             {/* The slot a live drag would land in, filled and sized from the layout the gesture

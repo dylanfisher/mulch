@@ -151,19 +151,22 @@ export function randomizeEffectCommand(
   deck: RackId,
   instance: EffectInstanceId,
   effect: EffectId,
+  round: (param: EffectParamId, value: number) => number = (_param, value) => value,
 ): Command {
   const drawn = effectParamDraws(effect, Math.random);
   return {
     t: "history.group",
-    commands: Object.entries(drawn).map(([param, value]) => ({
-      t: "param.set",
-      deck,
-      instance,
+    commands: Object.entries(drawn).map(([id, value]) => {
       // The keys are the registry's own ids, which `Object.entries` widens to `string`.
       // oxlint-disable-next-line no-unsafe-type-assertion
-      param: param as EffectParamId,
-      value,
-    })),
+      const param = id as EffectParamId;
+      // Through whatever the card puts in front of its own `param.set`, which for a parameter
+      // held to the beat is the rounding onto a division of it: the die throws the whole card
+      // somewhere new and the hold is still pressed, so a value it left off the grid would be a
+      // toggle saying something untrue (0326, `heldValue` in src/ui/ParameterBeat.tsx). Every
+      // other draw passes through the identity this defaults to.
+      return { t: "param.set", deck, instance, param, value: round(param, value) };
+    }),
   };
 }
 

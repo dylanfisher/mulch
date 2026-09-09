@@ -121,6 +121,26 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
 };
 
 /**
+ * And what the two gestures a tapped parameter wears beside its dial say. The words on them are
+ * the mulcher card's own — a hand that has learned Tap and Beat on the jumps card reads the same
+ * two controls here — so the labels are imported from there and only the sentences are written
+ * again, because those name what is being rounded and that is a length of time and not the burst
+ * (src/lib/copyCard.ts, principle 1).
+ *
+ * The tap says two, for the reason the burst's does: nought presses and one set nothing.
+ */
+export const PARAM_TAP_TOOLTIP =
+  "Set this time from the interval between presses. Two or more; the last few are averaged.";
+
+/**
+ * And the hold names the tempo it rounds against as the one being *heard*, again for the burst's
+ * reason: the sample is played at a rate, so the unscaled tempo is a beat nobody can count (0031).
+ * The rack that is no yard's hears no deck, so there it is refused rather than absent (0320).
+ */
+export const PARAM_BEAT_TOOLTIP =
+  "Round this time to the nearest whole division of the beat you are hearing, from a whole beat down to a thirty-second of one.";
+
+/**
  * One value of a parameter as it is read out, at the precision that parameter declares: a cutoff
  * reads whole Hz and a weight reads two places. The one place a registry value is turned into text
  * — a dial's readout, a window's two ends and a weight's number are one spelling (principle 1).

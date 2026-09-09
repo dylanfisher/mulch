@@ -38,6 +38,14 @@ const ride = (startAt: number) => {
   return instrument.probe().decks.a!.automation["deck.gain"];
 };
 
+/** The dial inside a rendered knob wrapper, which is what a turn is made on. */
+const dialOf = (rendered: unknown): KnobHandlers => {
+  if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
+  const [knob] = rendered.props.children;
+  if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
+  return knob.props;
+};
+
 /** What the knob draws in its corner over `lane`. */
 const marker = (lane: readonly AutomationPoint[] | null) => renderKnob(lane).wrapper.children[1];
 
@@ -440,6 +448,43 @@ describe("ParameterKnob automation gestures", () => {
     } finally {
       held = false;
     }
+  });
+
+  /**
+   * The one rounding a caller may put in front of this dial's command, and the one place it is
+   * applied: a tapped parameter held to the beat hands one over, and what the knob was turned to
+   * reaches the store rounded rather than as it was dragged (0326, src/ui/ParameterBeat.tsx).
+   * Every other parameter hands over nothing and writes what it was turned to.
+   */
+  it("sends what the rounding it was handed answers, and the turn itself without one", () => {
+    const clock = manualClock(4);
+    const instrument = createInstrument(clock);
+    const sent = vi.spyOn(instrument, "send");
+    const props = {
+      instrument,
+      deck: "a" as const,
+      param: "deck.gain" as const,
+      value: 1,
+      lane: null,
+      drawn: null,
+      playing: false,
+    };
+    dialOf(ParameterKnob({ ...props, round: (value) => value * 2 })).onChange(0.3);
+    expect(sent).toHaveBeenCalledWith({
+      t: "param.set",
+      deck: "a",
+      param: "deck.gain",
+      value: 0.6,
+    });
+
+    sent.mockClear();
+    dialOf(ParameterKnob(props)).onChange(0.3);
+    expect(sent).toHaveBeenCalledWith({
+      t: "param.set",
+      deck: "a",
+      param: "deck.gain",
+      value: 0.3,
+    });
   });
 });
 
