@@ -98,11 +98,12 @@ describe("the motion menu's character row", () => {
   it("presses nothing while no motion drew the lane, and offers every character", () => {
     const { characters } = rows(null);
     expect(characters.props["value"]).toEqual([]);
-    // One item per character, in the order they are declared: the row offers all five whether or
+    // One item per character, in the order they are declared: the row offers all six whether or
     // not one is standing.
     const offered = [...elements(characters)]
       .map((element) => element.props["character"])
       .filter((character) => typeof character === "string");
+    expect(offered).toEqual(["sporadic", "smooth", "wander", "restless", "creep", "pulse"]);
     expect(offered).toEqual(Object.keys(MOTION_CHARACTER_LABELS));
   });
 

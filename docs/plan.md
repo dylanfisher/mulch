@@ -174,7 +174,20 @@ step's own text: the two burst functions gained a `BurstBounds` so the hold answ
 parameter's range and not the burst's, neither gesture sends a `gesture.end`, and the sounding beat
 is one `soundingBpm` rather than a second reading — all three below. The five browser-free cases the step
 asked of src/ui/EffectRack.test.tsx are in src/ui/ParameterBeat.test.tsx instead, because that file
-would otherwise have crossed the 800-line hard cap — §4. The next free decision number is 0327.
+would otherwise have crossed the 800-line hard cap — §4.
+
+bench-10 landed on 2026-09-08 as
+[0327](decisions/0327-a-sixth-character-glides-with-the-variety-a-hand-has.md); `MOTION_CHARACTERS`
+gains **wander** after smooth, a region of `pace: [0.4, 2.5]`, `jitter: [0.5, 0.9]`,
+`reach: [0.3, 0.9]`, `glide: [0.7, 1]`, `flurry: [0, 0]`, with "Wander" and its sentence in the two
+total records of src/lib/copyMotion.ts. The menu offers it and the validator accepts it by mapping
+the list, as they already did. The one number moved off the step's own text is the flurry: `move`
+takes the flurry branch before it reads `glide`, and that branch lays a hold and a jump one gap
+apart, so a name that says "never a step" cannot carry a flurry of `[0, 0.1]` — §4. Review found the
+step's second test asserting a per-seed win the numbers do not always give — a smooth lane lays as
+few as six gaps, and at a span of 9.5 seed 1 hands smooth the wider spread — so the unevenness is
+read as a mean over 64 seeds at three spans, and what the jitter itself contributes is said once
+against the region rather than measured through a lane. The next free decision number is 0328.
 
 1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
@@ -355,7 +368,7 @@ held: ["eq.shape"] }` — a low-pass whose edge stands above hearing is transpar
     - **A tempo of the session's own.** The beat is the deck's analysis at its rate (0031).
     - **Re-rounding on a rate change.** The burst does not; a held value is rounded when written.
 
-4.  **A sixth character glides like Smooth and varies like Pulse.** _(bench-10)_ **Durable shape
+4.  **A sixth character glides like Smooth and varies like Pulse.** _(bench-10, landed 0327)_ **Durable shape
     moved: the set of names a stored `MotionDrawn.character` may hold gains one.** No field changes
     (0314).
 
@@ -630,3 +643,12 @@ line taller than the card beside it (0093). Both layout smokes pass as they stan
 (scripts/smoke.d/rackRow.js, and the 360px reflow), and the row already wrapped at the narrow end
 before this step, so what changed is where the band falls and not that there is one. Narrower means
 truncating "High-pass" in its own trigger, which is a picker that cannot be read.
+
+**Wander has no flurry** (bench-10, 0327). The step's first draw of the region said
+`flurry: [0, 0.1]` in the same breath as "always a glide and never a step", and the two cannot both
+stand: `move` (src/lib/motion.ts) tests the flurry odds before it reads `glide`, and the branch it
+takes lays its judders and its landing through `step` — a hold and a jump one `MOTION_STEP_GAP_SECS`
+apart, which is the step. On a lane of 16s at those odds a step arrives within a few seeds, so the
+region ships at `flurry: [0, 0]` and the character keeps the word its tooltip gives it. The variety
+the name promises is the pace and the reach, which are drawn per lane and jittered per move; the
+flurry was only ever the judder restless already owns.

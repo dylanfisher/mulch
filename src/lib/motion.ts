@@ -17,7 +17,14 @@ import { fromIds } from "./records.ts";
  * The characters a drawn lane may be asked to sound like. Each is a region over the four dials
  * below rather than a point, so one name is a kind of movement and not one movement (0152, 0309).
  */
-export const MOTION_CHARACTERS = ["sporadic", "smooth", "restless", "creep", "pulse"] as const;
+export const MOTION_CHARACTERS = [
+  "sporadic",
+  "smooth",
+  "wander",
+  "restless",
+  "creep",
+  "pulse",
+] as const;
 export type MotionCharacter = (typeof MOTION_CHARACTERS)[number];
 
 /**
@@ -126,6 +133,15 @@ export const MOTION_CHARACTER_REGIONS: Record<MotionCharacter, Region> = {
   },
   // One long ramp into the next, nothing ever steps.
   smooth: { pace: [2, 8], jitter: [0.2, 0.5], reach: [0.2, 0.6], glide: [1, 1], flurry: [0, 0] },
+  // A hand riding it: always a glide, at a pace and a reach that change move to move — what
+  // smooth lacks is the variety, and what pulse lacks is the curve.
+  wander: {
+    pace: [0.4, 2.5],
+    jitter: [0.5, 0.9],
+    reach: [0.3, 0.9],
+    glide: [0.7, 1],
+    flurry: [0, 0],
+  },
   // Smooth most of the time, and every few moves a fast judder on the way to where it was going.
   restless: {
     pace: [1, 4],

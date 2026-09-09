@@ -14,6 +14,7 @@ export const MOTION_OFFER = "Draw a lane";
 export const MOTION_CHARACTER_LABELS: Record<MotionCharacter, string> = {
   sporadic: "Sporadic",
   smooth: "Smooth",
+  wander: "Wander",
   restless: "Restless",
   creep: "Creep",
   pulse: "Pulse",
@@ -48,6 +49,7 @@ export const MOTION_PASTE_SAYS =
 export const MOTION_CHARACTER_TOOLTIPS: Record<MotionCharacter, string> = {
   sporadic: `Quick jumps anywhere in the range, never on a beat. ${AGAIN}`,
   smooth: `One long slow glide into the next, never a step. ${AGAIN}`,
+  wander: `Glides the way a hand does, quick here and slow there, never a step. ${AGAIN}`,
   restless: `Slow glides most of the time, and every few moves a fast judder on the way. ${AGAIN}`,
   creep: `Barely moving: a small drift you notice only later. ${AGAIN}`,
   pulse: `Regular steps at one rate, a rhythm you can count. ${AGAIN}`,

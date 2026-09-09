@@ -9,6 +9,7 @@ import {
   MOTION_KNOBS,
   MOTION_SPAN_SECS,
   MOTION_STEP_GAP_SECS,
+  type MotionCharacter,
 } from "@/lib/motion";
 
 const GAIN = { min: 0, max: 1.5 };
@@ -67,7 +68,7 @@ describe("a drawn lane", () => {
   });
 
   it("creeps a fraction of the range where sporadic crosses it", () => {
-    const reach = (character: (typeof MOTION_CHARACTERS)[number]) => {
+    const reach = (character: MotionCharacter) => {
       let low = 1;
       let high = 0;
       for (const seed of SEEDS) {
@@ -80,6 +81,47 @@ describe("a drawn lane", () => {
     };
     expect(reach("creep")).toBeLessThan(0.5);
     expect(reach("sporadic")).toBeGreaterThan(0.8);
+  });
+
+  it("wanders in glides and never a step, where pulse is nothing but steps", () => {
+    const steps = (character: MotionCharacter) => {
+      let laid = 0;
+      for (const seed of SEEDS) {
+        const lane = drawMotionLane(character, seed, GAIN, 0.5, 16);
+        for (let at = 1; at < lane.length; at++) {
+          // A step is a hold and then a ramp one gap long: two points that close together with
+          // the value changing between them. A glide takes longer than that to arrive.
+          const apart = lane[at]!.at - lane[at - 1]!.at;
+          if (apart <= MOTION_STEP_GAP_SECS + 1e-9 && lane[at]!.value !== lane[at - 1]!.value) {
+            laid++;
+          }
+        }
+      }
+      return laid;
+    };
+    expect(steps("wander")).toBe(0);
+    expect(steps("pulse")).toBeGreaterThan(0);
+  });
+
+  it("waits by a hand's clock where smooth waits by a metronome, at every span", () => {
+    // The spread of the gaps between a lane's points against their mean, so a character that
+    // moves quickly is not counted as uneven for that alone. Read over a run of seeds and not
+    // one: a smooth lane lays as few as six gaps, and six of anything is a coin.
+    const spread = (character: MotionCharacter, seed: number, span: number) => {
+      const lane = drawMotionLane(character, seed, GAIN, 0.5, span);
+      const gaps = lane.slice(1).map((point, at) => point.at - lane[at]!.at);
+      const mean = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+      const variance = gaps.reduce((sum, gap) => sum + (gap - mean) ** 2, 0) / gaps.length;
+      return Math.sqrt(variance) / mean;
+    };
+    const unevenness = (character: MotionCharacter, span: number) => {
+      let total = 0;
+      for (let seed = 1; seed <= 64; seed++) total += spread(character, seed, span);
+      return total / 64;
+    };
+    for (const span of [MOTION_SPAN_SECS.min, 9.5, MOTION_SPAN_SECS.max]) {
+      expect(unevenness("wander", span)).toBeGreaterThan(2 * unevenness("smooth", span));
+    }
   });
 
   it("refuses a span with no room for a move", () => {
@@ -111,5 +153,16 @@ describe("what a character is", () => {
         expect(low).toBeLessThanOrEqual(high);
       }
     }
+  });
+
+  // Where the unevenness of a wander lane comes from, said about the region rather than measured
+  // through one: any wander is jittered at least as much as the most jittered smooth, and a name
+  // that says "never a step" carries no flurry, because the flurry is read before the glide (0327).
+  it("jitters wander past every smooth, and gives a character that never steps no flurry", () => {
+    expect(MOTION_CHARACTER_REGIONS.wander.jitter[0]).toBeGreaterThanOrEqual(
+      MOTION_CHARACTER_REGIONS.smooth.jitter[1],
+    );
+    expect(MOTION_CHARACTER_REGIONS.wander.flurry).toEqual([0, 0]);
+    expect(MOTION_CHARACTER_REGIONS.wander.glide[0]).toBeGreaterThan(0);
   });
 });
