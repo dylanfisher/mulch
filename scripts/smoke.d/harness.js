@@ -12,6 +12,19 @@ import { AsyncLocalStorage } from "node:async_hooks";
  */
 export const WAIT_MS = 15_000;
 
+/**
+ * Whether a failure is a clock rather than a defect, on a machine whose clock nobody chose. A
+ * hosted runner is two shared cores under three Chromiums at once, and `WAIT_MS` is a number
+ * picked against a developer's machine: what runs out there is the runner's load, not the
+ * instrument. So on a hosted runner a Playwright wait that expired is reported and survived, and
+ * everywhere else it stays red — locally the wait means what it says (0330).
+ *
+ * Only Playwright's own `TimeoutError` is excused. A `SmokeFailure` is an assertion that read the
+ * page and disagreed with it, which no amount of load produces; those are red on every machine.
+ */
+export const isHostedTimeout = (error, env = process.env) =>
+  Boolean(env.CI) && error?.name === "TimeoutError";
+
 /** How long the parity render is, and the two-deck render that shares its windows. */
 export const PARITY_RENDER_SECS = 0.25;
 /** How long a render that arranges a rack is: long enough for a scheduled bypass to land. */

@@ -15,7 +15,7 @@ import { flick } from "./flick.js";
 import { flattenYard } from "./flatten.js";
 import { formats } from "./formats.js";
 import { fixedHeader } from "./header.js";
-import { inLane } from "./harness.js";
+import { inLane, isHostedTimeout } from "./harness.js";
 import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
@@ -223,11 +223,17 @@ const reportPageFailure = async (page, what, error) => {
  * A failure is returned rather than thrown: the other two lanes have assertions of their own in
  * flight, and taking the process down here would lose them — the same reason `scripts/smoke`
  * catches this whole half. The caller re-raises once all three are in.
+ *
+ * On a hosted runner a wait that expired comes back as `cutShort` instead of `error`: the page is
+ * printed exactly as a failure's is, but the lane stops where it stopped rather than turning the
+ * gate red (0330). `ran` is what makes that honest — it says how much of the lane the summary is
+ * actually speaking for.
  */
 const runLane = async (root, lane) => {
   const session = await openPage(root);
   const { page, browser, url, bytes } = session;
   const claims = [];
+  let ran = 0;
 
   try {
     await page.locator('input[aria-label="Import Audio for Yard A"]').setInputFiles({
@@ -250,9 +256,23 @@ const runLane = async (root, lane) => {
 
     await inLane(claims, async () => {
       if (lane.prelude !== undefined) await lane.prelude(context);
-      for (const scenario of lane.scenarios) await scenario(context);
+      for (const scenario of lane.scenarios) {
+        await scenario(context);
+        ran += 1;
+      }
     });
   } catch (error) {
+    if (isHostedTimeout(error)) {
+      await reportPageFailure(page, `the ${lane.name} lane ran out of clock`, error);
+      const left = lane.scenarios.length - ran;
+      return {
+        claims,
+        cutShort:
+          `⚠ the ${lane.name} lane ran out of clock on a hosted runner after ${ran} of ` +
+          `${lane.scenarios.length} scenarios — ${left} went unasserted, and its page is printed ` +
+          `above. Run ./scripts/check locally to hold it to the wait (0330).`,
+      };
+    }
     await reportPageFailure(page, `the ${lane.name} lane failed`, error);
     return { claims, error };
   } finally {
@@ -265,10 +285,15 @@ const runLane = async (root, lane) => {
  * The three lanes at once, and their claims replayed in lane order once all three are in. The
  * caller sees one browser half: it fails if any lane did, and the first failure is the one raised
  * — every lane has already printed its own page beside its own message.
+ *
+ * A lane cut short by the runner's clock (0330) contributes the claims it did earn plus the line
+ * saying where it stopped, so a green summary never reads as though the whole lane ran.
  */
 export const browserSmoke = async (root) => {
   const lanes = await Promise.all(LANES.map((lane) => runLane(root, lane)));
   const failed = lanes.find((lane) => lane.error !== undefined);
   if (failed !== undefined) throw failed.error;
-  return lanes.flatMap((lane) => lane.claims);
+  return lanes.flatMap((lane) =>
+    lane.cutShort === undefined ? lane.claims : lane.claims.concat(lane.cutShort),
+  );
 };
