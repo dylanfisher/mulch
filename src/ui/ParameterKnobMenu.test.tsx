@@ -20,6 +20,7 @@ vi.mock("@/ui/frame", () => ({
 }));
 
 import { manualClock } from "@/app/clock";
+import { turns } from "@/app/persistenceDouble";
 import { createInstrument } from "@/app/facade";
 import { laneSpan } from "@/lib/automation";
 import { MOTION_SPAN_SECS } from "@/lib/motion";
@@ -240,6 +241,66 @@ describe("ParameterKnob span gesture", () => {
       const entry = instrument.probe().decks.a!.effects[0]!;
       expect(entry.automation["delay.mix"]!.at(-1)!.at).toBe(4);
       expect(instrument.probe().decks.a!.automation).toEqual({});
+    } finally {
+      held = false;
+    }
+  });
+});
+
+// A motion carried off another knob, put on this one: the menu rescales it and the knob sends it,
+// lane and sibling together, as the one entry a hand undoes in a press (0067, 0319). The two
+// cases are one fact read twice — what the paste writes, and that nothing after it joins the
+// entry — so they stay in one block, waived at the site as 0007 requires.
+// oxlint-disable-next-line max-lines-per-function
+describe("ParameterKnob paste", () => {
+  it("sends the lane and what drew it as one history entry", async () => {
+    held = true;
+    try {
+      const { instrument, wrapper } = renderKnob(null);
+      const lane = () => instrument.probe().decks.a!.automation["deck.gain"] ?? null;
+      const said = () => instrument.probe().decks.a!.drawn["deck.gain"] ?? null;
+      const changed = () => instrument.ring().filter(({ t }) => t === "automation.changed").length;
+      const before = changed();
+
+      menuOf(wrapper).menu.onPaste(points, { character: "pulse", redraw: 2 });
+      await turns();
+
+      expect(lane()).toEqual(points);
+      expect(said()).toEqual({ character: "pulse", redraw: 2 });
+      // One lane, as one command — the way a drawn one and a recorded one both arrive.
+      expect(changed() - before).toBe(1);
+
+      // One entry: the undo takes the lane and its sibling back together, never half the paste.
+      instrument.send({ t: "history.undo" });
+      await turns();
+      expect(lane()).toBeNull();
+      expect(said()).toBeNull();
+    } finally {
+      held = false;
+    }
+  });
+
+  it("ends the gesture it opened, so the next press is an entry of its own", async () => {
+    held = true;
+    try {
+      const { instrument, wrapper, render } = renderKnob(null);
+      const lane = () => instrument.probe().decks.a!.automation["deck.gain"] ?? null;
+      const said = () => instrument.probe().decks.a!.drawn["deck.gain"] ?? null;
+      const drawn = { character: "pulse", redraw: 2 } as const;
+
+      menuOf(wrapper).menu.onPaste(points, drawn);
+      await turns();
+      // A press on the count a moment later, which is the same (instance, param) and so would
+      // join a gesture the paste had left standing (0067).
+      menuOf(render(points, drawn).wrapper).menu.onEvery(4);
+      await turns();
+      expect(said()).toEqual({ character: "pulse", redraw: 4 });
+
+      // Two entries, not one: the count comes back off, and the paste is still standing under it.
+      instrument.send({ t: "history.undo" });
+      await turns();
+      expect(said()).toEqual(drawn);
+      expect(lane()).toEqual(points);
     } finally {
       held = false;
     }

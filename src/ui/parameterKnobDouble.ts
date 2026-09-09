@@ -130,6 +130,7 @@ export const menuOf = (wrapper: WrapperProps) => {
       onDraw: (character: string) => void;
       drawn: MotionDrawn | null;
       onEvery: (passes: number) => void;
+      onPaste: (points: AutomationPoint[], drawn: MotionDrawn | null) => void;
     }>(menu)
   ) {
     throw new Error("no menu");

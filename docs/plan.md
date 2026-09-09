@@ -293,7 +293,10 @@ clipboard is runtime and dies with the tab. bench-02 landed on 2026-09-08 as
 [0318](decisions/0318-a-ground-is-bounded-by-a-zone-the-hand-marked.md); the zone came out of
 src/lib/playerBed.ts into src/lib/playerZone.ts and its picture out of src/ui/PlayerGround.tsx into
 src/ui/PlayerGroundZone.tsx, both at the 400-line warning, and src/lib/player.test.ts gave its zone
-case to src/lib/playerZone.test.ts at the hard cap. The next free decision number is 0319.
+case to src/lib/playerZone.test.ts at the hard cap. bench-03 landed on 2026-09-08 as
+[0319](decisions/0319-a-motion-is-carried-between-knobs-and-dies-with-the-tab.md); the clipboard is
+src/ui/motionClipboard.ts, `rescaleLane` sits beside `stretchLane` in src/lib/automation.ts, and
+the two presses are a row of src/ui/MotionMenu.tsx. The next free decision number is 0320.
 
 2.  **A ground is bounded by a zone the hand marked.** _(bench-02, landed 0318)_ **Durable shape moved: a
     yard's ground gains a zone.** One item, one gate.
@@ -348,7 +351,7 @@ case to src/lib/playerZone.test.ts at the hard cap. The next free decision numbe
     read: a zone is counted in a yard's own sixteenths, and a yard's loop is its own — so a shared
     zone would mean a different region of every file, which is not what "only here" says.
 
-3.  **A drawn motion is copied off one knob and pasted onto another.** _(bench-03)_ **Durable shape
+3.  **A drawn motion is copied off one knob and pasted onto another.** _(bench-03, landed 0319)_ **Durable shape
     moved: none — the clipboard dies with the tab.** One item, one gate. **Waits on bench-01**,
     whose `drawn` sibling (0314) is the half of a motion that is not the lane.
 
@@ -371,6 +374,17 @@ AutomationRange; drawn: MotionDrawn | null }`, subscribed to with `useSyncExtern
     **The outcome wanted:** a knob redrawing a jagged lane every four passes, copied, and pasted
     onto a knob in another yard — where it redraws jaggedly every four passes, in that knob's own
     range.
+
+    **The outcome:** landed as written (0319). The clipboard is src/ui/motionClipboard.ts, read
+    with `useSyncExternalStore` and holding at most one clip; `rescaleLane` sits beside
+    `stretchLane` and hands its result to `normalizeAutomationLane`, so the target's step and
+    bounds are stated once rather than twice. The two presses are a row of their own at the foot of
+    the menu, under the count rather than between it and the characters, because the characters and
+    the count are one pairing and a press that carries a whole motion is not part of it. A press is
+    its own small component, the way a character's item is, which is what holds the row inside the
+    50-line function warning. `turns` — the promise drain a group needs before it is read — moved
+    out of src/ui/ParameterKnob.test.tsx into src/ui/parameterKnobDouble.ts, which is where both
+    knob suites already share their mount.
 
     **Tests that must fail first.** src/lib/automation.test.ts: `rescaleLane` maps both ends of the
     source range onto both ends of the target's and holds a point's fraction exactly; an empty lane
@@ -613,6 +627,19 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**A carried motion keeps the span it was drawn at** (bench-03, 0319). `rescaleLane` moves a lane's
+values onto the range it lands in and leaves its times exactly where they were, so a motion pasted
+onto a knob whose dial last chose another length arrives at the source's length rather than the
+target's. That is the honest reading of "copy takes the whole motion": the span is part of the
+gesture, and a lane silently sped up on arrival is a different gesture. A hand that wants another
+length has the preview's own time axis, which is the one place a span is decided (0079). The same
+holds for the dial's curve: `rescaleLane` reads a value's fraction of the range linearly, where
+`drawMotionLane` walks a character along the curve — so a mid-range point off a linear gain lands
+mid-_value_ on a log cutoff rather than mid-travel. That is what "a lane's values ignore the curve"
+already says (src/lib/automation.ts), and reading a paste along the curve would make the same lane
+mean two things depending on which knob it was drawn on; the cost is a pasted gesture that sits
+higher on a log dial than the hand that drew it would expect.
 
 **The drift picture's anchor reads the ground unzoned** (bench-02, 0318). `playerRowStand`
 (src/lib/playerDrift.ts) folds the standing bed with no zone, so a yard with one marked anchors its

@@ -35,6 +35,16 @@ export const MOTION_REDRAW_SAYS =
 export const redrawPassesLabel = (passes: number): string =>
   `${MOTION_REDRAW_OFFER} ${passes} ${passes === 1 ? "pass" : "passes"}`;
 
+/** The two presses under the rows: a motion taken off this knob, and the one carried put on it. */
+export const MOTION_COPY = "Copy";
+export const MOTION_PASTE = "Paste";
+
+export const MOTION_COPY_SAYS =
+  "Take this lane, the range it was drawn in and what drew it. It is carried until you copy another one, and is gone when the tab closes.";
+
+export const MOTION_PASTE_SAYS =
+  "Put the copied lane on this knob, scaled from the range it was drawn in onto this one. It is drawn again here as often as it was there.";
+
 export const MOTION_CHARACTER_TOOLTIPS: Record<MotionCharacter, string> = {
   sporadic: `Quick jumps anywhere in the range, never on a beat. ${AGAIN}`,
   smooth: `One long slow glide into the next, never a step. ${AGAIN}`,

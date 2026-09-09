@@ -4,7 +4,7 @@
  */
 
 import { finite, objectAt } from "./guards.ts";
-import { clamp, snapToStep, type RangeCurve } from "./range.ts";
+import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "./range.ts";
 
 /**
  * One point of a lane. `at` is seconds from the start of the gesture that recorded it, never a
@@ -50,6 +50,35 @@ export function stretchLane(lane: readonly AutomationPoint[], span: number): Aut
     at: index === lane.length - 1 ? held : point.at * factor,
     value: point.value,
   }));
+}
+
+/**
+ * The same gesture read against another parameter's range: every value moved onto the fraction of
+ * the target range it stood at in the source, and every time left where it was. A lane means one
+ * thing only beside the range it was drawn in — a cutoff's 8000 is far past the top of a gain — so
+ * a lane taken off one knob and put on another is rescaled rather than clamped, which would
+ * flatten every point past the edge onto it (principle 5). What the target holds its values to,
+ * step and bounds alike, is `normalizeAutomationLane`'s rule and is not restated here. A source
+ * range with no width has no fraction to read, and is refused rather than guessed at.
+ */
+export function rescaleLane(
+  lane: readonly AutomationPoint[],
+  from: AutomationRange,
+  to: AutomationRange,
+): AutomationLane {
+  if (from.max - from.min <= 0) {
+    throw new RangeError("a lane cannot be rescaled off a range with no width");
+  }
+  // The fraction is read and laid down by the one pair every dial and preview reads a range
+  // through, rather than by an arithmetic of this module's own (principle 1). Linear both ways:
+  // a range's curve is how a dial is drawn, and a lane's values ignore it.
+  return normalizeAutomationLane(
+    lane.map(({ at, value }) => ({
+      at,
+      value: denormalize(normalize(value, from.min, from.max), to.min, to.max),
+    })),
+    to,
+  );
 }
 
 /**

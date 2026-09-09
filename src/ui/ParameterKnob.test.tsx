@@ -12,6 +12,7 @@ vi.mock("react", async (importOriginal) =>
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
 
 import { manualClock } from "@/app/clock";
+import { turns } from "@/app/persistenceDouble";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import { createInstrument } from "@/app/facade";
@@ -23,14 +24,6 @@ import {
   type KnobHandlers,
   type WrapperProps,
 } from "@/ui/parameterKnobDouble";
-
-/** The finite promise chain the facade serialises checkpoint preparation through, drained. */
-const turns = async (): Promise<void> => {
-  for (let remaining = 8; remaining > 0; remaining--) {
-    // oxlint-disable-next-line no-await-in-loop
-    await Promise.resolve();
-  }
-};
 
 /** One recorded ride on a knob mounted at `startAt` on the clock, as the lane it left. */
 const ride = (startAt: number) => {

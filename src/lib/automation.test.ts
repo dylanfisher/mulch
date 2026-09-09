@@ -6,6 +6,7 @@ import {
   MAX_LANE_SPAN,
   MIN_LANE_SPAN,
   normalizeAutomationLane,
+  rescaleLane,
   sameGesture,
   stretchLane,
 } from "./automation";
@@ -164,5 +165,52 @@ describe("stretching a lane", () => {
     const before = structuredClone(lane);
     stretchLane(lane, 9);
     expect(lane).toEqual(before);
+  });
+});
+
+// The same gesture on another parameter: a lane means one thing beside the range it was drawn in,
+// so a motion carried from one knob to another is read onto the range it lands in (0319).
+describe("rescaling a lane onto another range", () => {
+  const from = { min: 0, max: 1 };
+  const to = { min: 200, max: 8000 };
+
+  it("maps both ends of the source range onto both ends of the target's", () => {
+    expect(
+      rescaleLane(
+        [
+          { at: 0, value: 0 },
+          { at: 1, value: 1 },
+        ],
+        from,
+        to,
+      ),
+    ).toEqual([
+      { at: 0, value: 200 },
+      { at: 1, value: 8000 },
+    ]);
+  });
+
+  it("holds a point's fraction of the range exactly, and its time untouched", () => {
+    expect(rescaleLane([{ at: 0.5, value: 0.25 }], from, to)).toEqual([{ at: 0.5, value: 2150 }]);
+    // Backwards, and off a range that does not begin at zero: the fraction is what travels.
+    expect(rescaleLane([{ at: 3, value: 2150 }], to, from)).toEqual([{ at: 3, value: 0.25 }]);
+  });
+
+  it("holds the result to the target's own step and bounds", () => {
+    expect(rescaleLane([{ at: 0, value: 0.5 }], from, { min: 0, max: 4, step: 1 })).toEqual([
+      { at: 0, value: 2 },
+    ]);
+  });
+
+  it("leaves an empty lane empty, and the lane it read untouched", () => {
+    expect(rescaleLane([], from, to)).toEqual([]);
+    const lane = [{ at: 0, value: 0.25 }];
+    const before = structuredClone(lane);
+    rescaleLane(lane, from, to);
+    expect(lane).toEqual(before);
+  });
+
+  it("refuses a source range with no width, because there is no fraction to read", () => {
+    expect(() => rescaleLane([{ at: 0, value: 1 }], { min: 1, max: 1 }, to)).toThrow(RangeError);
   });
 });

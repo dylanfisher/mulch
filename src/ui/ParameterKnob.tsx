@@ -270,6 +270,30 @@ export const ParameterKnob = memo(function ParameterKnob({
     [instrument, deck, instance, param, drawn],
   );
   /**
+   * The motion carried off another knob, put on this one: the lane the menu already rescaled onto
+   * this parameter's range, and what drew it where it was drawn — a lane a hand rode pastes as one
+   * nothing drew. One `history.group`, which is by definition one entry, so one undo takes the
+   * whole paste back rather than the lane without its sibling (0067).
+   */
+  const onPaste = useCallback(
+    (points: AutomationPoint[], said: MotionDrawn | null) => {
+      const owner = instanceHalf(instance);
+      instrument.send({
+        t: "history.group",
+        commands: [
+          { t: "automation.set", deck, ...owner, param, points },
+          { t: "automation.drawn", deck, ...owner, param, drawn: said },
+        ],
+      });
+      // A group about one value opens a gesture the rest of a drag joins, and a paste is not a
+      // drag: without this the count pressed a moment later, or a redraw of the pasted lane, would
+      // land inside the paste's own entry and one undo would take back both (0067).
+      instrument.send({ t: "gesture.end" });
+    },
+    [instrument, deck, instance, param],
+  );
+
+  /**
    * The lane the passes are counted for, how many have played since it arrived, and the phase the
    * last frame read. A frame that finds another lane starts the count over — a redraw's own lane
    * arriving, or a press's.
@@ -538,9 +562,12 @@ export const ParameterKnob = memo(function ParameterKnob({
             )}
             <MotionMenu
               named={`${where} ${spec.label}`}
+              lane={lane}
+              range={spec}
               drawn={drawn}
               onDraw={onDraw}
               onEvery={onEvery}
+              onPaste={onPaste}
             />
           </PopoverContent>
         </Popover>
