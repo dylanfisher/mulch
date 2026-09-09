@@ -1,7 +1,11 @@
 # 0317 — A yard is named for a small scene
 
 - **Date:** 2026-09-08
-- **Status:** accepted, extending
+- **Status:** accepted, narrowed by
+  [0324](0324-a-place-and-an-air-are-a-word-drawn-against-a-noun.md), which made the place and the
+  air a joining word drawn against a noun — so the name is seven banks, not five, "a preposition is
+  not a half of a name" no longer holds for those two, and the yard's join is `twoPartName`'s after
+  all. Otherwise accepted, extending
   [0081](0081-an-effect-name-is-two-pools-multiplied.md) and P55 — pools multiplied rather
   than a list of pairs — and resting on
   [0149](0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)'s birthday rule and

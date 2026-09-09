@@ -207,8 +207,8 @@ export const twoPartName = (adjective: string, noun: string): string => `${adjec
  * Draw one yard's emoji. Called from the call site that mints the id (src/ui/actions.ts) and
  * carried in `deck.add`, because a reducer that drew its own would make replay, restore and the
  * fingerprint non-deterministic (0057). What is declared here is the pool and the shape of the
- * result; when to draw stays the caller's. The name beside it is drawn from five banks of its own
- * → src/lib/copyYard.ts (0317).
+ * result; when to draw stays the caller's. The name beside it is drawn from seven banks of its own
+ * → src/lib/copyYard.ts (0317, 0324).
  */
 export const mintYardEmoji = (): string => pick(YARD_EMOJI);
 

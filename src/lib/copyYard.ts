@@ -1,13 +1,14 @@
 /**
- * @role The five banks a yard's name is drawn from, and the draw that joins them: an adjective, a
- *   plant and a place always, and a time and a small detail on a coin apiece — so a rack of yards
- *   reads as a set of tiny scenes rather than a list of usernames (0317).
+ * @role The seven banks a yard's name is drawn from, and the draw that joins them: an adjective, a
+ *   plant and a place always, and an air and a small detail on a coin apiece — the place and the
+ *   air each a joining word drawn against a noun (0324) — so a rack of yards reads as a set of tiny
+ *   scenes rather than a list of usernames (0317).
  * @instead The instrument's other nouns — actions, transport, the emoji a yard wears beside this
  *   name — → src/lib/copy.ts, which this left because that file is a couple of dozen lines from
  *   the hard cap and this is a split rather than a shave (0045). What an effect instance and an
  *   arrangement's tiers are named → src/lib/copyNames.ts.
  */
-import { pick, words } from "./copy.ts";
+import { pick, twoPartName, words } from "./copy.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
 
 /**
@@ -32,60 +33,78 @@ export const YARD_PLANTS = words(
 );
 
 /**
- * The third, and the one that turns a pair of words into somewhere: where on the ground it is.
- * Each entry is a whole phrase because a preposition is not a word a pool multiplies — "beneath"
- * and "the Stairs" are one thing to read — and it opens lowercase, so the reading is a sentence
- * with one capitalised name in it rather than a shouted label.
+ * The third, and the one that turns a pair of words into somewhere: where on the ground it is. It
+ * is drawn twice — a joining word against a noun — so that the same corner of a yard can be
+ * arrived at from more than one side, and every word here has to read against every noun below it:
+ * a word that reads with half of them, like "over the Stairs", is not in the bank (0324). The word
+ * opens lowercase, so the reading is a sentence with one capitalised name in it rather than a
+ * shouted label (0059).
  */
-export const YARD_PLACES: readonly [string, ...string[]] = [
-  "by the Old Wall",
-  "beneath the Stairs",
-  "beside the Stone Path",
-  "under the Eaves",
-  "behind the Shed",
-  "along the Fence",
-  "at the Gate",
-  "near the Open Window",
-  "past the Water Butt",
-  "over the Low Bridge",
-  "by the Back Door",
-  "beside the Greenhouse",
-  "under the Apple Tree",
-  "beyond the Hedge",
-  "at the Bottom of the Steps",
-  "by the Cold Frame",
-  "along the Gravel Walk",
-  "behind the Compost Heap",
-  "near the Rain Barrel",
-  "under the Washing Line",
-  "beside the Garden Seat",
-  "at the Corner of the Yard",
-  "by the Broken Pot",
-  "beneath the Ivy Arch",
+export const YARD_PLACE_WORDS = words("by beside near past behind beyond");
+
+/**
+ * What it is drawn against: something in a garden solid enough to stand on one side of. Nothing
+ * long and thin — a path is walked along, not stood behind — because the bank is what every word
+ * above must read against, not a list of things a yard has.
+ */
+export const YARD_PLACE_NOUNS: readonly [string, ...string[]] = [
+  "the Old Wall",
+  "the Stairs",
+  "the Shed",
+  "the Gate",
+  "the Fence",
+  "the Greenhouse",
+  "the Hedge",
+  "the Water Butt",
+  "the Apple Tree",
+  "the Cold Frame",
+  "the Compost Heap",
+  "the Rain Barrel",
+  "the Coal Bunker",
+  "the Garden Seat",
+  "the Ivy Arch",
+  "the Back Door",
+  "the Low Bridge",
+  "the Woodpile",
+  "the Potting Bench",
+  "the Log Store",
+  "the Stone Trough",
+  "the Beehive",
+  "the Chicken Run",
+  "the Old Pump",
 ];
 
 /**
- * The first of the two optional banks: when it is, what the weather is doing, what the light is
- * like. Optional because a name that always says everything says nothing — half the yards
- * carrying one is what makes it worth reading on the ones that do (0317).
+ * The first of the two optional banks, and the second that is joined: when it is, what the weather
+ * is doing, what the light is like. Optional because a name that always says everything says
+ * nothing — half the yards carrying one is what makes it worth reading on the ones that do (0317).
+ * Two words, because an air is a medium: it is stood in and moved through. "at" reads with a
+ * moment and not a light, "toward" and "into" with a weather and not a still light — each of them
+ * reads with half the bank below, which is what keeps them out of it (0324).
  */
-export const YARD_AIRS: readonly [string, ...string[]] = [
-  "at Dusk",
-  "in Soft Rain",
-  "in Moonlight",
-  "at First Light",
-  "in Low Sun",
-  "after Rain",
-  "in Thin Mist",
-  "at Noon",
-  "in Late Light",
-  "under Cloud",
-  "in Still Air",
-  "at Dawn",
-  "in Frost",
-  "on a Warm Evening",
-  "in Long Shadow",
-  "before the Storm",
+export const YARD_AIR_WORDS = words("in through");
+
+/**
+ * What the air is drawn against, and the entries a scene reads a name by (bench-06): a light or a
+ * weather, never a joined phrase, so the reading is a table on this bank and not on the join.
+ */
+export const YARD_AIR_NOUNS: readonly [string, ...string[]] = [
+  "Falling Dusk",
+  "Moonlight",
+  "Frost",
+  "Soft Rain",
+  "Low Sunlight",
+  "First Light",
+  "Late Light",
+  "Thin Mist",
+  "Low Cloud",
+  "Long Shadows",
+  "Falling Snow",
+  "Grey Light",
+  "Night Air",
+  "Warm Wind",
+  "Sea Fog",
+  "Cold Light",
 ];
 
 /** The second: one small living thing or quiet object, on its own coin, for the same reason. */
@@ -109,29 +128,42 @@ export const YARD_DETAILS: readonly [string, ...string[]] = [
 ];
 
 /**
+ * Draw a joining word against a noun — once, so the place and the air agree forever on what a
+ * joined half reads like, and so the word is always drawn before the noun (0324). The join itself
+ * is `twoPartName`'s, which is where two halves of any name are put together. Not exported:
+ * the only draw is the mint below it (0057).
+ */
+const joinedName = (
+  wordBank: readonly [string, ...string[]],
+  nounBank: readonly [string, ...string[]],
+): string => twoPartName(pick(wordBank), pick(nounBank));
+
+/**
  * Draw one yard's name: the three banks that always speak, then each optional bank on its own
- * coin. So a name runs from "Gentle Moss beneath the Stairs" to "Gentle Moss beneath the Stairs at
+ * coin. So a name runs from "Gentle Moss past the Stairs" to "Gentle Moss past the Stairs toward
  * Dusk with Moths", and no two yards in a session read as a numbered list (0317).
  *
  * Called from the call site that mints the id (src/ui/actions.ts) and carried in `deck.add`,
  * because a reducer that drew its own would make replay, restore and the fingerprint
- * non-deterministic (0057). `twoPartName` stays what it is — the effect and tier draws still join
- * two halves — and this join is its own.
+ * non-deterministic (0057).
  */
 export function mintYardName(): string {
-  const said = [`${pick(YARD_ADJECTIVES)} ${pick(YARD_PLANTS)}`, pick(YARD_PLACES)];
+  const said = [
+    twoPartName(pick(YARD_ADJECTIVES), pick(YARD_PLANTS)),
+    joinedName(YARD_PLACE_WORDS, YARD_PLACE_NOUNS),
+  ];
   // A name is durable text, so it is bounded by the one bound durable text has (`assertDurableText`)
   // — and the two banks that are optional are the two that give way to it. The three that always
-  // speak fit inside it by construction: the longest adjective, plant and place together are well
+  // speak fit inside it by construction: the longest adjective, plant, joining word and noun are well
   // under. Checked here rather than trimmed later, because a name cut mid-phrase is a scene that
   // stops halfway (principle 5, 0317).
-  const drawn = (bank: readonly [string, ...string[]]): void => {
+  const drawn = (draw: () => string): void => {
     if (Math.random() >= 0.5) return;
-    const next = pick(bank);
+    const next = draw();
     if ([...said, next].join(" ").length <= DURABLE_TEXT_MAX) said.push(next);
   };
-  drawn(YARD_AIRS);
-  drawn(YARD_DETAILS);
+  drawn(() => joinedName(YARD_AIR_WORDS, YARD_AIR_NOUNS));
+  drawn(() => pick(YARD_DETAILS));
   return said.join(" ");
 }
 

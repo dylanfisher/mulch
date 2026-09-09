@@ -84,11 +84,11 @@ export const exportNameField = (text: string): string =>
 
 /**
  * How many words of a yard's name reach a filename. A yard is named for a small scene now — an
- * adjective, a plant, a place and, on a coin apiece, a time and a detail (0317) — and a field of a
- * take's name is one word (above). The whole scene here is sixty characters, and the folder's byte
- * cap cuts from the end, so it pushes the source field clean off: an export of a yard called
- * "Wide Rowan behind the Compost Heap at First Light with Swifts" stopped saying what it was made
- * of. The first two words are the yard's identity and the rest is the reading of it.
+ * adjective, a plant, a place and, on a coin apiece, an air and a detail (0317, 0324) — and a
+ * field of a take's name is one word (above). The whole scene here is sixty characters, and the
+ * folder's byte cap cuts from the end, so it pushes the source field clean off: an export of a yard
+ * called "Wide Rowan behind the Compost Heap in First Light with Swifts" stopped saying what it was
+ * made of. The first two words are the yard's identity and the rest is the reading of it.
  */
 const YARD_NAME_WORDS = 2;
 

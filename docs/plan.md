@@ -54,11 +54,13 @@ one entry per plant that names it, its tokens, and one group on the tuning panel
     warm blobs over a cool ground), **water** (Reed, Rush, Sedge…: a fine rippled grating with a few
     sparse tall blades standing in it), **canopy** (Willow, Birch, Alder, Cedar, Rowan, Hazel,
     Aspen…: dense dark mass with scattered light breaking through). The air names the light —
-    Dusk, Moonlight, Frost, Soft Rain, Low Sun each shift the scene's ramp toward its own tokens,
+    Falling Dusk, Moonlight, Frost, Soft Rain, Low Sunlight each shift the scene's ramp toward its
+    own tokens,
     and a name with no air reads as day. The adjective names the wind's rest — Windy, Wild, Still,
     Quiet, Hushed set how far the field leans and how fast it recovers. The place and the detail
     read nothing in this step. The reading is a table per bank, not a hash of the string: a hand
-    can predict what "Windy Reed past the Water Butt at Dusk" will look like before it is added.
+    can predict what "Windy Reed past the Water Butt in Falling Dusk" will look like before it is
+    added.
 
     **A scene is what the screen lays down.** Today `inkThrough` (src/ui/moireScreen.ts) writes one
     tile of a filmed monitor — two grids beating into blobs, three channels a lag apart, one rolling
@@ -81,8 +83,8 @@ one entry per plant that names it, its tokens, and one group on the tuning panel
     the painter, and judged at 1:1 crop and not from the whole canvas.
 
     **Stands on:**
-    - The name is five banks and a deterministic join (src/lib/copyYard.ts, 0317); there is no
-      rename command, so a scene is fixed at the yard's birth.
+    - The name is seven banks and a deterministic join (src/lib/copyYard.ts, 0317, 0324); there is
+      no rename command, so a scene is fixed at the yard's birth.
     - `inkThrough` is the screen's only export the painter cuts through, and src/ui/moireCanvas.ts
       is its only caller (both files' `@role`).
     - The ramp is five token names resolved in one file (`INK_RAMP_TOKENS`,
@@ -135,7 +137,18 @@ bank by its entries and should read the shape this step leaves; the two effect c
 the second reuses the choice control the first introduces nothing of but the delay's tap reuses the
 burst's arithmetic; the character and the sparks last, each alone in its module.
 
-1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07)_ **Durable
+bench-07 landed on 2026-09-08 as
+[0324](decisions/0324-a-place-and-an-air-are-a-word-drawn-against-a-noun.md); `YARD_PLACE_WORDS` ×
+`YARD_PLACE_NOUNS` and `YARD_AIR_WORDS` × `YARD_AIR_NOUNS` are joined by `joinedName` at the one
+mint site, over `twoPartName`; 24 places became 144 and 16 airs 32. The rule that a joining word
+must read against every noun of its family is what sized the two word banks: six for the place (by,
+beside, near, past, behind, beyond) and two for the air (in, through). Review read the product aloud
+and caught the air's first bank saying "through Frost" and "toward Low Sun", so the air is a medium
+now — its words are the two that cross the whole bank, and the two nouns that were moments are
+spelled as mediums, "Falling Dusk" and "Low Sunlight". bench-06 still reads the air by its nouns,
+and its own paragraph names those two by their new spelling. The next free decision number is 0325.
+
+1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
     shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
     and stays so; only what the draw is made of changes, and every name already minted stays the
     name it is.
@@ -472,3 +485,22 @@ different window from the one it is compared against.
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and a
 failing seam-level test before broad UI work. Do not turn the driver into a second application by
 teaching it feature semantics.
+
+## 4. Not taken
+
+Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
+scheduled by being here.
+
+**The air keeps two joining words, and six of the place's twelve are out** (bench-07, 0324). The
+step listed eight air words — at, in, under, before, after, toward, through, against — and twelve
+for the place; the rule that every word must read against every noun left two and six. An air is a
+medium, so in and through cross the bank and every word of time or direction fails somewhere in it:
+"at Moonlight", "through Frost", "toward Low Sun". Two nouns were respelled to be mediums rather
+than moments — "Falling Dusk" for Dusk, "Low Sunlight" for Low Sun — which is a change bench-06
+reads, and its paragraph is updated to the new spelling. The place lost the six that ask something
+of the noun: "over" and "within" outright, "beneath" and "under" for wanting an overhang the Fence
+has not got, "along" for wanting a line, "at" for wanting a locus — so the step's own example
+reading, "beneath the Stairs toward Dusk", cannot be minted, and neither can a noun walked along
+rather than stood behind ("the Stone Path"). The air multiplies by two rather than eight, 32
+readings against 16. Widening either family again means splitting it in two, which is a per-noun
+word list by another name and is what the step refused.

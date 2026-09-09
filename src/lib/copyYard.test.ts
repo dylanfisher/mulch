@@ -4,9 +4,11 @@ import { DURABLE_TEXT_MAX } from "./guards.ts";
 import {
   mintYardName,
   YARD_ADJECTIVES,
-  YARD_AIRS,
+  YARD_AIR_NOUNS,
+  YARD_AIR_WORDS,
   YARD_DETAILS,
-  YARD_PLACES,
+  YARD_PLACE_NOUNS,
+  YARD_PLACE_WORDS,
   YARD_PLANTS,
 } from "./copyYard.ts";
 
@@ -18,9 +20,20 @@ afterEach(() => {
 /** How many draws from a pool of this many readings before a repeat is expected (0149). */
 const drawsBeforeARepeat = (readings: number): number => Math.sqrt((Math.PI * readings) / 2);
 
-/** The three banks a name always draws from, and the two it draws on a coin. */
-const ALWAYS = [YARD_ADJECTIVES, YARD_PLANTS, YARD_PLACES];
-const OPTIONAL = [YARD_AIRS, YARD_DETAILS];
+/** The banks a name always draws from, and the banks it draws on a coin. */
+const ALWAYS = [YARD_ADJECTIVES, YARD_PLANTS, YARD_PLACE_WORDS, YARD_PLACE_NOUNS];
+const OPTIONAL = [YARD_AIR_WORDS, YARD_AIR_NOUNS, YARD_DETAILS];
+/** The two families that are a joining word drawn against a noun (0324). */
+const JOINED = [
+  [YARD_PLACE_WORDS, YARD_PLACE_NOUNS],
+  [YARD_AIR_WORDS, YARD_AIR_NOUNS],
+] as const;
+/** The joining words are whole words in a name, so they are read off it as words, not substrings. */
+const JOINING_WORDS: ReadonlySet<readonly string[]> = new Set([YARD_PLACE_WORDS, YARD_AIR_WORDS]);
+const saysAnEntryOf = (name: string, bank: readonly string[]): boolean =>
+  JOINING_WORDS.has(bank)
+    ? bank.some((entry) => name.split(" ").includes(entry))
+    : bank.some((entry) => name.includes(entry));
 
 describe("the banks a yard is named from", () => {
   it("outlasts far more than a session's worth of yards", () => {
@@ -29,9 +42,10 @@ describe("the banks a yard is named from", () => {
     expect([YARD_ADJECTIVES.length, YARD_PLANTS.length]).toEqual([48, 48]);
   });
 
-  // The three that always speak have to fit inside the bound on durable text on their own, because
-  // nothing gives way for them: only the optional two do (`mintYardName`).
-  it("keeps the three that always speak inside the bound on durable text", () => {
+  // The banks that always speak have to fit inside the bound on durable text on their own, because
+  // nothing gives way for them: only the optional ones do (`mintYardName`). With the place joined,
+  // that is the longest joining word plus the longest noun of the place family (0324).
+  it("keeps what always speaks inside the bound on durable text", () => {
     const longest = ALWAYS.map((bank) => Math.max(...bank.map((entry) => entry.length)));
     expect(longest.reduce((total, at) => total + at, ALWAYS.length - 1)).toBeLessThanOrEqual(
       DURABLE_TEXT_MAX,
@@ -45,12 +59,17 @@ describe("the banks a yard is named from", () => {
   });
 
   // The two halves that are words are Titlecase like every other pool the instrument draws from
-  // (0059); the three that are phrases open on the preposition that makes them a place or a time.
-  it("says each word half Titlecase and each phrase half as a phrase", () => {
+  // (0059); a joining word is lowercase and its noun Titlecase after the article it may carry, so
+  // the join reads as a sentence rather than a shouted label (0324).
+  it("says each word half Titlecase, each joining word lowercase and each noun Titlecase", () => {
     for (const word of [...YARD_ADJECTIVES, ...YARD_PLANTS]) {
       expect(word).toMatch(/^[A-Z][a-z]+$/u);
     }
-    for (const phrase of [YARD_PLACES, YARD_AIRS, YARD_DETAILS].flat()) {
+    for (const [wordBank, nounBank] of JOINED) {
+      for (const word of wordBank) expect(word).toMatch(/^[a-z]+$/u);
+      for (const noun of nounBank) expect(noun).toMatch(/^(?:the )?[A-Z][a-z]+(?: [A-Z][a-z]+)*$/u);
+    }
+    for (const phrase of YARD_DETAILS) {
       expect(phrase).toMatch(/^[a-z]+(?: (?:[A-Z][a-z]+|[a-z]+))+$/u);
     }
   });
@@ -69,29 +88,54 @@ describe("one yard's name", () => {
     }
   });
 
-  // The two optional banks are a coin apiece: over enough draws every bank speaks, and no draw
-  // says fewer than the three that always do.
-  it("draws all five banks over enough runs and never fewer than three", () => {
+  // A coin apiece: over enough draws every bank speaks, and none says fewer than the ones that do.
+  it("draws every bank over enough runs and never fewer than the ones that always speak", () => {
     const names = Array.from({ length: 400 }, () => mintYardName());
     for (const bank of [...ALWAYS, ...OPTIONAL]) {
-      expect(names.some((name) => bank.some((entry) => name.includes(entry)))).toBe(true);
+      expect(names.some((name) => saysAnEntryOf(name, bank))).toBe(true);
     }
     for (const name of names) {
-      for (const bank of ALWAYS) {
-        expect(bank.some((entry) => name.includes(entry))).toBe(true);
-      }
+      for (const bank of ALWAYS) expect(saysAnEntryOf(name, bank)).toBe(true);
+    }
+  });
+});
+
+describe("the joined halves of one yard's name", () => {
+  // The point of joining the two families: a noun comes back under a different word, so a rack
+  // repeats a place or an air without repeating a phrase (0324).
+  it("says one noun of each joined family under more than one joining word", () => {
+    const names = Array.from({ length: 400 }, () => mintYardName());
+    for (const [wordBank, nounBank] of JOINED) {
+      const under = (noun: string): number =>
+        wordBank.filter((word) => names.some((name) => name.includes(`${word} ${noun}`))).length;
+      expect(nounBank.some((noun) => under(noun) > 1)).toBe(true);
     }
   });
 
-  // Both coins come up tails: the shortest reading a yard can wear is the three that always speak.
-  it("says the three when both coins are tails and all five when both are heads", () => {
+  // The coin is flipped before the bank it decides is drawn, and each joined half is one word then
+  // one noun: seven draws in that order say a name with no air and a detail (0324).
+  it("flips each coin before the draw it decides", () => {
+    const coins = [0, 0, 0, 0, 0.9, 0.1, 0];
+    let at = 0;
+    vi.spyOn(Math, "random").mockImplementation(() => coins[at++] ?? 0);
+    expect(mintYardName()).toBe(
+      `${YARD_ADJECTIVES[0]} ${YARD_PLANTS[0]} ${YARD_PLACE_WORDS[0]} ${YARD_PLACE_NOUNS[0]} ` +
+        YARD_DETAILS[0],
+    );
+    expect(at).toBe(coins.length);
+  });
+
+  // Tails: the shortest reading is what always speaks, its place one word drawn before one noun.
+  it("says only what always speaks when both coins are tails, and every bank when both are heads", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     expect(mintYardName()).toBe(
-      `${YARD_ADJECTIVES.at(-1)} ${YARD_PLANTS.at(-1)} ${YARD_PLACES.at(-1)}`,
+      `${YARD_ADJECTIVES.at(-1)} ${YARD_PLANTS.at(-1)} ` +
+        `${YARD_PLACE_WORDS.at(-1)} ${YARD_PLACE_NOUNS.at(-1)}`,
     );
     vi.spyOn(Math, "random").mockReturnValue(0);
     expect(mintYardName()).toBe(
-      `${YARD_ADJECTIVES[0]} ${YARD_PLANTS[0]} ${YARD_PLACES[0]} ${YARD_AIRS[0]} ${YARD_DETAILS[0]}`,
+      `${YARD_ADJECTIVES[0]} ${YARD_PLANTS[0]} ${YARD_PLACE_WORDS[0]} ${YARD_PLACE_NOUNS[0]} ` +
+        `${YARD_AIR_WORDS[0]} ${YARD_AIR_NOUNS[0]} ${YARD_DETAILS[0]}`,
     );
   });
 });
