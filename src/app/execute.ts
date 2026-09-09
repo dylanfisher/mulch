@@ -164,11 +164,16 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
   const { deck, instance } = target;
   // A lane is held where its value is: beside the deck's own parameters, or on the one instance
   // that declares it. Clearing removes the key either way, so one rack state has one JSON (0030).
+  // The sibling goes with it: a lane cleared is a lane nothing drew any more, which is 0311's
+  // rule written where the fact lives rather than in a knob's ref (0314).
   if (target.instance === null) {
     const automation = { ...deck.automation };
-    if (lane.length === 0) delete automation[target.param];
-    else automation[target.param] = lane;
-    patchDeck(rt.store, cmd.deck, { automation });
+    const drawn = { ...deck.drawn };
+    if (lane.length === 0) {
+      delete automation[target.param];
+      delete drawn[target.param];
+    } else automation[target.param] = lane;
+    patchDeck(rt.store, cmd.deck, { automation, drawn });
     rt.engine?.setAutomation(cmd.deck, null, target.param, lane, deck.params[target.param]);
   } else {
     const held = target.instance;
@@ -176,9 +181,12 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
     patchDeck(rt.store, cmd.deck, {
       effects: patchInstance(deck, held, (current) => {
         const automation = { ...current.automation };
-        if (lane.length === 0) delete automation[param];
-        else automation[param] = lane;
-        return { ...current, automation };
+        const drawn = { ...current.drawn };
+        if (lane.length === 0) {
+          delete automation[param];
+          delete drawn[param];
+        } else automation[param] = lane;
+        return { ...current, automation, drawn };
       }),
     });
     rt.engine?.setAutomation(cmd.deck, held, param, lane, paramIn(target.entry.params, param));
@@ -189,6 +197,60 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
     ...(instance === null ? {} : { instance }),
     param: target.param,
     points: lane.map((point) => ({ at: point.at, value: point.value })),
+  });
+}
+
+/**
+ * What drew one lane, or null for one nothing drew. Nothing reaches the graph: the character and
+ * the count are read by the knob that redraws, and the lane the redraw then sends is what the
+ * host hears (0314). It is held beside the lane, keyed the same way, so a rack entry's drawn
+ * state travels with the entry the way its lanes do.
+ */
+function setDrawn(cmd: Extract<Command, { t: "automation.drawn" }>, rt: Runtime): void {
+  const target = targetOf(cmd, rt);
+  if (target === null) return;
+  if (!isAutomationParam(target.param)) {
+    throw new TypeError(`param does not support automation: ${target.param}`);
+  }
+  const { deck } = target;
+  // What drew a lane exists exactly while that lane does (0314): a drawn state on a parameter
+  // holding none is a fact about nothing, and it would light a character and a count over a knob
+  // with nothing to redraw. Unanswerable rather than malformed, like every other command naming
+  // something that is not there (0023, principle 5).
+  if (cmd.drawn !== null && laneIn(deck, target.instance, target.param) === undefined) {
+    rt.bus.emit({
+      t: "error",
+      detail: `automation.drawn: ${target.param} holds no lane on ${target.instance ?? "the deck"}`,
+    });
+    return;
+  }
+  // Rebuilt field by field rather than spread: what the command carries is proved by the wire and
+  // nothing else of it belongs in the session (0314).
+  const said =
+    cmd.drawn === null ? null : { character: cmd.drawn.character, redraw: cmd.drawn.redraw };
+  if (target.instance === null) {
+    const drawn = { ...deck.drawn };
+    if (said === null) delete drawn[target.param];
+    else drawn[target.param] = said;
+    patchDeck(rt.store, cmd.deck, { drawn });
+  } else {
+    const held = target.instance;
+    const param = target.param;
+    patchDeck(rt.store, cmd.deck, {
+      effects: patchInstance(deck, held, (current) => {
+        const drawn = { ...current.drawn };
+        if (said === null) delete drawn[param];
+        else drawn[param] = said;
+        return { ...current, drawn };
+      }),
+    });
+  }
+  rt.bus.emit({
+    t: "automation.drawn",
+    deck: cmd.deck,
+    ...(target.instance === null ? {} : { instance: target.instance }),
+    param: target.param,
+    drawn: said,
   });
 }
 
@@ -480,6 +542,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "automation.set":
       setAutomation(cmd, rt);
       return;
+    case "automation.drawn":
+      setDrawn(cmd, rt);
+      return;
     // The lane already held, scaled onto the length one gesture asked for, through the one
     // command that writes a lane (0079).
     case "automation.span": {
@@ -563,6 +628,12 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "session.save":
       rt.save("manual");
+      return;
+    // The session's own reading of how long it has been performing, back to nought. Nothing
+    // durable moves and no yard is told: what changes is where the next take begins (0315).
+    case "session.rewind":
+      rt.rewind();
+      rt.bus.emit({ t: "session.rewound" });
       return;
     case "gesture.end":
       rt.historyEndGesture();

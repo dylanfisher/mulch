@@ -1,8 +1,9 @@
 /**
  * @role The row of names under a knob's lane preview: the characters a lane may be drawn as, each
  *   a press that draws one as if a hand had recorded it (0309) — and under them, how many passes a
- *   drawn lane plays before the knob draws it again in its place (0311). One `automation.set` per
- *   press, sent by the knob that owns the lane; the count is the knob's own, nothing durable.
+ *   drawn lane plays before the knob draws it again in its place (0311). Two rows of one shape:
+ *   both are toggle groups pressed on what the session holds, because a character standing and a
+ *   count standing are one kind of fact and one control says it (0314).
  * @instead The popover it sits in, and the knob that holds the lane → src/ui/ParameterKnob.tsx.
  *   The jump pattern's character menu, which this is modelled on → src/ui/PlayerCharacter.tsx.
  *   What each character is, and the counts offered → src/lib/motion.ts.
@@ -19,12 +20,13 @@ import {
   redrawPassesLabel,
 } from "@/lib/copyMotion";
 import {
+  isMotionCharacter,
   MOTION_CHARACTERS,
   MOTION_REDRAW_PASSES,
   type MotionCharacter,
+  type MotionDrawn,
   type MotionRedraw,
 } from "@/lib/motion";
-import { Button } from "@/ui/components/button";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Says } from "@/ui/Says";
 
@@ -33,32 +35,64 @@ const REDRAW_CHOICES: readonly MotionRedraw[] = [0, ...MOTION_REDRAW_PASSES];
 
 /**
  * One name, and the press that draws it. A component of its own for the reason the character
- * menu's entries are: the handler has to carry which character it is, and a closure built in the
- * parent's render is a new prop on every frame.
+ * menu's entries are: the item has to carry a tooltip of its own, and the group's own press is
+ * what says which name was pressed.
  */
-function MotionItem({
-  character,
-  named,
-  press,
-}: {
-  character: MotionCharacter;
-  named: string;
-  press: (character: MotionCharacter) => void;
-}) {
-  const draw = useCallback(() => {
-    press(character);
-  }, [press, character]);
+function MotionItem({ character, named }: { character: MotionCharacter; named: string }) {
   return (
     <Says what={MOTION_CHARACTER_TOOLTIPS[character]}>
-      <Button
-        size="xs"
-        variant="outline"
+      <ToggleGroupItem
+        value={character}
         aria-label={`${named} ${MOTION_CHARACTER_LABELS[character]}`}
-        onClick={draw}
       >
         {MOTION_CHARACTER_LABELS[character]}
-      </Button>
+      </ToggleGroupItem>
     </Says>
+  );
+}
+
+/**
+ * The names, as the one shape the row beneath them already wears: pressed on the character the
+ * session holds for this lane, and pressing the lit one draws a new lane in that same character
+ * (0314). Its own component for the reason the row below is — the group's value is an array,
+ * built once per character rather than once per render of the menu.
+ */
+function CharacterRow({
+  named,
+  character,
+  onDraw,
+}: {
+  named: string;
+  character: MotionCharacter | null;
+  onDraw: (character: MotionCharacter) => void;
+}) {
+  // Memoised: a fresh array every render is a new prop on a control in a loop (`react-perf`).
+  const value = useMemo(() => (character === null ? [] : [character]), [character]);
+  // Base UI clears the group when the pressed name was already on, so an empty selection is a
+  // press on the lit one — which is a draw in that same character, exactly as 0311 asks.
+  const onValueChange = useCallback(
+    (next: string[]) => {
+      const [word] = next;
+      if (isMotionCharacter(word)) onDraw(word);
+      else if (character !== null) onDraw(character);
+    },
+    [onDraw, character],
+  );
+  return (
+    <ToggleGroup
+      value={value}
+      onValueChange={onValueChange}
+      variant="outline"
+      size="sm"
+      spacing={0}
+      // Three across, the way the pattern's six are: one block a hand crosses.
+      className="grid w-full grid-cols-3"
+      aria-label={`${named} ${MOTION_OFFER}`}
+    >
+      {MOTION_CHARACTERS.map((character_) => (
+        <MotionItem key={character_} character={character_} named={named} />
+      ))}
+    </ToggleGroup>
   );
 }
 
@@ -70,10 +104,13 @@ function MotionItem({
 function RedrawRow({
   named,
   every,
+  disabled,
   onEvery,
 }: {
   named: string;
   every: MotionRedraw;
+  /** A knob holding no drawn lane has nothing to redraw, so there is no count to set (0314). */
+  disabled: boolean;
   onEvery: (passes: MotionRedraw) => void;
 }) {
   // Memoised: a fresh array every render is a new prop on a control in a loop (`react-perf`).
@@ -96,6 +133,7 @@ function RedrawRow({
         variant="outline"
         size="sm"
         spacing={0}
+        disabled={disabled}
         aria-label={`${named} ${MOTION_REDRAW_OFFER}`}
       >
         {REDRAW_CHOICES.map((count) => (
@@ -116,28 +154,28 @@ function RedrawRow({
 
 export function MotionMenu({
   named,
+  drawn,
   onDraw,
-  every,
   onEvery,
 }: {
   /** What the presses are named after: the yard, the card and the dial they reach. */
   named: string;
+  /** What drew the lane this knob holds, or null for one a hand rode and one that is not there. */
+  drawn: MotionDrawn | null;
   onDraw: (character: MotionCharacter) => void;
-  /** How many passes a drawn lane plays before it is drawn again, or 0 for never. */
-  every: MotionRedraw;
   onEvery: (passes: MotionRedraw) => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="type-eyebrow text-muted-foreground">{MOTION_OFFER}</span>
-      {/* Three across, the way the pattern's six are: one block a hand crosses. */}
-      <div className="grid grid-cols-3 gap-1">
-        {MOTION_CHARACTERS.map((character) => (
-          <MotionItem key={character} character={character} named={named} press={onDraw} />
-        ))}
-      </div>
+      <CharacterRow named={named} character={drawn?.character ?? null} onDraw={onDraw} />
       <span className="type-eyebrow text-muted-foreground">{MOTION_REDRAW_OFFER}</span>
-      <RedrawRow named={named} every={every} onEvery={onEvery} />
+      <RedrawRow
+        named={named}
+        every={drawn?.redraw ?? 0}
+        disabled={drawn === null}
+        onEvery={onEvery}
+      />
     </div>
   );
 }

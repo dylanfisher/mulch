@@ -21,7 +21,7 @@ import { clamp } from "@/lib/range";
 import { deckIn, patchDeck, type DeckState } from "@/state/store";
 import type { EffectBounds, SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
-import { boundsCommands } from "./restore";
+import { boundsCommands, drawnCommands } from "./restore";
 import { audio } from "./refusals";
 import type { Runtime } from "./runtime";
 
@@ -59,7 +59,15 @@ export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtim
   patchDeck(rt.store, cmd.deck, {
     effects: [
       ...deck.effects,
-      { id: cmd.id, effect: cmd.effect, bypassed: false, params, automation: {}, bounds: {} },
+      {
+        id: cmd.id,
+        effect: cmd.effect,
+        bypassed: false,
+        params,
+        automation: {},
+        drawn: {},
+        bounds: {},
+      },
     ],
   });
   rt.bus.emit({
@@ -85,6 +93,9 @@ export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtim
  * lanes included — the reason to copy an instance is to keep what was ridden onto it and move it,
  * and a yard's copy has always agreed (0092 amended).
  */
+// Over the line cap by design: the body is one expansion, one command per thing a copy carries,
+// and the length tracks how many of those there are (0007).
+// oxlint-disable-next-line max-lines-per-function
 export async function duplicateEffect(
   cmd: Extract<Command, { t: "effect.duplicate" }>,
   rt: Runtime,
@@ -124,6 +135,11 @@ export async function duplicateEffect(
         ? []
         : [{ t: "automation.set", deck: cmd.deck, instance: cmd.id, param, points: lane }];
     }),
+    // And after those: what drew each of them, through the one expansion the restoration stage
+    // uses, for the reason the lanes come last — an empty `automation.set` clears the sibling
+    // (0027, 0314). The copy redraws the way the original does, which is the fact this function
+    // was already trying to copy.
+    ...drawnCommands(cmd.deck, cmd.id, copied.effect, copied.drawn),
   ]);
   rt.bus.emit({
     t: "effect.duplicated",

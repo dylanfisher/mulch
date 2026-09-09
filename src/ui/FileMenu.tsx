@@ -17,14 +17,15 @@ import { type ChangeEvent, useCallback, useRef, useState } from "react";
 // oxlint-disable import/max-dependencies
 import { sessionExportName } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
-import { EXPORT_AUDIO, EXPORT_BUSY, EXPORT_SESSION, failedMessage } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_BUSY, EXPORT_SESSION } from "@/lib/copy";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/components/menubar";
 import { toast } from "@/ui/components/toast";
 import { downloadFile } from "@/ui/download";
 import { eventLogFile } from "@/ui/eventFeed";
 import { ACTION_ICONS } from "@/ui/icons";
-import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
+import { reportFailure } from "@/ui/report";
+import { INSTANT_POPUP } from "@/ui/shell";
 
 /**
  * The archive, named the way a take is: derived from the session as the gesture happens and
@@ -36,12 +37,11 @@ export async function downloadSession(instrument: Instrument): Promise<void> {
   );
 }
 
-async function writeSession(instrument: Instrument, onError: ReportError): Promise<void> {
-  onError(null);
+async function writeSession(instrument: Instrument): Promise<void> {
   try {
     await downloadSession(instrument);
   } catch (reason) {
-    onError(failedMessage("Session export", reason));
+    reportFailure("Session export", reason);
   }
 }
 
@@ -49,17 +49,17 @@ async function writeSession(instrument: Instrument, onError: ReportError): Promi
 let writing: Promise<void> | null = null;
 
 /**
- * The whole of what the Export Session gesture is: clear the last failure, write the archive, and
- * say so in the header if it did not go. Exported because the palette offers the same gesture and
- * a second copy of that sentence is a second wording of it (P41, principle 5).
+ * The whole of what the Export Session gesture is: write the archive, and raise a toast if it did
+ * not go. Exported because the palette offers the same gesture and a second copy of that sentence
+ * is a second wording of it (P41, principle 5).
  *
  * One at a time. The menu disables its own entry while this runs, but the palette closes the
  * moment an entry is chosen, so nothing there could hold the same guard — and two ⌘K exports
  * before the first resolves would build two archives and save two files. The gesture's in-flight
  * state belongs beside its construction, for the reason the construction is shared at all.
  */
-export function exportSession(instrument: Instrument, onError: ReportError): Promise<void> {
-  writing ??= writeSession(instrument, onError).finally(() => {
+export function exportSession(instrument: Instrument): Promise<void> {
+  writing ??= writeSession(instrument).finally(() => {
     writing = null;
   });
   return writing;
@@ -86,9 +86,9 @@ export async function importSessionFile(instrument: Instrument, file: File): Pro
 /**
  * The menu is one `MenubarMenu` plus the one thing that cannot live inside it: the file input,
  * which has to stay mounted for the picker to be reachable at all, because a menu's content is
- * portalled and unmounted the moment it closes. A failure goes to `onError` instead of being
- * drawn here — it is reported when the menu that caused it has already shut, so it belongs in
- * the header row rather than inside the menubar's own box.
+ * portalled and unmounted the moment it closes. A failure is a toast instead of being drawn here —
+ * it is reported when the menu that caused it has already shut, so it goes where everything else
+ * that finished says so, and takes itself away (0316).
  */
 // Two file gestures, their two handlers and the picker that sits beside the menu rather than in
 // it — the length tracks how many entries File offers, not how much this component decides.
@@ -96,12 +96,9 @@ export async function importSessionFile(instrument: Instrument, file: File): Pro
 // oxlint-disable-next-line max-lines-per-function
 export function FileMenu({
   instrument,
-  onError,
   onExportAudio,
 }: {
   instrument: Instrument;
-  /** Where a failed export or import is said out loud — the header draws it (principle 5). */
-  onError: ReportError;
   /** Opens the shell's one Export Audio dialog — the palette opens that same one (P41). */
   onExportAudio: () => void;
 }) {
@@ -110,31 +107,29 @@ export function FileMenu({
 
   const onExport = useCallback(() => {
     setExporting(true);
-    void exportSession(instrument, onError).finally(() => {
+    void exportSession(instrument).finally(() => {
       setExporting(false);
     });
-  }, [instrument, onError]);
+  }, [instrument]);
 
   const onOpen = useCallback(() => {
     picker.current?.click();
   }, []);
 
   const onExportLog = useCallback(() => {
-    onError(null);
     downloadEventLog(instrument);
-  }, [instrument, onError]);
+  }, [instrument]);
 
   const onImport = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.item(0);
       event.currentTarget.value = "";
       if (file === null || file === undefined) return;
-      onError(null);
       void importSessionFile(instrument, file).catch((reason: unknown) => {
-        onError(failedMessage("Session import", reason));
+        reportFailure("Session import", reason);
       });
     },
-    [instrument, onError],
+    [instrument],
   );
 
   return (

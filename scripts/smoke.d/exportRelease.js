@@ -98,6 +98,7 @@ export const exportReleasesSamples = async ({ page }) => {
           // leaves behind, and a warm-up would put a second render's worth of them in the number
           // without changing what it is watching (P149).
           backSecs: window.mulch.stats().at + 1,
+          fromStart: false,
           fadeInSecs: 0,
           fadeOutSecs: 0,
           // Cleared, deliberately: what this measures is the one File the samples become, and an

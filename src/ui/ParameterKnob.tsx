@@ -15,6 +15,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { yardLabel } from "@/lib/copy";
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
+import type { GroupedEditCommand } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
@@ -24,6 +25,7 @@ import {
   dealMotionSpan,
   drawMotionLane,
   type MotionCharacter,
+  type MotionDrawn,
   type MotionRedraw,
 } from "@/lib/motion";
 import { mintSeed } from "@/lib/random";
@@ -74,6 +76,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   param,
   value,
   lane,
+  drawn,
   playing,
 }: {
   instrument: Instrument;
@@ -86,6 +89,12 @@ export const ParameterKnob = memo(function ParameterKnob({
   value: number;
   /** The lane this value holds, or null. A normal move is what clears it. */
   lane: readonly AutomationPoint[] | null;
+  /**
+   * What drew that lane — its character and how many passes it plays before it is drawn again —
+   * or null for a lane a hand rode and for no lane at all. The session's, not this component's:
+   * a duplicate, a reload and a pressed button are three readers of it (0314).
+   */
+  drawn: MotionDrawn | null;
   /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
 }) {
@@ -115,17 +124,8 @@ export const ParameterKnob = memo(function ParameterKnob({
    * given a lane again starts from a dealt span, the way it started the first time (0309).
    */
   const chosenSpan = useRef<number | null>(null);
-  /**
-   * The character the lane the knob holds was drawn as, or null for one a hand recorded or none at
-   * all: what a redraw draws in, so only a drawn lane is ever drawn again (0311). Let go with the
-   * lane, and at a recording committing over it.
-   */
-  const drawn = useRef<MotionCharacter | null>(null);
   useEffect(() => {
-    if (lane === null) {
-      chosenSpan.current = null;
-      drawn.current = null;
-    }
+    if (lane === null) chosenSpan.current = null;
   }, [lane]);
   /**
    * Where an armed press landed: the clock it landed on and the value that was under the hand,
@@ -172,9 +172,10 @@ export const ParameterKnob = memo(function ParameterKnob({
         return;
       }
       if (armed) {
-        // probe().at is the audio clock; what is stored is the distance from the start of this
-        // gesture, so where the playhead was while it happened is never part of the lane (0028).
-        const now = instrument.probe().at;
+        // stats().at and not probe().at: the audio clock, which nothing rewinds (0315). What is
+        // stored is the distance from this gesture's own start, so where the playhead was while it
+        // happened is never part of the lane (0028).
+        const now = instrument.stats().at;
         const gesture = current ?? openRecording(pressed.current, now);
         recording.current = gesture;
         const at = Math.max(0, now - gesture.start);
@@ -198,15 +199,19 @@ export const ParameterKnob = memo(function ParameterKnob({
         // travels in the same transaction so one undo takes both back (0024). Once per drag: the
         // rest of the drag is plain sets that join it.
         cleared.current = true;
-        instrument.send({
-          t: "history.group",
-          commands: [{ t: "automation.set", deck, ...owner, param, points: [] }, set],
-        });
+        // What drew it travels with them: a reset while redrawing would draw a new lane (0314).
+        const commands: GroupedEditCommand[] = [
+          { t: "automation.set", deck, ...owner, param, points: [] },
+          set,
+        ];
+        if (drawn !== null)
+          commands.push({ t: "automation.drawn", deck, ...owner, param, drawn: null });
+        instrument.send({ t: "history.group", commands });
         return;
       }
       instrument.send(set);
     },
-    [armed, lane, instrument, deck, instance, param],
+    [armed, lane, drawn, instrument, deck, instance, param],
   );
 
   /**
@@ -217,12 +222,18 @@ export const ParameterKnob = memo(function ParameterKnob({
    * a continuation of it (0067).
    */
   const draw = useCallback(
-    (character: MotionCharacter, span: number | null) => {
+    (character: MotionCharacter, span: number | null, said: MotionDrawn | null) => {
       const owner = instanceHalf(instance);
       const seed = mintSeed();
       const points = drawMotionLane(character, seed, spec, value, span ?? dealMotionSpan(seed));
-      drawn.current = character;
       instrument.send({ t: "automation.set", deck, ...owner, param, points });
+      // The sibling only where it is news: a press writes what drew the lane, and the two commands
+      // carry the same gesture key so they are one press to undo (0067, 0314). A redraw is drawing
+      // the lane again in the character and at the count the session already holds, and a command
+      // writing back the value already there is a whole-session comparison a pass for nothing.
+      if (said !== null) {
+        instrument.send({ t: "automation.drawn", deck, ...owner, param, drawn: said });
+      }
       instrument.send({ t: "gesture.end" });
     },
     [instrument, deck, instance, param, spec, value],
@@ -231,17 +242,33 @@ export const ParameterKnob = memo(function ParameterKnob({
   /** The menu's press: drawn at the span the dial last chose, or one the press deals. */
   const onDraw = useCallback(
     (character: MotionCharacter) => {
-      draw(character, chosenSpan.current);
+      draw(character, chosenSpan.current, { character, redraw: drawn?.redraw ?? 0 });
     },
-    [draw],
+    [draw, drawn],
   );
 
   /**
-   * How many passes a drawn lane plays before it is drawn again in its place, or 0 for never — the
-   * knob's own, like the latch: no command, nothing durable (0311). It outlives the lane, so a
-   * knob cleared and drawn again is drawn again at the count it was set to.
+   * The count, set without redrawing: the other writer of the one durable fact the draw above
+   * writes, so it sends the whole of it rather than half (0314). A gesture of its own, like the
+   * draw — a press on a count is over when it lands.
    */
-  const [every, setEvery] = useState<MotionRedraw>(0);
+  const onEvery = useCallback(
+    (redraw: MotionRedraw) => {
+      // Nothing to redraw is nothing to count for: the row is disabled with no drawn lane, and
+      // this is the same fact said where the command is built (principle 5).
+      if (drawn === null) return;
+      const owner = instanceHalf(instance);
+      instrument.send({
+        t: "automation.drawn",
+        deck,
+        ...owner,
+        param,
+        drawn: { character: drawn.character, redraw },
+      });
+      instrument.send({ t: "gesture.end" });
+    },
+    [instrument, deck, instance, param, drawn],
+  );
   /**
    * The lane the passes are counted for, how many have played since it arrived, and the phase the
    * last frame read. A frame that finds another lane starts the count over — a redraw's own lane
@@ -271,7 +298,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     }
     recording.current = DONE;
     const last = recorded.points.at(-1);
-    const end = Math.max(0, instrument.probe().at - recorded.start);
+    const end = Math.max(0, instrument.stats().at - recorded.start);
     // Only a press has a release to run to. A recording opened by a keyboard nudge ends at the
     // value it reached, not at whenever the performer happened to let Option up — that would be a
     // lane as long as a modifier was held rather than as long as a gesture was.
@@ -279,10 +306,13 @@ export const ParameterKnob = memo(function ParameterKnob({
       recorded.points.push({ at: end, value: last.value });
     }
     const owner = instanceHalf(instance);
-    // A hand's lane, whatever the menu drew before it: nothing redraws it (0311).
-    drawn.current = null;
     instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
-  }, [instrument, deck, instance, param]);
+    // A hand's lane, whatever the menu drew before it: nothing redraws it (0311), said where the
+    // fact lives rather than in a ref. Same gesture key as the lane, so one entry (0067, 0314).
+    if (drawn !== null) {
+      instrument.send({ t: "automation.drawn", deck, ...owner, param, drawn: null });
+    }
+  }, [instrument, deck, instance, param, drawn]);
 
   // Option is the recording boundary, and letting it up is how a performer stops recording: the
   // lane commits there, without waiting for a pointer that may be held for the rest of the move,
@@ -348,7 +378,7 @@ export const ParameterKnob = memo(function ParameterKnob({
    */
   const onGestureStart = useCallback(() => {
     recording.current = null;
-    pressed.current = armed ? { start: instrument.probe().at, value } : null;
+    pressed.current = armed ? { start: instrument.stats().at, value } : null;
     dragging.current = true;
     cleared.current = false;
   }, [armed, instrument, value]);
@@ -360,7 +390,7 @@ export const ParameterKnob = memo(function ParameterKnob({
    * off the one frame loop, never React state (docs/plan.md §4). The count starts over with every
    * lane, drawn or redrawn, and a hand on the dial holds no phase to count.
    */
-  const redrawing = every > 0 && lane !== null && playing;
+  const redrawing = (drawn?.redraw ?? 0) > 0 && lane !== null && playing;
   useOnFrame(() => {
     if (counted.current !== lane) {
       counted.current = lane;
@@ -369,17 +399,16 @@ export const ParameterKnob = memo(function ParameterKnob({
     }
     // Before the peek, not after it: a lane a hand recorded is never redrawn, and asking the
     // engine where it is only to throw the answer away is a peek a frame for nothing.
-    const character = drawn.current;
-    if (character === null || lane === null) return;
+    if (drawn === null || lane === null) return;
     const at = phase();
     if (at === null) return;
     const last = lastPhase.current;
     lastPhase.current = at;
     if (last === null || at >= last) return;
     passes.current += 1;
-    if (passes.current < every) return;
+    if (passes.current < drawn.redraw) return;
     passes.current = 0;
-    draw(character, laneSpan(lane));
+    draw(drawn.character, laneSpan(lane), null);
   }, redrawing);
 
   /**
@@ -509,9 +538,9 @@ export const ParameterKnob = memo(function ParameterKnob({
             )}
             <MotionMenu
               named={`${where} ${spec.label}`}
+              drawn={drawn}
               onDraw={onDraw}
-              every={every}
-              onEvery={setEvery}
+              onEvery={onEvery}
             />
           </PopoverContent>
         </Popover>

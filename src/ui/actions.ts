@@ -9,7 +9,8 @@ import type { Command } from "@/app/commands";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import { effectParamDraws } from "@/audio/params";
-import { mintClipName, mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
+import { mintClipName, mintYardEmoji, type TransportAction } from "@/lib/copy";
+import { mintYardName } from "@/lib/copyYard";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { SongPartId } from "@/lib/playerSong";
 import type { Clip } from "@/state/session";
@@ -227,7 +228,15 @@ export function transportAllCommands(
   state: SessionState,
   action: TransportAction,
 ): readonly Command[] {
-  return reachable(state).map((deck) => TRANSPORT_COMMANDS[action](deck));
+  const perYard = reachable(state).map((deck) => TRANSPORT_COMMANDS[action](deck));
+  // And the one thing that is the session's rather than any yard's: a global Stop ends the
+  // performance, so the next one begins at nought and so does the next take (0315). After the
+  // per-deck stops, because it is what they add up to. The per-deck row sends none of it — one
+  // yard stopping is not the session ending (P66).
+  // The one thing the header's press sends that no yard's own row does, whether or not a yard
+  // answered: the run is the session's, and it has been running since the page opened however
+  // little was loaded (0315).
+  return action === "stop" ? [...perYard, { t: "session.rewind" }] : perYard;
 }
 
 /**

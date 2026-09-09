@@ -120,6 +120,7 @@ const instance = (id: string): SessionEffect => ({
   bypassed: false,
   params: Object.fromEntries(effectById("delay").params.map((param) => [param.id, param.default])),
   automation: {},
+  drawn: {},
   bounds: {},
 });
 

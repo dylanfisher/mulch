@@ -8,6 +8,7 @@
 import { normalizeAutomationLane, type AutomationLane } from "./automation.ts";
 import type { AutomationRange } from "./automation.ts";
 import { fold } from "./copy.ts";
+import { exactKeys, objectAt } from "./guards.ts";
 import { mulberry32 } from "./random.ts";
 import { clamp, denormalize, normalize, type RangeCurve } from "./range.ts";
 import { fromIds } from "./records.ts";
@@ -32,6 +33,43 @@ export const MOTION_SPAN_SECS = { min: 4, max: 24 } as const;
 export const MOTION_REDRAW_PASSES = [1, 2, 4, 8] as const;
 /** What a knob's redraw is set to: one of those counts, or 0 for a lane that stands as drawn. */
 export type MotionRedraw = 0 | (typeof MOTION_REDRAW_PASSES)[number];
+
+/**
+ * What a drawn lane says about how it was drawn: the character it was drawn in, and how many
+ * passes it plays before it is drawn again in that same character. One value per (instance,
+ * param) beside the lane itself rather than inside it (0314), because a lane is what the audio
+ * host schedules and no reader of it reads either of these.
+ *
+ * It exists exactly while a drawn lane does: a lane a hand recorded, and a knob holding no lane
+ * at all, hold no `MotionDrawn` — which is what makes "only a drawn lane is ever redrawn" a fact
+ * about the session rather than a rule a knob remembers (0311, 0314).
+ */
+export type MotionDrawn = { character: MotionCharacter; redraw: MotionRedraw };
+
+/** Whether a value off the wire or out of storage is one of the characters this file declares. */
+export const isMotionCharacter = (value: unknown): value is MotionCharacter =>
+  MOTION_CHARACTERS.some((character): boolean => character === value);
+
+/** And whether it is one of the counts a redraw may be set to, 0 among them. */
+export const isMotionRedraw = (value: unknown): value is MotionRedraw =>
+  value === 0 || MOTION_REDRAW_PASSES.some((count): boolean => count === value);
+
+/**
+ * One `MotionDrawn` off the wire or out of storage, proved whole: exactly the two halves, each one
+ * this build offers. The one assert, imported by the command guard and by the stored-session
+ * validator alike — the shape `assertPlayer` already has (src/lib/playerWire.ts), and written once
+ * because two copies of it are two answers to what a drawn state is (principle 1, 0314).
+ */
+export function assertMotionDrawn(value: unknown, at: string): asserts value is MotionDrawn {
+  const said = objectAt(value, at);
+  exactKeys(said, ["character", "redraw"], at);
+  if (!isMotionCharacter(said.character)) {
+    throw new TypeError(`${at}.character is not a character: ${String(said.character)}`);
+  }
+  if (!isMotionRedraw(said.redraw)) {
+    throw new TypeError(`${at}.redraw is not a count: ${String(said.redraw)}`);
+  }
+}
 
 /**
  * How far apart the two points of a step are. Equal times collapse to one point last-write-wins

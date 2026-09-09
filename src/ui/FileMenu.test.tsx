@@ -18,9 +18,21 @@ vi.mock("react", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
+import { failedMessage } from "@/lib/copy";
+import { toast } from "@/ui/components/toast";
 import { FileMenu } from "@/ui/FileMenu";
+import { reportFailure } from "@/ui/report";
 
-type Props = { className?: string; children?: ReactNode; "aria-label"?: string };
+type Props = {
+  className?: string;
+  children?: ReactNode;
+  "aria-label"?: string;
+  role?: string;
+  /** The archive picker's own, which is the one handler a case here fires. */
+  onChange?: (event: {
+    currentTarget: { files: { item: (index: number) => File | null }; value: string };
+  }) => void;
+};
 
 /**
  * The menu's own content never reaches markup — it is portalled, and rendered only once the menu
@@ -39,7 +51,6 @@ const PICKER = "Import Session Archive";
 const rendered = () =>
   FileMenu({
     instrument: createInstrument(manualClock()),
-    onError: () => {},
     onExportAudio: () => {},
   });
 const tree = () => [...nodes(rendered())];
@@ -52,6 +63,55 @@ const words = (children: ReactNode): string =>
   Children.toArray(children)
     .filter((child): child is string => typeof child === "string")
     .join("");
+
+// One kind of thing is said one way: a failure is a toast at the failure's own type, and there is
+// no second surface that also says it (0316).
+describe("a failure the File menu reports", () => {
+  it("raises one toast at the error's own type, carrying the one sentence for it", () => {
+    const added: unknown[] = [];
+    vi.spyOn(toast, "add").mockImplementation((options: unknown) => {
+      added.push(options);
+      return "";
+    });
+
+    reportFailure("Session import", new Error("not an archive"));
+
+    expect(added).toEqual([
+      {
+        title: "Session import",
+        description: failedMessage("Session import", new Error("not an archive")),
+        type: "error",
+      },
+    ]);
+  });
+
+  // The header row used to draw one too, which meant a failure was said twice and one of the two
+  // never went away. A failed import is a toast and nothing else now (0316).
+  it("says a failed import in a toast and draws nothing of its own", async () => {
+    const added: { title?: unknown }[] = [];
+    vi.spyOn(toast, "add").mockImplementation((options: { title?: unknown }) => {
+      added.push(options);
+      return "";
+    });
+    const instrument = createInstrument(manualClock());
+    vi.spyOn(instrument, "ingestSession").mockRejectedValue(new Error("not an archive"));
+    const menu = FileMenu({ instrument, onExportAudio: () => {} });
+    const picker = [...nodes(menu)].find((props) => props.onChange !== undefined);
+    if (picker?.onChange === undefined) throw new Error("no archive picker");
+
+    picker.onChange({
+      currentTarget: { files: { item: () => new File(["x"], "s.mulch") }, value: "" },
+    });
+    for (let remaining = 8; remaining > 0; remaining--) {
+      // oxlint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+
+    expect(added.map(({ title }) => title)).toEqual(["Session import"]);
+    // And nothing in the menu's own tree says it: the surface that used to is gone.
+    expect([...nodes(menu)].some((props) => props.role === "alert")).toBe(false);
+  });
+});
 
 describe("the File menu", () => {
   it("offers opening a session and exporting one, in Titlecase", () => {

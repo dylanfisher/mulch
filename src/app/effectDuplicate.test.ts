@@ -149,6 +149,54 @@ describe("effect.duplicate", () => {
     expect(instanceIn(instrument, "two").automation["delay.time"]).toBeUndefined();
   });
 
+  // What drew a lane goes with the lane, and after it: an empty `automation.set` clears the
+  // sibling, so a drawn state written ahead of its lane would be thrown away (0027, 0314).
+  it("copies what drew each lane, after the lanes it drew", async () => {
+    const { instrument, events } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    const points = [
+      { at: 0, value: 0.1 },
+      { at: 0.5, value: 0.8 },
+    ];
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      points,
+    });
+    instrument.send({
+      t: "automation.drawn",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      drawn: { character: "restless", redraw: 2 },
+    });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+
+    expect(instanceIn(instrument, "two").drawn).toEqual({
+      "delay.mix": { character: "restless", redraw: 2 },
+    });
+    // Its own copy, not the original's object: setting one count afterwards must not move the
+    // other.
+    expect(instanceIn(instrument, "two").drawn["delay.mix"]).not.toBe(
+      instanceIn(instrument, "one").drawn["delay.mix"],
+    );
+    // And after the lane on the copy: the log is the expansion's own order (0027).
+    const onTwo = events
+      .filter(
+        (event) =>
+          (event.t === "automation.changed" || event.t === "automation.drawn") &&
+          event.instance === "two",
+      )
+      .map(({ t }) => t);
+    expect(onTwo).toEqual(["automation.changed", "automation.drawn"]);
+    // A parameter the original drew nothing on mints nothing on the copy.
+    expect(instanceIn(instrument, "two").drawn["delay.time"]).toBeUndefined();
+  });
+
   // The reducer expands it, so one press is one entry: the add, the values and the bypass go
   // back together or not at all (0078, 0092).
   it("takes the whole copy back on one undo", async () => {

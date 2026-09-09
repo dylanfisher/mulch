@@ -7,6 +7,7 @@ import type { StopReason } from "@/audio/deckReport";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
+import type { MotionDrawn } from "@/lib/motion";
 import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId } from "@/lib/source";
 import type { ClipId, EffectBound } from "@/state/session";
@@ -62,6 +63,18 @@ export type EventBody =
       instance?: EffectInstanceId;
       param: ParamId;
       points: AutomationPoint[];
+    }
+  /**
+   * What drew the lane at that pair, or null for one nothing drew (0314). Said on the log rather
+   * than folded into `automation.changed`, because the two are written independently: a count is
+   * set without redrawing, and a lane is cleared without anyone touching the count.
+   */
+  | {
+      t: "automation.drawn";
+      deck: DeckId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      drawn: MotionDrawn | null;
     }
   // One instance copied into the slot immediately after the one it copies (0155). The
   // `effect.added`, the `effect.reordered` that put it there, the values and the bypass the copy
@@ -130,6 +143,8 @@ export type EventBody =
   // reason: however many yards stand on it, it is one fact (0313).
   | { t: "session.ground.changed"; ground: SessionGround }
   | { t: "session.saved"; reason: "manual" | "autosave" }
+  /** The elapsed run put back to nought — the global Stop's own half (0315). */
+  | { t: "session.rewound" }
   | { t: "session.restored" }
   /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */
   | { t: "session.discarded"; detail: string }

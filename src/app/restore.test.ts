@@ -3,7 +3,8 @@
 // oxlint-disable max-lines-per-function, max-lines
 import { describe, expect, it } from "vitest";
 
-import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import { effectParamDefaults } from "@/audio/params";
 import { sessionSnapshot, type SessionEffect } from "@/state/session";
 import {
@@ -29,6 +30,7 @@ const instance = (
   bypassed: false,
   params: effectParamDefaults(effect, id),
   automation: {},
+  drawn: {},
   bounds: {},
   ...rest,
 });

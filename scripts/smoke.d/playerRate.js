@@ -260,6 +260,9 @@ export const playerRate = async ({ page }) => {
   if ((await player.locator('[data-slot="card-action"]').count()) !== 0) {
     fail("player song smoke: the jumps card still drew a corner of actions");
   }
+  // The section opens shut, like the three folds beside it: what stands open on a card is the
+  // front (0217, 0314's step). One press on its own heading is what opens the grid below.
+  await section.getByRole("button", { name: "Songs", exact: true }).click();
   /**
    * The tier over the parts, drawn as a launch grid: a column per song, a row per part, and every
    * gesture on it the ordinary `deck.player` carrying the whole spec (0275). What no unit test can

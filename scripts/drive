@@ -444,7 +444,7 @@ async function settle(maxAt) {
     try {
       await page.waitForFunction(
         (t) => {
-          if (window.mulch.probe().at < t) return false;
+          if (window.mulch.stats().at < t) return false;
           window.mulch.pump();
           return true;
         },
@@ -455,7 +455,7 @@ async function settle(maxAt) {
       // A bare Playwright timeout says only that 60s passed, which reads as "this change broke
       // the clock" whatever actually happened. Say where the clock stopped, and name the audio
       // device when it was the device — that is the machine, and no change under test can fix it.
-      const at = await page.evaluate(() => window.mulch.probe().at).catch(() => null);
+      const at = await page.evaluate(() => window.mulch.stats().at).catch(() => null);
       const stopped = at === null ? "the page stopped answering" : `the clock stopped at ${at}s`;
       die(
         audioDeviceLost
@@ -615,7 +615,10 @@ for await (const entry of inputEntries()) {
   }
   // Both relative forms need the page's clock, so they cost one round trip each. Neither
   // is a command: `wait` sends nothing, and `after` becomes an ordinary `at` before it goes.
-  const now = async () => page.evaluate(() => window.mulch.probe().at);
+  // `stats().at` and not `probe().at`: the envelope clock is the audio context's own, which
+  // nothing rewinds, and the probe's reading is the session's elapsed run, which a global Stop
+  // returns to nought (0315).
+  const now = async () => page.evaluate(() => window.mulch.stats().at);
   if (entry.kind === "wait") {
     maxAt = Math.max(maxAt, (await now()) + entry.secs);
     await settle(maxAt);

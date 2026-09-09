@@ -157,14 +157,10 @@ function Screen({ instrument }: { instrument: Instrument }) {
   const activeDeck = useActiveDeck(instrument);
   const deckList = useDeckList(instrument);
   const debugConsole = useDebugConsoleOpen();
-  // Where the File menu says a failed export or import out loud: in the header row, not inside
-  // the menubar's own 32px box, and not swallowed with the menu that caused it (principle 5).
-  const [fileError, setFileError] = useState<string | null>(null);
   // The shell owns the Export Audio dialog because two surfaces open it — the File menu and the
   // palette — and two of them would be two dialogs stacked in the same corner (P41).
   const [exportingAudio, setExportingAudio] = useState(false);
   const onExportAudio = useCallback(() => {
-    setFileError(null);
     setExportingAudio(true);
   }, []);
   useKeyboardShortcuts(instrument, route === "instrument");
@@ -201,11 +197,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
         <div className={SHELL_HEADER_ROW}>
           <Wordmark route={route} className="type-title" />
           <Menubar>
-            <FileMenu
-              instrument={instrument}
-              onError={setFileError}
-              onExportAudio={onExportAudio}
-            />
+            <FileMenu instrument={instrument} onExportAudio={onExportAudio} />
             <MenubarMenu>
               <MenubarTrigger>View</MenubarTrigger>
               <MenubarContent className={INSTANT_POPUP}>
@@ -222,11 +214,6 @@ function Screen({ instrument }: { instrument: Instrument }) {
           {/* Beside it, and for the same reason: a clock every yard's player reads is one fact
               over the whole session, so it lives on the bar rather than on any one yard (0097). */}
           <SyncClock instrument={instrument} />
-          {fileError !== null && (
-            <span className="type-body text-destructive" role="alert">
-              {fileError}
-            </span>
-          )}
           <div className="ml-auto flex items-center gap-3">
             <MasterMeter instrument={instrument} />
             <HistoryControls instrument={instrument} />
@@ -254,13 +241,8 @@ function Screen({ instrument }: { instrument: Instrument }) {
           instrument={instrument}
           open={exportingAudio}
           onOpenChange={setExportingAudio}
-          onError={setFileError}
         />
-        <CommandPalette
-          instrument={instrument}
-          onError={setFileError}
-          onExportAudio={onExportAudio}
-        />
+        <CommandPalette instrument={instrument} onExportAudio={onExportAudio} />
       </main>
     </div>
   );

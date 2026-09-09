@@ -48,12 +48,14 @@ import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import { IMPORT_AUDIO, SOURCE_LABEL } from "@/lib/copy";
+import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { importedBlobId } from "@/lib/source";
 import { patchDeck, type SessionStore } from "@/state/store";
 import { GEN_KINDS, GEN_SECS, type GenKind } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
 import { EffectRack } from "@/ui/EffectRack";
+import { PLAYER } from "@/ui/playerCardDouble";
 import { Waveform } from "@/ui/Waveform";
 import { secondsLabel } from "@/ui/Knob";
 // oxlint-enable import/max-dependencies
@@ -323,6 +325,25 @@ describe("Deck effect rack", () => {
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
     expect(markup).toMatch(/aria-label="Mix"[^>]*aria-valuenow="0.7"/u);
+  });
+});
+
+// A card's folds are the yard's, and every one of them opens shut but the card itself: what
+// stands open is the front (0217).
+describe("the yard's own folds", () => {
+  it("opens the song section shut on a fresh yard", () => {
+    const instrument = createInstrument(manualClock(), stubEngine);
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } });
+    instrument.send({ t: "deck.loop", deck: "a", in: 0, out: 1 });
+    instrument.send({ t: "deck.player", deck: "a", player: PLAYER });
+    const markup = markupOf(instrument);
+
+    // The heading is the control, so it stands either way — and it is pressed, which is the fold
+    // shut (src/ui/PlayerGrid.tsx). Its own three siblings already open this way (0217).
+    const word = `>${PLAYER_SONGS_LABEL}</span>`;
+    expect(markup).toContain(word);
+    const before = markup.slice(0, markup.indexOf(word));
+    expect(before.slice(before.lastIndexOf("<button"))).toContain('aria-pressed="true"');
   });
 });
 

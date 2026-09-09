@@ -149,6 +149,9 @@ export const exportAudioFile = async ({ page }) => {
           name: offered,
           secs,
           backSecs: fromTheStart(),
+          // Where the take begins is the offset above; the checkbox that says the same thing
+          // with one press is cleared, so this spec is exactly what it always was (0315).
+          fromStart: false,
           fadeInSecs: 0,
           fadeOutSecs: 0,
           session: true,
@@ -196,6 +199,7 @@ export const exportAudioFile = async ({ page }) => {
         const faded = await window.mulch.exportAudio({
           ...spec,
           backSecs: fromTheStart(),
+          fromStart: false,
           fadeInSecs: fade,
           fadeOutSecs: fade,
         });
@@ -240,6 +244,7 @@ export const exportAudioFile = async ({ page }) => {
               await window.mulch.exportAudio({
                 ...spec,
                 backSecs: fromTheStart(),
+                fromStart: false,
                 session: false,
               })
             ).session === null,

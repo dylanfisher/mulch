@@ -167,6 +167,7 @@ const instance = (
       ...over.params,
     },
     automation: over.automation ?? {},
+    drawn: {},
     bounds: {},
   };
 };

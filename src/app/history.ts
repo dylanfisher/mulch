@@ -36,7 +36,13 @@ export type HistoryState = Readonly<{ canUndo: boolean; canRedo: boolean }>;
  * clone of the whole session, and the real edits behind them pushed off a cap of a hundred.
  */
 export const gestureOf = (cmd: Command): string | null => {
-  if (cmd.t === "param.set" || cmd.t === "automation.set") {
+  if (
+    cmd.t === "param.set" ||
+    cmd.t === "automation.set" ||
+    // A lane and what drew it are one hand on one dial: a draw sends both, and two entries for
+    // one press is the thing this key exists to prevent (0067, 0314).
+    cmd.t === "automation.drawn"
+  ) {
     return `${cmd.deck} ${paramKey(cmd.instance ?? null, cmd.param)}`;
   }
   return cmd.t === "deck.player" ? `${cmd.deck} player` : null;

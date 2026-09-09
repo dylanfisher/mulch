@@ -102,14 +102,18 @@ describe("ParameterKnob redraw", () => {
     try {
       const { instrument, wrapper, render } = renderKnob(null, 4, true, filed);
       const lane = () => instrument.probe().decks.a!.automation["deck.gain"]!;
+      const said = () => instrument.probe().decks.a!.drawn["deck.gain"] ?? null;
       menuOf(wrapper).menu.onDraw("pulse");
       const first = lane();
+      // The character is the session's now, and the menu is pressed on what it holds (0314).
+      expect(said()).toEqual({ character: "pulse", redraw: 0 });
       // Off counts nothing: no frame callback at all, the way an unautomated knob runs none.
-      expect(menuOf(render(first).wrapper).menu.every).toBe(0);
+      expect(menuOf(render(first, said()).wrapper).menu.drawn?.redraw).toBe(0);
       expect(frame).toBeNull();
 
-      menuOf(render(first).wrapper).menu.onEvery(2);
-      expect(menuOf(render(first).wrapper).menu.every).toBe(2);
+      menuOf(render(first, said()).wrapper).menu.onEvery(2);
+      expect(said()).toEqual({ character: "pulse", redraw: 2 });
+      expect(menuOf(render(first, said()).wrapper).menu.drawn?.redraw).toBe(2);
       const changed = () => instrument.ring().filter(({ t }) => t === "automation.changed").length;
       const before = changed();
       // One wrap is one pass, and the count is two: the lane stands through the first.
@@ -123,8 +127,10 @@ describe("ParameterKnob redraw", () => {
       expect(second).not.toEqual(first);
       expect(laneSpan(second)).toBe(laneSpan(first));
       expect(second[0]).toEqual(first[0]);
+      // The redraw carries the whole fact: the character and the count both stand (0314).
+      expect(said()).toEqual({ character: "pulse", redraw: 2 });
       // The count starts over with the lane it drew: the next wrap is the first pass again.
-      expect(menuOf(render(second).wrapper).menu.every).toBe(2);
+      expect(menuOf(render(second, said()).wrapper).menu.drawn?.redraw).toBe(2);
       tick(1);
       tick(0.1);
       expect(changed()).toBe(before + 1);
@@ -139,24 +145,32 @@ describe("ParameterKnob redraw", () => {
     held = true;
     try {
       const halted = renderKnob(null, 4, false);
+      const heldSaid = () => halted.instrument.probe().decks.a!.drawn["deck.gain"] ?? null;
       menuOf(halted.wrapper).menu.onDraw("smooth");
-      const drawn = halted.instrument.probe().decks.a!.automation["deck.gain"]!;
-      menuOf(halted.render(drawn).wrapper).menu.onEvery(1);
-      halted.render(drawn);
+      const standing = halted.instrument.probe().decks.a!.automation["deck.gain"]!;
+      menuOf(halted.render(standing, heldSaid()).wrapper).menu.onEvery(1);
+      halted.render(standing, heldSaid());
       expect(frame).toBeNull();
 
-      const { clock, instrument, wrapper, knob, render } = renderKnob(null, 4, true, filed);
-      menuOf(wrapper).menu.onEvery(1);
-      knob.onChange(0.25);
+      const { clock, instrument, wrapper, render } = renderKnob(null, 4, true, filed);
+      const lane = () => instrument.probe().decks.a!.automation["deck.gain"]!;
+      const said = () => instrument.probe().decks.a!.drawn["deck.gain"] ?? null;
+      menuOf(wrapper).menu.onDraw("smooth");
+      menuOf(render(lane(), said()).wrapper).menu.onEvery(1);
+      render(lane(), said());
+      expect(frame).not.toBeNull();
+
+      // A recording committing over a drawn lane lets the character go, so what a hand rode is
+      // never drawn again — the rule 0311 kept in a ref, now where the fact lives (0314).
+      const riding = render(lane(), said());
+      riding.knob.onChange(0.25);
       clock.set(5);
-      knob.onChange(1.25);
-      wrapper.onPointerUp();
-      const ridden = instrument.probe().decks.a!.automation["deck.gain"]!;
-      render(ridden);
-      const before = instrument.ring().filter(({ t }) => t === "automation.changed").length;
-      tick(0.9);
-      tick(0.1);
-      expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(before);
+      riding.knob.onChange(1.25);
+      riding.wrapper.onPointerUp();
+      const ridden = lane();
+      expect(said()).toBeNull();
+      render(ridden, said());
+      expect(frame).toBeNull();
       expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual(ridden);
     } finally {
       held = false;
@@ -216,6 +230,7 @@ describe("ParameterKnob span gesture", () => {
         param: "delay.mix",
         value: 0.5,
         lane: points,
+        drawn: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");

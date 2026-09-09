@@ -78,6 +78,9 @@ function flattened(blobId: BlobId, secs: number, player: SessionDeck["player"]):
     // to the sound a second time.
     params: { ...DECK_PARAM_DEFAULTS },
     automation: {},
+    // And nothing drew any of them, for the same reason: a lane that is in the samples now is a
+    // lane the yard no longer holds, so there is nothing left to redraw (0314).
+    drawn: {},
     effects: [],
     source: { blobId },
     loop: { in: 0, out: secs },

@@ -1,8 +1,14 @@
 /**
  * @role The deterministic command order for hydrating a durable deck preset through ordinary app
  *   behavior: sources, deck parameters, rack instances, their values, bypass, automation, then
- *   loops. One stage list serves startup restoration and clip application alike (0027).
+ *   loops, then what drew each of them. One stage list serves startup restoration and clip
+ *   application alike (0027).
  */
+// One stage per durable field a deck holds, plus the clears a rewrite owes and the two shared
+// expansions those stages and `effect.duplicate` both use: the length tracks how many durable
+// fields there are, not how much this file decides. `max-lines` has no per-site form, so this is
+// the only shape the waiver can take (0007, 0314).
+// oxlint-disable max-lines
 import {
   DECK_AUTOMATION_PARAM_IDS,
   DECK_PARAM_IDS,
@@ -107,6 +113,15 @@ const STAGES: readonly Stage[] = [
           : [{ t: "automation.set", deck, instance: entry.id, param, points: lane }];
       }),
     ),
+  // After the lanes, and it has to be: an empty `automation.set` clears the sibling beside it, so
+  // a drawn state written first is one the lane arriving would throw away (0314).
+  (deck, preset) =>
+    DECK_AUTOMATION_PARAM_IDS.flatMap((param) => {
+      const drawn = preset.drawn[param];
+      return drawn === undefined ? [] : [{ t: "automation.drawn", deck, param, drawn }];
+    }),
+  (deck, preset) =>
+    preset.effects.flatMap((entry) => drawnCommands(deck, entry.id, entry.effect, entry.drawn)),
   (deck, preset) =>
     preset.loop === null
       ? []
@@ -125,6 +140,26 @@ const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
  * a replayed file writes them the same way every time. The one expansion, shared by the stages
  * above and by the copy an `effect.duplicate` is (0092, 0208).
  */
+/**
+ * One instance's drawn state as the commands that put it there, in the plugin's own declared order:
+ * the one expansion, shared by the stage above and by the copy an `effect.duplicate` is, exactly as
+ * `boundsCommands` is (0092, 0314). It goes after that instance's lanes wherever it is used — an
+ * empty `automation.set` clears the sibling beside it.
+ */
+export function drawnCommands(
+  deck: DeckId,
+  instance: EffectInstanceId,
+  effect: SessionEffect["effect"],
+  drawn: SessionEffect["drawn"],
+): GroupedEditCommand[] {
+  return effectAutomationParamIds(effect).flatMap((param): GroupedEditCommand[] => {
+    const said = drawn[param];
+    return said === undefined
+      ? []
+      : [{ t: "automation.drawn", deck, instance, param, drawn: said }];
+  });
+}
+
 export function boundsCommands(
   deck: DeckId,
   instance: EffectInstanceId,
@@ -151,17 +186,23 @@ function clearedLanes(
 ): GroupedEditCommand[] {
   const commands: GroupedEditCommand[] = [];
   for (const param of DECK_AUTOMATION_PARAM_IDS) {
-    if (current.automation[param] === undefined) continue;
-    if (preset.automation[param] !== undefined) continue;
-    commands.push({ t: "automation.set", deck, param, points: [] });
+    if (current.automation[param] !== undefined && preset.automation[param] === undefined) {
+      commands.push({ t: "automation.set", deck, param, points: [] });
+    }
+    if (current.drawn[param] !== undefined && preset.drawn[param] === undefined) {
+      commands.push({ t: "automation.drawn", deck, param, drawn: null });
+    }
   }
   for (const entry of current.effects) {
     const kept = preset.effects.find((candidate) => candidate.id === entry.id);
     if (kept === undefined) continue;
     for (const param of effectAutomationParamIds(entry.effect)) {
-      if (entry.automation[param] === undefined) continue;
-      if (kept.automation[param] !== undefined) continue;
-      commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
+      if (entry.automation[param] !== undefined && kept.automation[param] === undefined) {
+        commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
+      }
+      if (entry.drawn[param] !== undefined && kept.drawn[param] === undefined) {
+        commands.push({ t: "automation.drawn", deck, instance: entry.id, param, drawn: null });
+      }
     }
     for (const param of BOUNDABLE_PARAM_IDS) {
       if (entry.bounds[param] === undefined) continue;
@@ -342,12 +383,14 @@ export function restoredSessionState(
       return {
         params: { ...stored.params },
         automation: structuredClone(stored.automation),
+        drawn: structuredClone(stored.drawn),
         effects: stored.effects.map((entry): SessionEffect => ({
           id: entry.id,
           effect: entry.effect,
           bypassed: entry.bypassed,
           params: { ...entry.params },
           automation: structuredClone(entry.automation),
+          drawn: structuredClone(entry.drawn),
           bounds: structuredClone(entry.bounds),
         })),
         source: stored.source === null ? null : { ...stored.source },

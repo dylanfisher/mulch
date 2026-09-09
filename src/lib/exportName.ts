@@ -83,10 +83,20 @@ export const exportNameField = (text: string): string =>
     .replaceAll(/^-|-$/gu, "");
 
 /**
+ * How many words of a yard's name reach a filename. A yard is named for a small scene now — an
+ * adjective, a plant, a place and, on a coin apiece, a time and a detail (0317) — and a field of a
+ * take's name is one word (above). The whole scene here is sixty characters, and the folder's byte
+ * cap cuts from the end, so it pushes the source field clean off: an export of a yard called
+ * "Wide Rowan behind the Compost Heap at First Light with Swifts" stopped saying what it was made
+ * of. The first two words are the yard's identity and the rest is the reading of it.
+ */
+const YARD_NAME_WORDS = 2;
+
+/**
  * What the Export Audio dialog offers as a name: four fields joined by `_`, each of them one word
  * — the local day, the app's own name with the local minute on it, the yard being exported said
- * the way the interface says it, and what it was made of. Derived every time the dialog opens and
- * stored nowhere — a name is not session state (P40).
+ * the way the interface says it — its first two words, `YARD_NAME_WORDS` — and what it was made
+ * of. Derived every time the dialog opens and stored nowhere: a name is not session state (P40).
  *
  * A field is one word because a filename is not a sentence: `2026-08-24_mulch-export-1911_Old-
  * Thicket_Dont-Stop-til-You-Get-Enough` is a name every filesystem, zip unpacker and download door
@@ -114,7 +124,8 @@ export const exportSourceName = (yard: string, made: string | null, when: Date):
   const stem =
     made === null ? "" : extension === undefined ? made : made.slice(0, -extension.length);
   const { day, minute } = exportDateStamp(when);
-  return [day, `${EXPORT_NAME_BASE}-${minute}`, yard, stem]
+  const named = yard.split(" ").slice(0, YARD_NAME_WORDS).join(" ");
+  return [day, `${EXPORT_NAME_BASE}-${minute}`, named, stem]
     .map((field) => exportNameField(field))
     .filter((field) => field.length > 0)
     .join(EXPORT_NAME_SEPARATOR);

@@ -19,11 +19,12 @@ export type NamePools = {
  * The pools each effect type's instances are named from, keyed by the registry's own effect id.
  * Two pools multiplied rather than one flat list of pairs, the way a yard's name already is
  * (P55): a rack of five delays runs out of distinct readings from eight fixed pairs and does not
- * from twelve adjectives times twelve nouns. The adjectives say what that kind of effect does — a
- * delay's about distance and return, a filter's about narrowing, an eq's about shaping — and the
- * noun pools are disjoint by construction, so a delay and a filter can never draw the same name.
- * Twelve of each is 144 readings per kind, so two instances of one kind reading alike is expected
- * somewhere past the twelfth rather than at the seventh (0149) — further than any rack goes.
+ * from twenty-four adjectives times twenty-four nouns. The adjectives say what that kind of effect
+ * does — a delay's about distance and return, a filter's about narrowing, an eq's about shaping —
+ * and the noun pools are disjoint by construction, so a delay and a filter can never draw the same
+ * name. Twenty-four of each is 576 readings per kind, so two instances of one kind reading alike is
+ * expected somewhere past the thirtieth rather than at the twelfth (0149, 0317) — further than any
+ * rack goes.
  *
  * Keyed by plain string because `EffectId` lives in `src/audio` and lib may not import it
  * (docs/map.md); that every registered effect has both pools is checked where both are reachable,
@@ -32,88 +33,124 @@ export type NamePools = {
 export const EFFECT_NAMES: Record<string, NamePools> = {
   delay: {
     adjectives: words(
-      "Far Returning Echoing Trailing Distant Answering Repeating Lagging Ringing Bouncing Doubling Following",
+      "Far Returning Echoing Trailing Distant Answering Repeating Lagging Ringing Bouncing Doubling Following " +
+        "Rebounding Receding Reflecting Calling Tolling Carrying Sounding Waning Recurring Circling Retracing Rippling",
     ),
     nouns: words(
-      "Well Barrel Steps Hollow Path Fence Corridor Ravine Cistern Landing Alley Cavern",
+      "Well Barrel Steps Hollow Path Fence Corridor Ravine Cistern Landing Alley Cavern " +
+        "Culvert Tunnel Archway Gully Shaft Vault Passage Stairwell Conduit Cloakroom Pantry Trench",
     ),
   },
   filter: {
     adjectives: words(
-      "Narrow Close Shaded Winnowed Woven Tight Combed Strained Pinched Cropped Slotted Threaded",
+      "Narrow Close Shaded Winnowed Woven Tight Combed Strained Pinched Cropped Slotted Threaded " +
+        "Sifted Filtered Narrowed Guarded Slimmed Trimmed Barred Screened Fined Culled Hemmed Notched",
     ),
-    nouns: words("Hedge Trellis Sieve Gate Screen Lattice Grille Mesh Weir Vent Louvre Riddle"),
+    nouns: words(
+      "Hedge Trellis Sieve Gate Screen Lattice Grille Mesh Weir Vent Louvre Riddle " +
+        "Colander Strainer Netting Filter Baffle Damper Shutter Gauze Wicket Portcullis Fretwork Slat",
+    ),
   },
   eq: {
     adjectives: words(
-      "Tilted Raised Banked Carved Terraced Levelled Leaning Graded Tiered Shaped Dished Stepped",
+      "Tilted Raised Banked Carved Terraced Levelled Leaning Graded Tiered Shaped Dished Stepped " +
+        "Sloped Contoured Moulded Hollowed Rounded Furrowed Ramped Crowned Cambered Scooped Ridged Planed",
     ),
-    nouns: words("Bed Spiral Trap Border Mound Verge Ridge Trough Plot Slope Swale Shelf"),
+    nouns: words(
+      "Bed Spiral Trap Border Mound Verge Ridge Trough Plot Slope Swale Shelf " +
+        "Berm Bund Embankment Knoll Hummock Dell Rill Camber Gradient Contour Incline Scarp",
+    ),
   },
   compressor: {
     adjectives: words(
-      "Flattened Packed Tamped Crushed Cramped Held Squeezed Compact Weighted Cinched Firm Loaded",
+      "Flattened Packed Tamped Crushed Cramped Held Squeezed Compact Weighted Cinched Firm Loaded " +
+        "Pressed Bound Gripped Levelled Steadied Braced Clamped Wedged Stacked Baled Tightened Pinned",
     ),
-    nouns: words("Bale Press Clamp Roller Sack Crate Vice Barrow Bundle Churn Mangle Kiln"),
+    nouns: words(
+      "Bale Press Clamp Roller Sack Crate Vice Barrow Bundle Churn Mangle Kiln " +
+        "Pallet Drum Hopper Winch Jack Anvil Bench Trolley Hamper Bin Cask Vat",
+    ),
   },
   reverb: {
     adjectives: words(
-      "Open Wide Vaulted Drifting Washed Carrying Hollowed Spacious Cavernous Billowing Airy Lofted",
+      "Open Wide Vaulted Drifting Washed Carrying Hollowed Spacious Cavernous Billowing Airy Lofted " +
+        "Roomy Swelling Resounding Sprawling Boundless Yawning Soaring Expansive Distant Unwalled Immense Broad",
     ),
     nouns: words(
-      "Barn Chamber Silo Grotto Cloister Meadow Hall Quarry Cellar Courtyard Basin Glasshouse",
+      "Barn Chamber Silo Grotto Cloister Meadow Hall Quarry Cellar Courtyard Basin Glasshouse " +
+        "Nave Rotunda Atrium Granary Stable Dovecote Orangery Hangar Loft Undercroft Belfry Concourse",
     ),
   },
   tape: {
     adjectives: words(
-      "Worn Warped Slackened Smudged Aged Slipping Faded Creased Wavering Sagging Dusted Grainy",
+      "Worn Warped Slackened Smudged Aged Slipping Faded Creased Wavering Sagging Dusted Grainy " +
+        "Weathered Flaking Blurred Frayed Yellowed Softened Drifting Muddied Rumpled Bleached Speckled Tarnished",
     ),
-    nouns: words("Reel Spool Ribbon Furrow Coil Loam Groove Thread Winder Strand Bobbin Rut"),
+    nouns: words(
+      "Reel Spool Ribbon Furrow Coil Loam Groove Thread Winder Strand Bobbin Rut " +
+        "Skein Hank Twine Filament Braid Cord Fibre Yarn Wick Tress Cable Lace",
+    ),
   },
   pop: {
     adjectives: words(
-      "Bright Sprung Quickened Crisp Snapping Lifted Keen Springing Sharpened Brisk Startled Perked",
+      "Bright Sprung Quickened Crisp Snapping Lifted Keen Springing Sharpened Brisk Startled Perked " +
+        "Pert Zesty Buoyant Nimble Lively Tingling Peppy Alert Vivid Snappy Bouncing Chipper",
     ),
-    nouns: words("Husk Pod Shoot Snap Spark Bud Crackle Kernel Sprig Flint Bristle Burr"),
+    nouns: words(
+      "Husk Pod Shoot Snap Spark Bud Crackle Kernel Sprig Flint Bristle Burr " +
+        "Pip Seed Stone Cone Catkin Nutlet Acorn Grain Pellet Spore Cracker Fizz",
+    ),
   },
   scatter: {
     adjectives: words(
-      "Scattered Strewn Broken Flung Torn Sprinkled Shed Tumbled Sifted Chopped Loosed Spilled",
+      "Scattered Strewn Broken Flung Torn Sprinkled Shed Tumbled Sifted Chopped Loosed Spilled " +
+        "Dispersed Tossed Shredded Dashed Cast Dropped Sown Splintered Sundered Scuffed Flurried Riddled",
     ),
     nouns: words(
-      "Chaff Shard Clipping Litter Scree Gravel Thatch Windrow Sweepings Grit Splinter Siftings",
+      "Chaff Shard Clipping Litter Scree Gravel Thatch Windrow Sweepings Grit Splinter Siftings " +
+        "Sawdust Crumbs Peelings Trimmings Prunings Shavings Confetti Dander Fluff Motes Specks Flecks",
     ),
   },
   crush: {
     adjectives: words(
-      "Coarse Gritted Notched Rough Bitten Blunted Chipped Crumbled Cindered Jagged Pitted Ragged",
+      "Coarse Gritted Notched Rough Bitten Blunted Chipped Crumbled Cindered Jagged Pitted Ragged " +
+        "Gnarled Abrasive Scoured Splintery Harsh Craggy Flinty Scabbed Grainy Bristly Rasping Serrated",
     ),
-    nouns: words("Clinker Cinder Slag Rubble Shingle Clod Ash Char Silt Hardpan Terrace Cobble"),
+    nouns: words(
+      "Clinker Cinder Slag Rubble Shingle Clod Ash Char Silt Hardpan Terrace Cobble " +
+        "Ballast Aggregate Macadam Breccia Scoria Pumice Slate Quartzite Basalt Gritstone Chippings Boulder",
+    ),
   },
   sway: {
     adjectives: words(
-      "Swung Loose Rolling Lolling Tilting Wobbling Reeling Swinging Slack Nodding Lurching Yawing",
+      "Swung Loose Rolling Lolling Tilting Wobbling Reeling Swinging Slack Nodding Lurching Yawing " +
+        "Rocking Teetering Bobbing Waving Dipping Listing Careening Swaying Wagging Heaving Drooping Pitching",
     ),
     nouns: words(
-      "Reed Willow Pendulum Hammock Bough Rope Sedge Bulrush Weathervane Boom Cradle Tide",
+      "Reed Willow Pendulum Hammock Bough Rope Sedge Bulrush Weathervane Boom Cradle Tide " +
+        "Swing Chime Banner Streamer Pennant Rocker Seesaw Trapeze Halyard Osier Sapling Whip",
     ),
   },
   shift: {
     adjectives: words(
-      "Risen Fallen Octave Transposed Higher Lower Hollow Doubled Detuned Sharpened Flattened Bent",
+      "Risen Fallen Octave Transposed Higher Lower Hollow Doubled Detuned Sharpened Flattened Bent " +
+        "Shifted Raised Dropped Tuned Voiced Tilted Slid Warped Pitched Curved Bowed Skewed",
     ),
     nouns: words(
-      "Fifth Octave Interval Register Voice Chorister Descant Drone Semitone Cent Step Ladder",
+      "Fifth Octave Interval Register Voice Chorister Descant Drone Semitone Cent Step Ladder " +
+        "Third Seventh Tonic Scale Chord Harmony Unison Cadence Motif Refrain Verse Chant",
     ),
   },
   // The one entry that names a run of other effects rather than a sound of its own, so its
   // adjectives say how a thing grows and its nouns are the places growing happens (0081, 0204).
   automator: {
     adjectives: words(
-      "Creeping Turning Seeding Drifting Spreading Rotating Volunteer Sprawling Wandering Unruly Roving Shifting",
+      "Creeping Turning Seeding Drifting Spreading Rotating Volunteer Sprawling Wandering Unruly Roving Shifting " +
+        "Straying Rambling Climbing Colonising Encroaching Trailing Seeking Advancing Prowling Meandering Multiplying Overrunning",
     ),
     nouns: words(
-      "Wilding Runner Sprawl Volunteer Copse Bramble Windfall Allotment Weald Spinney Coppice Glade",
+      "Wilding Runner Sprawl Volunteer Copse Bramble Windfall Allotment Weald Spinney Coppice Glade " +
+        "Scrubland Heathland Wasteland Fallow Commons Hedgebank Outcrop Clearing Warren Meadowland Undergrowth Wayside",
     ),
   },
 };
@@ -155,21 +192,31 @@ export type NamedTier = "song" | "part";
 
 /**
  * The pools each tier of an arrangement names its rows from, exactly as an effect instance is
- * named (0081): two pools multiplied, twelve of each, and nouns disjoint from every other pool in
- * this file so a name read on its own says which tier it names. The adjectives narrow as the tiers
+ * named (0081): two pools multiplied, twenty-four of each, and nouns disjoint from every other pool
+ * in this file so a name read on its own says which tier it names. The adjectives narrow as the tiers
  * do — a song's say how one bed is coming on, a part's how one small thing on it looks — and the
  * nouns are the same ground read at two distances: a bed, a single growing thing.
  */
 export const TIER_NAMES: Record<NamedTier, NamePools> = {
   song: {
     adjectives: words(
-      "Flowering Ripening Budding Climbing Sunlit Early Late Quiet Nodding Swaying Tangled Sown",
+      "Flowering Ripening Budding Climbing Sunlit Early Late Quiet Nodding Swaying Tangled Sown " +
+        "Blooming Fruiting Leafing Shaded Dappled Sheltered Wintering Trailing Rustling Drowsy Mellow Thriving",
     ),
-    nouns: words("Patch Row Stand Clump Tuft Corner Arbour Bower Pergola Grove Walk Bank"),
+    nouns: words(
+      "Patch Row Stand Clump Tuft Corner Arbour Bower Pergola Grove Walk Bank " +
+        "Parterre Knot Avenue Alcove Nook Glen Rockery Pasture Orchard Vineyard Nursery Enclosure",
+    ),
   },
   part: {
-    adjectives: words("Young Tender Short Slender Fresh Trimmed Curling Green Pale Fine Soft Neat"),
-    nouns: words("Leaf Stem Root Petal Frond Tendril Blade Stalk Sepal Node Bulb Seedling"),
+    adjectives: words(
+      "Young Tender Short Slender Fresh Trimmed Curling Green Pale Fine Soft Neat " +
+        "Tiny Slight Downy Silken Supple Bright Narrow Delicate Smooth Trim Wispy Slim",
+    ),
+    nouns: words(
+      "Leaf Stem Root Petal Frond Tendril Blade Stalk Sepal Node Bulb Seedling " +
+        "Bract Stipule Rhizome Corm Anther Stamen Pistil Ovule Cotyledon Nodule Whisker Fibril",
+    ),
   },
 };
 
@@ -190,9 +237,9 @@ export const tierName = (tier: NamedTier, id: string): string =>
  * nothing.
  *
  * Stepped rather than folded again, because the two indices are one number's remainder and
- * quotient: adding one walks the adjectives and carries into the nouns, so 144 attempts reach all
- * 144 readings exactly once and a free one is never missed while one exists. Bounded by that
- * product and falling back to the first draw when it is spent, which is a list of 144 siblings and
+ * quotient: adding one walks the adjectives and carries into the nouns, so 576 attempts reach all
+ * 576 readings exactly once and a free one is never missed while one exists. Bounded by that
+ * product and falling back to the first draw when it is spent, which is a list of 576 siblings and
  * a name repeated rather than a loop that will not end (principle 5). A row a hand has renamed is
  * not in `taken` unless it happens to wear a drawn name, which is the right answer either way:
  * what is avoided is a reading appearing twice.

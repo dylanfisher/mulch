@@ -5,14 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 
 import { paramReachable } from "@/audio/params";
 import { MAX_LANE_SPAN, MIN_LANE_SPAN } from "@/lib/automation";
+import type { MotionDrawn } from "@/lib/motion";
 import type { SessionRepository } from "@/state/repository";
-import { sessionSnapshot, type Session } from "@/state/session";
+import { sessionSnapshot, validateSession, type Session } from "@/state/session";
 import { deckIdsOf, fromDecks } from "@/state/store";
 import { manualClock } from "./clock";
+import type { Command } from "./commands";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 import { instanceIn } from "./rackProbe";
+import { restorationCommands } from "./restore";
 
 /** One instance of deck a, or a loud miss — the (instance, param) half of every lookup below. */
 
@@ -46,6 +49,19 @@ const engineDouble = (scheduled: unknown[][]): Engine =>
         discard: () => {},
       }),
   });
+
+/**
+ * One `automation.drawn` off the wire, where a stale macro can say anything — and the two halves
+ * this build owns are exactly what the guard checks.
+ */
+const drawnSaying = (character: string, redraw: number): Command => ({
+  t: "automation.drawn",
+  deck: "a",
+  param: "deck.gain",
+  // The point of the case is a pair the union does not admit.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  drawn: { character, redraw } as MotionDrawn,
+});
 
 // The generic effect-parameter path: one reachability rule, one command, and lanes that belong
 // to the instance holding them (0024, 0030).
@@ -309,6 +325,138 @@ describe("automation.set", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// What drew a lane, beside the lane rather than inside it: one value per (instance, param), set
+// by two writers, cleared by the lane going away (0314).
+// oxlint-disable-next-line max-lines-per-function
+describe("automation.drawn", () => {
+  const points = [
+    { at: 0, value: 0.25 },
+    { at: 1, value: 0.75 },
+  ];
+  const drawn = { character: "pulse", redraw: 4 } as const;
+
+  it("writes and clears the sibling of the lane it names, on the deck and on an instance", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      points,
+    });
+    instrument.send({
+      t: "automation.drawn",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      drawn: { character: "creep", redraw: 1 },
+    });
+
+    expect(instrument.probe().decks.a!.drawn).toEqual({ "deck.gain": drawn });
+    expect(instanceIn(instrument, "one").drawn).toEqual({
+      "delay.mix": { character: "creep", redraw: 1 },
+    });
+    // Its own object, not the command's: a caller holding the command must not be able to move
+    // what the session holds.
+    expect(instrument.probe().decks.a!.drawn["deck.gain"]).not.toBe(drawn);
+
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn: null });
+    expect(instrument.probe().decks.a!.drawn).toEqual({});
+    expect(instrument.ring().filter(({ t }) => t === "automation.drawn")).toHaveLength(3);
+  });
+
+  // 0311's rule, written where the fact lives: a lane cleared is a lane nothing drew, and a lane
+  // replaced is one whose character still stands.
+  it("goes with an emptied lane and stands through one that arrives with points", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn });
+
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      param: "deck.gain",
+      points: [
+        { at: 0, value: 0.5 },
+        { at: 2, value: 1 },
+      ],
+    });
+    expect(instrument.probe().decks.a!.drawn).toEqual({ "deck.gain": drawn });
+
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: [] });
+    expect(instrument.probe().decks.a!.drawn).toEqual({});
+  });
+
+  it("is durable: it survives a snapshot, a restore and an undo", async () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn });
+    // The lane and what drew it carry one gesture key, so they are one entry until the hand lets
+    // go — which is what makes a draw one press to undo (0067, 0314).
+    instrument.send({ t: "gesture.end" });
+    await turns();
+
+    const stored = sessionSnapshot(instrument.probe());
+    expect(stored.decks.a!.drawn).toEqual({ "deck.gain": drawn });
+    // The one validator every stored session goes through, so a knob that was redrawing when the
+    // tab closed is one an archive can carry back (0026, 0314).
+    expect(() => {
+      validateSession(structuredClone(stored));
+    }).not.toThrow();
+
+    const restored = createInstrument(manualClock());
+    for (const command of restorationCommands(stored)) restored.send(command);
+    await turns();
+    expect(restored.probe().decks.a!.drawn).toEqual({ "deck.gain": drawn });
+
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn: null });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+    expect(instrument.probe().decks.a!.drawn).toEqual({});
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a!.drawn).toEqual({ "deck.gain": drawn });
+  });
+
+  it("refuses a character or a count this build does not offer", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    expect(() => {
+      instrument.send(drawnSaying("lolloping", 1));
+    }).toThrow(/character is not a character/u);
+    expect(() => {
+      instrument.send(drawnSaying("pulse", 3));
+    }).toThrow(/redraw is not a count/u);
+    // And a lane to be about: what drew a lane exists exactly while that lane does, so a drawn
+    // state on a parameter holding none is a fact about nothing (0314).
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.pan", points: [] });
+    instrument.send({
+      t: "automation.drawn",
+      deck: "a",
+      param: "deck.pan",
+      drawn: { character: "creep", redraw: 1 },
+    });
+    expect(instrument.probe().decks.a!.drawn["deck.pan"]).toBeUndefined();
+    expect(instrument.ring().at(-1)).toMatchObject({ t: "error" });
+
+    // And nothing but the two halves: an extra key off the wire is refused rather than stored,
+    // through the one assert the stored session is checked by (0314).
+    expect(() => {
+      instrument.send({
+        t: "automation.drawn",
+        deck: "a",
+        param: "deck.gain",
+        // oxlint-disable-next-line no-unsafe-type-assertion
+        drawn: { character: "pulse", redraw: 1, extra: 1 } as unknown as MotionDrawn,
+      });
+    }).toThrow(/expected \[character, redraw\]/u);
+    expect(instrument.probe().decks.a!.drawn).toEqual({});
   });
 });
 

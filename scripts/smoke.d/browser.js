@@ -21,6 +21,7 @@ import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
 import { groundDrag, longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
+import { motionDrawn } from "./motion.js";
 import { narrowShell } from "./narrow.js";
 import { exportAudioFile, SETTLE_ASK_SECS } from "./exportAudio.js";
 import { exportReleasesSamples } from "./exportRelease.js";
@@ -176,7 +177,10 @@ const LANES = [
         return deck.loop !== null && deck.effects.length === 1;
       });
     },
-    scenarios: [driftOpens, playerRate, narrowShell, fixedHeader, commandPalette],
+    // ./motion.js last in this lane, and it has to be: the global Stop it presses returns the
+    // session's elapsed run to nought (0315), and every scenario ahead of it reads a page that has
+    // been performing for as long as the lane has been running.
+    scenarios: [driftOpens, playerRate, narrowShell, fixedHeader, commandPalette, motionDrawn],
   },
 ];
 

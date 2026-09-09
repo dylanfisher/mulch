@@ -236,8 +236,9 @@ export function Deck({
   const arrangeFold = useHeld(true);
   /** And the song section inside that card, held here for the same reason again: it is drawn
    *  under the card's fold, so a fold of its own would be forgotten every time that one closed
-   *  (0157). */
-  const songFold = useHeld(false);
+   *  (0157) — and shut to begin with like its three siblings, because what stands open on a card
+   *  is the front (0217). */
+  const songFold = useHeld(true);
   /** And what of that song is picked for the row under the grid — the song, and the part the
    *  card's dials are pointed at — held here for the same reason again: a fold may put the
    *  section away, and a pick that went with it would be a hand's aim forgotten by a caret
@@ -272,8 +273,8 @@ export function Deck({
   const load = useCallback(
     (source: GenSource) => {
       // A refusal is about what the yard is holding, and this changes that: left standing, the
-      // words "Import failed" would sit beside a control reading `sine`, in the header, forever
-      // — the one place with no gesture that dismisses it (P98).
+      // words "Import failed" would sit beside a control reading `sine`, on this card, forever —
+      // the one place with no gesture that dismisses it (P98).
       setImportError(null);
       instrument.send({ t: "deck.load", deck, source });
     },
@@ -300,6 +301,10 @@ export function Deck({
     (file: File) => {
       setImportError(null);
       void importDeckFile(instrument, deck, file).catch((error: unknown) => {
+        // The yard's own refusal, drawn on the yard's own card rather than in a toast: it names
+        // the codec of the file this card is holding, which is where a hand is looking (P98).
+        // What 0316 replaced is the *header's* span, which said a session's failures nowhere near
+        // the gesture that caused them.
         setImportError(failedMessage("Import", error));
       });
     },
@@ -499,6 +504,7 @@ export function Deck({
                   param={param}
                   value={shown.params[param]}
                   lane={(isAutomationParam(param) ? shown.automation[param] : undefined) ?? null}
+                  drawn={(isAutomationParam(param) ? shown.drawn[param] : undefined) ?? null}
                   playing={shown.playing}
                 />
               ))}

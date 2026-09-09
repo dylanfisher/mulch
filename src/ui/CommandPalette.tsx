@@ -31,7 +31,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { setPaletteOpen, toggleDebugConsole, usePaletteOpen } from "@/ui/shortcuts";
 import { nextTheme, setTheme, useTheme, type Theme } from "@/ui/theme";
 import { THEME_ICONS } from "@/ui/ThemeToggle";
-import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
+import { INSTANT_POPUP } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
 
 /** One row of the palette: what it is called, the picture the action already has, and the doing. */
@@ -78,12 +78,10 @@ export function paletteEntries(
   state: SessionState,
   {
     instrument,
-    onError,
     onExportAudio,
     theme,
   }: {
     instrument: Instrument;
-    onError: ReportError;
     onExportAudio: () => void;
     theme: Theme;
   },
@@ -157,7 +155,7 @@ export function paletteEntries(
       label: EXPORT_SESSION,
       icon: ACTION_ICONS.exportSession,
       run: () => {
-        void exportSession(instrument, onError);
+        void exportSession(instrument);
       },
     },
     // The two view preferences: no command, nothing durable, no history entry (§2). Each calls
@@ -224,7 +222,6 @@ function PaletteItem({ entry }: { entry: PaletteEntry }) {
 
 type PaletteProps = {
   instrument: Instrument;
-  onError: ReportError;
   onExportAudio: () => void;
 };
 
@@ -234,7 +231,7 @@ type PaletteProps = {
  * `param.set` a knob drag sends — a subscription living here rather than in the shell means a
  * closed palette rebuilds nothing under a drag it cannot be seen during (§2, P42).
  */
-function PaletteBody({ instrument, onError, onExportAudio }: PaletteProps) {
+function PaletteBody({ instrument, onExportAudio }: PaletteProps) {
   const theme = useTheme();
   // Where the dialog puts focus when it opens. Not `autoFocus` on the input: that attribute is
   // a usability trap on an ordinary page, and this is the dialog's own initial focus, which Base
@@ -242,7 +239,7 @@ function PaletteBody({ instrument, onError, onExportAudio }: PaletteProps) {
   const filter = useRef<HTMLInputElement | null>(null);
   const read = useCallback(() => instrument.state.getState(), [instrument]);
   const state = useSyncExternalStore(instrument.state.subscribe, read, read);
-  const entries = paletteEntries(state, { instrument, onError, onExportAudio, theme });
+  const entries = paletteEntries(state, { instrument, onExportAudio, theme });
 
   return (
     <>

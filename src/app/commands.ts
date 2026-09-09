@@ -2,6 +2,10 @@
  * @role The command union and its envelope — the only way anything changes, JSON-serialisable
  *       by construction so a file of commands is a test, a macro and a repro.
  */
+// One import per durable shape a command carries, which is what the union is: the count is how
+// many kinds of thing the instrument can be told about, not how much this file decides. The rule
+// has no per-site form, so this is the only shape the waiver can take (0007).
+// oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
 import type { SessionGround } from "@/lib/sessionGround";
 import type { SongPartId } from "@/lib/playerSong";
@@ -10,6 +14,7 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { BlobId, SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
+import type { MotionDrawn } from "@/lib/motion";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
@@ -66,6 +71,19 @@ export type DurableEditCommand =
       instance?: EffectInstanceId;
       param: ParamId;
       points: AutomationPoint[];
+    }
+  /**
+   * What drew the lane at that (instance, param), or null for one nothing drew. One command
+   * rather than one per field: the count is set without redrawing and the character is set only
+   * by a draw, so they are two writers of one fact and each carries the whole of it (0314). A
+   * lane cleared clears this beside it, in `automation.set`'s own reducer.
+   */
+  | {
+      t: "automation.drawn";
+      deck: DeckId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      drawn: MotionDrawn | null;
     }
   // The length the lane it names repeats on, rewritten after the fact: the gesture's shape is
   // kept and every point's time is scaled onto this span, so a lane recorded once is sped up or
@@ -177,6 +195,14 @@ export type Command =
    */
   | { t: "effect.dismiss"; deck: DeckId; instance: EffectInstanceId; place: EffectInstanceId }
   | { t: "session.save" }
+  /**
+   * The elapsed run back to nought: what `probe().at` and `stats().at` read, and so where an
+   * export's take begins, is measured from here. Not durable and not the graph's — the audio
+   * clock cannot be rewound and nothing in the session moves; it is the session's own reading of
+   * how long this performance has been going, which the global Stop ends (0315). A yard's own
+   * stop sends none: one yard stopping is not the session ending (P66).
+   */
+  | { t: "session.rewind" }
   // A hand let go. Not durable and not transport: it closes whatever history transaction the
   // drag it ends had open, which is the boundary that makes one drag one entry (0067). Sending
   // it with nothing open changes nothing, so a replayed file never has to know what was held.

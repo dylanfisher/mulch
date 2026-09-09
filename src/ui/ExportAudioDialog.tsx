@@ -1,7 +1,7 @@
 /**
- * @role The Export Audio dialog: the six things an export is — a name, a length, where behind the
- *   ear it begins, a fade at each end, and whether the session leaves in the folder beside the
- *   audio — collected once and handed to the render.
+ * @role The Export Audio dialog: the seven things an export is — a name, a length, where behind
+ *   the ear it begins or whether it begins at the top, a fade at each end, and whether the session
+ *   leaves in the folder beside the audio — collected once and handed to the render.
  * @instead What an export actually does → src/app/exportAudio.ts, which turns the session into
  *   commands and renders them through the one harness. Who owns and opens this → src/ui/App.tsx,
  *   because two surfaces reach it (src/ui/FileMenu.tsx and src/ui/CommandPalette.tsx) and two
@@ -31,10 +31,10 @@ import {
 import type { Instrument } from "@/app/facade";
 import {
   EXPORT_AUDIO,
+  EXPORT_FROM_START,
   EXPORT_WITH_SESSION,
   exportBusySaid,
   exportTakesSaid,
-  failedMessage,
   type RenderProgress,
 } from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
@@ -51,7 +51,8 @@ import { Field, FieldLabel } from "@/ui/components/field";
 import { Input } from "@/ui/components/input";
 import { toast } from "@/ui/components/toast";
 import { downloadFile, downloadFolder } from "@/ui/download";
-import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
+import { reportFailure } from "@/ui/report";
+import { INSTANT_POPUP } from "@/ui/shell";
 import { sessionSnapshot } from "@/state/session";
 
 /** The longest a length's minutes field can name, which is the same hour in the other unit. */
@@ -69,6 +70,7 @@ function NumberField({
   max,
   value,
   onInput,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -77,6 +79,8 @@ function NumberField({
   min?: number;
   max: number;
   value: number;
+  /** Greyed rather than hidden: a field a checkbox has answered for still says what it was. */
+  disabled?: boolean;
   onInput: (value: number) => void;
 }) {
   const onChange = useCallback(
@@ -96,6 +100,7 @@ function NumberField({
         max={max}
         step="any"
         defaultValue={value}
+        disabled={disabled}
         onChange={onChange}
       />
     </Field>
@@ -113,6 +118,7 @@ function SecondsField({
   floor = 0,
   value,
   onCommit,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -120,6 +126,8 @@ function SecondsField({
    *  for the offset, where a negative number begins the take that far past the ear. */
   floor?: number;
   value: number;
+  /** Passed through to the input: the offset field is answered for while the box is checked. */
+  disabled?: boolean;
   onCommit: (value: number) => void;
 }) {
   const onInput = useCallback(
@@ -138,6 +146,7 @@ function SecondsField({
       min={floor}
       max={EXPORT_MAX_SECS}
       value={value}
+      disabled={disabled}
       onInput={onInput}
     />
   );
@@ -149,17 +158,15 @@ function SecondsField({
  * — an export spec is not session state and survives nothing, least of all a yard loaded after it
  * was last looked at (P40).
  */
-// The six fields, their commits and the one action they add up to. The length tracks how much
+// The fields, their commits and the one action they add up to. The length tracks how much
 // an export spec holds, not how much this decides — 0007.
 // oxlint-disable-next-line max-lines-per-function
 export function ExportAudioForm({
   instrument,
   onClose,
-  onError,
 }: {
   instrument: Instrument;
   onClose: () => void;
-  onError: ReportError;
 }) {
   // The wall clock, read where the dialog is built: the date in the offered name is when the take
   // was asked for, and the state hook keeps whatever the first render offered (P95).
@@ -169,14 +176,16 @@ export function ExportAudioForm({
   const [secs, setSecs] = useState(defaultExportSecs());
   /**
    * How far behind the ear the take begins — negative to begin it that far past the ear — and how
-   * long the performance has been running, the
-   * second of which is what the first is subtracted from. The elapsed seconds are read as the
-   * dialog is built, the way the date in the offered name is (P95): the export reads them again
-   * when the button is pressed, so the line below says which seconds a take asked for now would
-   * hold rather than which seconds a take asked for at some later minute will.
+   * long the performance has been running, which is what that is subtracted from. The elapsed
+   * seconds are read as the dialog is built, the way the date in the offered name is (P95): the
+   * export reads them again when the button is pressed, so the line below says which seconds a
+   * take asked for now would hold rather than which a take asked for a minute later will.
    */
   const [backSecs, setBackSecs] = useState(0);
-  const [elapsedSecs] = useState(instrument.stats().at);
+  /** Whether the take begins at the top: a way of saying the offset above, not a second path
+   *  through the take, so while it is checked that field is answered for and greyed (0315). */
+  const [fromStart, setFromStart] = useState(false);
+  const [elapsedSecs] = useState(instrument.probe().at);
   /**
    * How long this session has to settle, read once with the clock above it and for the same
    * reason: what the estimate underneath is a claim about is the render the door will run, and
@@ -224,11 +233,11 @@ export function ExportAudioForm({
   }, []);
 
   const onExport = useCallback(async () => {
-    onError(null);
     const spec: ExportSpec = {
       name,
       secs,
       backSecs,
+      fromStart,
       fadeInSecs,
       fadeOutSecs,
       session: withSession,
@@ -253,21 +262,21 @@ export function ExportAudioForm({
           `${from.minutes}m ${from.seconds}s in`,
       });
     } catch (reason) {
-      onError(failedMessage("Audio export", reason));
+      reportFailure("Audio export", reason);
     } finally {
-      // Closed either way: a failure is said in the header row, which this box is sitting on top
-      // of, so leaving it open would hide the one thing that went wrong (principle 5).
+      // Closed either way: a failure is a toast, which this box is sitting on top of, so leaving
+      // it open would hide the one thing that went wrong (principle 5, 0316).
       onClose();
     }
     // oxlint-disable-next-line react/memo-dependencies
-  }, [backSecs, fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs, withSession]);
+  }, [backSecs, fromStart, fadeInSecs, fadeOutSecs, instrument, name, onClose, secs, withSession]);
 
   /**
    * Which seconds of the performance the take is about to hold, said before it is rendered rather
    * than discovered in the file: a lookback longer than the performance, or one the hour cannot
    * reach back over, is a take of a different part and not an error (principle 5).
    */
-  const take = exportTake(elapsedSecs, { backSecs, secs }, settleSecs);
+  const take = exportTake(elapsedSecs, { backSecs, secs, fromStart }, settleSecs);
   const takesSaid = exportTakesSaid(renderSecsOf(take), lastRate);
   const begins = exportLengthFields(Math.round(take.beginsSecs));
   const said =
@@ -309,6 +318,12 @@ export function ExportAudioForm({
           {takesSaid}
         </p>
       )}
+      {/* Above the field it answers for, not in place of it: the number stays visible and grey
+          rather than disappearing (0315). */}
+      <Field orientation="horizontal">
+        <Checkbox id="export-audio-from-start" checked={fromStart} onCheckedChange={setFromStart} />
+        <FieldLabel htmlFor="export-audio-from-start">{EXPORT_FROM_START}</FieldLabel>
+      </Field>
       <div className="grid grid-cols-2 gap-4">
         {/* The one field here that is an offset rather than a length: a positive number begins the
             take that far behind the ear and a negative one that far past it, which is the only way
@@ -318,6 +333,7 @@ export function ExportAudioForm({
           label="Start Offset (Seconds Ago)"
           floor={-EXPORT_MAX_SECS}
           value={backSecs}
+          disabled={fromStart}
           onCommit={setBackSecs}
         />
         <p className="self-end type-readout text-muted-foreground">{said}</p>
@@ -357,12 +373,10 @@ export function ExportAudioDialog({
   instrument,
   open,
   onOpenChange,
-  onError,
 }: {
   instrument: Instrument;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onError: ReportError;
 }) {
   const onClose = useCallback(() => {
     onOpenChange(false);
@@ -379,7 +393,7 @@ export function ExportAudioDialog({
             Renders the performance offline through the same signal path it plays through.
           </DialogDescription>
         </DialogHeader>
-        <ExportAudioForm instrument={instrument} onClose={onClose} onError={onError} />
+        <ExportAudioForm instrument={instrument} onClose={onClose} />
       </DialogContent>
     </Dialog>
   );

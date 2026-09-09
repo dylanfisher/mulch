@@ -7,7 +7,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DECK_PARAM_DEFAULTS, effectParamDefaults } from "@/audio/params";
-import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { Session } from "@/state/session";
 import { sessionBlobIds, sessionSnapshot } from "@/state/session";
@@ -338,6 +339,7 @@ describe("restoration and autosave", () => {
           bypassed: false,
           params: effectParamDefaults("filter", "flt"),
           automation: {},
+          drawn: {},
           bounds: {},
         },
       ],

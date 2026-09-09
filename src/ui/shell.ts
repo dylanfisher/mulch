@@ -52,10 +52,3 @@ export const INSTANT_POPUP = "duration-0";
  * the way a per-surface width once did (0074). What a surface arranges inside it stays its own.
  */
 export const SHELL_BODY = `mx-auto px-6 py-8 ${SHELL_WIDTH}`;
-
-/**
- * Where a surface says out loud that something did not go: the header row draws it, because the
- * menu or dialog that caused it has already shut. `null` clears the last one. One value travels
- * the whole prop chain and seven signatures used to describe it separately.
- */
-export type ReportError = (message: string | null) => void;

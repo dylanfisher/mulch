@@ -136,6 +136,7 @@ function press(props: Props): void {
 const DECK_STATE: DeckState = {
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
+  drawn: {},
   effects: [],
   source: null,
   duration: 1,
@@ -167,15 +168,13 @@ const addSecondYard = (instrument: Instrument) => {
   instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
 };
 
-/** One palette, built over the session as it stands, with its two non-command handlers spied. */
+/** One palette, built over the session as it stands, with its one non-command handler spied. */
 function palette(instrument: Instrument) {
   // Typed as the props they stand in for: an untyped `vi.fn()` returns a value, and a handler
   // the surface declares as void-returning must not.
   const onExportAudio = vi.fn<() => void>();
-  const onError = vi.fn<(message: string | null) => void>();
   const entries = paletteEntries(instrument.state.getState(), {
     instrument,
-    onError,
     onExportAudio,
     theme: "light",
   });
@@ -184,7 +183,7 @@ function palette(instrument: Instrument) {
     if (found === undefined) throw new Error(`no palette entry ${label} in ${entries.length}`);
     return found;
   };
-  return { entries, entry, onError, onExportAudio };
+  return { entries, entry, onExportAudio };
 }
 
 /**
@@ -340,7 +339,7 @@ describe("a palette entry for something that is not a command", () => {
   it("opens the shell's one Export Audio dialog, the handler the File menu is given", () => {
     const instrument = createInstrument(manualClock());
     const { entry, onExportAudio } = palette(instrument);
-    const menu = FileMenu({ instrument, onError: noop, onExportAudio });
+    const menu = FileMenu({ instrument, onExportAudio });
 
     press(control(menu, `${EXPORT_AUDIO}…`));
     entry(`${EXPORT_AUDIO}…`).run();
@@ -354,7 +353,7 @@ describe("a palette entry for something that is not a command", () => {
     vi.spyOn(instrument, "exportSession").mockResolvedValue(archive);
     const { entry } = palette(instrument);
 
-    press(control(FileMenu({ instrument, onError: noop, onExportAudio: noop }), "Export Session"));
+    press(control(FileMenu({ instrument, onExportAudio: noop }), "Export Session"));
     await settle();
     entry("Export Session").run();
     await settle();
@@ -495,7 +494,7 @@ describe("the palette's memory of what it last ran", () => {
     choosePaletteEntry(palette(instrument).entry(label));
     setPaletteOpen(true);
 
-    const list = [...walk(CommandPalette({ instrument, onError: noop, onExportAudio: noop }))].find(
+    const list = [...walk(CommandPalette({ instrument, onExportAudio: noop }))].find(
       (props) => props.autoHighlight !== undefined,
     );
     setPaletteOpen(false);

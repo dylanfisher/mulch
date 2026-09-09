@@ -1,5 +1,6 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
-import { EXPORT_AUDIO, EXPORT_WITH_SESSION, exportTakesSaid, INITIAL_YARD_NAME } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_FROM_START, EXPORT_WITH_SESSION, exportTakesSaid } from "@/lib/copy";
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import { EXPORT_NAME_SEPARATOR, exportNameField } from "@/lib/exportName";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ExportAudioTypes from "@/app/exportAudio";
@@ -17,6 +18,13 @@ import { describe, expect, it, vi } from "vitest";
  */
 const seam = vi.hoisted(() => ({ rate: null as number | null }));
 
+/**
+ * The one flag a case here sets rather than reads: whether the take begins at the top of the
+ * performance. It is the first `useState(false)` a render of the form reaches, so the seed is
+ * spent on it and every boolean after it keeps its own (0315).
+ */
+const view = vi.hoisted(() => ({ fromStart: false, seeded: false }));
+
 vi.mock("@/app/exportAudio", async (importOriginal) => ({
   ...(await importOriginal<typeof ExportAudioTypes>()),
   lastRenderRate: () => seam.rate,
@@ -28,7 +36,11 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useRef: (initial: unknown) => ({ current: initial }),
-    useState: (initial: unknown) => [initial, () => {}],
+    useState: (initial: unknown) => {
+      if (initial !== false || view.seeded) return [initial, () => {}];
+      view.seeded = true;
+      return [view.fromStart, () => {}];
+    },
   };
 });
 
@@ -77,13 +89,13 @@ const instrument = createInstrument(manualClock());
  * performance that has been running is a different sentence from one that has not.
  */
 function tree(from: Instrument = instrument): ReactElement<Props>[] {
+  view.seeded = false;
   const dialog = ExportAudioDialog({
     instrument: from,
     open: true,
     onOpenChange: () => {},
-    onError: () => {},
   });
-  const body = ExportAudioForm({ instrument: from, onClose: () => {}, onError: () => {} });
+  const body = ExportAudioForm({ instrument: from, onClose: () => {} });
   return [...elements(dialog), ...elements(body)];
 }
 
@@ -132,11 +144,12 @@ describe("the Export Audio dialog", () => {
     const name = tree().find((element) => element.props.id === "export-audio-name");
     const separator = EXPORT_NAME_SEPARATOR;
     // Three fields, because this yard has no source to be named after: the day, the app's own
-    // name with the minute on it, and the yard as the one word a field is (P114).
+    // name with the minute on it, and the yard as the one word a field is — its first two words,
+    // because the rest of its name is the scene it is read as rather than filed under (P114, 0317).
     expect(name?.props.value).toMatch(
       new RegExp(
         `^\\d{4}-\\d{2}-\\d{2}${separator}${EXPORT_AUDIO_FILE.base}-\\d{4}` +
-          `${separator}${exportNameField(INITIAL_YARD_NAME)}$`,
+          `${separator}${exportNameField(INITIAL_YARD_NAME.split(" ").slice(0, 2).join(" "))}$`,
         "u",
       ),
     );
@@ -164,6 +177,7 @@ describe("the Export Audio dialog", () => {
       "export-audio-name",
       "export-audio-minutes",
       "export-audio-secs",
+      "export-audio-from-start",
       "export-audio-back",
       "export-audio-fade-in",
       "export-audio-fade-out",
@@ -182,6 +196,34 @@ describe("the Export Audio dialog", () => {
       element.props.htmlFor === "export-audio-session" ? [words(element.props.children)] : [],
     );
     expect(labels).toEqual([EXPORT_WITH_SESSION]);
+  });
+
+  // The checkbox is a way of saying an offset, so the field it answers for stays visible and is
+  // greyed rather than disappearing (0315).
+  it("offers a take from the start, cleared, with the offset field live beside it", () => {
+    const box = tree().find((element) => element.props.id === "export-audio-from-start");
+    expect(box?.props.checked).toBe(false);
+    const labels = tree().flatMap((element) =>
+      element.props.htmlFor === "export-audio-from-start" ? [words(element.props.children)] : [],
+    );
+    expect(labels).toEqual([EXPORT_FROM_START]);
+    expect(tree().find((element) => element.props.id === "export-audio-back")?.props.disabled).toBe(
+      false,
+    );
+  });
+
+  it("greys the offset field out while the take begins at the start", () => {
+    view.fromStart = true;
+    try {
+      expect(
+        tree().find((element) => element.props.id === "export-audio-back")?.props.disabled,
+      ).toBe(true);
+      // And the take it says it will make is the whole run, not the offset that is still typed in
+      // the greyed field.
+      expect(begins(createInstrument(manualClock(90)))).toBe("Begins 0m 0s into the performance");
+    } finally {
+      view.fromStart = false;
+    }
   });
 
   /** Ten minutes, said as ten and a zero rather than as the 600 the spec carries underneath. */

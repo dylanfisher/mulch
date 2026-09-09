@@ -151,6 +151,7 @@ describe("clip capture, rename and delete", () => {
     expect(captured.deck).toEqual({
       params: instrument.probe().decks.a!.params,
       automation: {},
+      drawn: {},
       // The rack travels as its instances, each carrying its own values, lanes and bypass (0030).
       effects: instrument.probe().decks.a!.effects,
       source: { gen: "sine", hz: 440 },

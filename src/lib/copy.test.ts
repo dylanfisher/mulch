@@ -7,9 +7,7 @@ import {
   failedMessage,
   renderRate,
   INITIAL_YARD_EMOJI,
-  YARD_ADJECTIVES,
   YARD_EMOJI,
-  YARD_PLANTS,
 } from "@/lib/copy";
 import { boundsLabel } from "./copyAuto.ts";
 // The effect name pools left this file for ./copyNames.ts when copy.ts came within twenty lines of
@@ -46,10 +44,14 @@ describe("effect name pools", () => {
     for (const { adjectives } of namePools) {
       expect(new Set(adjectives).size).toBe(adjectives.length);
     }
-    // Both tiers are there, and each is the twelve times twelve every other pool is.
+    // Both tiers are there, and each is the twenty-four times twenty-four every other pool is
+    // (0317).
     expect(Object.keys(TIER_NAMES)).toEqual(["song", "part"]);
     for (const { adjectives, nouns: tierNouns } of Object.values(TIER_NAMES)) {
-      expect([adjectives.length, tierNouns.length]).toEqual([12, 12]);
+      expect([adjectives.length, tierNouns.length]).toEqual([24, 24]);
+    }
+    for (const { adjectives, nouns: pooled } of Object.values(EFFECT_NAMES)) {
+      expect([adjectives.length, pooled.length]).toEqual([24, 24]);
     }
   });
 
@@ -101,7 +103,9 @@ describe("effect name pools", () => {
     expect(effectName("delay", "rack-delay")).toBe(effectName("delay", "rack-delay"));
     const pools = EFFECT_NAMES["delay"]!;
     const drawn = new Set(
-      Array.from({ length: 1024 }, (_, index) => effectName("delay", `instance-${index}`)),
+      // Enough draws to reach all 576 readings: a coupon collector over that many needs about
+      // 3700 on average, and this is a fixed set of ids rather than a sample (0317).
+      Array.from({ length: 8192 }, (_, index) => effectName("delay", `instance-${index}`)),
     );
     // Two pools multiplied, not a flat list: a rack far longer than either pool still reads as
     // distinct cards, which is the whole of P55's first half.
@@ -120,10 +124,9 @@ const drawsBeforeARepeat = (readings: number): number => Math.sqrt((Math.PI * re
 const namePools = [...Object.values(EFFECT_NAMES), ...Object.values(TIER_NAMES)];
 
 describe("the words a name is drawn from", () => {
-  it("outlasts a session's worth of yards, of one kind of effect and of one tier", () => {
-    expect(drawsBeforeARepeat(YARD_ADJECTIVES.length * YARD_PLANTS.length)).toBeGreaterThan(24);
+  it("outlasts a rack's worth of one kind of effect and of one tier", () => {
     for (const { adjectives, nouns } of namePools) {
-      expect(drawsBeforeARepeat(adjectives.length * nouns.length)).toBeGreaterThan(12);
+      expect(drawsBeforeARepeat(adjectives.length * nouns.length)).toBeGreaterThan(24);
     }
     // The picture a yard wears beside its name widens with the words, from a pool that used to
     // repeat by the fourth yard.
@@ -134,38 +137,24 @@ describe("the words a name is drawn from", () => {
   // word, capital first, nothing shouted.
   it("says every word of every pool Titlecase", () => {
     const words = [
-      ...YARD_ADJECTIVES,
-      ...YARD_PLANTS,
       ...namePools.flatMap((pools) => pools.adjectives),
       ...namePools.flatMap((pools) => pools.nouns),
     ];
     for (const word of words) expect(word).toMatch(/^[A-Z][a-z]+$/u);
   });
 
-  // A yard's pools are as long as an effect's are now, and a word written twice in one of them is
-  // a reading the draw can never reach.
-  it("writes no word of a yard's own three pools twice", () => {
-    for (const pool of [YARD_ADJECTIVES, YARD_PLANTS, YARD_EMOJI]) {
-      expect(new Set(pool).size).toBe(pool.length);
-    }
+  // A word written twice in one pool is a reading the draw can never reach.
+  it("writes no entry of the yard's own picture pool twice", () => {
+    expect(new Set(YARD_EMOJI).size).toBe(YARD_EMOJI.length);
   });
 });
 
-/** A boot, as the module sees one: fresh imports with `Math.random` pinned to one value. */
-const boot = (random: number) => {
-  vi.resetModules();
-  vi.spyOn(Math, "random").mockReturnValue(random);
-  return import("@/lib/copy");
-};
-
-describe("the first yard", () => {
-  it("keeps its emoji fixed while its name is a draw", async () => {
-    const first = await boot(0);
-    const last = await boot(0.99);
-    expect(first.INITIAL_YARD_EMOJI).toBe(INITIAL_YARD_EMOJI);
+describe("the first yard's picture", () => {
+  it("keeps its emoji fixed whatever the draw says", async () => {
+    vi.resetModules();
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const last = await import("@/lib/copy");
     expect(last.INITIAL_YARD_EMOJI).toBe(INITIAL_YARD_EMOJI);
-    expect(first.INITIAL_YARD_NAME).not.toBe(last.INITIAL_YARD_NAME);
-    expect(last.INITIAL_YARD_NAME).toBe(`${YARD_ADJECTIVES.at(-1)} ${YARD_PLANTS.at(-1)}`);
   });
 });
 

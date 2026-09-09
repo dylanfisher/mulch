@@ -127,6 +127,7 @@ const rackSet = (
       bypassed: false,
       params: { ...effectParamDefaults(effect, id), ...params },
       automation: {},
+      drawn: {},
       bounds: {},
     })),
     0,

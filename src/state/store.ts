@@ -15,7 +15,8 @@ import {
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { BeatAnalysis } from "@/lib/analysis";
-import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import type { AutomationLane } from "@/lib/automation";
 import { assertDurableText } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
@@ -103,6 +104,8 @@ export type DeckState = {
   /** The deck's own parameters. An effect's values live on its rack instance (0030). */
   params: Record<DeckParamId, number>;
   automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
+  /** What drew each of those, for the ones a motion drew — the session records the same (0314). */
+  drawn: SessionDeck["drawn"];
   /**
    * The rack in signal order: any number of instances of any registered effect, each with its
    * own id, values, lanes and bypass flag (0030).
@@ -170,6 +173,7 @@ const defaultDeck = (): DeckState => ({
   // Spread, not shared: each deck owns its values from the moment it exists.
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
+  drawn: {},
   effects: [],
   source: null,
   duration: 0,

@@ -82,6 +82,13 @@ export type ExportSpec = {
    * not reached yet. Either way the cap bounds it (`refuse`).
    */
   backSecs: number;
+  /**
+   * Whether the take begins at the top of the performance rather than where the offset above
+   * says. It is a way of saying a number and not a second path through the take: set, `backSecs`
+   * reads as the elapsed run, which is the beginning that field's own doc already describes — so
+   * there is one arithmetic and one thing to prove (0315).
+   */
+  fromStart: boolean;
   fadeInSecs: number;
   fadeOutSecs: number;
   /** Whether the session archive leaves in the folder beside the audio — the one checkbox (P91). */
@@ -194,10 +201,13 @@ export function sessionSettleSecs(session: Session): number {
 
 export function exportTake(
   elapsedSecs: number,
-  { backSecs, secs }: Pick<ExportSpec, "backSecs" | "secs">,
+  { backSecs, secs, fromStart }: Pick<ExportSpec, "backSecs" | "secs" | "fromStart">,
   settleSecs = Number.POSITIVE_INFINITY,
 ): ExportTake {
-  const asked = elapsedSecs - backSecs;
+  // The whole run is the lookback that reaches its beginning, so the checkbox is one number and
+  // not a branch: everything below reads `back` exactly as it read the typed offset (0315).
+  const back = fromStart ? elapsedSecs : backSecs;
+  const asked = elapsedSecs - back;
   const room = EXPORT_MAX_SECS - secs;
   const beginsSecs = clamp(asked, 0, room);
   // **The settle shortens a take begun at the ear or past it, and no other.** A render is a
@@ -208,7 +218,7 @@ export function exportTake(
   // the instrument it starts from is the instrument it would have started from (0239). A take
   // begun past the ear is that same take with further to run: the window it names has not been
   // played either, so there is nothing there to reproduce.
-  const warmSecs = backSecs <= 0 ? Math.min(beginsSecs, settleSecs) : beginsSecs;
+  const warmSecs = back <= 0 ? Math.min(beginsSecs, settleSecs) : beginsSecs;
   return { beginsSecs, warmSecs, secs, clamped: asked > room };
 }
 
@@ -411,6 +421,9 @@ export function exportEnvelopes(session: Session): Command[] {
  * omit a field, and refused here rather than minutes of rendering later.
  */
 function refuse(spec: ExportSpec): void {
+  if (typeof spec.fromStart !== "boolean") {
+    throw new TypeError(`an export says where it begins: ${String(spec.fromStart)}`);
+  }
   if (typeof spec.session !== "boolean") {
     throw new TypeError(`an export says whether it writes the session: ${String(spec.session)}`);
   }
@@ -438,14 +451,14 @@ export async function exportAudio(
   onProgress?: (progress: RenderProgress) => void,
 ): Promise<AudioExport> {
   refuse(spec);
-  // The live performance's own elapsed seconds, off the one clock every envelope is stamped
-  // against — read here rather than in the dialog, so the take begins where the ear was when the
-  // button was pressed and not where it was when the box opened.
+  // The live performance's own elapsed seconds — `probe().at`, which the global Stop returns to
+  // nought (0315) — read here rather than in the dialog, so the take begins where the ear was when
+  // the button was pressed and not where it was when the box opened.
   const own: { rate: number | null } = { rate: null };
   const { session, blobs } = await instrument.snapshot();
   // The snapshot first, because the take is now a function of it: how long this session has to run
   // before it stops sounding like where it has been is what bounds the warm-up (0239).
-  const take = exportTake(instrument.stats().at, spec, sessionSettleSecs(session));
+  const take = exportTake(instrument.probe().at, spec, sessionSettleSecs(session));
   const envelopes = exportEnvelopes(session);
   const result = await renderOffline({
     secs: renderSecsOf(take),

@@ -75,10 +75,18 @@ it is the only one that is only words. The redraw and the character become durab
 param), amending 0311. The export's checkbox sits above the seconds field rather than replacing
 it. The global Stop returns the session's elapsed run to nought; a yard's own Stop does not. Every
 report becomes a toast and the header span goes. Yard names are drawn from five banks, two of them
-optional. Pools double. The next free decision number today is 0314.
+optional. Pools double. bench-01 landed on 2026-09-08 as
+[0314](decisions/0314-a-drawn-lane-says-what-drew-it.md),
+[0315](decisions/0315-a-performance-begins-where-a-hand-says-and-ends-where-it-stops.md),
+[0316](decisions/0316-a-failure-is-a-toast.md) and
+[0317](decisions/0317-a-yard-is-named-for-a-small-scene.md); the shot of six yards read as six
+scenes on one line each, and two files reached the hard cap on the way (src/app/facade.ts split to
+src/app/stats.ts, src/state/session.test.ts to src/state/sessionStored.test.ts). The next free
+decision number today is 0318.
 
 1.  **A drawn lane says what drew it, an export says where it begins, and a report says itself
-    once.** _(bench-01)_ **Durable shape moved: a lane gains a sibling.** Six items, one gate.
+    once.** _(bench-01, landed 0314, 0315, 0316, 0317)_ **Durable shape moved: a lane gains a
+    sibling.** Six items, one gate.
 
     **The drawn fact becomes durable** (0314, amending 0311). Beside `automation` on both the
     effect entry and the deck (src/state/session.ts:68,93) sits `drawn: Partial<Record<param,
@@ -596,3 +604,44 @@ sentence that made the clause work.
 
 Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
 scheduled by being here.
+
+**A redraw count that outlives the lane it counts for** (bench-01, 0314). The knob's own `every`
+was a `useState` that survived a clear, so a knob cleared and drawn again came back at the count it
+had been set to. Durable `drawn` is one value per (instance, param) and an emptied lane clears it,
+so the count goes with the lane it was about — and the redraw row is disabled on a knob holding no
+drawn lane, because there is nothing there to redraw. What was lost is a small convenience; what
+was bought is that the count cannot outlive the thing it describes, which is the whole reason it
+left the knob.
+
+**A `MotionDrawn` a hand can set a character on without drawing** (bench-01, 0314). The character
+is set only by a draw, so the character row's press always sends a new lane — there is no way to
+say "this lane is a smooth one" about a lane a hand rode. That is the rule 0311 wanted and it is
+now unstateable rather than merely unwritten.
+
+**A yard's name that says all five banks whatever its length** (bench-01, 0317). A name is
+`deck.add`'s durable text and capped like any other, and five banks at their longest run well past
+that. The two optional banks are dropped in turn where the reading would not fit, so a long place
+costs a hand its time and its detail rather than its yard. Cutting the phrase was the alternative
+and would have left names that stop halfway through a place.
+
+**Folding a yard's own import refusal into the toast** (bench-01, 0316). Two review lenses read
+0316's "one way to say something did not go" as covering `src/ui/Deck.tsx`'s own `importError`
+span, which is the same never-dismissed shape the header's was. It is not in the step's text, and
+taking it retargets two browser scenarios (`formats.js`, `drop.js`) onto a portalled toast that
+then sits over the bottom-right corner every later scenario in that lane clicks in. Declined and
+0316 narrowed to say why: the header's span was wrong because it was nowhere near the gesture, and
+a yard's own refusal is beside the control the file went into.
+
+**A yard's whole name in an export's filename** (bench-01, 0317). A field of a take's name is one
+word (P114) and the folder's byte cap cuts from the end, so a sixty-character scene in the yard
+field pushed the source field clean off — an export of "Wide Rowan behind the Compost Heap at First
+Light with Swifts" stopped saying what it was made of. The offered name takes the yard's first two
+words, which are its identity; the rest is the reading of it. Found by a flaky case, because the
+first yard's name is a live draw.
+
+**Two files split at the hard cap, paid for by this step** (bench-01). `src/app/facade.ts` reached
+804 lines and `src/state/session.test.ts` 801. The counters `stats()` answers with moved to
+`src/app/stats.ts` — a file of its own for the reason `src/app/runtime.ts` is one, the piece with
+no coordination in it — and the hand-written stored session and its clip matrix moved to
+`src/state/sessionStored.test.ts`. Neither split was in the step's text; both are what 0045
+requires where no waiver reaches.

@@ -109,10 +109,13 @@ describe("one transport over all the yards", () => {
       { t: "deck.pause", deck: "b" },
       { t: "deck.pause", deck: "c" },
     ]);
+    // The one command a global press sends that no yard's own row does: a Stop ends the
+    // performance, so the session's elapsed run goes back to nought behind the three (0315).
     expect(pressed(instrument, "stop")).toEqual([
       { t: "deck.stop", deck: "a" },
       { t: "deck.stop", deck: "b" },
       { t: "deck.stop", deck: "c" },
+      { t: "session.rewind" },
     ]);
   });
 
@@ -135,13 +138,15 @@ describe("one transport over all the yards", () => {
     expect(spacebar(instrument)).toEqual(everyYardInTurn);
   });
 
-  it("is a press that does nothing when the session has no yard to send to", () => {
+  it("sends no per-deck command when the session has no yard to send to", () => {
     const { instrument: empty } = silent();
     empty.send({ t: "deck.remove", deck: "a" });
     expect(empty.state.getState().deckList).toEqual([]);
 
     expect(pressed(empty, "play")).toEqual([]);
-    expect(pressed(empty, "stop")).toEqual([]);
+    // Except the one that is the session's own: the run has been going since the page opened,
+    // whatever is loaded, and the Stop is what ends it (0315).
+    expect(pressed(empty, "stop")).toEqual([{ t: "session.rewind" }]);
     expect(spacebar(empty)).toEqual([]);
 
     // A yard with nothing loaded is skipped for the same reason its own row is disabled: there

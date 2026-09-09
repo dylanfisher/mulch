@@ -99,6 +99,7 @@ export const renderTape = async ({ page }) => {
           // From the performance's own beginning, so the harness render below is the same spec:
           // what this scenario compares is the tape's samples, not where a take begins (P149).
           backSecs: window.mulch.stats().at + 1,
+          fromStart: false,
           fadeInSecs: 0,
           fadeOutSecs: 0,
           // The audio alone: what this scenario compares is samples, and it renders them twice.

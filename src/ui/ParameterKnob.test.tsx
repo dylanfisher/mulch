@@ -24,6 +24,14 @@ import {
   type WrapperProps,
 } from "@/ui/parameterKnobDouble";
 
+/** The finite promise chain the facade serialises checkpoint preparation through, drained. */
+const turns = async (): Promise<void> => {
+  for (let remaining = 8; remaining > 0; remaining--) {
+    // oxlint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+};
+
 /** One recorded ride on a knob mounted at `startAt` on the clock, as the lane it left. */
 const ride = (startAt: number) => {
   const { clock, instrument, wrapper, knob } = renderKnob(null, startAt);
@@ -186,14 +194,55 @@ describe("ParameterKnob automation gestures", () => {
     });
 
     knob.onChange(0.75);
-    for (let remaining = 8; remaining > 0; remaining--) {
-      // The facade serializes checkpoint preparation through a finite promise chain.
-      // oxlint-disable-next-line no-await-in-loop
-      await Promise.resolve();
-    }
+    await turns();
 
     expect(instrument.probe().decks.a!.automation).toEqual({});
     expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.75);
+  });
+
+  // A double-click on the dial commits the default, which is the move that clears the lane — and
+  // the redraw goes with it, in the same entry, so a knob put back to plain does not draw itself a
+  // new lane on the next pass (0067, 0314).
+  it("clears the lane, the default and what drew it as one history entry on a reset", async () => {
+    const drawn = { character: "pulse", redraw: 4 } as const;
+    const lane = [{ at: 0, value: 0.5 }];
+    const { instrument, render } = renderKnob(lane, 4, false, () => null, drawn);
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: lane });
+    instrument.send({ t: "automation.drawn", deck: "a", param: "deck.gain", drawn });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+
+    // The reset the dial's own double-click commits: the default value, with nothing pressed.
+    const sent: unknown[] = [];
+    const send = instrument.send.bind(instrument);
+    vi.spyOn(instrument, "send").mockImplementation((input) => {
+      sent.push(input);
+      send(input);
+    });
+    render(lane, drawn).knob.onChange(1);
+    await turns();
+
+    // The gesture says all three itself rather than leaning on the lane's own reducer to clear
+    // the sibling: one group, in the order the knob builds it (0314).
+    expect(sent).toEqual([
+      {
+        t: "history.group",
+        commands: [
+          { t: "automation.set", deck: "a", param: "deck.gain", points: [] },
+          { t: "param.set", deck: "a", param: "deck.gain", value: 1 },
+          { t: "automation.drawn", deck: "a", param: "deck.gain", drawn: null },
+        ],
+      },
+    ]);
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+    expect(instrument.probe().decks.a!.drawn).toEqual({});
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
+
+    // One entry: the undo brings the lane, the value and the character back together.
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": lane });
+    expect(instrument.probe().decks.a!.drawn).toEqual({ "deck.gain": drawn });
   });
 
   it("starts each gesture from nothing, so an interrupted one cannot join the next", () => {
@@ -347,6 +396,7 @@ describe("ParameterKnob automation gestures", () => {
       param: "filter.cutoff",
       value: 1_234.567_890_123,
       lane: null,
+      drawn: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -366,6 +416,7 @@ describe("ParameterKnob automation gestures", () => {
       param: "deck.pan",
       value: 0,
       lane: null,
+      drawn: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -388,6 +439,7 @@ describe("ParameterKnob automation gestures", () => {
         param: "deck.speed",
         value: 1,
         lane: null,
+        drawn: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");

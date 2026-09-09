@@ -31,6 +31,8 @@ export type Runtime = {
    */
   render: RenderHost | null;
   save(reason: "manual" | "autosave"): void;
+  /** Put the elapsed run `probe().at` reads back to nought — the global Stop's own half (0315). */
+  rewind(): void;
   beginLoad(deck: DeckId): number;
   isCurrentLoad(deck: DeckId, token: number): boolean;
   importArchive(handle: Extract<Command, { t: "session.import" }>["archive"]): Promise<void>;

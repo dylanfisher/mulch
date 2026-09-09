@@ -8,6 +8,7 @@ import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isBoundableParam, isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
+import { assertMotionDrawn } from "@/lib/motion";
 import { assertDurableText, finite, flag, isRecord } from "@/lib/guards";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
@@ -44,6 +45,7 @@ const COMMAND_HISTORY = {
   "param.set": "group",
   "automation.set": "group",
   "automation.span": "group",
+  "automation.drawn": "group",
   "effect.add": "group",
   "effect.bypass": "group",
   "effect.remove": "group",
@@ -69,6 +71,7 @@ const COMMAND_HISTORY = {
   "deck.playerArm": "none",
   "effect.dismiss": "none",
   "session.save": "none",
+  "session.rewind": "none",
   "gesture.end": "none",
   "history.undo": "none",
   "history.redo": "none",
@@ -167,6 +170,17 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       if (raw.instance !== undefined)
         assertEffectInstanceId(raw.instance, "automation.set instance");
       normalizeAutomationLane(raw.points, PARAMS[raw.param]);
+      return;
+    case "automation.drawn":
+      if (!isAutomationParam(raw.param)) {
+        throw new TypeError(`param does not support automation: ${String(raw.param)}`);
+      }
+      if (raw.instance !== undefined)
+        assertEffectInstanceId(raw.instance, "automation.drawn instance");
+      // Null is a lane nothing drew, which is the whole of "not drawn" — there is no second flag
+      // beside it. Anything else says both halves and nothing else, through the one assert the
+      // stored session is checked by too (principle 5, 0314).
+      if (raw.drawn !== null) assertMotionDrawn(raw.drawn, "automation.drawn drawn");
       return;
     case "automation.span":
       if (!isAutomationParam(raw.param)) {

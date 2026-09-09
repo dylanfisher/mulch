@@ -293,6 +293,7 @@ function EffectCard({
               param={param.id}
               value={paramIn(entry.params, param.id)}
               lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
+              drawn={(isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null}
               playing={playing}
             />
           ))}

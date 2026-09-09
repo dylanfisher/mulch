@@ -26,6 +26,7 @@ const instance = (id: string, effect: SessionEffect["effect"] = "scatter"): Sess
   bypassed: false,
   params: { ...effectParamDefaults(effect, id), "scatter.odds": 1, "scatter.gate": 1 },
   automation: {},
+  drawn: {},
   bounds: {},
 });
 

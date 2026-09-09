@@ -15,6 +15,7 @@ import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import { paramKey } from "@/audio/params";
 import type { AutomationPoint } from "@/lib/automation";
+import type { MotionDrawn } from "@/lib/motion";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { mount } from "@/ui/parameterKnobHooks";
 
@@ -45,6 +46,7 @@ export function renderKnob(
   startAt = 4,
   playing = false,
   phase: () => number | null = () => null,
+  drawn: MotionDrawn | null = null,
 ) {
   const clock = manualClock(startAt);
   const instrument = createInstrument(clock, () =>
@@ -57,7 +59,7 @@ export function renderKnob(
   );
   mount.refs = [];
   /** A re-render of the same mount — with the lane the store has since given it, where one is. */
-  const render = (holding = lane) => {
+  const render = (holding = lane, said = drawn) => {
     mount.index = 0;
     // The component is memo-wrapped in production and identity-mocked here, so it is callable.
     const rendered = ParameterKnob({
@@ -66,6 +68,7 @@ export function renderKnob(
       param: "deck.gain",
       value: 1,
       lane: holding,
+      drawn: said,
       playing,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -125,7 +128,7 @@ export const menuOf = (wrapper: WrapperProps) => {
   if (
     !isValidElement<{
       onDraw: (character: string) => void;
-      every: number;
+      drawn: MotionDrawn | null;
       onEvery: (passes: number) => void;
     }>(menu)
   ) {

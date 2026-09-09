@@ -1,6 +1,6 @@
 /**
- * @role The words the interface says for the instrument's own nouns, and the pools a yard is named
- *   from — declared once here so no surface types the noun itself (plan P28).
+ * @role The words the interface says for the instrument's own nouns, and the pictures a yard wears
+ *   — declared once here so no surface types the noun itself (plan P28).
  * @instead A command name, a state field or a durable key → those stay `deck`: this file is what
  *   the user reads, not what the code is called. The caption and the sentence under a jumps dial →
  *   src/lib/copyKnobs.ts, which is keyed by `PLAYER_KNOBS` and is where a new knob's words go. The
@@ -67,6 +67,13 @@ export const EXPORT_AUDIO = "Export Audio";
  * per (0059), and it says what lands rather than what is switched on.
  */
 export const EXPORT_WITH_SESSION = "Include Session";
+
+/**
+ * Its other one: whether the take begins at the top of the performance rather than at the offset
+ * beside it (0315). Titlecase per (0059), and it names where the take begins rather than what the
+ * field it answers for stops doing.
+ */
+export const EXPORT_FROM_START = "Begin At The Start";
 
 /**
  * What a gesture that writes a file says while it is writing one and has nothing to say about how
@@ -165,27 +172,11 @@ export const YARD_EMOJI = words(
 export const INITIAL_YARD_EMOJI = YARD_EMOJI[0];
 
 /**
- * The two halves a yard's name is drawn from: an adjective and a plant, joined with a space and
- * already Titlecase because every label in the instrument is (0059). Twenty-four of each is 576
- * readings, so the first repeat is expected somewhere around the thirtieth yard rather than the
- * twelfth (0149) — past a session's worth of yards, which is all the pools are asked for. The
- * name names a yard, the id identifies it (0029).
- */
-export const YARD_ADJECTIVES = words(
-  "Quiet North Low Bright Slow Wild Deep Warm Far Still South High Soft Dim Green Damp Dry Old Near Cool Pale Sheltered Windy Hidden",
-);
-
-/** The other half. House-and-garden, like the emoji pool it is drawn beside. */
-export const YARD_PLANTS = words(
-  "Fern Thicket Clover Willow Bramble Rush Sorrel Cedar Nettle Moss Hedgerow Alder Bracken Heather Ivy Laurel Birch Foxglove Yarrow Thistle Reed Hawthorn Lichen Orchard",
-);
-
-/**
  * One draw from one fixed pool — the whole of the randomness a yard's decorations involve. The
  * pool is a non-empty tuple, so the entry the index lands on is the first one or a real member
  * and never undefined.
  */
-const pick = <T>(pool: readonly [T, ...T[]]): T =>
+export const pick = <T>(pool: readonly [T, ...T[]]): T =>
   pool[Math.floor(Math.random() * pool.length)] ?? pool[0];
 
 /**
@@ -195,20 +186,13 @@ const pick = <T>(pool: readonly [T, ...T[]]): T =>
 export const twoPartName = (adjective: string, noun: string): string => `${adjective} ${noun}`;
 
 /**
- * Draw one yard's emoji and one yard's name. Both are called from the call site that mints the
- * id (`src/ui/App.tsx`) and travel in `deck.add`, because a reducer that drew its own would make
- * replay, restore and the fingerprint non-deterministic (0057). What is declared here is the
- * pools and the shape of the result; when to draw stays the caller's.
+ * Draw one yard's emoji. Called from the call site that mints the id (src/ui/actions.ts) and
+ * carried in `deck.add`, because a reducer that drew its own would make replay, restore and the
+ * fingerprint non-deterministic (0057). What is declared here is the pool and the shape of the
+ * result; when to draw stays the caller's. The name beside it is drawn from five banks of its own
+ * → src/lib/copyYard.ts (0317).
  */
 export const mintYardEmoji = (): string => pick(YARD_EMOJI);
-export const mintYardName = (): string => twoPartName(pick(YARD_ADJECTIVES), pick(YARD_PLANTS));
-
-/**
- * The name the one deck a fresh session boots with carries: a draw like any other yard's, taken
- * once as this module loads so every store a boot creates agrees on it. The emoji beside it stays
- * the pool's first — the name is a draw, the house is not (P47).
- */
-export const INITIAL_YARD_NAME = mintYardName();
 
 /**
  * A string folded to a non-negative integer — FNV-1a, in the 32 bits `Math.imul` gives exactly.

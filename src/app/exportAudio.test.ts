@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PARAMS } from "@/audio/params";
-import { INITIAL_YARD_NAME } from "@/lib/copy";
+import { INITIAL_YARD_NAME } from "@/lib/copyYard";
 import { EXPORT_NAME_BASE, exportNameField } from "@/lib/exportName";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { importedBlobId } from "@/lib/source";
@@ -138,11 +138,20 @@ describe("exportNames", () => {
   });
 });
 
+// One `it` per thing the door refuses or renders; the length tracks how many that is (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("exportAudio", () => {
   /** Refused at the door, not after minutes of rendering: an hour is the most a tab can hold. */
   it("refuses a length no render should be started for", async () => {
     const instrument = loaded();
-    const spec = { name: "take", backSecs: 0, fadeInSecs: 0, fadeOutSecs: 0, session: true };
+    const spec = {
+      name: "take",
+      backSecs: 0,
+      fromStart: false,
+      fadeInSecs: 0,
+      fadeOutSecs: 0,
+      session: true,
+    };
     // A spec that does not say whether the session leaves with the audio is refused rather than
     // quietly taking the export the checkbox is cleared for. Deleted rather than typed away: the
     // callers this guards against are the browser scenarios, which are not typechecked.
@@ -158,10 +167,33 @@ describe("exportAudio", () => {
     );
   });
 
+  /** And the third: whether the take begins at the top is not a default either (0315). */
+  it("refuses a take that does not say whether it begins at the start", async () => {
+    const instrument = loaded();
+    const unsaid = {
+      name: "take",
+      secs: 1,
+      backSecs: 0,
+      fromStart: false,
+      fadeInSecs: 0,
+      fadeOutSecs: 0,
+      session: true,
+    };
+    Reflect.deleteProperty(unsaid, "fromStart");
+    await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/says where it begins/u);
+  });
+
   /** The other field a browser scenario can leave out: where the take begins is not a default. */
   it("refuses a take that does not say where it begins", async () => {
     const instrument = loaded();
-    const spec = { name: "take", secs: 1, fadeInSecs: 0, fadeOutSecs: 0, session: true };
+    const spec = {
+      name: "take",
+      secs: 1,
+      fromStart: false,
+      fadeInSecs: 0,
+      fadeOutSecs: 0,
+      session: true,
+    };
     const unsaid = { ...spec, backSecs: 0 };
     Reflect.deleteProperty(unsaid, "backSecs");
     await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/begins within/u);
@@ -176,10 +208,12 @@ describe("exportAudio", () => {
   });
 });
 
+// One `it` per place a take can begin, which is what this arithmetic is (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("where a take begins", () => {
   /** Nought is from here, and what is kept is the length that was asked for either way. */
   it("warms the whole performance for a take from where the ear is", () => {
-    expect(exportTake(90, { backSecs: 0, secs: 30 })).toEqual({
+    expect(exportTake(90, { backSecs: 0, secs: 30, fromStart: false })).toEqual({
       beginsSecs: 90,
       warmSecs: 90,
       secs: 30,
@@ -187,12 +221,29 @@ describe("where a take begins", () => {
     });
     // The same call on a page that has only just started: there is nothing behind the ear yet, so
     // the take is the cold one this export has always taken.
-    expect(exportTake(0, { backSecs: 0, secs: 30 })).toEqual({
+    expect(exportTake(0, { backSecs: 0, secs: 30, fromStart: false })).toEqual({
       beginsSecs: 0,
       warmSecs: 0,
       secs: 30,
       clamped: false,
     });
+  });
+
+  // The checkbox is a way of saying an offset, not a second path: it reads as a lookback the
+  // length of the run, so the take it names is exactly the one that offset would name (0315).
+  it("takes the whole run from its beginning, whatever the offset says", () => {
+    const fromStart = exportTake(90, { backSecs: 12, secs: 30, fromStart: true });
+    expect(fromStart).toEqual({ beginsSecs: 0, warmSecs: 0, secs: 30, clamped: false });
+    // Exactly the take the offset set to the run's own length names — one arithmetic, two ways of
+    // asking for it.
+    expect(fromStart).toEqual(exportTake(90, { backSecs: 90, secs: 30, fromStart: false }));
+    // And on a page that has only just started, where the two are the same number anyway.
+    expect(exportTake(0, { backSecs: 0, secs: 30, fromStart: true })).toEqual(
+      exportTake(0, { backSecs: 0, secs: 30, fromStart: false }),
+    );
+    // The settle never shortens it: a window nobody has played is not reproduced by warming, and
+    // this take begins before the performance rather than at the ear (0239).
+    expect(exportTake(90, { backSecs: 0, secs: 30, fromStart: true }, 8).warmSecs).toBe(0);
   });
 
   /**
@@ -201,13 +252,13 @@ describe("where a take begins", () => {
    * the way a take at the ear does, because a window nobody has heard has nothing to reproduce.
    */
   it("runs on past the ear for a take the offset puts in front of it", () => {
-    expect(exportTake(90, { backSecs: -30, secs: 30 })).toEqual({
+    expect(exportTake(90, { backSecs: -30, secs: 30, fromStart: false })).toEqual({
       beginsSecs: 120,
       warmSecs: 120,
       secs: 30,
       clamped: false,
     });
-    expect(exportTake(90, { backSecs: -30, secs: 30 }, 8)).toEqual({
+    expect(exportTake(90, { backSecs: -30, secs: 30, fromStart: false }, 8)).toEqual({
       beginsSecs: 120,
       warmSecs: 8,
       secs: 30,
@@ -216,7 +267,7 @@ describe("where a take begins", () => {
   });
 
   it("renders the warm-up in front of a lookback and drops it", () => {
-    expect(exportTake(90, { backSecs: 20, secs: 30 })).toEqual({
+    expect(exportTake(90, { backSecs: 20, secs: 30, fromStart: false })).toEqual({
       beginsSecs: 70,
       warmSecs: 70,
       secs: 30,
@@ -225,7 +276,7 @@ describe("where a take begins", () => {
     // Further back than the performance goes is its beginning, not a negative warm-up: a person
     // asking for more than there is is owed what there is (principle 5 is about the clamp below,
     // not about this — there is no other part to hand back).
-    expect(exportTake(90, { backSecs: 500, secs: 30 })).toEqual({
+    expect(exportTake(90, { backSecs: 500, secs: 30, fromStart: false })).toEqual({
       beginsSecs: 0,
       warmSecs: 0,
       secs: 30,
@@ -237,21 +288,23 @@ describe("where a take begins", () => {
     // The change P181 is: with a lookback of nought the take begins at the live playhead and runs
     // forward, so the warm-up is not reproducing anything anyone heard — it is putting the
     // instrument into the state it is in, and past the rack's longest memory it already is (0239).
-    expect(exportTake(1800, { backSecs: 0, secs: 30 }, 8)).toEqual({
+    expect(exportTake(1800, { backSecs: 0, secs: 30, fromStart: false }, 8)).toEqual({
       beginsSecs: 1800,
       warmSecs: 8,
       secs: 30,
       clamped: false,
     });
     // A session that has not run that long yet is still warmed for only as long as it has run.
-    expect(exportTake(3, { backSecs: 0, secs: 30 }, 8)).toEqual({
+    expect(exportTake(3, { backSecs: 0, secs: 30, fromStart: false }, 8)).toEqual({
       beginsSecs: 3,
       warmSecs: 3,
       secs: 30,
       clamped: false,
     });
     // And a rack that remembers everything is warmed for everything, exactly as it always was.
-    expect(exportTake(1800, { backSecs: 0, secs: 30 }, Number.POSITIVE_INFINITY)).toEqual({
+    expect(
+      exportTake(1800, { backSecs: 0, secs: 30, fromStart: false }, Number.POSITIVE_INFINITY),
+    ).toEqual({
       beginsSecs: 1800,
       warmSecs: 1800,
       secs: 30,
@@ -264,7 +317,7 @@ describe("where a take begins", () => {
     // with no seek into it: the only way to reach the last thirty seconds of a half-hour is to
     // render the half-hour. Shortening this would hand back the performance's first thirty
     // seconds under the name of its last (0239).
-    expect(exportTake(1800, { backSecs: 30, secs: 30 }, 8)).toEqual({
+    expect(exportTake(1800, { backSecs: 30, secs: 30, fromStart: false }, 8)).toEqual({
       beginsSecs: 1770,
       warmSecs: 1770,
       secs: 30,
@@ -272,11 +325,11 @@ describe("where a take begins", () => {
     });
     // Where the take begins is the take's subject, and it is what the box says out loud — so it
     // stays the whole elapsed clock even where the settle renders eight seconds for it.
-    expect(exportTake(1800, { backSecs: 0, secs: 30 }, 8).beginsSecs).toBe(1800);
+    expect(exportTake(1800, { backSecs: 0, secs: 30, fromStart: false }, 8).beginsSecs).toBe(1800);
   });
 
   it("clamps the warm-up and the take together at the cap, and says it clamped", () => {
-    const older = exportTake(EXPORT_MAX_SECS * 2, { backSecs: 0, secs: 30 });
+    const older = exportTake(EXPORT_MAX_SECS * 2, { backSecs: 0, secs: 30, fromStart: false });
     expect(older).toEqual({
       beginsSecs: EXPORT_MAX_SECS - 30,
       warmSecs: EXPORT_MAX_SECS - 30,
@@ -287,7 +340,7 @@ describe("where a take begins", () => {
     // why the take begins earlier in the performance than the lookback asked it to.
     expect(older.warmSecs + older.secs).toBe(EXPORT_MAX_SECS);
     // An hour of take leaves no room to warm at all, and that is the same clamp said once.
-    expect(exportTake(60, { backSecs: 0, secs: EXPORT_MAX_SECS })).toEqual({
+    expect(exportTake(60, { backSecs: 0, secs: EXPORT_MAX_SECS, fromStart: false })).toEqual({
       beginsSecs: 0,
       warmSecs: 0,
       secs: EXPORT_MAX_SECS,
@@ -429,7 +482,8 @@ const MADE = new Date(2026, 7, 22, 17, 19, 44);
 /** The two fields every offered name opens with: the local day, and the app's own name and minute. */
 const STAMP = `2026-08-22_${EXPORT_NAME_BASE}-1719`;
 /** The first yard's own name as the one word a field of a name is (P114). */
-const YARD_FIELD = exportNameField(INITIAL_YARD_NAME);
+/** The yard field of an offered name: the first two words of the yard's own, cleaned (0317). */
+const YARD_FIELD = exportNameField(INITIAL_YARD_NAME.split(" ").slice(0, 2).join(" "));
 
 // One `it` per thing the offered name is made of: the yard, what it was made of, and when. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -443,6 +497,21 @@ describe("defaultExportName", () => {
     expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}`);
     patchDeck(store, "a", { source: null });
     expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}`);
+  });
+
+  // 0317: a yard is named for a small scene, and a field of a filename is one word. The whole
+  // scene is sixty characters and the folder's byte cap cuts from the end, so it would push the
+  // source field clean off — the take would stop saying what it was made of.
+  it("takes the yard's identity from its name and leaves the scene out of the filename", () => {
+    const store = createSessionStore();
+    const named = { id: "a", emoji: "🌿", name: "Wide Rowan behind the Compost Heap at Dusk" };
+    store.setState({ ...store.getState(), deckList: [named] });
+    patchDeck(store, "a", { source: imported("marsh-birds.wav") });
+
+    const offered = defaultExportName(store.getState(), MADE);
+    expect(offered).toBe(`${STAMP}_Wide-Rowan_marsh-birds`);
+    // And what it was made of survives the cut the folder makes, which is the point of the rule.
+    expect(exportNames(offered).folder.endsWith("_marsh-birds")).toBe(true);
   });
 
   // P95: a yard on a generator used to be offered its name alone, so it said nothing about what
