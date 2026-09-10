@@ -276,7 +276,7 @@ if (routeOption !== undefined) url = new URL(routeOption, url).href;
 
 during("launching headless Chromium");
 browser = await chromium.launch({
-  args: ["--autoplay-policy=no-user-gesture-required"],
+  args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio"],
 });
 const page = await browser.newPage();
 page.on("pageerror", (error) => note(`page error: ${error.message}`));
