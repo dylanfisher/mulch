@@ -67,7 +67,6 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
-import { type YardScene, yardScene } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import {
@@ -90,6 +89,7 @@ import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moire
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { DriftTuning } from "@/ui/MoireTuning";
+import { useYardScene } from "@/ui/yardSceneRead";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useAltHeld } from "@/ui/shortcuts";
@@ -383,16 +383,6 @@ function useRecurrence(recurrence: RecurrenceLength): string {
  * same number of cycles at the strip's height and at the overlay's, because a small picture is a
  * smaller picture and not a different one (0098).
  */
-/**
- * The field this yard's picture is of, read off its own name. A name never changes, so this reads
- * once a yard: the scene its plant stands in, the light its air puts that scene under, the wind its
- * adjective sets, and how close its place word stands to the one thing its place noun names
- * (`yardScene`, src/lib/yardScene.ts, 0329, 0335).
- */
-function useYardScene(name: string): YardScene {
-  return useMemo(() => yardScene(name), [name]);
-}
-
 // One line over, and the line is the reading: the picture's own set, its cadence and its painting
 // are one hook, and cutting the yard's reading out of it would hand the callback a memo from a
 // scope that knows nothing else about the painting (0007).
@@ -506,11 +496,14 @@ type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState; name
  */
 const DriftHeader = ({
   deck,
+  name,
   recurrence,
   onClose,
   onPopOut,
 }: {
   deck: DeckId;
+  /** The yard's own name, which the tuning panel says the reading of (0329). */
+  name: string;
   recurrence: string;
   onClose: () => void;
   /** Absent for a picture already in a window of its own: there is nothing left to pop it into. */
@@ -528,7 +521,7 @@ const DriftHeader = ({
       {/* The tuning panel rides the same guard: its popover portals into this document and its
           toast into this shell, neither of which a window of its own has (0138, 0299). A picture
           in its own window is tuned from the strip it was popped out of, below. */}
-      {onPopOut === undefined ? null : <DriftTuning />}
+      {onPopOut === undefined ? null : <DriftTuning name={name} />}
       {onPopOut === undefined ? null : (
         <Says what={MOIRE_POP_OUT_TOOLTIP}>
           <Button size="sm" variant="ghost" onClick={onPopOut}>
@@ -596,7 +589,13 @@ export function MoireOverlay({
       )}
     >
       {alone ? null : (
-        <DriftHeader deck={deck} recurrence={recurrence} onClose={onClose} onPopOut={onPopOut} />
+        <DriftHeader
+          deck={deck}
+          name={name}
+          recurrence={recurrence}
+          onClose={onClose}
+          onPopOut={onPopOut}
+        />
       )}
       {/* The one measure both screens lay out to is for a page of reading; a picture in a window
           of its own is full bleed and is not held to it (0074). */}
@@ -737,7 +736,7 @@ export function MoireStrip({
       {/* The registry the panel moves is one module in one realm, and the window's picture reads
           it as this page's does — so a picture popped out is tuned from here, where the popover
           has a document to portal into and the toast a shell to land in (0299). */}
-      {apart ? <DriftTuning /> : null}
+      {apart ? <DriftTuning name={name} /> : null}
       {covering ? (
         <MoireOverlay
           instrument={instrument}

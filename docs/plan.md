@@ -361,6 +361,37 @@ written. And no number this step added is a tunable: a speck's size and rarity a
 `SPARK` and `SPECK`, which are the constants the two scenes that already had specks state theirs as.
 The next free decision number is 0337.
 
+bench-17 landed on 2026-09-10 as
+[0337](decisions/0337-a-reading-is-said-in-the-pictures-own-words.md): one table per bank in
+src/lib/copyScene.ts, keyed by the contract's own readings, and `sceneReading` joining them in the
+order the mint writes a name — "a wind, poppies, close, by a grille, a wash of dusk, a flock". Both
+surfaces call that one function: the yard header says the field out loud beside the name and the
+whole sentence on hover, and the tuning panel's Scene card is the one card in it with no slider.
+Three things moved off the step's own text. **The wind is said too**: the step's example named five
+readings of the seven and the sentence names all seven, because a wind is a reading like the rest
+and a name's own adjective is the first thing it says. A reading that rests is said rather than
+dropped — "a wash of daylight", "its own points" — for the reason the day and the scene's own
+points are not banks a name can draw (0336): a sentence naming only what a name said out loud would
+read as a picture with nothing in those places. And a word is the picture's rather than the bank's:
+a yard named for a hedge reads "by a wall", four shadows being what the picture draws of
+twenty-four nouns (0335), and `bloom` is said as "poppies". One known cost stands: `DriftTuning`
+and `TuningFields` now take the yard's name, which is a required prop on a panel that had none —
+the strip and the zoomed header both had it in hand, so nothing was threaded, but a fourth surface
+wearing the panel will have to hold a name to open it. The review then found three more. The
+hint over the card enumerated the sentence and left the wind out of it — the one reading the
+sentence leads with — so a hand using the hint to check the reading was told there was no wind term
+to check. `still` was said as "no wind" against a wind that leans nothing and sways 0.35, which
+src/ui/moireScreen.ts calls "all but stands"; every word here is an amount now and the smallest of
+them is a breath. And `useYardScene` was the third reading of a name in a render body: the strip
+had memoized it since 0329 and the two new surfaces called `yardScene` raw, which is a triple loop
+over the air bank and two walks of the place and detail banks on every tuning slider move — it left
+src/ui/MoireStrip.tsx for src/ui/yardSceneRead.ts, because the panel that needed it is worn by the
+strip and the import would have run in a circle. One finding was declined: the header says the
+reading of a yard whose rack is empty and which therefore draws no picture at all, which is a
+reading of the name and true of what will be drawn the moment anything runs — gating it would have
+the deck's header read the rack's rows, which the strip owns and the header deliberately does not.
+The next free decision number is 0338.
+
 1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
     landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
     is stored (0329).
@@ -670,7 +701,8 @@ The next free decision number is 0337.
       then.
     - **A sound for a bell.** The name reads into the picture and nothing else.
 
-6.  **The reading is said on the yard.** _(bench-17)_ **Durable shape moved: none.**
+6.  **The reading is said on the yard.** _(bench-17, landed 0337)_ **Durable shape moved:
+    none.**
 
     The name is now seven readings, and a hand should be able to see them. The yard's header shows
     its name as it does; beside it, on hover or in the tuning panel's Scene group, the reading is

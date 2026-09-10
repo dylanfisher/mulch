@@ -4,6 +4,16 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { MOIRE_TUNE, MOIRE_TUNE_COPY, MOIRE_TUNE_RESET, tuningPrompt } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
+import {
+  SCENE_FIELD_WORDS,
+  SCENE_LIGHT_WORDS,
+  SCENE_READING_TITLE,
+  SCENE_REACH_WORDS,
+  SCENE_SPECKS_WORDS,
+  SCENE_SPREAD_WORDS,
+  SCENE_STAND_WORDS,
+  SCENE_WIND_WORDS,
+} from "@/lib/copyScene";
 import { SCENE_NAMES } from "@/lib/moireScene";
 import { SHARD_DOWN, SHARD_REACH, SHARD_STEP } from "@/lib/moireShards";
 import { snapToStep } from "@/lib/range";
@@ -19,6 +29,22 @@ import {
 // The strip is what wears the panel, and loading it declares every tunable the panel lists.
 import "@/ui/MoireStrip";
 
+/** A yard whose name reads as one of every bank, so the Scene card has all seven to say. */
+const YARD = "Windy Foxglove by the Gate in Falling Dusk with Moths";
+
+/**
+ * What that name reads as, written out rather than read back through `yardScene`: a case that
+ * derived the sentence with the code under it would pass on any reading at all.
+ */
+const READING = [
+  SCENE_WIND_WORDS.windy,
+  SCENE_FIELD_WORDS.bloom,
+  SCENE_REACH_WORDS.close,
+  SCENE_STAND_WORDS.grille,
+  `${SCENE_SPREAD_WORDS.wash} ${SCENE_LIGHT_WORDS.dusk}`,
+  SCENE_SPECKS_WORDS.flock,
+];
+
 /** One tuning handle by its id, live: the object the panel moves, not a reading of it. */
 const tuning = (id: string) => tunings().find((handle) => handle.id === id);
 
@@ -26,11 +52,18 @@ describe("DriftTuning", () => {
   afterEach(resetTuning);
 
   it("is the one button that opens it", () => {
-    expect(renderToStaticMarkup(<DriftTuning />)).toContain(`>${MOIRE_TUNE}</button>`);
+    expect(renderToStaticMarkup(<DriftTuning name={YARD} />)).toContain(`>${MOIRE_TUNE}</button>`);
+  });
+
+  it("says every reading of the active yard under the Scene group", () => {
+    const markup = renderToStaticMarkup(<TuningFields debug={false} name={YARD} />);
+    expect(markup).toContain(`>${SCENE_READING_TITLE}</h3>`);
+    for (const word of READING) expect(markup, word).toContain(word);
+    expect(markup).toContain(`>${READING.join(", ")}</p>`);
   });
 
   it("renders one slider per tunable, under its group, and reads the value back", () => {
-    const markup = renderToStaticMarkup(<TuningFields debug={false} />);
+    const markup = renderToStaticMarkup(<TuningFields debug={false} name={YARD} />);
     for (const handle of tunings()) {
       expect(markup).toContain(`aria-label="${handle.id}"`);
     }
@@ -168,13 +201,15 @@ describe("DriftTuning", () => {
   });
 
   it("offers the copy to the author only, and only once something has moved", () => {
-    const rest = renderToStaticMarkup(<TuningFields debug={true} />);
+    const rest = renderToStaticMarkup(<TuningFields debug={true} name={YARD} />);
     expect(rest).toContain(MOIRE_TUNE_COPY);
     expect(rest).toMatch(new RegExp(`disabled=""[^>]*>${MOIRE_TUNE_RESET}`, "u"));
     expect(rest).toMatch(new RegExp(`disabled=""[^>]*>${MOIRE_TUNE_COPY}`, "u"));
-    expect(renderToStaticMarkup(<TuningFields debug={false} />)).not.toContain(MOIRE_TUNE_COPY);
+    expect(renderToStaticMarkup(<TuningFields debug={false} name={YARD} />)).not.toContain(
+      MOIRE_TUNE_COPY,
+    );
     setTuning("shards.reach", 0.3);
-    const moved = renderToStaticMarkup(<TuningFields debug={true} />);
+    const moved = renderToStaticMarkup(<TuningFields debug={true} name={YARD} />);
     expect(moved).not.toMatch(new RegExp(`disabled=""[^>]*>${MOIRE_TUNE_COPY}`, "u"));
     expect(moved).toContain(">0.300</span>");
   });
@@ -200,7 +235,7 @@ describe("DriftTuning", () => {
     expect(() => {
       pushGroup("Nobody", 1);
     }).toThrow(/No drift tuning group "Nobody"/u);
-    const markup = renderToStaticMarkup(<TuningFields debug={false} />);
+    const markup = renderToStaticMarkup(<TuningFields debug={false} name={YARD} />);
     expect(markup).toContain('aria-label="Push Shards"');
   });
 

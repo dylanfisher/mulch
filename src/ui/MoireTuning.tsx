@@ -1,5 +1,6 @@
 /**
- * @role The drift's tuning panel: a popover on the zoomed picture with a slider for every number
+ * @role The drift's tuning panel: a popover on the zoomed picture saying what the yard's name was
+ *   read as, and holding a slider for every number
  *   the picture can move without rebuilding anything, grouped into cards by what the numbers do
  *   and each explained on hover, a push at the head of every card that drives its dials toward
  *   their wilder ends together, a reset, and — on localhost only — a button
@@ -10,7 +11,8 @@
  * @instead The registry itself, and which numbers are in it → src/lib/moireTuning.ts. The picture
  *   the panel is worn by, and where it is asked to paint again → src/ui/MoireStrip.tsx and
  *   `useDriftSurface` in src/ui/driftTiles.ts. The words → src/lib/copyDrift.ts, and the groups,
- *   labels and hints → src/lib/copyDriftGroups.ts.
+ *   labels and hints → src/lib/copyDriftGroups.ts. The words a reading is said in →
+ *   src/lib/copyScene.ts, and the reading itself → src/lib/yardScene.ts.
  */
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -26,6 +28,7 @@ import {
   tuningPrompt,
 } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS, type TuningEntry, type TuningGroup } from "@/lib/copyDriftGroups";
+import { SCENE_READING_HINT, SCENE_READING_TITLE, sceneReading } from "@/lib/copyScene";
 import {
   resetTuning,
   setTuning,
@@ -50,6 +53,7 @@ import { Slider } from "@/ui/components/slider";
 import { Says } from "@/ui/Says";
 import { toast } from "@/ui/components/toast";
 import { INSTANT_POPUP } from "@/ui/shell";
+import { useYardScene } from "@/ui/yardSceneRead";
 
 /**
  * Whether a page is being served to its own author: the copy button is a step in a loop that
@@ -209,17 +213,41 @@ const onCopy = (): void => {
 };
 
 /**
- * The panel's body, on its own so a test can render it open: the groups, each heading and each
+ * What the yard's name was read as, at the head of the panel: the one card here that moves
+ * nothing. A reading is not a dial — the name is the only thing that sets it (0329) — so it is
+ * said rather than offered, and it is said here because this is where a hand already stands while
+ * it is checking the picture against what it expected.
+ */
+function SceneCard({ name }: { name: string }) {
+  const scene = useYardScene(name);
+  return (
+    <Card size="sm" className="mb-3 break-inside-avoid">
+      <CardHeader>
+        <Says what={SCENE_READING_HINT}>
+          <h3 className="type-eyebrow text-muted-foreground">{SCENE_READING_TITLE}</h3>
+        </Says>
+      </CardHeader>
+      <CardContent>
+        <p className="type-readout">{sceneReading(scene)}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The panel's body, on its own so a test can render it open: what the yard's name was read as,
+ * the groups, each heading and each
  * label saying on hover what its numbers do, then the reset and,
  * for the author, the copy — disabled while nothing has moved, because a prompt to change
  * nothing is not one.
  */
-export function TuningFields({ debug }: { debug: boolean }) {
+export function TuningFields({ debug, name }: { debug: boolean; name: string }) {
   useTuning();
   const changed = Object.keys(tuningChanges()).length > 0;
   return (
     <>
       <div className="columns-[16rem] gap-3">
+        <SceneCard name={name} />
         {grouped(tunings()).map(({ group, rows }) => (
           <Card key={group.title} size="sm" className="mb-3 break-inside-avoid">
             <CardHeader>
@@ -256,7 +284,7 @@ export function TuningFields({ debug }: { debug: boolean }) {
  * the panel is as wide as the screen allows, the groups are cards flowing down columns, and it
  * scrolls inside itself rather than past the screen.
  */
-export function DriftTuning() {
+export function DriftTuning({ name }: { name: string }) {
   return (
     <Popover>
       <PopoverTrigger
@@ -273,7 +301,7 @@ export function DriftTuning() {
         <PopoverHeader>
           <PopoverTitle>{MOIRE_TUNE_TITLE}</PopoverTitle>
         </PopoverHeader>
-        <TuningFields debug={onLocalHost()} />
+        <TuningFields debug={onLocalHost()} name={name} />
       </PopoverContent>
     </Popover>
   );

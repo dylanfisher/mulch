@@ -29,6 +29,7 @@ import {
 } from "react";
 
 import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
+import { SCENE_FIELD_WORDS, sceneReading } from "@/lib/copyScene";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam, soundingBpm } from "@/audio/params";
 import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
@@ -48,6 +49,7 @@ import { EffectRack } from "@/ui/EffectRack";
 import { useRackBeat } from "@/ui/ParameterBeat";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
+import { useYardScene } from "@/ui/yardSceneRead";
 import { LoadField } from "@/ui/LoadField";
 import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -95,6 +97,23 @@ function useHeld<T>(initial: T): [T, Dispatch<SetStateAction<T>>] {
 const label = (source: DeckState["source"]): string | null => {
   if (source === null) return "nothing loaded";
   return "gen" in source ? source.gen : null;
+};
+
+/**
+ * What the yard's name was read as, beside the name itself: the field it stands in is said out
+ * loud, because that is the one reading a glance at the picture is checking, and the whole of the
+ * reading is on hover (0329). A button and not a span, for `Recurrence`'s reason — a sentence a
+ * resting pointer reaches is one a keyboard reaches too.
+ */
+const Reading = ({ name }: { name: string }) => {
+  const scene = useYardScene(name);
+  return (
+    <Says what={sceneReading(scene)}>
+      <button type="button" className="shrink-0 type-readout text-muted-foreground">
+        {SCENE_FIELD_WORDS[scene.scene]}
+      </button>
+    </Says>
+  );
 };
 
 /** The three states of a transport, in the order they are true: playing, held, stopped. */
@@ -456,6 +475,10 @@ export function Deck({
         >
           {readout(name, state)}
         </span>
+        {/* Beside the name, where a hand reads it: the picture is a reading of that name and of
+            nothing else, so what it was read as is said next to it rather than anywhere the name
+            is not (0329). The same sentence is in the tuning panel's Scene card. */}
+        <Reading name={name} />
         {/* Folded, the yard's whole body is gone and the drift with it — so the picture moves
             into the slack this header already has, between the readout and the group of buttons,
             and a shut yard still says what it is doing. Open, it is drawn full width down below
