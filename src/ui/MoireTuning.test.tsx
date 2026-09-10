@@ -85,6 +85,36 @@ describe("DriftTuning", () => {
     expect(tunings().filter((handle) => handle.id.endsWith(".depth"))).toEqual([]);
   });
 
+  it("holds the seed heads' and the leaf wall's own numbers under their two groups", () => {
+    // The meadow is seed heads and the canopy is the light through a wall of leaf since 0334, both
+    // drawn from noise rather than gratings — so neither field has a spacing left to turn. What a
+    // hand argues on the meadow is how wide a fibre is across the stroke and how long along it, how
+    // wide a stalk is, and where on its ramp the mass rests; on the canopy, the two scales of leaf,
+    // how far up its ramp the closed mass reaches, how thin the leaf has to be to let sky through,
+    // and how rare an open speck is. The five the gratings needed are gone with them.
+    const groups = grouped(tunings());
+    expect(
+      groups.find(({ group }) => group.title === "Meadow")?.rows.map((row) => row.handle.id),
+    ).toEqual(["meadow.fibre", "meadow.awn", "meadow.stalk", "meadow.mass"]);
+    expect(
+      groups.find(({ group }) => group.title === "Canopy")?.rows.map((row) => row.handle.id),
+    ).toEqual(["canopy.crown", "canopy.leaf", "canopy.mass", "canopy.thin", "canopy.rare"]);
+    // And a spacing nobody reads is a slider that lies (0333): none of the five a grating meadow
+    // and a lattice canopy were turned by survives its ground.
+    for (const gone of [
+      "meadow.stroke",
+      "meadow.tuft",
+      "meadow.slant",
+      "canopy.gap",
+      "canopy.through",
+    ]) {
+      expect(
+        tunings().map((handle) => handle.id),
+        gone,
+      ).not.toContain(gone);
+    }
+  });
+
   it("holds the glint's own numbers under the Water group", () => {
     // The water is the glint since 0333, and what a hand argues on it is the two pitches the glints
     // are the beat of, how long one is, how wide the swell is and how black the water under it is —

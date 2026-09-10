@@ -7,11 +7,11 @@
  * @instead The other three grounds → the files beside this one. What a scene is →
  *   src/lib/moireScene.ts. Which names read as this one → src/lib/yardScene.ts. The hash the heads
  *   are scattered by → src/lib/moireNoise.ts. The still this was argued at 1:1 as →
- *   src/ui/sketch/sketchStillField.ts, entry 10 of the drift bench until this landed (0331).
+ *   the drift bench's entry 10 until this landed (0331), whose field left with it.
  */
 import { wrap } from "@/lib/moire";
 import { hash2 } from "@/lib/moireNoise";
-import { type Scene, sceneAxis, sceneRepeat, sceneSlope } from "@/lib/moireScene";
+import { type Scene, sceneAxis, sceneCells, sceneRepeat, sceneSlope } from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -119,7 +119,7 @@ export const bloom: Scene = {
     // Snapped across the tile, so a whole number of heads span it and the column a tile's width
     // along is the column it began at (`sceneRepeat`).
     const across = sceneRepeat(terms.width, period);
-    const cols = Math.max(1, Math.round(terms.width / across));
+    const cols = sceneCells(terms.width, period);
     const u = (x - terms.width / 2) / across;
     // The rows, spaced by their own period: the integral of one over a period that grows linearly
     // down the tile, which is a logarithm, and the whole of the perspective. Stretched onto a whole

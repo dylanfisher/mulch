@@ -200,9 +200,9 @@ function paintedOn(
     [],
     shapeRest(),
     tintRest(),
-    // Every case but the scene's own paints the meadow, whose ramp is the two inks, two channels
-    // and the primary the picture was read along before a yard's name said which field it stood in
-    // (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
+    // Every case but the scene's own paints the meadow, which is seed heads since 0334: a ramp of
+    // the leaf dark, the hot ink, its own tan, the lit leaf and a pale sky, warm for four stops of
+    // the five (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
     yard,
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
@@ -674,16 +674,21 @@ describe("moireScreen", () => {
       for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
       return total / (pixels.length / 4);
     };
-    // The travel slides the field down its ramp toward the cool end and up it toward the hot one:
-    // the meadow's is cool, green, the picture's own ink, red and hot, in that order.
-    expect(meanOf(0, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
-    expect(meanOf(1, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
-    // And it slides it and never replaces it: at rest the field is already spread across its own
-    // ramp, so the picture is greener at rest than at either end, where the travel has carried the
-    // whole of it past the stop the strokes were reading.
-    expect(meanOf(DRIFT_REST.hue, 1)).toBeGreaterThan(meanOf(1, 1));
-    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(0.75, 1));
-    expect(meanOf(0.75, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
+    // The travel slides the field along its ramp, low end to high: the meadow's is the dark of a
+    // leaf, a hot shadow, its own tan, a straw and a pale sky, in that order (0334), so the one
+    // channel the ramp climbs end to end is the blue the sky stop brings.
+    expect(meanOf(1, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
+    expect(meanOf(DRIFT_REST.hue, 2)).toBeGreaterThan(meanOf(0, 2));
+    expect(meanOf(0.75, 1)).toBeGreaterThan(meanOf(0.25, 1));
+    // And it slides the field and never replaces it. A claim is worth one stop of five (`sceneHue`)
+    // and this ramp is warm for four of them, so the picture is a warm mass at either end of the
+    // travel — the red channel moves a fraction of what the blue does, which is what "the yard's
+    // name is the colour and the claim is an offset on it" comes to when it is measured.
+    const spread = (channel: number): number => Math.abs(meanOf(1, channel) - meanOf(0, channel));
+    expect(spread(0), "the travel repaints the field rather than sliding it").toBeLessThan(
+      spread(2) / 4,
+    );
+    expect(meanOf(0, 0), "the meadow is not warm at the foot of its ramp").toBeGreaterThan(150);
   });
 
   it("carries a claim by one stop of the ramp and no further", () => {

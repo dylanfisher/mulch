@@ -125,6 +125,74 @@ describe("the scene registry", () => {
     expect(top, "no glint reaches the water's own top stop").toBeGreaterThan(1 - stop / 2);
   });
 
+  /** Every read of one scene's whole tile, sorted, so a case can ask for its median. */
+  function medianOf(name: (typeof SCENE_NAMES)[number]): number {
+    const { ground } = SCENES[name];
+    const read: number[] = [];
+    for (let y = 0; y < TERMS.height; y += 1) {
+      for (let x = 0; x < TERMS.width; x += 1) read.push(ground(x, y, TERMS));
+    }
+    read.sort((one, two) => one - two);
+    return read[Math.floor(read.length / 2)] ?? 0;
+  }
+
+  it("rests the meadow's mass on the tan it names and the canopy's on the shade it names", () => {
+    // The two stills that landed as scenes (0334), each read as the median of a whole tile: a mean
+    // is carried by the sparks and the specks of sky, and what is being said here is what the mass
+    // between them is. **A mass rests on a stop, and the stop is the one the ramp names for it.**
+    // The meadow's tan was a mix of the ember stop and the straw stop until this landed, and every
+    // value on the way down came out scarlet; the canopy's floor was the darkest *lit* leaf ink
+    // there was. Both are tokens of their own now, so the claim is where the mass sits **and**
+    // which ink is there — either half alone passes on a ramp that was never rewritten.
+    const stop = 1 / (SCENE_RAMP_STOPS - 1);
+    expect(SCENES.meadow.ramp[2], "the meadow names no tan of its own").toBe("--scene-meadow-tan");
+    const meadow = medianOf("meadow");
+    expect(meadow, "the meadow's mass is under its own tan").toBeGreaterThan(1.5 * stop);
+    expect(meadow, "the meadow's mass is over its own straw").toBeLessThan(2.5 * stop);
+    // And the canopy sits under the stop the leaf dark used to be its floor at, which is what a
+    // wall of leaf seen from under one is.
+    expect(SCENES.canopy.ramp[0], "the canopy names no shade under its dark").toBe(
+      "--scene-canopy-shade",
+    );
+    expect(SCENES.canopy.ramp[1], "the canopy's dark is not its second stop").toBe(
+      "--scene-canopy-dark",
+    );
+    expect(medianOf("canopy"), "the canopy is not read at its lowest two stops").toBeLessThan(stop);
+  });
+
+  /** How many samples of a whole tile jump by more than `bar` from the column a hair to their left. */
+  function breaksOf(name: (typeof SCENE_NAMES)[number], lean: number, bar: number): number {
+    const { ground } = SCENES[name];
+    const terms = { ...TERMS, lean };
+    let broken = 0;
+    for (let x = 1; x < TERMS.width; x += 0.01) {
+      for (let y = 0; y < TERMS.height; y += 7) {
+        if (Math.abs(ground(x, y, terms) - ground(x - 0.01, y, terms)) > bar) broken += 1;
+      }
+    }
+    return broken;
+  }
+
+  it("cuts no vertical break through the field the wind leans", () => {
+    // **The wind may not put an edge in the picture.** A lean is snapped to a whole number of the
+    // mark's own repeats over the tile's depth (`sceneSlope`), which is a **step function** of what
+    // it is handed — so a lean that varied across the picture, as a gust standing in it does, tips
+    // that rounding column by column and cuts a hard vertical break at every column where it tips:
+    // the ruled grid the snapping exists to prevent, moved off the tile join into the middle of the
+    // picture, standing in the same place in every tile (0334). The meadow's gust is a smooth
+    // offset on x instead, and its lean is one number for the whole tile.
+    //
+    // Counted against the same field with the wind out of it, and not against a bar of its own,
+    // because the marks a picture is *made* of are allowed to be sharp — a seed read at the top
+    // stop is a break by design. What is refused is a break the wind brought. Scanned every
+    // hundredth of a pixel across, because the tipping columns are that narrow and a coarser walk
+    // steps straight over them.
+    const still = breaksOf("meadow", 0, 0.2);
+    expect(breaksOf("meadow", 1, 0.2), "the meadow breaks where the wind leans it").toBeLessThan(
+      still + 7,
+    );
+  });
+
   it("comes round at both edges of the tile, at every lean", () => {
     // The tile is laid down as a repeating pattern (`createPattern`, src/ui/moireScreen.ts), so a
     // ground whose marks did not divide it would step by a fraction of a mark at every join — a

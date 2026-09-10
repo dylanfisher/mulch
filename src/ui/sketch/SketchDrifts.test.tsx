@@ -1,5 +1,5 @@
 /**
- * The drift bench's own half of the naming rule (0252): eleven directions of one picture, each on
+ * The drift bench's own half of the naming rule (0252): nine directions of one picture, each on
  * a canvas under its own dial, each naming what the dial stands at and the inks it is drawn in,
  * and each saying where in the painter it would land — at a file that exists. Out of
  * `SketchPage.test.tsx` in the shape `SketchGrounds.test.tsx` took: that file mounts the bench and
@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 import { SCENE_NAMES } from "@/lib/moireScene";
 import { sceneOf } from "@/ui/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
-import { STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
 import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
 import { SketchPage } from "@/ui/sketch/SketchPage";
 
@@ -38,10 +37,6 @@ function chipsOf(stage: string): string[] {
   return [...stage.matchAll(/data-chip="([^"]+)"/gu)].map((found) => found[1] ?? "");
 }
 
-/** And as the chips it would draw, which is what says two pictures are of one field (0332). */
-const chipList = (stops: readonly { chip: string }[]): string =>
-  stops.map((stop) => stop.chip).join();
-
 /** One list of stops as the names a legend would draw, so two inkings compare as one string. */
 const namesOf = (stops: readonly { name: string }[]): string =>
   stops.map((stop) => stop.name).join();
@@ -53,20 +48,20 @@ const rampOf = (name: (typeof SCENE_NAMES)[number]): string =>
     .join();
 
 /**
- * Every inking a picture on this bench may be drawn through: the two shared ones, one per still,
- * and one per scene — the scenes read along their own five since 0332, exactly as the stills do.
- * Held as the names in their order and not as a count — two stills, four scenes and the reference
- * ramp all hold five, and what is being checked is which five.
+ * Every inking a picture on this bench may be drawn through: the two shared ones and one per scene
+ * — the scenes read along their own five since 0332, exactly as the four stills did before every
+ * one of them landed as the scene it argued for (0334). Held as the names in their order and not as
+ * a count, because the four scenes and the reference ramp all hold five and what is being checked
+ * is which five.
  */
 const DECLARED = [
   ...Object.values(INKING_STOPS).map((stops) => namesOf(stops)),
-  ...Object.values(STILL_STOPS).map((stops) => namesOf(stops)),
   ...SCENE_NAMES.map((name) => rampOf(name)),
 ];
 
-describe("SketchPage draws where the picture goes, eleven ways", () => {
+describe("SketchPage draws where the picture goes, nine ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length + STILL_NAMES.length);
+    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");
@@ -84,20 +79,21 @@ describe("SketchPage draws where the picture goes, eleven ways", () => {
 
 describe("the bench spends colour on a scene, and on nothing else", () => {
   /**
-   * **Amended for the stills.** The rule was that exactly one picture spent a second colour, which
-   * was right for a bench arguing about one move at a time on a one-hue instrument (0247). The four
-   * stills are the answer to the shipped scenes reading as too quiet, and colour at full strength is
-   * the thing they are for — so the rule is now two: the reference ramp of five is still read by the
-   * Ramp and by nothing else, and a picture drawn along stops of its own holds those stops alone.
+   * **Amended for the stills, and kept after them.** The rule was that exactly one picture spent a
+   * second colour, which was right for a bench arguing about one move at a time on a one-hue
+   * instrument (0247). The stills were the answer to the shipped scenes reading as too quiet, and
+   * colour at full strength is what they were for — so the rule became two: the reference ramp of
+   * five is still read by the Ramp and by nothing else, and a picture drawn along stops of its own
+   * holds those stops alone. The stills have all landed as scenes (0334) and the second half holds
+   * over what is left.
    *
-   * The second half is walked over **every entry** and not over the four names, which is what keeps
-   * it as strong as the rule it replaces: "no picture but the Ramp draws five chips" banned a
-   * thirteenth entry from borrowing a still's palette, and a loop over `STILL_NAMES` would have let
-   * one through the moment it was added under any other id (0331).
+   * It is walked over **every entry** and not over the four names, which is what keeps it as strong
+   * as the rule it replaces: "no picture but the Ramp draws five chips" banned a further entry from
+   * borrowing a palette, and a loop over the four scene names would let one through the moment it
+   * was added under any other id (0331).
    */
   it("reads one picture through the reference ramp and every other palette once", () => {
     const reference = namesOf(INKING_STOPS.ramp);
-    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
     const seen = new Map<string, string>();
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const chips = chipsOf(stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id)).join();
@@ -111,13 +107,6 @@ describe("the bench spends colour on a scene, and on nothing else", () => {
       seen.set(chips, entry.id);
     }
     expect(seen.get(reference), "the reference ramp is not the Ramp's").toBe("ramp");
-
-    for (const name of STILL_NAMES) {
-      expect(drawn, `${name} is not on the bench`).toContain(name);
-      const stops = namesOf(STILL_STOPS[name]);
-      const chips = chipsOf(stageOf(name, SKETCH_DRIFTS[drawn.indexOf(name) + 1]?.id)).join();
-      expect(chips, `${name} is not read along its own stops`).toBe(stops);
-    }
   });
 });
 
@@ -144,24 +133,23 @@ describe("the bench draws every scene", () => {
   });
 
   /**
-   * And no still stands on the bench drawing a picture that has shipped. A still is here to argue a
-   * field the painter does not have; the moment it lands as a scene the argument is over, and two
-   * entries of one picture is the duplicate the palette rule above is written against (0331, 0332).
+   * And no still is left on the bench at all. A still was here to argue a field the painter did not
+   * have; every one of the four has landed as the scene it argued for — the poppies as the bloom
+   * (0332), the glint as the water (0333), the seed heads as the meadow and the canopy light as the
+   * canopy (0334) — so the argument is over and the two files behind them are gone with it.
    */
-  it("keeps no still whose picture a scene already draws", () => {
-    // By the tokens and not by the names under them: a still names its stops for what they are in
-    // its own picture — a throat, a petal — and a scene for the token, so two drawings of one
-    // field share every chip and no name at all.
-    const shipped = new Set(
-      SCENE_NAMES.map((name) =>
-        sceneOf(name)
-          .ramp.map((token) => `bg-(${token})`)
-          .join(),
-      ),
-    );
-    for (const name of STILL_NAMES) {
-      expect(shipped.has(chipList(STILL_STOPS[name])), `${name} is a scene already`).toBe(false);
+  it("keeps no still, and no file for one", () => {
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    for (const gone of ["poppies", "glint", "seedheads", "skylight"]) {
+      expect(drawn, `${gone} still stands on the bench`).not.toContain(gone);
     }
+    for (const file of ["src/ui/sketch/sketchStill.ts", "src/ui/sketch/sketchStillField.ts"]) {
+      expect(existsSync(file), `${file} outlived the still it was for`).toBe(false);
+    }
+    // And the bench's second introduction counts what it mounts: nine, not eleven.
+    expect(markup, "the drift introduction still says eleven").toContain(
+      "so the nine are a plan&#x27;s worth of parts",
+    );
   });
 });
 
@@ -169,21 +157,25 @@ describe("the bench keeps no picture a scene has taken", () => {
   /**
    * The water is the glint since 0333, so entry 08 is the shipped water read along the shipped
    * water's own stops — black first, which is the stop this instrument had no ink for until the
-   * scene landed — and entry 10, which argued it, is gone with the still behind it.
+   * scene landed. The canopy is the skylight since 0334 and opens at a stop under the one that was
+   * its darkest, which is the second ink a landing still has cost the theme.
    */
-  it("draws the shipped water at 08 and keeps no glint behind it", () => {
+  it("draws the shipped water at 08 and the shipped canopy at 09, each on its own floor", () => {
     const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
     expect(drawn.indexOf("water"), "the water is not entry 08").toBe(7);
-    expect(drawn, "the glint still stands on the bench").not.toContain("glint");
-    expect([...STILL_NAMES], "the glint is still a still").not.toContain("glint");
-    const stage = stageOf("water", drawn[8]);
-    expect(chipsOf(stage)[0], "the water does not open at its black").toBe("black");
+    expect(drawn.indexOf("canopy"), "the canopy is not entry 09").toBe(8);
+    expect(chipsOf(stageOf("water", drawn[8]))[0], "the water does not open at its black").toBe(
+      "black",
+    );
+    expect(chipsOf(stageOf("canopy", drawn[9]))[0], "the canopy does not open at its shade").toBe(
+      "shade",
+    );
   });
 });
 
-describe("each of the eleven says where it would land", () => {
+describe("each of the nine says where it would land", () => {
   /**
-   * A build note is the point of this bench: the eleven are a plan's worth of parts, so each one
+   * A build note is the point of this bench: the nine are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */

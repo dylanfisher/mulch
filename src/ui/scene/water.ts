@@ -6,11 +6,11 @@
  * @instead The other three grounds → the files beside this one. What a scene is →
  *   src/lib/moireScene.ts. Which names read as this one → src/lib/yardScene.ts. The hash the
  *   dashes are cut at → src/lib/moireNoise.ts. The still this was argued at 1:1 as →
- *   src/ui/sketch/sketchStillField.ts, entry 10 of the drift bench until this landed (0331).
+ *   the drift bench's entry 10 until this landed (0331), whose field left with it.
  */
 import { wrap } from "@/lib/moire";
 import { hash2 } from "@/lib/moireNoise";
-import { type Scene, sceneAxis, sceneRepeat, sceneSharp } from "@/lib/moireScene";
+import { type Scene, sceneAxis, sceneCells, sceneRepeat, sceneSharp } from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -133,7 +133,7 @@ export const water: Scene = {
     // a phase of the ripple row's own, or every dash lines up under the one above it and the water
     // reads as woven cloth. The row is read on its wrapped index, because the tile comes round and
     // a hash does not.
-    const rows = Math.max(1, Math.round(terms.height / rippleDown));
+    const rows = sceneCells(terms.height, RIPPLE.value);
     const row = wrap(Math.round(bent / rippleDown), rows);
     const dashAcross = sceneRepeat(terms.width, DASH.value);
     const dashDown = sceneRepeat(terms.height, DASH.value / STEEP);

@@ -1,14 +1,14 @@
 /**
  * @role The two lists the sketch bench mounts, and the shape of one entry: eight readings of when
- *   the ground shifts under a hand's gesture, and eleven directions the drift picture could be
+ *   the ground shifts under a hand's gesture, and nine directions the drift picture could be
  *   pushed in. The argument lives here and the page that draws it lives next door — split off when
  *   the two together passed the file cap, because a list that grew by four entries is not a page
  *   that grew (docs/map.md).
  * @instead The page that mounts these, its nav and its two introductions →
  *   src/ui/sketch/SketchPage.tsx, and the frame one entry is drawn in →
  *   src/ui/sketch/SketchFrame.tsx. The pictures themselves → src/ui/sketch/ground/ and
- *   src/ui/sketch/drift/, and the fields they draw → src/ui/sketch/sketchDrift.ts and
- *   src/ui/sketch/sketchStillField.ts. None of them is wired to anything (0247).
+ *   src/ui/sketch/drift/, and the fields they draw → src/ui/sketch/sketchDrift.ts and the four
+ *   grounds themselves under src/ui/scene/. None of them is wired to anything (0247).
  */
 
 // The dependency count is the sketch count, for the reason the gallery's is: this file exists to
@@ -32,8 +32,6 @@ import {
   SketchDriftMeadow,
   SketchDriftWater,
 } from "@/ui/sketch/drift/SketchDriftScenes";
-import { SketchDriftSeedHeads } from "@/ui/sketch/drift/SketchDriftSeedHeads";
-import { SketchDriftSkylight } from "@/ui/sketch/drift/SketchDriftSkylight";
 import { SketchDriftTerrace } from "@/ui/sketch/drift/SketchDriftTerrace";
 import { SketchDriftTunnel } from "@/ui/sketch/drift/SketchDriftTunnel";
 import { SketchGroundClock } from "@/ui/sketch/ground/SketchGroundClock";
@@ -144,7 +142,7 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
 ];
 
 /**
- * Eleven directions the drift picture could be pushed in, none of them exclusive of another. The
+ * Nine directions the drift picture could be pushed in, none of them exclusive of another. The
  * picture today is a product of gratings cut out of one ink and filmed through three channels
  * (src/ui/moireCanvas.ts, src/ui/moireScreen.ts), and its structure is two fractal rows whose
  * levels were meant to read as a lattice of cells (0268) and still read as a weave. Each of these
@@ -153,11 +151,11 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
  * dial that direction turns. Every one carries where it would land and what side of the bake line
  * it falls on (docs/plan.md, "a tile is a bake and a frame is a `fillStyle`").
  *
- * The last two are the answer to the four before them being too quiet: one film still each, drawn
- * along five stops of its own and read **per pixel**, so a ground is the picture rather than a
- * sixth of its alpha (0331). There were four: the poppies left when the bloom became them and every
- * scene was read that way (0332), and the glint when the water became it (0333) — which is what a
- * bench entry is for.
+ * There were eleven: four of them were film stills, drawn along five stops of their own and read
+ * **per pixel** to argue that a ground is the picture rather than a sixth of its alpha (0331), and
+ * every one of the four has since become the scene it was arguing for — the poppies as the bloom
+ * (0332), the glint as the water (0333), the seed heads as the meadow and the canopy light as the
+ * canopy (0334). A bench entry that lands is a bench entry that goes, which is what one is for.
  */
 export const SKETCH_DRIFTS: readonly SketchEntry[] = [
   {
@@ -219,11 +217,11 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     id: "meadow",
     label: "The Meadow",
     thesis:
-      "The picture is a field, and which field it is, is already written on the yard: the plant names the scene. Fine tall strokes clumped into tufts and leaning as one, which is what a Heather, a Bracken or a Thistle stands in.",
+      "The picture is a field, and which field it is, is already written on the yard: the plant names the scene. Backlit seed heads — an amber-tan mass of fibre, feathery and soft, with dark stalks threading it and a seed here and there catching the light outright, which is what a Heather, a Bracken or a Thistle stands in. Noise and not gratings: a mass of grass has no pitch in it, and everything with a pitch drew a comb, a beaded string or a herringbone.",
     trades:
-      "the one picture every yard drew. A rack of six is six fields rather than six settings of one, so nothing on the page reads as a family any more except by its ramp; and a scene is fixed at a yard's birth, because there is no rename.",
+      "the one picture every yard drew, and four hash reads a pixel. A rack of six is six fields rather than six settings of one, so nothing on the page reads as a family any more except by its ramp; and a hash does not repeat where a tile does, so every scale of the noise is sampled on cells wrapped onto the tile or a seam runs down the picture at full contrast, once a tile.",
     built:
-      "the ground in src/ui/scene/meadow.ts, read by build in src/ui/moireScreenTile.ts where the tile's alpha is written: the film's gratings, blobs and band multiply into it and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle.",
+      "the ground in src/ui/scene/meadow.ts over streakTiled in src/lib/moireNoise.ts, read by build in src/ui/moireScreenTile.ts where the tile's alpha is written: the film's gratings, blobs and band multiply into it and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle, which is the precedent grainTile in src/lib/moireGrain.ts set for reading a hash a pixel at a time.",
     Content: SketchDriftMeadow,
   },
   {
@@ -252,33 +250,11 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     id: "canopy",
     label: "The Canopy",
     thesis:
-      "A dense dark mass with scattered light breaking through it, which is what a Willow, a Birch or a Hazel stands in. It takes the most of the picture's ink of the four: what a canopy is, is the light it does not let past.",
+      "A wall of leaf seen from under it: clumps at four scales with the coarsest reading as whole crowns light against dark, and a handful of pale specks of sky where the leaf has thinned — which is what a Willow, a Birch or a Hazel stands in. It takes the most of the picture's ink of the four: what a canopy is, is the light it does not let past. Noise and not lattices, for the meadow's reason turned round: lattices crossed leave their gaps on a grid however they are turned, and a canopy whose holes stand in rows is a net.",
     trades:
-      "the dark. A ground says where on its ramp a pixel is read and spends none of the tile's alpha (0332), so how dark a canopy goes is how dark its own stops are and nothing to do with SCREEN_FLOOR — which is what the darkest leaf ink the instrument holds, --scene-canopy-dark at a lightness of 0.38, is then the whole of.",
+      "the dark, and one more token. A ground says where on its ramp a pixel is read and spends none of the tile's alpha (0332), so how dark a canopy goes is how dark its own stops are and nothing to do with SCREEN_FLOOR — and --scene-canopy-dark at a lightness of 0.38 turned out to be a lit leaf rather than the shade under one, so the ramp got --scene-canopy-shade under it.",
     built:
-      "the ground in src/ui/scene/canopy.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/ui/scene/scenes.ts.",
+      "the ground in src/ui/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/ui/scene/scenes.ts.",
     Content: SketchDriftCanopy,
-  },
-  {
-    id: "seedheads",
-    label: "The Seed Heads",
-    thesis:
-      "An amber-tan mass filling the frame, feathery and soft, with dark stalks threading it and a seed here and there catching the light outright. Two things it is not, both learned by shooting it: it is not gratings — a mass of grass has no pitch, and everything with a pitch drew a comb, a beaded string or a herringbone — and its mass is not the floor of its ramp but two thirds of the way up it, where these tokens make tan. The lean is a function of where a stroke stands and of the phase rather than one number baked over a whole tile, so a gust travels across as a wave. The warm grain is the stock and not the grass: the print belongs to the film, and every one of the four draws it.",
-    trades:
-      "the lean being part of what a tile is of, and the hue. A baked lean is one number in the tile key and free forever after; a travelling one has to be a transform, so the ground can no longer be laid as a single repeating pattern and the seam every scene term exists to avoid comes back at the join of each strip. And the tan is a mix and not a token: the instrument holds no desaturated warm ink, so this mass is as unsaturated as the ember and straw stops get between them, and the stalks read crimson at their edges because the way down this ramp passes through the most saturated ink there is. A tan of its own would be a colour-boundary crossing with its own record (0236).",
-    built:
-      "two halves on two sides of the line. The mass is four scales of hashed value noise read per pixel in a ground beside src/ui/scene/meadow.ts — bake-side, and the precedent for a painter reading a hash a pixel at a time is grainTile in src/lib/moireGrain.ts, which bakes one and holds it. The gust is the other half and cannot be baked: the sway of SCENE_WIND_TERMS in src/lib/moireScene.ts made spatial. Not in src/ui/moireCanvasField.ts, which slices the gratings cut back out of the picture and never the screen the ground is baked into — a shear applied there moves the holes and the grass under them stands still — and not as a pattern transform in inkThrough, src/ui/moireScreen.ts, a DOMMatrix being affine. It is the screen fill in src/ui/moireCanvas.ts cut into vertical strips, each under one more turn of the gust: frame-side, and the cost is 0070 itself, a frame going from one fillStyle to one per strip.",
-    Content: SketchDriftSeedHeads,
-  },
-  {
-    id: "skylight",
-    label: "The Canopy Light",
-    thesis:
-      "Leaf at four scales — whole crowns light against dark, down to a leaf-sized grain — falling to the floor of its own ramp at the foot, with a couple of dozen pale specks of sky in the upper half where the leaf has thinned. Noise and not lattices, for the seed heads' reason: lattices crossed leave their gaps on a grid however they are turned, and a canopy whose holes stand in rows is a net. The dial is the gust: it shivers the three fine scales and decides which specks are open, because a gap opens and closes and does not dim. The fall away into the corners is the lens and not the canopy — the print is the film's half of a film still, and the only term here that a scene would not carry.",
-    trades:
-      "the floor, and the dark. A ground this deep is the closest of the eleven to being a grille with a picture behind it, and the specks are read at the top stop, so the one place the picture is bright is the one place it is not the yard's own ink. Four scales of noise where the shipped canopy has one lattice is four hash reads and a smooth step on every pixel of the bake. And the mass is held near the first stop rather than drawn dark, because --scene-canopy-dark is a lightness of 0.38 and the only ink under it is the water's own black, which is a blue a canopy may not name (0333): the still is darker than any leaf ink this instrument owns, so what carries this picture is the contrast between a lit crown and the shade beside it, not how black the shade is.",
-    built:
-      "the ground in src/ui/scene/canopy.ts rewritten as four scales of hashed value noise and deepened toward what SCREEN_FLOOR leaves, with the specks read as a ramp position at the top stop in build, src/ui/moireScreenTile.ts — which is the Poppies' contract change and not a thing build can do today, so this one lands after that one or not at all. Bake-side, and the noise is affordable there for the reason grainTile in src/lib/moireGrain.ts is: it runs on a rebuild. The cost is a case that does not exist yet — the floor in src/ui/moireScreen.test.ts is asserted against a tile painted at the resting yard, which is the meadow, so nothing in the suite would notice this ground going deep. The first work is a canopy tile in that file; the second is finding out whether the floor or a film term gives way.",
-    Content: SketchDriftSkylight,
   },
 ];

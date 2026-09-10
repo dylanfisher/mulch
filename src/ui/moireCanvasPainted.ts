@@ -48,13 +48,17 @@ const RESOLVED: readonly (readonly [string, readonly [number, number, number, nu
   // above, or a test could not tell a picture that travelled from one that did not (0141).
   ["--drift-hot", [240, 40, 40, 255]],
   ["--drift-cool", [40, 80, 240, 255]],
-  // The scene stops, each in the direction its own token goes: a black, a deep and a lit water, and
-  // the dark of a leaf mass against the light that breaks through it.
+  // The scene stops, each in the direction its own token goes: a black, a deep and a lit water, the
+  // dark of a leaf mass against the light that breaks through it, the shade under that mass, and
+  // the meadow's own tan. Every one of them, or the fallback below answers for the missing stop and
+  // a case measures the caller's amber where it meant to measure a canopy's floor (0334).
   ["--scene-water-black", [8, 12, 30, 255]],
   ["--scene-water-deep", [20, 30, 90, 255]],
   ["--scene-water-lit", [200, 230, 245, 255]],
+  ["--scene-canopy-shade", [10, 30, 16, 255]],
   ["--scene-canopy-dark", [20, 60, 30, 255]],
   ["--scene-canopy-lit", [235, 220, 120, 255]],
+  ["--scene-meadow-tan", [190, 150, 85, 255]],
   // And the lights an air puts a scene under, each one a mix toward something the day is not.
   ["--light-dusk", [130, 60, 40, 255]],
   ["--light-moon", [110, 120, 160, 255]],
@@ -167,9 +171,9 @@ export function painterOn(stubGlobal: StubGlobal) {
       // halted yard and the picture drawn before there was a band (`tintRest`, src/ui/moireTint.ts).
       tinting = tintRest(),
       // And the field the picture is of, read off a yard's own name: the rest unless a case says
-      // otherwise, which is the meadow under no air in a quiet wind — the one scene that rests on
-      // the caller's own ink, so a case about anything else draws the picture the instrument drew
-      // before it had scenes (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
+      // otherwise, which is the meadow under no air in a quiet wind — the scene every other one is
+      // measured against, so a case about anything else draws the same picture twice
+      // (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
       yard = YARD_SCENE_REST,
     }: {
       frames?: number;

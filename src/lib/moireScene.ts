@@ -122,7 +122,17 @@ export const sceneAxis = (turn: number): number => 0.5 + 0.5 * cosTurn(turn);
  * amplitude, once a tile. The asked-for period is what a hand tunes; this is what is drawn.
  */
 export const sceneRepeat = (across: number, period: number): number =>
-  across > 0 && period > 0 ? across / Math.max(1, Math.round(across / period)) : period;
+  across > 0 && period > 0 ? across / sceneCells(across, period) : period;
+
+/**
+ * The same snap stated as a count: how many whole marks of `period` span `across`. **One
+ * declaration and two readings of it**, because a mark placed by a hash needs the count where a
+ * mark cut by a cosine needs the period — a poppy's column, a ripple's row, a cell of noise — and
+ * two roundings of one quotient are two chances to disagree about where a tile comes round
+ * (principle 1).
+ */
+export const sceneCells = (across: number, period: number): number =>
+  across > 0 && period > 0 ? Math.max(1, Math.round(across / period)) : 1;
 
 /**
  * The slope a mark of `period` leans at over a tile `down` pixels deep, for the same reason: the

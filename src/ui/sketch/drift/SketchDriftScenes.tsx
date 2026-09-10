@@ -31,6 +31,8 @@ const SCENE_CHIPS: Readonly<Record<string, string>> = {
   "--scene-water-lit": "bg-(--scene-water-lit)",
   "--scene-canopy-dark": "bg-(--scene-canopy-dark)",
   "--scene-canopy-lit": "bg-(--scene-canopy-lit)",
+  "--scene-canopy-shade": "bg-(--scene-canopy-shade)",
+  "--scene-meadow-tan": "bg-(--scene-meadow-tan)",
 };
 
 /**

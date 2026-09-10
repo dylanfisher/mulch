@@ -99,15 +99,19 @@
      which the bloom's poppy field borrows for its shade and its lit edge (0332). The black is the
      one this instrument had no ink for: the deep above is a lightness of 0.42 and the water the
      glints stand in is near black, so the ramp gets a floor under its old one rather than the
-     picture being lifted to meet it (0333). The meadow names none of its
-     own: its ramp is the two inks, two channels and the primary above, which is the ramp every
-     picture was read along before a yard's name said which field it stood in. Off the primary in
-     hue like the two inks, and lighter in the dark scheme for the same reason. */
+     picture being lifted to meet it (0333). Two more when the last two stills landed (0334): a
+     shade under the leaf mass, because 0.38 is the lightness of a lit leaf and a canopy seen from
+     under it is darker than any leaf ink this instrument held; and the meadow's tan, because a tan
+     made by mixing the ember stop with the straw stop reads scarlet everywhere on its way down, and
+     a mass that rests on a stop needs the stop to exist. Off the primary in hue like the two inks,
+     and lighter in the dark scheme for the same reason. */
   --scene-water-black: light-dark(oklch(0.17 0.04 250), oklch(0.13 0.035 250));
   --scene-water-deep: light-dark(oklch(0.42 0.08 245), oklch(0.35 0.08 250));
   --scene-water-lit: light-dark(oklch(0.86 0.06 200), oklch(0.9 0.06 200));
   --scene-canopy-dark: light-dark(oklch(0.38 0.07 150), oklch(0.3 0.07 155));
   --scene-canopy-lit: light-dark(oklch(0.88 0.12 100), oklch(0.9 0.13 100));
+  --scene-canopy-shade: light-dark(oklch(0.22 0.05 152), oklch(0.16 0.045 155));
+  --scene-meadow-tan: light-dark(oklch(0.72 0.09 72), oklch(0.68 0.1 70));
 
   /* And the light a yard's air puts its scene under: one token each, mixed into every stop of
      whichever ramp is being read, so a frost cools a meadow and a canopy the same way. The day is
@@ -190,6 +194,18 @@
 }
 
 @property --scene-canopy-lit {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-canopy-shade {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-meadow-tan {
   syntax: "<color>";
   inherits: true;
   initial-value: oklch(0.5 0 0);

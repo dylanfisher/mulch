@@ -1,48 +1,145 @@
 /**
- * @role The meadow: fine tall strokes leaning as one, clumped into tufts, which is the field a
- *   yard named for a grass, a fern or a thistle stands in. The scene every other one is measured
- *   against — its strokes swing about the middle stop of its own ramp, which is the token the
- *   surface resolves its own ink from, so a meadow is very nearly the picture the instrument drew
- *   before it had scenes (0130, 0329, 0332).
+ * @role The meadow: backlit seed heads — an amber-tan mass of fibre filling the tile, dark stalks
+ *   threading it and a seed here and there catching the light outright, which is the field a yard
+ *   named for a grass, a fern or a thistle stands in. **Noise and not gratings**: a mass of grass
+ *   has no pitch in it, and everything with a pitch drew a comb, a beaded string or a herringbone
+ *   (0331). The lean is the yard's own wind, standing rather than travelling.
  * @instead The other three grounds → the files beside this one, and the registry that refuses a
- *   name none of them holds → src/ui/scene/scenes.ts. What a scene is → src/lib/moireScene.ts.
+ *   name none of them holds → src/ui/scene/scenes.ts. What a scene is → src/lib/moireScene.ts. The
+ *   noise this is made of, and the wrapping that keeps it off a seam → src/lib/moireNoise.ts.
  *   Which names read as this one → src/lib/yardScene.ts. The tile this is written into, and the
  *   film of gratings, blobs and band over it → src/ui/moireScreenTile.ts.
  */
-import { type Scene, sceneAxis, sceneRepeat, sceneSlope } from "@/lib/moireScene";
+import { hash2, noiseCell, streakTiled } from "@/lib/moireNoise";
+import { type Scene, sceneAxis, sceneCells, sceneRepeat } from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
+import { clamp } from "@/lib/range";
 
-/** How far apart the strokes stand, in device pixels: near the film's own pitch, and under it. */
-const STROKE_PX = tunable("meadow.stroke", 3, { min: 1.5, max: 8, step: 0.1 });
+/** How wide one fibre of the mass is across the stroke, in device pixels: under the film's own pitch. */
+const FIBRE = tunable("meadow.fibre", 0.85, { min: 0.4, max: 4, step: 0.05 });
 
-/** And how far apart the tufts they clump into stand — several strokes to a tuft, or it is a comb. */
-const TUFT_PX = tunable("meadow.tuft", 19, { min: 6, max: 60, step: 1 });
+/** And how long one is along it — an awn, several times its own width, which is what makes a fibre. */
+const AWN = tunable("meadow.awn", 7, { min: 2, max: 30, step: 0.5 });
+
+/** How wide the dark stalks rising through the mass stand, in the same pixels. */
+const STALK = tunable("meadow.stalk", 2.8, { min: 1, max: 10, step: 0.1 });
 
 /**
- * How far the strokes lean off vertical at the wildest wind, as a share of the tile's own height.
- * Baked into the ground and not a term on the transform: a lean the whole tile carried would slide
- * the film with it, and what leans in a meadow is the grass and not the light on it.
+ * And where on its own ramp the mass rests. **At the tan stop and not between two of them.** The
+ * still this is drawn from held its mass at two thirds of a ramp with no tan in it, because the
+ * amber it wanted was the ember stop mixed with the straw stop — and every value on the way down
+ * came out scarlet (0331). The ramp names a tan of its own now, so the mass rests on it.
  */
-const SLANT = tunable("meadow.slant", 0.35, { min: 0, max: 1.5, step: 0.05 });
+const MASS = tunable("meadow.mass", 0.52, { min: 0.3, max: 0.75, step: 0.01 });
 
-/** How much of the ground the tufts are, against the strokes inside them. */
-const TUFT_SHARE = 0.35;
+/**
+ * The four scales of streaked noise the mass is built from, finest first: how wide one cell is as a
+ * share of the fibre and how long as a share of the awn, how much of the mass it is, and how far
+ * along it is read — an offset, so no two scales share a cell boundary and the sum has no grid in
+ * it. Four, because three summed read as cloth: the finest is the seed and the coarsest is the
+ * sweep of a whole clump.
+ */
+const SCALES: readonly { wide: number; tall: number; share: number; at: number }[] = [
+  { wide: 0.71, tall: 0.16, share: 0.14, at: 5 },
+  { wide: 1, tall: 1, share: 0.42, at: 0 },
+  { wide: 3.06, tall: 2.6, share: 0.28, at: 31 },
+  { wide: 8.24, tall: 4.86, share: 0.16, at: 77 },
+];
 
-/** And how far the tufts themselves slide down the tile, so they are not a column of one shape. */
-const TUFT_SLIDE = 0.25;
+/**
+ * How far the strokes lean off vertical at the wildest wind, and how far the standing gust bows
+ * them on top of it, in device pixels. **A standing gust and not a travelling one**: the wave is
+ * frozen at one phase, so the field is pushed over further here than there — a bake has no clock
+ * (0126), and the gust that travels is its own step.
+ *
+ * **And the gust is a displacement, never a second lean.** A lean is snapped to a whole number of
+ * the scale's own cells over the tile's depth (`sceneSlope`), which is a step function of what it
+ * is handed: a lean that varied across the picture would tip that rounding column by column and cut
+ * a hard vertical break through the field at every column where it tipped — the ruled grid the
+ * snapping exists to prevent, moved off the tile join and into the middle of the picture, growing
+ * with depth and standing in the same place in every tile. Measured at the wildest wind it crossed
+ * a whole stop of the ramp. So the lean is one number for the tile and the gust is a smooth offset
+ * on x, periodic across the tile both ways and continuous everywhere.
+ */
+const SLANT = 0.42;
+const GUST_SWING = 7;
+
+/** How wide the gust is, how tall a stalk is, and how far the mass falls back at the tile's middle. */
+const GUST = 150;
+const TALL = 80;
+const FOOT = 0.5;
+
+/**
+ * How tall a spark's own cell is, in device pixels. **A point and not a bar**: every pixel of one
+ * cell takes the same hash, so a cell as long as an awn draws a seed as a one-pixel-wide scratch
+ * the whole length of it, at the brightest stop the ramp has. A few pixels each way is a seed.
+ */
+const SPARK = 2.6;
+
+/** How far up the ramp a stalk is read, how far a spark is, and how much of the ramp the mass spans. */
+const STALK_TOP = 0.12;
+const SPARK_TOP = 0.97;
+const SPAN = 0.16;
 
 export const meadow: Scene = {
-  ramp: ["--drift-cool", "--screen-green", "--primary", "--screen-red", "--drift-hot"],
+  ramp: [
+    "--scene-canopy-dark",
+    "--drift-hot",
+    "--scene-meadow-tan",
+    "--scene-canopy-lit",
+    "--scene-water-lit",
+  ],
   ground: (x, y, terms) => {
-    // Both repeats and both leans snapped onto the tile, or the strokes step half a turn sideways
-    // at every tile join and the meadow is a ruled grid (`sceneRepeat`).
-    const stroke = sceneRepeat(terms.width, STROKE_PX.value);
-    const tuft = sceneRepeat(terms.width, TUFT_PX.value);
-    const leaning = sceneSlope(terms.height, stroke, terms.lean * SLANT.value);
-    const sliding = sceneSlope(terms.height, tuft, TUFT_SLIDE);
-    return (
-      TUFT_SHARE * sceneAxis((x + sliding * y) / tuft) +
-      (1 - TUFT_SHARE) * sceneAxis((x + leaning * y) / stroke)
+    const lean = terms.lean * SLANT;
+    // The gust: a standing wave across the tile, at its own width, pushing the field over most at
+    // the tile's top and foot and least across its middle. Both terms come round on the tile, so
+    // the offset is the same at either edge of every join.
+    const gust =
+      terms.lean *
+      GUST_SWING *
+      sceneAxis(x / sceneRepeat(terms.width, GUST)) *
+      sceneAxis(y / terms.height);
+    let mass = 0;
+    for (const scale of SCALES) {
+      mass +=
+        scale.share *
+        streakTiled(
+          x + gust + scale.at,
+          y + scale.at * 0.6,
+          terms.width,
+          terms.height,
+          FIBRE.value * scale.wide,
+          AWN.value * scale.tall,
+          lean,
+        );
+    }
+    // Four noises summed sit near a half and reach neither end, so the sum is stretched — and
+    // stretched off centre, because the mass of this field is warm and its dark is the exception.
+    const lit = clamp((mass - 0.28) / 0.38, 0, 1);
+    // **The mass does not span the ramp; it sits in a sixth of it.** A smooth field is continuous,
+    // so any mass reaching from the dark end to the straw end spends a wide band of itself on
+    // whatever stands between them, whatever curve it takes. The dark this field has is not in the
+    // mass at all, but in the stalks threading it.
+    let value = MASS.value + SPAN * lit;
+    // The stalks: one very long, very narrow cell, read by pulling the mass back toward the root
+    // stop rather than drawn over it, so they stand inside the grass and not on top of it.
+    const stalk = clamp(
+      (streakTiled(x + gust + 13, y, terms.width, terms.height, STALK.value, TALL, lean) - 0.82) /
+        0.07,
+      0,
+      1,
     );
+    value += (STALK_TOP - value) * stalk * 0.92;
+    // A seed catching the light outright: rare, hashed on the cell it stands in rather than placed,
+    // and only where the mass is already lit — a spark in the shade is a dead pixel.
+    const cols = sceneCells(terms.width, FIBRE.value);
+    const rows = sceneCells(terms.height, SPARK);
+    const seed = hash2(noiseCell(x, terms.width, cols), noiseCell(y, terms.height, rows));
+    value += clamp((seed - 0.97) / 0.03, 0, 1) * lit * (SPARK_TOP - value);
+    // And the field falls back at the tile's own middle: a band of shade a tile deep and coming
+    // round at both its edges, which is the perspective every ground is under (0329) — the still
+    // this is drawn from fell away once down a picture that never repeated.
+    const band = FOOT + (1 - FOOT) * sceneAxis(y / terms.height);
+    return clamp(MASS.value + (value - MASS.value) * band, 0, 1);
   },
 };

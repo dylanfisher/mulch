@@ -34,8 +34,8 @@ export type SketchStop = { readonly name: string; readonly chip: string };
  * bench that argues for a second colour out of the instrument's own five.
  *
  * A picture may hand the stage a **list of stops of its own** instead of naming one of these, which
- * is what a still is drawn through: four fields each read along their own scene's five, so the
- * question they argue is which field, and not which palette (0331).
+ * is what a scene is drawn through: four grounds each read along their own five, so the question
+ * they argue is which field, and not which palette (0331, 0334).
  */
 export type SketchInking = "ink" | "ramp";
 
@@ -138,7 +138,7 @@ export function SketchDriftStage({
       const inks = Array.from(chips, (chip) => inkOf(getComputedStyle(chip).backgroundColor));
       paintField(canvas, inks, field, amount);
     },
-    // On `stops` and not on `stops.length`: the reference ramp and all four stills hold five, so a
+    // On `stops` and not on `stops.length`: the reference ramp and all four scenes hold five, so a
     // length is no longer a name for an inking, and a picture that swapped one five-stop list for
     // another would keep its old inks with the new chips under them. Every list is a module
     // constant, so the identity is stable and this costs no repaint.

@@ -92,7 +92,7 @@ describe("the picture is the field its name says", () => {
     // the cache and only the second one is about the counter.
     const yard = yardScene("Quiet Heather by the Gate in Frost");
     const first = tileOf(paintingOf(yard));
-    setTuning("meadow.stroke", 6);
+    setTuning("meadow.fibre", 4);
     expect(tileOf(paintingOf(yard))).not.toEqual(first);
     resetTuning();
     expect(tileOf(paintingOf(yard))).toEqual(first);
