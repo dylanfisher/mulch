@@ -17,7 +17,7 @@ import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
 import { termTurns } from "@/ui/moireScreen";
-import { beatPx, filmStand, gridPitchPx, rowPitchPx, SCREEN_FLOOR } from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx, rowPitchPx } from "@/ui/moireScreenTile";
 
 /**
  * How many islands of lifted pixels a tile holds: a flood fill four ways over the marks, which is
@@ -85,7 +85,7 @@ function paintingOf(yard: Readonly<YardScene>, high = 128): Painted {
  */
 const WHOLE_TILE = beatPx(rowPitchPx(2));
 
-/** How bright one pixel of a tile is read, ink alone: the alpha is the film's and never the scene's. */
+/** How bright one pixel of a tile is read, ink alone — which is where the shade is spent (0340). */
 const brightOf = (pixels: Uint8ClampedArray, at: number): number =>
   ((pixels[at] ?? 0) + (pixels[at + 1] ?? 0) + (pixels[at + 2] ?? 0)) / 3;
 
@@ -136,20 +136,15 @@ describe("the picture is the field its name says", () => {
     }
     // And the shade is spent on the ramp and never on the alpha, like everything else a name says
     // (0332): a yard standing by a wall keeps exactly the ink a yard standing by a grille does.
-    const keeps = stood.map((pixels) => {
-      let total = 0;
-      for (let at = 3; at < pixels.length; at += 4) total += (pixels[at] ?? 0) / 255;
-      return total / (pixels.length / 4);
-    });
-    for (const [at, keep] of keeps.entries()) {
-      expect(keep, `${SCENE_STANDS[at]} spends the film's own alpha`).toBeCloseTo(
-        keeps[0] ?? 0,
-        12,
-      );
-      expect(keep, `${SCENE_STANDS[at]} takes the picture under the floor`).toBeGreaterThan(
-        SCREEN_FLOOR,
-      );
+    // Asserted as one alpha across the whole tile rather than as a mean above `SCREEN_FLOOR`,
+    // which the screen's own terms no longer reach: since 0340 the floor guards the tile's
+    // lightness and is read there (src/ui/moireCanvasFilm.test.ts).
+    const alphas = new Set<number>();
+    for (const pixels of stood) {
+      for (let at = 3; at < pixels.length; at += 4) alphas.add(pixels[at] ?? -1);
     }
+    expect([...alphas], "a stand spends the film's own alpha").toHaveLength(1);
+    expect([...alphas][0] ?? 0, "a stand stands at no alpha at all").toBeGreaterThan(0);
   });
 
   it("still aims one grating per row whatever the scene, and lays the screen down once", () => {
@@ -227,57 +222,6 @@ describe("the picture is the field its name says", () => {
     expect(tileOf(paintingOf(yard))).not.toEqual(first);
     resetTuning();
     expect(tileOf(paintingOf(yard))).toEqual(first);
-  });
-
-  it("spends the film's own share of the tile's alpha and no more", () => {
-    // Step 1 of the film block (0339): the four keep terms are eased toward one by `film.share`,
-    // once over their product, so at nought the film spends nothing and the scene stands solid at
-    // the caller's own alpha, and at one the tile is exactly what 0332 baked. Every reading here
-    // names its own share, because the rest is 0.15 and neither end of the dial.
-    // A yard no other case here paints, so the first tile is built rather than answered out of
-    // the cache the tunings clear (`tiles`, src/ui/moireScreenTile.ts).
-    const yard = yardScene("Quiet Foxglove by the Old Wall");
-    // At a share of one, which is what 0332 baked before the dial: the film cuts, so the tile's
-    // alpha is not one number.
-    setTuning("film.share", 1);
-    const full = tileOf(paintingOf(yard));
-    setTuning("film.share", 0);
-    const none = tileOf(paintingOf(yard));
-    const alphas = new Set<number>();
-    for (let at = 3; at < none.length; at += 4) alphas.add(none[at] ?? -1);
-    expect([...alphas], "the film still spends alpha at a share of nought").toHaveLength(1);
-    const solid = [...alphas][0] ?? 0;
-    expect(solid, "the scene stands at no alpha at all").toBeGreaterThan(0);
-    expect(
-      new Set(full.filter((_, at) => at % 4 === 3)).size,
-      "the film cuts nothing",
-    ).toBeGreaterThan(1);
-    // And between: more of every pixel the film cuts stands, and exactly as much of every pixel it
-    // does not. The strict half is asked of a cut of two levels and up, because a cut of one level
-    // is a rounding of the byte and not a reading of the share.
-    setTuning("film.share", 0.5);
-    const half = tileOf(paintingOf(yard));
-    for (let at = 3; at < full.length; at += 4) {
-      const stood = full[at] ?? 0;
-      const cut = solid - stood;
-      if (cut === 0) expect(half[at], `pixel ${at}`).toBe(stood);
-      else if (cut >= 2) expect(half[at] ?? 0, `pixel ${at}`).toBeGreaterThan(stood);
-      else expect(half[at] ?? 0, `pixel ${at}`).toBeGreaterThanOrEqual(stood);
-    }
-    // And a share of one is what the tile was before the dial: the ease is the identity there,
-    // and at nought it leaves the whole pixel, which is what the two ends above are ends of.
-    for (const keep of [0, 0.37, 0.6, 1]) {
-      expect(filmStand(keep, 1), `keep ${keep}`).toBe(keep);
-      expect(filmStand(keep, 0), `keep ${keep}`).toBe(1);
-    }
-    // The colour is the scene's and the share is the film's: what a share moves is the alpha alone.
-    for (let at = 0; at < full.length; at += 4) {
-      expect([none[at], none[at + 1], none[at + 2]], `pixel ${at}`).toEqual([
-        full[at],
-        full[at + 1],
-        full[at + 2],
-      ]);
-    }
   });
 
   it("lays down a bloom whose pixels span more than one of its own stops", () => {

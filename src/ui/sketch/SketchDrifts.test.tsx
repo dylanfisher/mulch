@@ -59,8 +59,8 @@ const rampOf = (name: (typeof SCENE_NAMES)[number]): string =>
 const DECLARED = [
   ...Object.values(INKING_STOPS).map((stops) => namesOf(stops)),
   ...SCENE_NAMES.map((name) => rampOf(name)),
-  // And one more: the film draws a scene's five over the page's own ground, because a picture of
-  // spent alpha has to show what is behind it (0339).
+  // And one more: the film draws a scene's five from a fifth of the way along the page's own
+  // ground, so the share is spent inside the scene's ramp the way the painter spends it (0340).
   namesOf(FILM_STOPS),
 ];
 
@@ -183,7 +183,8 @@ describe("the bench argues the film's share under a dial", () => {
    * The block's first step: how much of the picture the film may spend is one number, and a number
    * in a file is not what a hand decides on — a picture with a dial is (0247, 0339). So the tenth
    * entry is the film, it names the tunable a hand will move in the app, and it is drawn over a
-   * scene's own stops rather than the two-stop inking, because what it shows is spent alpha.
+   * scene's own stops rather than the two-stop inking, with the page's ground beneath them as the
+   * thing an opaque tile is composited over and never shows (0340).
    */
   it("stands the film tenth, under the dial the app declares", () => {
     const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
@@ -197,7 +198,7 @@ describe("the bench argues the film's share under a dial", () => {
     ).toContain("film.share");
     const stage = stageOf("film");
     expect(stage, "the film says nothing of what it leaves standing").toMatch(
-      /data-said="film"[^>]*>[^<]*alpha stands/u,
+      /data-said="film"[^>]*>[^<]*lightness stands/u,
     );
     // Over the page's ground and then the bloom's own five: the picture behind the film is the
     // scene entry 07 draws, and the ground under it is where a spent pixel lands.

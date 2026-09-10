@@ -802,12 +802,12 @@ two is the figure and which is the ground.
 
 Where the ink goes today, in the order the frame spends it (`paintMoire`, src/ui/moireCanvas.ts):
 
-| Pass                                     | Where                                 | What it costs the scene                                                         |
-| ---------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- |
-| the screen's own gratings, blob and band | `build`, src/ui/moireScreenTile.ts    | alpha × keep, held above `SCREEN_FLOOR` on average and nowhere else             |
-| the rows' gratings, taken back out       | `cutField`, destination-out           | one minus their product: a window wherever the sound's gratings agree           |
-| the feedback ghost                       | `feedFrame`, `DRIFT_FEEDBACK_CEILING` | the last frame laid under this one at up to half strength, blurring the field   |
-| the strip's height                       | src/ui/MoireStrip.tsx, 32 CSS px      | a head is under a device pixel; the overlay pulls back rather than zooms (0109) |
+| Pass                                     | Where                                 | What it costs the scene                                                                 |
+| ---------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
+| the screen's own gratings, blob and band | `build`, src/ui/moireScreenTile.ts    | since 0340 no alpha at all: a shade on the read, held above `SCREEN_FLOOR` in lightness |
+| the rows' gratings, taken back out       | `cutField`, destination-out           | one minus their product: a window wherever the sound's gratings agree                   |
+| the feedback ghost                       | `feedFrame`, `DRIFT_FEEDBACK_CEILING` | the last frame laid under this one at up to half strength, blurring the field           |
+| the strip's height                       | src/ui/MoireStrip.tsx, 32 CSS px      | a head is under a device pixel; the overlay pulls back rather than zooms (0109)         |
 
 **Layout, before the first step.** The share the film spends is one number, `tunable("film.share")`,
 in a new **Film** group in src/lib/copyDriftGroups.ts (700 lines; the group is under twenty and the
@@ -818,12 +818,14 @@ sketchEntries.ts, drawn through `SketchDriftStage` like the four scenes and read
 `rowKeep`, `blobKeep` and `bandKeep` from src/ui/moireScreenTile.ts rather than restating a
 grating (principle 1). Every new case goes in src/ui/moireCanvasScene.test.ts (328 lines):
 src/ui/moireScreen.test.ts stands at 799 and has no room for one, the same move 0335, 0336 and
-0338 made. A shade is spent the way `standShade` spends one — a pull toward the scene's own first
+0338 made — and that file filled in turn on step 2, whose cases stand in
+src/ui/moireCanvasFilm.test.ts beside it for the same reason. A shade is spent the way `standShade` spends one — a pull toward the scene's own first
 stop, after the hue travel and before the air — because that is the one mechanism the tile already
 has for darkening a pixel without spending its alpha (0335), and a second one is a second place a
 colour can enter. Decision numbers from 0339; bench tags from bench-19.
 
-The order is decided: **the dial first (landed 0339)**; the screen's shade next, because it is
+The order is decided: **the dial first (landed 0339)**; the screen's shade next (landed 0340),
+because it is
 the largest single spend and the one that turns a comb into a picture; the sound's cut after it, because it is the instrument's subject
 and is re-aimed against what the shade left rather than against a white page; and the two sizes
 last, because whether the strip needs anything of its own is only knowable once the overlay reads.
@@ -847,7 +849,19 @@ that changes the app's own picture on the first step of the block, which is what
 chosen by looking" asks for. **And the bench's dial is the app's handle**, not a `SketchDial`
 written beside it: the range, the step and the rest are read off `FILM_SHARE`, so the bench opens
 at the picture the app ships and the two cannot drift (principle 1).
-The next free decision number is 0340.
+bench-20 landed on 2026-09-10 as
+[0340](decisions/0340-the-screen-is-a-shade-and-not-a-window.md): the four keep terms leave the
+tile's alpha and enter its read, pulled toward the scene's first stop by `filmStand` exactly where
+`standShade` pulls, and the tile is written at the caller's own alpha at every pixel. `SCREEN_FLOOR`
+is re-aimed at the lightness it now guards — the same 0.6, asserted on the read — and holds at 0.79
+(meadow), 0.85 (water), 0.91 (bloom) and 0.93 (canopy) with every Grating and Film knob wild.
+**The shots say the screen's window is gone.** A meadow with a click train playing at the shipped
+rest of 0.15, base and head interleaved and each read twice: the strip's mean alpha 0.331 → 0.350
+and the zoomed drift's 0.332 → 0.350, both pairs agreeing to the digit. 0.350 is the ceiling 0339
+measured with the film off outright, so the screen now spends none of the alpha at any setting —
+what is left is the rows' cut and the ghost, which is step 3. At the 1:1 crop the field reads as
+heads over stems in their own ink, and the vertical grating still over them is the sound's.
+The next free decision number is 0341.
 
 1.  **The film's share is a dial, on the bench and in the app.** _(bench-19, landed 0339)_
     **Durable shape moved: none.** A tunable is a session preference and never durable (0329).
@@ -897,7 +911,7 @@ min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the til
     one question is the water group's lesson (0333); a share that moves on the frame — a bake has no
     clock (0126).
 
-2.  **The screen shades the field and no longer cuts a window in it.** _(bench-20)_ **Durable
+2.  **The screen shades the field and no longer cuts a window in it.** _(bench-20, landed 0340)_ **Durable
     shape moved: none.** Amends 0332: the film stays what says how much of a pixel stands, but the
     screen's own gratings are no longer part of that — they are a shade.
 
@@ -1031,5 +1045,27 @@ the rows' cut and the ghost — untouched here — are what spend most of it. **
 tile (src/ui/moireScreen.test.ts:634, :739) now measure `1 - share * (1 - keep)`, which at a rest
 of 0.15 is above 0.85 whatever the terms do; the case that multiplies the terms directly (:332)
 still bounds them, and the file stands at 799 of its 800 lines with no room to re-aim the other
-two. Step 2 re-aims the floor at the read, which is where it is repaired. A share per term and a
+two. Step 2 put the floor's teeth back on the read (0340), in a case of its own. A share per term and a
 share per scene were refused by the step and stay refused.
+
+**A crest is a limit and not a pixel, and the file it was written in had no room (bench-20,
+0340).** The step asked for a case in which a pixel under a grating's trough reads nearer the
+scene's first stop than the same pixel at share nought "and the two are the same colour at a
+crest". No pixel of a tile has the two gratings, the beat and the band all at their own crest at
+once — the most of itself the film ever leaves standing is 0.84 — so the identity at a crest
+cannot be asserted on a pixel, and it is asserted on tenths instead: the tenth of the tile the
+terms cross deepest under gives up more of each pixel's own read than the tenth they crest under.
+As a share of the pixel's own read, too, and never as two brightnesses, because a crest pixel high
+on the ramp walks further in bytes than a trough pixel low on it while giving up less of itself.
+The nearer-the-first-stop half is read on the water alone, the one field low enough on its ramp
+that a shade stays inside the first straight stretch of it; on the bloom the ramp doubles back
+past the stop and a distance to it is not a reading. **And the cases are not where the step put
+them**: written into src/ui/moireCanvasScene.test.ts they took it to 459 lines against a 400-line
+lint cap, the way src/ui/moireScreen.test.ts filled before it, so they stand in
+src/ui/moireCanvasFilm.test.ts beside it — the move that file itself is the result of (0045).
+Split, the two are 328 and 208. **And two assertions in src/ui/moireScreen.test.ts (:634, :739)
+are now restatements of `own[3]` rather than readings of the floor**, `tileKeep` being a mean of
+the alpha the screen no longer touches. They are left standing because the step names those two
+cases as holding unchanged and because what they still guard is real — that neither a fringe nor
+a ground reaches the alpha — but the floor's own teeth are in src/ui/moireCanvasFilm.test.ts and
+nowhere else.

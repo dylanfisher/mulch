@@ -14,15 +14,12 @@ import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
 import { type SceneName, SCENE_REACH_TERMS } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import {
-  bandKeep,
   beatPx,
-  blobKeep,
-  columnKeep,
   FILM_SHARE,
   filmStand,
   gridPitchPx,
-  rowKeep,
   rowPitchPx,
+  screenKeep,
 } from "@/ui/moireScreenTile";
 import { sceneOf } from "@/ui/scene/scenes";
 import {
@@ -246,16 +243,13 @@ const FILM_ROW_PITCH = rowPitchPx(BENCH_DPR);
  * src/ui/moireScreenTile.ts and never restated here (principle 1).
  */
 export const filmKeep = (px: number, py: number): number =>
-  columnKeep(px, FILM_PITCH) *
-  rowKeep(py, FILM_ROW_PITCH) *
-  blobKeep(px, py, FILM_PITCH, FILM_ROW_PITCH) *
-  bandKeep(py, SCENE_BENCH_PX);
+  screenKeep(px, py, FILM_PITCH, FILM_ROW_PITCH, SCENE_BENCH_PX);
 
 /**
  * The mean of those four over one whole bench picture, which is what the readout's share is taken
- * off: how much of the field's alpha stands is a fact about the film and not about the pixel under
- * the cursor. Summed once at load over the pixels the picture is actually drawn at, because a
- * closed form for four terms multiplied is a second statement of the film (principle 1).
+ * off: how much of the field's lightness stands is a fact about the film and not about the pixel
+ * under the cursor. Summed once at load over the pixels the picture is actually drawn at, because
+ * a closed form for four terms multiplied is a second statement of the film (principle 1).
  */
 const FILM_MEAN_KEEP = ((): number => {
   const wide = Math.round(FIELD_ASPECT * SCENE_BENCH_PX);
@@ -266,19 +260,17 @@ const FILM_MEAN_KEEP = ((): number => {
   return total / (wide * SCENE_BENCH_PX);
 })();
 
-/** How much of the field's alpha stands, over the whole picture, at one setting of the share. */
+/** How much of the field's lightness stands, over the whole picture, at one setting of the share. */
 export const filmStanding = (share: number): number => filmStand(FILM_MEAN_KEEP, share);
 
 /**
  * 10 — the shipped film over the shipped bloom, and the dial is `film.share` itself: its own
  * range and its own rest, read off the handle the painter reads, so the bench opens at the
  * picture the app ships and a rest moved in one place moves in both (principle 1). The scene's
- * own read is pulled toward the ground stop the palette opens at by whatever alpha the film
- * leaves standing: at one the bloom is the comb the app draws today and at nought it stands on
- * the ground solid. **A fade along the palette and not a composite in colour** — a stage answers
- * with one number, so a half-spent pixel walks down the ramp rather than mixing its own ink with
- * the ground's, and the two agree only at the ends. What the picture is for is the depth of the
- * film, which is the same either way.
+ * own read is pulled toward the scene's own first stop by whatever the film leaves standing: at
+ * one the bloom is the deepest shade the dial admits and at nought it stands at full strength. **A fade along the palette and not a composite in colour** — which is what the
+ * painter itself now does, the film being a shade on the read and no longer a window cut in the
+ * alpha (0340), so the bench and the app spend the share the same way and cannot drift.
  */
 export const FILM_DIAL: SketchDial = {
   min: FILM_SHARE.min,
@@ -289,13 +281,18 @@ export const FILM_DIAL: SketchDial = {
 
 /**
  * Where the scene's own read starts on the film's palette: the page's ground holds the first of
- * six stops, so the scene runs from a fifth of the way along and a pixel the film took all of
- * lands on the ground itself. The palette the legend draws is assembled against this number and
- * throws if the two ever disagree (src/ui/sketch/drift/SketchDriftFilm.tsx).
+ * six stops, so the scene runs from a fifth of the way along and the share is spent **inside**
+ * that fifth-to-one stretch, which is what makes the bench's shade the painter's. A pixel the
+ * film takes all of lands on the scene's own first stop and never on the ground under it — the
+ * same relation the app has to the page its opaque tile is composited over (0340). The palette
+ * the legend draws is assembled against this number and throws if the two ever disagree
+ * (src/ui/sketch/drift/SketchDriftFilm.tsx).
  */
 export const FILM_GROUND_STOP = 1 / 5;
 
 const filmScene = sceneField("bloom");
 export const filmField: SketchDriftField = (x, y, share) =>
-  filmStand(filmKeep(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX), share) *
-  (FILM_GROUND_STOP + (1 - FILM_GROUND_STOP) * filmScene(x, y, SCENE_DIAL.rest));
+  FILM_GROUND_STOP +
+  (1 - FILM_GROUND_STOP) *
+    (filmStand(filmKeep(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX), share) *
+      filmScene(x, y, SCENE_DIAL.rest));

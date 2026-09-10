@@ -2,7 +2,8 @@
  * @role Drift sketch 10 — the film over the scene, under the one dial that says how much of the
  *   picture it may spend (`film.share`). The argument: the scene is the body of the picture and
  *   the film is a shade over it, so what the four keep terms take is a share a hand has seen and
- *   chosen rather than the whole of the alpha (0339).
+ *   chosen rather than the whole of the alpha (0339), and it is taken off the read and not out of
+ *   the alpha at all (0340).
  * @instead The four terms themselves → src/ui/moireScreenTile.ts, which this reads and never
  *   restates. The field, its dial and the mean the readout says → src/ui/sketch/sketchDrift.ts.
  *   The scene under the film, drawn on its own → src/ui/scene/bloom.ts at entry 07.
@@ -12,10 +13,11 @@ import { stopsOf } from "@/ui/sketch/drift/SketchDriftScenes";
 import { FILM_DIAL, FILM_GROUND_STOP, filmField, filmStanding } from "@/ui/sketch/sketchDrift";
 
 /**
- * The page's own ground under the bloom's five stops: the film spends alpha, and a picture of
- * spent alpha has to show what is behind it — so this palette opens at the ground every other
- * picture on the bench opens at, read from the shared inking rather than named again, and runs on
- * through the shipped bloom's own ramp. Held once at load, because the stage repaints when its
+ * The page's own ground under the bloom's five stops: the scene is read from a fifth of the way
+ * along so that the share is spent inside its own ramp, the way the painter spends it, and the
+ * stop underneath is the page the app's tile is composited over — drawn in the legend, never
+ * reached by the picture, because an opaque tile never shows what is behind it (0340). Read from
+ * the shared inking rather than named again, and running on through the shipped bloom's ramp. Held once at load, because the stage repaints when its
  * stop list changes identity (src/ui/sketch/SketchDriftStage.tsx).
  */
 export const FILM_STOPS: readonly SketchStop[] = [
@@ -32,7 +34,7 @@ if (FILM_GROUND_STOP !== 1 / (FILM_STOPS.length - 1)) {
 
 /** What the dial stands at: not the share itself but what it leaves, which is what a hand judges. */
 const said = (share: number): string =>
-  `${Math.round(filmStanding(share) * 100)}% of the field's alpha stands`;
+  `${Math.round(filmStanding(share) * 100)}% of the field's lightness stands`;
 
 export function SketchDriftFilm() {
   return (

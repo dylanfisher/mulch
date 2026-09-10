@@ -222,7 +222,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the one picture every yard drew, and four hash reads a pixel. A rack of six is six fields rather than six settings of one, so nothing on the page reads as a family any more except by its ramp; and a hash does not repeat where a tile does, so every scale of the noise is sampled on cells wrapped onto the tile or a seam runs down the picture at full contrast, once a tile.",
     built:
-      "the ground in src/ui/scene/meadow.ts over streakTiled in src/lib/moireNoise.ts, read by build in src/ui/moireScreenTile.ts where the tile's alpha is written: the film's gratings, blobs and band multiply into it and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle, which is the precedent grainTile in src/lib/moireGrain.ts set for reading a hash a pixel at a time.",
+      "the ground in src/ui/scene/meadow.ts over streakTiled in src/lib/moireNoise.ts, read by build in src/ui/moireScreenTile.ts where the tile's every pixel is written: the film's gratings, blobs and band shade the read the ground gives (0340) and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle, which is the precedent grainTile in src/lib/moireGrain.ts set for reading a hash a pixel at a time.",
     Content: SketchDriftMeadow,
   },
   {
@@ -262,11 +262,11 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     id: "film",
     label: "The Film",
     thesis:
-      "The scene is the body of the picture and the film is a shade over it — and how much of the picture the film may spend is one number a hand can see and move, film.share, not a depth buried in four terms. At nothing the bloom stands solid, which is the bench's own picture of it; at everything it is the comb the app draws today; between, the beat between the gratings survives at every setting and only its depth moves.",
+      "The scene is the body of the picture and the film is a shade over it — and how much of the picture the film may spend is one number a hand can see and move, film.share, not a depth buried in four terms. At nothing the bloom stands solid, which is the bench's own picture of it; at everything it is the deepest shade the dial admits; between, the beat between the gratings survives at every setting and only its depth moves.",
     trades:
-      "the film's own strength at the settings a hand will choose. One dial over the product of the four terms cannot say which of them a picture could spare, so a share that leaves the lattice legible leaves the band and the two gratings shallower than they were argued at — and a share per term is four dials for one question (0333). The rows' cut and the ghost are outside it: this is the screen's share and not the film's whole cost, and so are the three channels' fringe and gain, which multiply colour and never alpha (0332) — so the bench at nothing is flatter than the app at nothing, which still carries the chromatic lattice in its ink.",
+      "the film's own strength at the settings a hand will choose. One dial over the product of the four terms cannot say which of them a picture could spare, so a share that leaves the lattice legible leaves the band and the two gratings shallower than they were argued at — and a share per term is four dials for one question (0333). The rows' cut and the ghost are outside it: this is the screen's share and not the film's whole cost, and so are the three channels' fringe and gain, which are a lattice on the ink and not a depth on the read — so the bench at nothing is flatter than the app at nothing, which still carries that chromatic lattice.",
     built:
-      "one tunable, film.share, declared in src/ui/moireScreenTile.ts beside SCREEN_FLOOR and eased over the product of the four keep terms in build, `1 - share * (1 - keep)`, with its row in a Film group in src/lib/copyDriftGroups.ts. Bake-side: it is read once a tile and tuneStamp() already keys the tile, so a drag rebakes the ground and no frame reads it (0126, 0129).",
+      "one tunable, film.share, declared in src/ui/moireScreenTile.ts beside SCREEN_FLOOR and eased over the product of the four keep terms in build, `1 - share * (1 - keep)`, with its row in a Film group in src/lib/copyDriftGroups.ts. Spent on the read and not on the alpha since 0340: the eased product pulls the pixel toward the scene's own first stop the way standShade does, and the tile is written at the caller's own alpha at every pixel. Bake-side: it is read once a tile and tuneStamp() already keys the tile, so a drag rebakes the ground and no frame reads it (0126, 0129).",
     Content: SketchDriftFilm,
   },
 ];

@@ -184,9 +184,11 @@ export type SceneTerms = {
  *
  * A stop is a token name and never a colour, for the reason `CHANNEL_TOKENS` are (0130,
  * docs/boundaries.md). The ground answers *where*, not *how much*: how solid a pixel is belongs to
- * the film alone — the gratings, the beat, the blob and the band — so a canopy goes as dark as its
- * own stops allow without spending a thing against `SCREEN_FLOOR` (0332). Neither a rest nor a
- * depth stands beside it, because a ground that says where it rests needs neither.
+ * the surface it is drawn on and never to a ground — so a canopy goes as dark as its own stops
+ * allow without spending a thing against `SCREEN_FLOOR` (0332), and the screen's own four terms
+ * meet a ground on its ramp rather than in its alpha, as a shade over where it stands (0340).
+ * Neither a rest nor a depth stands beside it, because a ground that says where it rests needs
+ * neither.
  */
 export type Scene = {
   readonly ramp: readonly string[];

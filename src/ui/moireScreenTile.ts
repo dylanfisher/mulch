@@ -3,9 +3,11 @@
  *   each axis, the beat those grids make with the camera's own into a lattice of blobs, the
  *   monitor's three channels across every cell and again across every blob, and one broad rolling
  *   band — the scene's own five stops resolved under the yard's air, and the one pass that writes
- *   the whole of it a pixel at a time. **The scene is the colour and the film is the alpha**
- *   (0332): where on its ramp a pixel is read is the yard's name's business, and how much of it
- *   stands there is the film's alone.
+ *   the whole of it a pixel at a time. **The scene is the body of the picture and this screen is
+ *   a shade laid over it** (0340, amending 0332): where on its ramp a pixel is read is the yard's
+ *   name's business, the four terms here pull that read toward the field's own first stop by the
+ *   film's share, and the alpha the tile is written at is the caller's own at every pixel. The
+ *   sound's own gratings are still the alpha, and they are cut outside this file (`cutField`).
  *
  *   That pass runs on the rebuild — a resize, a scheme, a display, a knob an effect turns colour
  *   with, or a tuning slider a ground is baked under — and never on a frame (0129), which is why
@@ -78,10 +80,13 @@ const BLOB_DEPTH = 0.22;
 const BAND_DEPTH = 0.16;
 
 /**
- * The least of the picture's ink the whole screen may leave standing, averaged over a tile. Its
- * terms reach a long way down where they cross, which is the point, but a screen that took most of
- * a row would be a grille with a picture behind it. Asserted in `moireScreen.test.ts` against what
- * the painter builds, so tuning any one term past what the picture carries fails here.
+ * The least of the picture's lightness the screen's shade may leave standing, averaged over a
+ * tile. Its terms reach a long way down where they cross, which is the point, but a screen that
+ * took most of a row would be a grille with a picture behind it. **Re-aimed by 0340 and not
+ * re-chosen**: it was the least of the tile's alpha while the screen cut a window, and it is the
+ * least of its lightness now the screen is a shade — the same number, asserted on the read.
+ * Asserted in `moireScreen.test.ts` on the four terms and in `moireCanvasFilm.test.ts` on the
+ * tile the painter builds, so tuning any one term past what the picture carries fails there.
  */
 export const SCREEN_FLOOR = 0.6;
 
@@ -98,10 +103,12 @@ export const SCREEN_FLOOR = 0.6;
 export const FILM_SHARE = tunable("film.share", 0.15, { min: 0, max: 1, step: 0.05 });
 
 /**
- * How much of a pixel the film leaves standing: the four keep terms eased toward one by the share,
- * applied **once to their product** and never per term, so the beat between the gratings survives
- * at every setting and only its depth moves. The one place the share is spent — the bench reads
- * this same function rather than restating it (principle 1).
+ * How much of a pixel's read the film leaves standing: the four keep terms eased toward one by
+ * the share, applied **once to their product** and never per term, so the beat between the
+ * gratings survives at every setting and only its depth moves. Spent on the read and not on the
+ * alpha since 0340 — a shade toward the field's own first stop, exactly as `standShade` is spent.
+ * The one place the share is spent — the bench reads this same function rather than restating it
+ * (principle 1).
  */
 export const filmStand = (keep: number, share: number): number => 1 - share * (1 - keep);
 
@@ -331,6 +338,22 @@ export function scanKeep(y: number, rowPitch: number, height: number): number {
   return rowKeep(y, rowPitch) * bandKeep(y, height);
 }
 
+/**
+ * And all four of them at one pixel of a tile `height` device pixels deep: how much of that pixel
+ * the whole screen leaves standing before the share eases it. **The one statement of the
+ * product** — the bench's own picture and every case that reads a trough go through this rather
+ * than multiplying the four again (principle 1). `build` is the exception and says so: it lifts
+ * `scanKeep` out to the row it belongs to, because a bake reads three hundred thousand pixels and
+ * a row's two terms do not change across one (0129, 0070).
+ */
+export const screenKeep = (
+  x: number,
+  y: number,
+  pitch: number,
+  rowPitch: number,
+  height: number,
+): number => columnKeep(x, pitch) * scanKeep(y, rowPitch, height) * blobKeep(x, y, pitch, rowPitch);
+
 /** Which of the three channels lights device column `x` of a cell of `pitch`. */
 export const channelAt = (x: number, pitch: number): number =>
   Math.min(CHANNEL_TOKENS.length - 1, Math.floor((wrap(x, pitch) / pitch) * CHANNEL_TOKENS.length));
@@ -518,13 +541,15 @@ export function sceneStops(
  * One tile, written a pixel at a time — the one loop over the pixels there is, and it runs on a
  * rebuild and never on a frame (0129). Every pixel is the scene's own ramp read **where that
  * pixel's ground stands on it**, pushed onto whichever of the three channels lights its third of
- * the cell, and cut back by the gratings, the blob and the band crossing at that point.
+ * the cell, and shaded back by the gratings, the blob and the band crossing at that point.
  *
- * **The scene is the colour and the film is the alpha** (0332). What a yard's name says is which
- * five stops the picture is read along and where on them each pixel stands; the gratings, the beat
- * they make, the three channels and the rolling band are terms every scene reads and the only
- * things the alpha knows about — so a canopy goes as dark as its own stops allow without spending a
- * thing against `SCREEN_FLOOR`, and a parameter that moved the screen still moves the scene (0329).
+ * **The scene is the body of the picture and the screen is a shade over it** (0340, amending
+ * 0332). What a yard's name says is which five stops the picture is read along and where on them
+ * each pixel stands; the gratings, the beat they make and the rolling band pull that read toward
+ * the field's own first stop by the film's share and take none of the alpha, so a canopy's grille
+ * is dark leaf between lit leaf rather than a window onto the page, and a parameter that moved the
+ * screen still moves the scene (0329). The three channels are a fringe on the colour and never
+ * touched the alpha either (0130).
  *
  * The ink is one array refilled by `ramp` rather than one returned per pixel: this loop runs
  * width × height times and a build allocates a ramp and no more (0129, 0070).
@@ -580,17 +605,23 @@ function build(
     // repeats is a bright line at every join (0334, `sceneAxis(y / height)`).
     const through = falling * sceneAxis(y / height);
     for (let x = 0; x < width; x++) {
-      // How dark the film is here: the gratings, the lattice and the band, and nothing else. The
-      // scene spends none of it — where the field stands is a colour and not an amount (0332).
+      // How dark the film is here: the gratings, the lattice and the band, and nothing else — the
+      // `screenKeep` product with its row half hoisted into `down` (0129). The scene spends none
+      // of it: where the field stands is a colour and not an amount (0332).
       const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
       // And which colour it is: this pixel's own place on the scene's ramp, carried along it by
       // however far the picture's own hue has travelled — and then pulled toward the scene's own
-      // first stop by whatever shade the thing the yard stands by casts here: the wall, the steps,
-      // the grille or the mass, in the field's own darkest ink and never as an object (0335).
+      // first stop twice over: by whatever shade the thing the yard stands by casts here, the
+      // wall, the steps, the grille or the mass, in the field's own darkest ink and never as an
+      // object (0335); and then by the film's own share of what its four terms take here, which
+      // is a shade over the field and no longer a window cut in it (0340).
       // **After the travel and not before it**, because a shadow a claimed colour could light is
       // not a shadow: the two ends of the travel would read a shaded band at the dark stop and at
       // the hot one, and the field's own shade would swing further than the field.
-      const stood = sceneHue(scene.ground(x, y, terms), tint.hue) * (1 - standShade(x, y, terms));
+      const stood =
+        sceneHue(scene.ground(x, y, terms), tint.hue) *
+        (1 - standShade(x, y, terms)) *
+        filmStand(keep, share);
       // And how far up that ramp the air and the detail carry it: the light falling through the
       // field, and then whatever bright points the name ends on — a flock of the scene's own or the
       // one kept thing at the foot of the shade, lifted to the top stop and read after the shade,
@@ -606,10 +637,10 @@ function build(
       pixels[at] = row[0] * gain[0] * lit[0];
       pixels[at + 1] = row[1] * gain[1] * lit[1];
       pixels[at + 2] = row[2] * gain[2] * lit[2];
-      // The alpha stays the caller's, because how solid the picture is belongs to the surface it is
-      // on and not to what colour it went (0141) — and of that, the film spends only its own share
-      // (0339): at nought the scene stands solid and at one this is `own[3] * keep`, as before.
-      pixels[at + 3] = own[3] * filmStand(keep, share);
+      // The alpha is the caller's whole, because how solid the picture is belongs to the surface
+      // it is on and not to what colour it went (0141) — and the screen no longer cuts a window
+      // in it at any share: what it spends, it spends as darkness up on the read (0340).
+      pixels[at + 3] = own[3];
     }
   }
   ink.putImageData(field, 0, 0);
