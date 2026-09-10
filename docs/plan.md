@@ -783,3 +783,214 @@ The next free decision number is 0339.
     a wild one fills the strip count.
 
     **Refused:** a clock of the gust's own (0126); a strip count above what the profile allows.
+
+### Block: the scene is the body and the film is the shade
+
+The four scenes stand on the bench at full strength and read as pictures: heads over stems, blades
+in black water, seed heads against the light. In the app the same ground — the same function, the
+same stops — reads as a pale comb with colour in the gaps. Measured on 2026-09-10 with a click
+train playing and no rack: the strip's mean alpha over a white page is 0.227, the zoomed picture is
+a vertical grating at the grid pitch with the poppies a stipple between its teeth, and the bench
+draws the identical ground at alpha 1 with no grating over it. Nothing the scenes do is missing;
+what is over them takes most of the picture. This block reverses the last block's one standing
+premise — "the one thing this block changes about `build` is what colour a pixel is, never how much
+of it the gratings cut" — and says instead: **the scene is the body of the picture, solid on its
+surface, and the film is a shade laid over it and a cut the sound makes through it, each spending a
+share a hand has seen and chosen.** Gestural and digital, as before: the moiré stays the
+instrument's subject, and a field with no beat in it is a wallpaper. What changes is which of the
+two is the figure and which is the ground.
+
+Where the ink goes today, in the order the frame spends it (`paintMoire`, src/ui/moireCanvas.ts):
+
+| Pass                                     | Where                                 | What it costs the scene                                                         |
+| ---------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- |
+| the screen's own gratings, blob and band | `build`, src/ui/moireScreenTile.ts    | alpha × keep, held above `SCREEN_FLOOR` on average and nowhere else             |
+| the rows' gratings, taken back out       | `cutField`, destination-out           | one minus their product: a window wherever the sound's gratings agree           |
+| the feedback ghost                       | `feedFrame`, `DRIFT_FEEDBACK_CEILING` | the last frame laid under this one at up to half strength, blurring the field   |
+| the strip's height                       | src/ui/MoireStrip.tsx, 32 CSS px      | a head is under a device pixel; the overlay pulls back rather than zooms (0109) |
+
+**Layout, before the first step.** The share the film spends is one number, `tunable("film.share")`,
+in a new **Film** group in src/lib/copyDriftGroups.ts (700 lines; the group is under twenty and the
+cap is 800), read inside the bake so `tuneStamp()` already keys it — no second dial anywhere, and
+no constant beside it that means the same thing. The bench entry that argues it is
+`src/ui/sketch/drift/SketchDriftFilm.tsx`, entry 10, with its `@role` line and its row in
+sketchEntries.ts, drawn through `SketchDriftStage` like the four scenes and reading `columnKeep`,
+`rowKeep`, `blobKeep` and `bandKeep` from src/ui/moireScreenTile.ts rather than restating a
+grating (principle 1). Every new case goes in src/ui/moireCanvasScene.test.ts (328 lines):
+src/ui/moireScreen.test.ts stands at 799 and has no room for one, the same move 0335, 0336 and
+0338 made. A shade is spent the way `standShade` spends one — a pull toward the scene's own first
+stop, after the hue travel and before the air — because that is the one mechanism the tile already
+has for darkening a pixel without spending its alpha (0335), and a second one is a second place a
+colour can enter. Decision numbers from 0339; bench tags from bench-19.
+
+The order is decided: the dial first, because every other step is a number a hand has to see
+before it is fixed; the screen's shade next, because it is the largest single spend and the one
+that turns a comb into a picture; the sound's cut after it, because it is the instrument's subject
+and is re-aimed against what the shade left rather than against a white page; and the two sizes
+last, because whether the strip needs anything of its own is only knowable once the overlay reads.
+
+1.  **The film's share is a dial, on the bench and in the app.** _(bench-19)_ **Durable shape
+    moved: none.** A tunable is a session preference and never durable (0329).
+
+    **One number says how much of the picture the film may spend.** `tunable("film.share", 1, {
+min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the tile is exactly
+    what 0332 bakes; at nought the film spends nothing and the tile is the scene solid, which is the
+    bench's picture. Between, the four keep terms are eased toward one by the share:
+    `1 - share * (1 - keep)`, applied once to their product in `build` and nowhere per term, so the
+    beat between the gratings survives at every setting and only its depth moves. The rows' cut and
+    the ghost are untouched by this step — the dial is the screen's and the measurement is of the
+    screen alone.
+
+    **The bench argues it under the dial.** Entry 10, "The Film": the shipped bloom under the
+    shipped film, `columnKeep × rowKeep × blobKeep × bandKeep` at the bench's own pitch, composited
+    over the page's ground as the app composites it — the dial is the share, and the readout says
+    how much of the field's alpha stands. A picture with a dial is what a hand decides on; a number
+    in a file is not (0247).
+
+    **The number is chosen by looking and written down.** Three shots of the overlay with a
+    click train playing, one per setting — nought, a half, one — on the bloom and on the canopy,
+    the lightest and the darkest scene; `./scripts/drive --shot` for the strip and a headed
+    Playwright for the overlay (the memory of shooting a grown run). The rest the dial lands at is
+    the one the shots argue for, recorded in the step's decision with the shots' mean alphas, and
+    it is the rest every later step in this block is measured against.
+
+    **Stands on:** the tile's four keep terms and their product in `build`
+    (src/ui/moireScreenTile.ts:554–562); `tuneStamp()` in the screen's key
+    (src/ui/moireScreen.ts:188); the bench's stage and its dial (src/ui/sketch/SketchDriftStage.tsx,
+    src/ui/sketch/sketchDrift.ts, `SCENE_DIAL`); the tuning panel's groups
+    (src/lib/copyDriftGroups.ts, `MOIRE_TUNE_GROUPS`).
+
+    **Outcome wanted:** the Tune button shows a Film group with one slider; dragging it from one to
+    nought turns the zoomed drift from the comb into the bench's poppies with the beat still
+    crawling over them; entry 10 on `#/sketch` shows the same thing under the same dial.
+
+    **Tests that must fail first:** **src/ui/moireCanvasScene.test.ts**: through the recorder, a
+    tile baked at share nought has the caller's own alpha at every pixel and a tile at share one is
+    pixel-identical to today's; a tile at a half keeps more than a tile at one at every pixel the
+    film cuts and the same at every pixel it does not. **src/ui/sketch/SketchDrifts.test.tsx**: the
+    bench holds ten entries and the tenth names `film.share` in its build note.
+
+    **Verification:** `./scripts/check` clean; the six shots; the chosen rest and its two mean
+    alphas in the decision.
+
+    **Refused:** a share per scene — the film is one film (0329); a share per term — four dials for
+    one question is the water group's lesson (0333); a share that moves on the frame — a bake has no
+    clock (0126).
+
+2.  **The screen shades the field and no longer cuts a window in it.** _(bench-20)_ **Durable
+    shape moved: none.** Amends 0332: the film stays what says how much of a pixel stands, but the
+    screen's own gratings are no longer part of that — they are a shade.
+
+    **What the screen spends, it spends as darkness and not as transparency.** The four keep terms
+    leave the alpha and enter the read: after the hue travel and the stand's shade and before the
+    air, `stood` is pulled toward the scene's first stop by `share × (1 - keep)`, exactly as
+    `standShade` pulls it (src/ui/moireScreenTile.ts:570). The alpha is then the caller's own,
+    `own[3]`, at every pixel of the tile — solid — and what the screen was doing to a white page
+    it now does to the field: a canopy's grille is dark leaf between lit leaf, a bloom's comb is
+    shade between heads, and the three channels' fringe stays where it is because it already
+    multiplies colour and never alpha. The step 1 dial is the shade's depth from here on.
+
+    **The floor is re-aimed at what it now guards.** `SCREEN_FLOOR` was the least of the tile's
+    alpha the screen could leave; with the screen out of the alpha it is the least of the tile's
+    lightness the shade may leave on average — the same number, the same test shape, asserted on
+    the read rather than on the alpha, so a term pushed to its wild end still cannot turn a field
+    into a grille. The saturation and fringe cases in src/ui/moireScreen.test.ts hold unchanged,
+    the fringe never having been in the alpha.
+
+    **The recorder reads it.** `resolvedInk` in src/ui/moireCanvasPainted.ts already resolves each
+    stop to its own ink (0332); the cases below read a tile's pixels through it and never a mean of
+    the canvas, because a shade and a cut can leave the same mean and are not the same picture.
+
+    **Stands on:** the pixel loop (src/ui/moireScreenTile.ts:552–589) and the shade's own pull
+    (src/lib/moireStand.ts, `standShade`, 0335); the floor and its case
+    (src/ui/moireScreenTile.ts:86, src/ui/moireScreen.test.ts:321–332); 0332's own words, "the
+    scene is the colour and the film is the alpha", which this step amends and does not repeal —
+    the sound's film is still the alpha, step 3.
+
+    **Outcome wanted:** the zoomed bloom with a click train playing reads as heads over stems with
+    a comb of shade crawling over them; the canopy reads dark; the strip's mean alpha with no rack
+    is the caller's own, and the beat is still visible in both as a lattice of light and shade.
+
+    **Tests that must fail first:** **src/ui/moireCanvasScene.test.ts**: a tile's alpha is the
+    caller's at every pixel whatever the share; at share one, a pixel under a grating's trough
+    reads nearer the scene's first stop than the same pixel at share nought and the two are the
+    same colour at a crest; the mean lightness of a tile at every scene stays above `SCREEN_FLOOR`
+    with every Film and Grating knob at its wild end.
+
+    **Verification:** as step 1, the same six shots against the same rest, judged at the 1:1 crop
+    — a whole-canvas view of a fine pattern is the thing that lies (drive's own note).
+
+    **Refused:** taking the beat out — the blob is what the two gratings make together and it
+    stays, as shade (0131); a shade toward black or toward the page — the pull is toward the
+    scene's own dark stop, which is what keeps a canopy a canopy and a meadow a meadow (0335).
+
+3.  **The sound's cut is aimed at the field, and the ghost stands behind it.** _(bench-21)_
+    **Durable shape moved: none.**
+
+    **The rows keep cutting, because the rows are the instrument.** `cutField` still takes one
+    minus the rows' product out of the picture with destination-out — a row is a grating and the
+    picture is their product (0131) — but the product was balanced against a screen that already
+    took a third of the page, and it is now over a solid field. `grating.floor`'s rest is
+    re-chosen by the same six shots against step 1's rest, and `DRIFT_FEEDBACK_CEILING` with it:
+    a ghost that was a ghost of a comb is now a ghost of a field, and half the ink laid twice is a
+    blur across every head. Both stay the tunables they are; what moves is where each rests, and
+    the decision carries the before-and-after mean alphas of the strip and the overlay.
+
+    **A rack of six is the case.** A bare deck draws few rows; a grown run draws a dozen
+    at several octaves each, and the product of a dozen gratings over a field is nothing left of
+    the field — which is the block's whole question, asked at its worst. `./scripts/drive` on the
+    drift smoke's own rack (scripts/smoke.d/drift.js, `LATTICE_IDS`, `SWAY_ID`, `SHARD_ID`), shot
+    at the overlay, headed; if the field does not read under six, the floor is what moves and not
+    the count, because a row that cuts nothing is a row nobody hears.
+
+    **Stands on:** the cut and the ghost (src/ui/moireCanvas.ts:585–603, `feedFrame`,
+    `DRIFT_FEEDBACK_CEILING` in src/lib/moire.ts:518); `grating.floor` and its wild end
+    (src/lib/copyDriftGroups.ts:42); `drawnGratings` (src/ui/moireCanvas.ts:264), which is what
+    holds the picture's weight as rows come and go (0244).
+
+    **Outcome wanted:** the six-yard rack's overlay reads as six fields under six moirés rather
+    than six moirés; a yard with nothing loaded is the field solid, as it is today a blank.
+
+    **Tests that must fail first:** **src/ui/moireCanvas.test.ts** (770 lines; a case over its
+    cap goes to src/ui/moireCanvasScene.test.ts): the field's product under a dozen rows at rest
+    leaves at least the floor's share of the ink standing, measured off the recorder; the ghost's
+    alpha at full feedback is the new ceiling.
+
+    **Verification:** `./scripts/profile` interleaved before and after, because a change to the
+    floor is a change to how many rows count and the walk's cadence reads off that
+    (`looksPaintMs`); the shots; the rack.
+
+    **Refused:** dropping the cut for a shade — a moiré that does not cut is not a moiré, and the
+    step 2 shade is the screen's and not the rows' (0131); a floor per scene (0329).
+
+4.  **The overlay is the field and the strip is its film.** _(bench-22)_ **Durable shape moved:
+    none.** The step that may not stand, and the one that says which of two decisions holds.
+
+    **A head is under a pixel on the strip and a bench's-worth on the overlay.** The bench draws
+    a scene at 110 device pixels of field and it reads; the strip is 32 CSS pixels and the overlay
+    is the viewport, and 0109 says they are one picture at two sizes, the overlay pulled back
+    rather than zoomed in. Under steps 1–3 the overlay already reads: `seen` (src/lib/moireScene.ts)
+    is the canvas's own height, so the reach's period and the stand's size are read at the
+    overlay's scale and the field is the bench's. The question is the strip. Three shots of it —
+    no rack, the click train, the six-yard rack — at 1:1. If a strip at the chosen rest reads as a
+    band of the field's colour with a beat crawling over it, the step lands as a measurement and
+    0109 stands. If it reads as noise, the strip reads the scene at the overlay's `seen` and not
+    its own — one number in the terms, so the marks the overlay shows are the marks the strip cuts
+    across — and 0109 is amended to say the two sizes share their marks and not their cycles.
+
+    **Stands on:** `seen` and the tile key that carries the canvas's height
+    (src/ui/moireScreen.ts:174–188); the strip's size (src/ui/MoireStrip.tsx:731); 0109 and 0098.
+
+    **Outcome wanted:** the strip on the rack reads as which field the yard stands in — a hand
+    can tell a bloom from a canopy from a water at a glance without opening either.
+
+    **Tests that must fail first:** none if 0109 stands; if it is amended,
+    **src/ui/moireCanvasScene.test.ts**: two canvases of different heights on one yard bake tiles
+    whose marks stand at the same period.
+
+    **Verification:** the three strip shots, and the drift smoke (scripts/smoke.d/drift.js) still
+    green — it counts shades and asserts the strip has drawn.
+
+    **Refused:** a second picture for the strip — one picture at two sizes is the reading and a
+    strip drawn from its own set is two frame loops for one yard (0070, 0139); a strip taller than
+    it is — the rack's height is the rack's (0045).
