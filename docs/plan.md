@@ -823,14 +823,34 @@ stop, after the hue travel and before the air — because that is the one mechan
 has for darkening a pixel without spending its alpha (0335), and a second one is a second place a
 colour can enter. Decision numbers from 0339; bench tags from bench-19.
 
-The order is decided: the dial first, because every other step is a number a hand has to see
-before it is fixed; the screen's shade next, because it is the largest single spend and the one
-that turns a comb into a picture; the sound's cut after it, because it is the instrument's subject
+The order is decided: **the dial first (landed 0339)**; the screen's shade next, because it is
+the largest single spend and the one that turns a comb into a picture; the sound's cut after it, because it is the instrument's subject
 and is re-aimed against what the shade left rather than against a white page; and the two sizes
 last, because whether the strip needs anything of its own is only knowable once the overlay reads.
 
-1.  **The film's share is a dial, on the bench and in the app.** _(bench-19)_ **Durable shape
-    moved: none.** A tunable is a session preference and never durable (0329).
+bench-19 landed on 2026-09-10 as
+[0339](decisions/0339-the-films-share-is-one-dial.md): `tunable("film.share")` is declared beside
+`SCREEN_FLOOR` in src/ui/moireScreenTile.ts, read once a tile in `build`, and eases the four keep
+terms toward one over their product; entry 10 on the bench draws the shipped bloom under the
+shipped film with the handle's own range, step and rest as its dial. **The rest is 0.15 and the
+shots are why.** Two yards with a click train playing, the zoomed drift read twice at each of 1,
+0.5, 0.35, 0.25, 0.15 and 0 with the settings interleaved: at one the bloom is the pale comb this
+block was opened over, mean strip alpha 0.227, and it is still a comb at a half (0.287) and at a
+quarter (0.319); at 0.15 the heads stand in scarlet over green with the beat crawling over them,
+0.331 on the bloom and 0.332 on the canopy against 0.350 with the film off outright. The dial's
+whole useful travel is in its bottom fifth, because four terms multiply. **And the strip's alpha
+barely moves across the dial's top half**, which is the measurement the next two steps are
+against: the screen's film is not what spends most of it — the rows' cut and the ghost are, and
+0.350 at nought is the ceiling they leave. Two things moved off the step's own text. **The rest
+is not one**: the step wrote the dial as resting at its shipped value and the shots argued a rest
+that changes the app's own picture on the first step of the block, which is what "the number is
+chosen by looking" asks for. **And the bench's dial is the app's handle**, not a `SketchDial`
+written beside it: the range, the step and the rest are read off `FILM_SHARE`, so the bench opens
+at the picture the app ships and the two cannot drift (principle 1).
+The next free decision number is 0340.
+
+1.  **The film's share is a dial, on the bench and in the app.** _(bench-19, landed 0339)_
+    **Durable shape moved: none.** A tunable is a session preference and never durable (0329).
 
     **One number says how much of the picture the film may spend.** `tunable("film.share", 1, {
 min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the tile is exactly
@@ -994,3 +1014,22 @@ min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the til
     **Refused:** a second picture for the strip — one picture at two sizes is the reading and a
     strip drawn from its own set is two frame loops for one yard (0070, 0139); a strip taller than
     it is — the rack's height is the rack's (0045).
+
+---
+
+## 4. Not taken
+
+**The film's share does not rest at one (bench-19, 0339).** The step wrote the dial as
+`tunable("film.share", 1, …)`, which would have landed the first step of the block with the app's
+picture unchanged. The shots argued otherwise: at one, and at a half, and at a quarter, the zoomed
+bloom is the pale comb the block was opened over, and only at 0.15 do the heads stand in their own
+colour — so the rest is 0.15 and the app's picture changed on the first step. Two costs are known
+and kept. The screen's four terms now spend a sixth of what they were argued at, until the next
+step moves them out of the alpha and into the read where their depth is a shade rather than a
+hole; and the strip's mean alpha moves by two hundredths across the dial's whole top half, because
+the rows' cut and the ghost — untouched here — are what spend most of it. **And `SCREEN_FLOOR` is slack for one step.** The two cases that read the floor off the painted
+tile (src/ui/moireScreen.test.ts:634, :739) now measure `1 - share * (1 - keep)`, which at a rest
+of 0.15 is above 0.85 whatever the terms do; the case that multiplies the terms directly (:332)
+still bounds them, and the file stands at 799 of its 800 lines with no room to re-aim the other
+two. Step 2 re-aims the floor at the read, which is where it is repaired. A share per term and a
+share per scene were refused by the step and stay refused.

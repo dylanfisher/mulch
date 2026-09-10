@@ -41,8 +41,10 @@ const SCENE_CHIPS: Readonly<Record<string, string>> = {
  * and a stop that moves in src/ui/scene/ moves here with it — which is the whole of what a bench
  * picture is for (0247). The name under a chip is the token's own last word, because that is what
  * the theme already calls the colour and a second name for it is a second place to keep in step.
+ * Exported because entry 10 draws one of these scenes under the film and reads its stops from
+ * here rather than assembling a second list of the same tokens (principle 1).
  */
-const stopsOf = (name: SceneName): readonly SketchStop[] =>
+export const stopsOf = (name: SceneName): readonly SketchStop[] =>
   sceneOf(name).ramp.map((token) => {
     const chip = SCENE_CHIPS[token];
     if (chip === undefined) throw new Error(`The bench has no chip for ${token}.`);

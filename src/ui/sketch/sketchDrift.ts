@@ -1,5 +1,5 @@
 /**
- * @role The five fields the drift bench still draws — one per direction the picture could yet be
+ * @role The six fields the drift bench still draws — one per direction the picture could yet be
  *   pushed in, the lattice, the warp and the fold having been taken (0278) — and the one dial each
  *   is drawn under. Every field answers how much ink is at a point of the
  *   picture, nought to one, for one amount of its dial, and nothing else: no canvas, no clock, no
@@ -13,6 +13,17 @@
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
 import { type SceneName, SCENE_REACH_TERMS } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
+import {
+  bandKeep,
+  beatPx,
+  blobKeep,
+  columnKeep,
+  FILM_SHARE,
+  filmStand,
+  gridPitchPx,
+  rowKeep,
+  rowPitchPx,
+} from "@/ui/moireScreenTile";
 import { sceneOf } from "@/ui/scene/scenes";
 import {
   FIELD_ASPECT,
@@ -176,12 +187,21 @@ export const bandsField: SketchDriftField = (x, y, amount) => {
 };
 
 /**
- * How tall one scene's ground is drawn on this bench, in the device pixels a scene is written in.
- * The bench's picture is one unit high, and a scene's marks are stated in the pixels of a screen
- * tile — so this is the one number that says how much of a real tile a bench picture is, and it is
- * a whole tile of the film's own rows at the display the bench is judged on (0329).
+ * The display every picture on this bench is read at, and the one the shots are judged on (0329):
+ * a scene's marks and the film's pitches are both stated in device pixels, so a bench that read
+ * them at one ratio and a hand that judged them at another would argue about a picture nobody
+ * sees.
  */
-export const SCENE_BENCH_PX = 110;
+const BENCH_DPR = 2;
+
+/**
+ * How tall one scene's ground is drawn on this bench, in those pixels. The bench's picture is one
+ * unit high, and a scene's marks are stated in the pixels of a screen tile — so this is the one
+ * number that says how much of a real tile a bench picture is, and it is **a whole beat cell of
+ * the film's own columns**, derived and not written down, so that the lattice closes across the
+ * picture however the pitch moves (0329).
+ */
+export const SCENE_BENCH_PX = beatPx(gridPitchPx(BENCH_DPR));
 
 /** The dial every scene is drawn under: how far the yard's own wind leans the field. */
 export const SCENE_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.5 };
@@ -210,3 +230,72 @@ export const sceneField = (name: SceneName): SketchDriftField => {
       1,
     );
 };
+
+/**
+ * The film's two pitches at the bench's own display. The picture is a whole beat cell of the
+ * columns across and one band cycle down, which is a lattice that closes left to right and half a
+ * cell of the rows' own beat — the film reads the same either way, and what a hand judges here is
+ * the depth of the beat and not how many cells fit.
+ */
+const FILM_PITCH = gridPitchPx(BENCH_DPR);
+const FILM_ROW_PITCH = rowPitchPx(BENCH_DPR);
+
+/**
+ * What the film keeps at one pixel of the bench picture: the shipped four terms — the two
+ * gratings, the lattice they beat into and the rolling band — read at the bench's own pitch out of
+ * src/ui/moireScreenTile.ts and never restated here (principle 1).
+ */
+export const filmKeep = (px: number, py: number): number =>
+  columnKeep(px, FILM_PITCH) *
+  rowKeep(py, FILM_ROW_PITCH) *
+  blobKeep(px, py, FILM_PITCH, FILM_ROW_PITCH) *
+  bandKeep(py, SCENE_BENCH_PX);
+
+/**
+ * The mean of those four over one whole bench picture, which is what the readout's share is taken
+ * off: how much of the field's alpha stands is a fact about the film and not about the pixel under
+ * the cursor. Summed once at load over the pixels the picture is actually drawn at, because a
+ * closed form for four terms multiplied is a second statement of the film (principle 1).
+ */
+const FILM_MEAN_KEEP = ((): number => {
+  const wide = Math.round(FIELD_ASPECT * SCENE_BENCH_PX);
+  let total = 0;
+  for (let py = 0; py < SCENE_BENCH_PX; py += 1) {
+    for (let px = 0; px < wide; px += 1) total += filmKeep(px, py);
+  }
+  return total / (wide * SCENE_BENCH_PX);
+})();
+
+/** How much of the field's alpha stands, over the whole picture, at one setting of the share. */
+export const filmStanding = (share: number): number => filmStand(FILM_MEAN_KEEP, share);
+
+/**
+ * 10 — the shipped film over the shipped bloom, and the dial is `film.share` itself: its own
+ * range and its own rest, read off the handle the painter reads, so the bench opens at the
+ * picture the app ships and a rest moved in one place moves in both (principle 1). The scene's
+ * own read is pulled toward the ground stop the palette opens at by whatever alpha the film
+ * leaves standing: at one the bloom is the comb the app draws today and at nought it stands on
+ * the ground solid. **A fade along the palette and not a composite in colour** — a stage answers
+ * with one number, so a half-spent pixel walks down the ramp rather than mixing its own ink with
+ * the ground's, and the two agree only at the ends. What the picture is for is the depth of the
+ * film, which is the same either way.
+ */
+export const FILM_DIAL: SketchDial = {
+  min: FILM_SHARE.min,
+  max: FILM_SHARE.max,
+  step: FILM_SHARE.step,
+  rest: FILM_SHARE.rest,
+};
+
+/**
+ * Where the scene's own read starts on the film's palette: the page's ground holds the first of
+ * six stops, so the scene runs from a fifth of the way along and a pixel the film took all of
+ * lands on the ground itself. The palette the legend draws is assembled against this number and
+ * throws if the two ever disagree (src/ui/sketch/drift/SketchDriftFilm.tsx).
+ */
+export const FILM_GROUND_STOP = 1 / 5;
+
+const filmScene = sceneField("bloom");
+export const filmField: SketchDriftField = (x, y, share) =>
+  filmStand(filmKeep(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX), share) *
+  (FILM_GROUND_STOP + (1 - FILM_GROUND_STOP) * filmScene(x, y, SCENE_DIAL.rest));

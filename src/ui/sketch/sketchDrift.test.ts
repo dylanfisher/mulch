@@ -1,5 +1,5 @@
 /**
- * The five fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
+ * The six fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
  * answers inside nought and one across the whole box at every end of its dial, and every one has
  * a swing across the box — a field that draws flat is a direction that argues nothing, and a static
  * render would frame it anyway.
@@ -15,6 +15,8 @@ import {
   BLOBS_DIAL,
   blobsField,
   CELL_GUTTER,
+  FILM_DIAL,
+  filmField,
   RAMP_DIAL,
   rampField,
   SKETCH_BANDS,
@@ -34,6 +36,7 @@ const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial
   { name: "terrace", field: terraceField, dial: TERRACE_DIAL },
   { name: "blobs", field: blobsField, dial: BLOBS_DIAL },
   { name: "bands", field: bandsField, dial: BANDS_DIAL },
+  { name: "film", field: filmField, dial: FILM_DIAL },
 ];
 
 /** The picture sampled coarsely across the whole box: its least, its most and the swing between. */
@@ -72,7 +75,7 @@ describe("every field on the drift bench", () => {
     }
   });
 
-  it("swings across the box at rest, so none of the five draws flat", () => {
+  it("swings across the box at rest, so none of the six draws flat", () => {
     for (const { name, field, dial } of FIELDS) {
       const { least, most } = swingOf(field, dial.rest);
       expect(most - least, name).toBeGreaterThan(0.4);

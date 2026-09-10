@@ -697,4 +697,16 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
       },
     ],
   },
+  {
+    title: "Film",
+    hint: "The film laid over whichever field the yard names: the screen's own gratings, the lattice they beat into and the rolling band, and how much of the picture the whole of it may spend.",
+    entries: [
+      {
+        id: "film.share",
+        wild: "min",
+        label: "Share",
+        hint: "How much of the picture the film may take; at nothing the scene stands solid and at everything the film is the whole screen.",
+      },
+    ],
+  },
 ];

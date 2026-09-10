@@ -1,6 +1,6 @@
 /**
  * @role The two lists the sketch bench mounts, and the shape of one entry: eight readings of when
- *   the ground shifts under a hand's gesture, and nine directions the drift picture could be
+ *   the ground shifts under a hand's gesture, and ten directions the drift picture could be
  *   pushed in. The argument lives here and the page that draws it lives next door — split off when
  *   the two together passed the file cap, because a list that grew by four entries is not a page
  *   that grew (docs/map.md).
@@ -25,6 +25,7 @@ import {
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { SketchDriftBands } from "@/ui/sketch/drift/SketchDriftBands";
 import { SketchDriftBlobs } from "@/ui/sketch/drift/SketchDriftBlobs";
+import { SketchDriftFilm } from "@/ui/sketch/drift/SketchDriftFilm";
 import { SketchDriftRamp } from "@/ui/sketch/drift/SketchDriftRamp";
 import {
   SketchDriftBloom,
@@ -142,12 +143,12 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
 ];
 
 /**
- * Nine directions the drift picture could be pushed in, none of them exclusive of another. The
+ * Ten directions the drift picture could be pushed in, none of them exclusive of another. The
  * picture today is a product of gratings cut out of one ink and filmed through three channels
  * (src/ui/moireCanvas.ts, src/ui/moireScreen.ts), and its structure is two fractal rows whose
  * levels were meant to read as a lattice of cells (0268) and still read as a weave. Each of these
  * is one move a shader would make — a fold, a ramp, a warp, a mirror, a feedback, a terrace, a
- * union, a per-cell read — drawn on a stand-in weave in the instrument's own inks, under the one
+ * union, a per-cell read, a share of the picture the film may spend — drawn on a stand-in weave in the instrument's own inks, under the one
  * dial that direction turns. Every one carries where it would land and what side of the bake line
  * it falls on (docs/plan.md, "a tile is a bake and a frame is a `fillStyle`").
  *
@@ -256,5 +257,16 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "the ground in src/ui/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/ui/scene/scenes.ts.",
     Content: SketchDriftCanopy,
+  },
+  {
+    id: "film",
+    label: "The Film",
+    thesis:
+      "The scene is the body of the picture and the film is a shade over it — and how much of the picture the film may spend is one number a hand can see and move, film.share, not a depth buried in four terms. At nothing the bloom stands solid, which is the bench's own picture of it; at everything it is the comb the app draws today; between, the beat between the gratings survives at every setting and only its depth moves.",
+    trades:
+      "the film's own strength at the settings a hand will choose. One dial over the product of the four terms cannot say which of them a picture could spare, so a share that leaves the lattice legible leaves the band and the two gratings shallower than they were argued at — and a share per term is four dials for one question (0333). The rows' cut and the ghost are outside it: this is the screen's share and not the film's whole cost, and so are the three channels' fringe and gain, which multiply colour and never alpha (0332) — so the bench at nothing is flatter than the app at nothing, which still carries the chromatic lattice in its ink.",
+    built:
+      "one tunable, film.share, declared in src/ui/moireScreenTile.ts beside SCREEN_FLOOR and eased over the product of the four keep terms in build, `1 - share * (1 - keep)`, with its row in a Film group in src/lib/copyDriftGroups.ts. Bake-side: it is read once a tile and tuneStamp() already keys the tile, so a drag rebakes the ground and no frame reads it (0126, 0129).",
+    Content: SketchDriftFilm,
   },
 ];

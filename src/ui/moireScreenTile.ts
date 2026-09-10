@@ -35,7 +35,7 @@ import {
   sceneAxis,
 } from "@/lib/moireScene";
 import { standShade, standSpeck } from "@/lib/moireStand";
-import { subscribeTuning } from "@/lib/moireTuning";
+import { subscribeTuning, tunable } from "@/lib/moireTuning";
 import { clamp, denormalize } from "@/lib/range";
 import type { ScreenInk } from "@/lib/moire";
 import type { YardScene } from "@/lib/yardScene";
@@ -84,6 +84,26 @@ const BAND_DEPTH = 0.16;
  * the painter builds, so tuning any one term past what the picture carries fails here.
  */
 export const SCREEN_FLOOR = 0.6;
+
+/**
+ * How much of the picture the film may spend. One number for the whole film and not one per term:
+ * four dials for one question is the water group's lesson (0333), and a share per scene would make
+ * the film four films (0329). At one the tile is exactly what 0332 bakes; at nought the film
+ * spends nothing and the tile is the scene solid, which is what the bench draws. **It rests at
+ * 0.15**, which is where the shots argued the scene becomes the body of the picture: at a half
+ * and at a quarter the zoomed bloom is still a pale comb with the poppies a stipple in it, and at
+ * 0.15 the heads stand in their own colour with the beat still crawling over them (0339). A
+ * session preference and never durable (0329), and the bench's own dial is this handle's range.
+ */
+export const FILM_SHARE = tunable("film.share", 0.15, { min: 0, max: 1, step: 0.05 });
+
+/**
+ * How much of a pixel the film leaves standing: the four keep terms eased toward one by the share,
+ * applied **once to their product** and never per term, so the beat between the gratings survives
+ * at every setting and only its depth moves. The one place the share is spent — the bench reads
+ * this same function rather than restating it (principle 1).
+ */
+export const filmStand = (keep: number, share: number): number => 1 - share * (1 - keep);
 
 /**
  * The screen's three lit channels, in the order they sit across one pitch. Token names and not
@@ -546,6 +566,9 @@ function build(
   // How far a light that falls through the field slides the read up the scene's own ramp, and
   // nought where the air is a wash or the name says no air at all.
   const falling = yard.spread === "fall" ? SCENE_LIGHT_TERMS[yard.light].amount : 0;
+  // Read once a tile and not once a pixel: the share is baked in, `tuneStamp()` keys the tile, and
+  // a handle read in the pixel loop would be a property read three hundred thousand times (0070).
+  const share = FILM_SHARE.value;
   const flock = yard.specks === "flock";
   const kept = yard.specks === "kept";
   const field = ink.createImageData(width, height);
@@ -584,8 +607,9 @@ function build(
       pixels[at + 1] = row[1] * gain[1] * lit[1];
       pixels[at + 2] = row[2] * gain[2] * lit[2];
       // The alpha stays the caller's, because how solid the picture is belongs to the surface it is
-      // on and not to what colour it went (0141).
-      pixels[at + 3] = own[3] * keep;
+      // on and not to what colour it went (0141) — and of that, the film spends only its own share
+      // (0339): at nought the scene stands solid and at one this is `own[3] * keep`, as before.
+      pixels[at + 3] = own[3] * filmStand(keep, share);
     }
   }
   ink.putImageData(field, 0, 0);

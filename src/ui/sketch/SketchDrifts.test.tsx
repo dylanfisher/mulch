@@ -1,5 +1,5 @@
 /**
- * The drift bench's own half of the naming rule (0252): nine directions of one picture, each on
+ * The drift bench's own half of the naming rule (0252): ten directions of one picture, each on
  * a canvas under its own dial, each naming what the dial stands at and the inks it is drawn in,
  * and each saying where in the painter it would land — at a file that exists. Out of
  * `SketchPage.test.tsx` in the shape `SketchGrounds.test.tsx` took: that file mounts the bench and
@@ -11,8 +11,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { SCENE_NAMES } from "@/lib/moireScene";
+import { tunings } from "@/lib/moireTuning";
 import { sceneOf } from "@/ui/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
+import { FILM_STOPS } from "@/ui/sketch/drift/SketchDriftFilm";
 import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
 import { SketchPage } from "@/ui/sketch/SketchPage";
 
@@ -24,7 +26,7 @@ const markup = renderToStaticMarkup(<SketchPage />);
  * it. A stage that drew nothing at all leaves `indexOf` at -1, and a slice from there is every
  * later sketch's markup rather than nothing — which is exactly how an unlabelled picture passes.
  */
-function stageOf(id: string, next: string | undefined): string {
+function stageOf(id: string, next?: string): string {
   const opens = markup.indexOf(`data-drift="${id}"`);
   expect(opens, `${id} is not mounted`).not.toBe(-1);
   const closes = next === undefined ? markup.length : markup.indexOf(`id="${next}"`, opens);
@@ -57,11 +59,14 @@ const rampOf = (name: (typeof SCENE_NAMES)[number]): string =>
 const DECLARED = [
   ...Object.values(INKING_STOPS).map((stops) => namesOf(stops)),
   ...SCENE_NAMES.map((name) => rampOf(name)),
+  // And one more: the film draws a scene's five over the page's own ground, because a picture of
+  // spent alpha has to show what is behind it (0339).
+  namesOf(FILM_STOPS),
 ];
 
-describe("SketchPage draws where the picture goes, nine ways", () => {
+describe("SketchPage draws where the picture goes, ten ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length);
+    expect(SKETCH_DRIFTS).toHaveLength(6 + SCENE_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");
@@ -146,9 +151,9 @@ describe("the bench draws every scene", () => {
     for (const file of ["src/ui/sketch/sketchStill.ts", "src/ui/sketch/sketchStillField.ts"]) {
       expect(existsSync(file), `${file} outlived the still it was for`).toBe(false);
     }
-    // And the bench's second introduction counts what it mounts: nine, not eleven.
-    expect(markup, "the drift introduction still says eleven").toContain(
-      "so the nine are a plan&#x27;s worth of parts",
+    // And the bench's second introduction counts what it mounts: ten, not eleven.
+    expect(markup, "the drift introduction miscounts the bench").toContain(
+      "so the ten are a plan&#x27;s worth of parts",
     );
   });
 });
@@ -173,9 +178,38 @@ describe("the bench keeps no picture a scene has taken", () => {
   });
 });
 
-describe("each of the nine says where it would land", () => {
+describe("the bench argues the film's share under a dial", () => {
   /**
-   * A build note is the point of this bench: the nine are a plan's worth of parts, so each one
+   * The block's first step: how much of the picture the film may spend is one number, and a number
+   * in a file is not what a hand decides on — a picture with a dial is (0247, 0339). So the tenth
+   * entry is the film, it names the tunable a hand will move in the app, and it is drawn over a
+   * scene's own stops rather than the two-stop inking, because what it shows is spent alpha.
+   */
+  it("stands the film tenth, under the dial the app declares", () => {
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    expect(drawn, "the bench does not hold ten entries").toHaveLength(10);
+    expect(drawn.indexOf("film"), "the film is not entry 10").toBe(9);
+    const entry = SKETCH_DRIFTS[9];
+    expect(entry?.built, "the film names no tunable").toContain("film.share");
+    expect(
+      tunings().map((handle) => handle.id),
+      "nothing declares film.share",
+    ).toContain("film.share");
+    const stage = stageOf("film");
+    expect(stage, "the film says nothing of what it leaves standing").toMatch(
+      /data-said="film"[^>]*>[^<]*alpha stands/u,
+    );
+    // Over the page's ground and then the bloom's own five: the picture behind the film is the
+    // scene entry 07 draws, and the ground under it is where a spent pixel lands.
+    expect(chipsOf(stage).join(), "the film is not the bloom over the ground").toBe(
+      `ground,${rampOf("bloom")}`,
+    );
+  });
+});
+
+describe("each of the ten says where it would land", () => {
+  /**
+   * A build note is the point of this bench: the ten are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */
