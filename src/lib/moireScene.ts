@@ -31,18 +31,27 @@ export const SCENE_WINDS = ["still", "quiet", "breeze", "windy", "wild"] as cons
 export type SceneWind = (typeof SCENE_WINDS)[number];
 
 /**
- * How far the field leans and how far it sways, per wind. **Two amplitudes and no rate**: the
- * screen carries no clock of its own and every motion in it rides a row's phase (0126), so "how
- * fast it recovers" is how far the sway swings rather than how quickly it comes back — the lean is
- * baked into the scene's ground on the rebuild, and the sway scales the screen's own shear and
- * breath on the frame.
+ * How far the field leans, how far it sways, and how far a gust bows it on top of the sway, per
+ * wind. **Three amplitudes and no rate**: the screen carries no clock of its own and every motion
+ * in it rides a row's phase (0126), so "how fast it recovers" is how far the sway swings rather
+ * than how quickly it comes back — the lean is baked into the scene's ground on the rebuild, and
+ * the sway and the gust scale the screen's own shear and breath on the frame.
+ *
+ * The gust is the sway again with the picture cut across it: the sway leans the whole field by one
+ * amount and the gust leans each vertical strip of it by its own, one turn of the wave further on
+ * than the strip beside it, so the lean travels across the picture rather than standing over the
+ * whole of it (`inkThrough`, src/ui/moireScreen.ts). Both are shares of the screen's own shear, so
+ * a hand tuning that one number moves the lean and the gust together. Nought at the stillest wind,
+ * because a field nobody said a wind of has nothing for a wave to carry.
  */
-export const SCENE_WIND_TERMS: Readonly<Record<SceneWind, { lean: number; sway: number }>> = {
-  still: { lean: 0, sway: 0.35 },
-  quiet: { lean: 0.25, sway: 0.6 },
-  breeze: { lean: 0.5, sway: 1 },
-  windy: { lean: 0.75, sway: 1.4 },
-  wild: { lean: 1, sway: 1.8 },
+export const SCENE_WIND_TERMS: Readonly<
+  Record<SceneWind, { lean: number; sway: number; gust: number }>
+> = {
+  still: { lean: 0, sway: 0.35, gust: 0 },
+  quiet: { lean: 0.25, sway: 0.6, gust: 0.2 },
+  breeze: { lean: 0.5, sway: 1, gust: 0.45 },
+  windy: { lean: 0.75, sway: 1.4, gust: 0.7 },
+  wild: { lean: 1, sway: 1.8, gust: 1 },
 };
 
 /**

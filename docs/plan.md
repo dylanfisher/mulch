@@ -164,7 +164,7 @@ bank and never a hash (0329):
 
 | Phrase                              | Bank                        | Reading  | What it does to the picture                                             |
 | ----------------------------------- | --------------------------- | -------- | ----------------------------------------------------------------------- |
-| Windy, Hushed, Wild…                | `YARD_ADJECTIVES_BY_WIND`   | `wind`   | lean baked, sway on the frame — and a gust that travels (step 7)        |
+| Windy, Hushed, Wild…                | `YARD_ADJECTIVES_BY_WIND`   | `wind`   | lean baked, sway on the frame — and a gust that travels (0338)          |
 | Foxglove, Reed, Heather, Willow…    | `YARD_PLANTS_BY_SCENE`      | `scene`  | which still the picture is                                              |
 | by, beside · near, past · behind…   | `YARD_PLACE_WORDS_BY_REACH` | `reach`  | how close the frame stands: the marks' period and the structure's size  |
 | the Old Wall, the Stairs, the Gate… | `YARD_PLACE_NOUNS_BY_STAND` | `stand`  | the one large thing standing in the field, as the shadow it casts       |
@@ -197,8 +197,10 @@ src/lib/copyDriftGroups.ts, read inside the bake and so covered by `tuned` in th
 The order is decided: the contract first, on one scene, because every other step reads the ramp
 per pixel; the two grating stills next and the two noise stills after them, each pair sharing its
 maths; the place (0335), then the air's word and the detail (0336), because each adds a
-reading to a contract that has to hold every scene already; and the gust last, because it is the one step whose cost lands
-on the frame and the one that may not stand.
+reading to a contract that has to hold every scene already; and the gust last (0338), because it is
+the one step whose cost lands on the frame and the one that may not stand. It stood: the frame at
+eight strips costs thirty microseconds more than the frame at one, which is inside the spread of
+the base runs against each other.
 
 bench-12 landed on 2026-09-09 as
 [0332](decisions/0332-a-scene-is-the-colour-and-the-film-is-the-alpha.md): `Scene.ground` answers
@@ -390,7 +392,43 @@ strip and the import would have run in a circle. One finding was declined: the h
 reading of a yard whose rack is empty and which therefore draws no picture at all, which is a
 reading of the name and true of what will be drawn the moment anything runs — gating it would have
 the deck's header read the rack's rows, which the strip owns and the header deliberately does not.
-The next free decision number is 0338.
+bench-18 landed on 2026-09-10 as
+[0338](decisions/0338-a-gust-is-a-lean-per-strip-of-the-fill.md): the screen fill is cut into
+`tunable("wind.strips")` vertical strips, each placing the one tile under the sway's own shear plus
+one strip further on into a wave that comes round once across the picture, and `SCENE_WIND_TERMS`
+gains `gust` — nought at the stillest wind, which is filled once as every frame was before this.
+**The step stood on its own measurement.** Six interleaved `./scripts/profile` runs put the frame
+mean at 8.215 / 8.252 / 8.268 ms base against 8.255 / 8.272 / 8.298 ms at eight strips, p95
+10.3–10.4 either side and no long task on any run: thirty microseconds a frame, orders below a step
+of the tint ladder, which bakes a picture-sized tile. **The knob's ceiling is that eight and not one
+more**, because a group's own push drives every knob in it to its wild end and a ceiling above the
+measurement is a gesture that spends a frame nobody timed — the step's own refusal, found by the
+review reading `wild: "max"` against a `max` of sixteen. Five things moved off the step's own text.
+**The fill left the caller**: `paintMoire` cannot hold a `fillRect` that has one lean in it and let
+this file give the frame six, so `inkThrough` fills the rectangle now — the flat-ink path an engine
+with no pattern draws included, or that engine's picture would have gone from one fill to none.
+**The gust is bowed about the picture's middle and not its top row**: a shear carries a point by its
+own depth, so two strips leaned differently read the tile a step apart at the boundary and that step
+is widest wherever the pivot is furthest — anchored at the top it is a vertical break standing at
+the foot of every picture, which is the artefact 0334's snapping exists to keep out. Pivoted at half
+the height the neighbours agree across the middle and part by half as much at either edge; the break
+does not go, and the strip count rather than the amplitude is what shrinks it, which is why the
+count is the tunable. **And the swing is bounded by the tile and not by the wind alone**: the break
+is measured in a beat cell and the picture is not always the same size, so the wildest wind that
+parts two strips by a thirtieth of a cell on a 64-pixel rack strip parts them by most of one on a
+full-bleed overlay — the review's own finding. The wave swings as far as the reading asks or as far
+as `GUST_BREAK` of a beat cell allows, whichever is less, at the known cost that the biggest picture
+leans a little less than the reading asked for. **A flock's specks do not ride the strip's phase.** The step said they come and
+go with it; a speck's brightness is written into the tile and a strip is a transform over that one
+tile, so a speck that lit and unlit per strip is a tile per strip — a picture-sized bake per frame,
+which is the one thing 0070 and 0129 forbid outright. A flock is carried by the gust like everything
+else the tile holds and is not lit by it. And **the two cases the step named for
+src/ui/moireScreen.test.ts went to src/ui/moireCanvasScene.test.ts**, src/ui/moireScreen.test.ts
+standing at the 800-line hard cap with no room for a case: the same move 0335 and 0336 made, and it
+needed the painter's own recorder
+(src/ui/moireCanvasPainted.ts) to keep every placement of the screen rather than the last, which it
+could do because there is more than one now.
+The next free decision number is 0339.
 
 1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
     landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
@@ -487,7 +525,8 @@ The next free decision number is 0338.
       already found a still cannot hold it; a scene that wants the yard's own ink names the token
       the surface resolves it from.
     - **Two tiles.** One bake, one `fillStyle`, one `fillRect` a frame (0070) is the rule this whole
-      block keeps.
+      block keeps — until step 7, which keeps the one bake and spends a `fillStyle` and a `fillRect`
+      per strip of the gust, measured before it was kept (0338).
 
 2.  **The water is the glint.** _(bench-13, landed 0333)_ **Durable shape moved: none.**
 
@@ -698,7 +737,8 @@ The next free decision number is 0338.
 
     **Refused:**
     - **A speck that moves.** A flock comes and goes in step 7 if the gust lands, and stands until
-      then.
+      then. It stands: a speck's brightness is written into the tile and a strip is a transform
+      over that one tile, so a flock lit per strip is a tile per strip (0338).
     - **A sound for a bell.** The name reads into the picture and nothing else.
 
 6.  **The reading is said on the yard.** _(bench-17, landed 0337)_ **Durable shape moved:
@@ -717,7 +757,8 @@ The next free decision number is 0338.
 
     **Refused:** a rename, and a scene picker — the name is the picker (0329).
 
-7.  **The wind gusts.** _(bench-18)_ **Durable shape moved: none.** The step that may not stand.
+7.  **The wind gusts.** _(bench-18, landed 0338)_ **Durable shape moved: none.** The step that may
+    not stand — and stood.
 
     **The lean travels across the picture as a wave.** The meadow and the canopy carry a standing
     gust since 0334 — a lean that is a function of where a stroke stands, frozen at one phase

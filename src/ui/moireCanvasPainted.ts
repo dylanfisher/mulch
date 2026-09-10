@@ -283,6 +283,8 @@ export function painterOn(stubGlobal: StubGlobal) {
     // What went onto the canvas itself: the screen, and then the product taken back out of it —
     // whole, or in the slices a lens bends it through.
     const laid: { ink: unknown; over: string }[] = [];
+    /** And where the screen was placed for each of them: one matrix per strip it was filled in. */
+    const screened: Aim[] = [];
     // What each band of the finished field was cut with: where it was taken from, how deep, how far
     // it was slid and at what share — the last being what says a shattered slice replaced its own
     // share of the band rather than being laid over it (0269).
@@ -295,8 +297,12 @@ export function painterOn(stubGlobal: StubGlobal) {
       globalCompositeOperation: "source-over",
       clearRect: () => {},
       setTransform: () => {},
-      // The screen's, and it is placed after every row has been aimed, so it is the last of `aims`.
-      createPattern: () => (allowed() ? { setTransform: () => {} } : null),
+      // The screen's, and it is placed after every row has been aimed. Its own placements go here
+      // and never into `aims`: the screen is placed once per vertical
+      // strip the yard's own gust travels across, so a case about the gust reads the shear each
+      // strip was leaned at out of this (`inkThrough`, src/ui/moireScreen.ts).
+      createPattern: () =>
+        allowed() ? { setTransform: (matrix: Aim) => screened.push({ ...matrix }) } : null,
       drawImage(
         _field: unknown,
         _left?: number,
@@ -356,6 +362,7 @@ export function painterOn(stubGlobal: StubGlobal) {
     return {
       aims,
       laid,
+      screened,
       slices,
       elements,
       surfaces,

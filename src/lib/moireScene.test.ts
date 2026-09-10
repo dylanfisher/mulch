@@ -51,9 +51,14 @@ describe("the scene contract", () => {
       if (next === undefined) continue;
       expect(term.lean, SCENE_WINDS[at]).toBeLessThan(next.lean);
       expect(term.sway, SCENE_WINDS[at]).toBeLessThan(next.sway);
+      expect(term.gust, SCENE_WINDS[at]).toBeLessThan(next.gust);
     }
     expect(terms[0]?.lean).toBe(0);
     expect(terms.at(-1)?.lean).toBe(1);
+    // And the stillest wind gusts nothing at all, which is what fills the picture in one stroke
+    // rather than in a strip per turn of a wave with no amplitude (`inkThrough`).
+    expect(terms[0]?.gust).toBe(0);
+    expect(terms.at(-1)?.gust).toBe(1);
   });
 
   it("cuts a mark with the picture's own cosine and never a second one", () => {

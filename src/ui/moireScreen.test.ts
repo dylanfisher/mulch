@@ -22,6 +22,7 @@ import {
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
 import { SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
+import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
 import { arrivedInk, PRODUCT, resolvedInk } from "@/ui/moireCanvasPainted";
@@ -222,6 +223,7 @@ function paintedOn(
 // The stand-in document and display live for exactly the one test that asks for them.
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetTuning();
 });
 
 // One flat list of the screen's cases (0007).
@@ -372,6 +374,9 @@ describe("moireScreen", () => {
     // `tilePx` says, written in a single pass over its pixels. One pass, because the loop over the
     // pixels is the rebuild's and never a frame's (0129).
     vi.stubGlobal("devicePixelRatio", 2);
+    // In one strip: the gust lays the screen down once per strip and this case is about the tile
+    // behind all of them, written once whatever the fill does.
+    setTuning("wind.strips", 1);
     const pitch = gridPitchPx(2);
     const rowPitch = rowPitchPx(2);
     const rows = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
@@ -505,6 +510,8 @@ describe("moireScreen", () => {
     // buys is the cost 0128 called its one exception — a `setTransform` and a `fillStyle` per row
     // drawn — so the screen is placed exactly once whatever a yard holds.
     vi.stubGlobal("devicePixelRatio", 2);
+    // In one strip, so what is counted is the rows and not the strips of a gust.
+    setTuning("wind.strips", 1);
     const others = [row({ period: 3, phase: 1 }), row({ period: 5, phase: 4 })];
     const leaned = paintedOn(200, 64, [claiming("shear"), ...others]).moves;
     expect(leaned).toHaveLength(1);

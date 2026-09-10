@@ -1,13 +1,15 @@
 /**
  * @role The screen a canvas is filled through: the tile for what it is *of*, this canvas's own
- *   pattern over it, and the five motions that move it — the band's roll, the crawl, the breath,
- *   the turn and the lean. A frame costs one `fillStyle` and no loop over anything (0070), because
- *   everything that is written a pixel at a time happens on the rebuild next door.
+ *   pattern over it, and the six motions that move it — the band's roll, the crawl, the breath,
+ *   the turn, the lean and the gust that travels across the lean. A frame costs one `fillStyle` per
+ *   vertical strip the gust is read in and no loop over a pixel (0070), because everything that is
+ *   written a pixel at a time happens on the rebuild next door.
  *
  *   Nothing here carries a clock. The band rolls on the reference row's phase — the deck's own
- *   read position — and the other four motions each belong to the parameter whose fold claims them
- *   (0126, 0128), so a halted yard's screen stands exactly as still as its picture. All four move
- *   the tile as a whole: the lean was once per row drawn, and no row is drawn on its own any more.
+ *   read position — the four named in `SCREEN_TERMS` each belong to the parameter whose fold claims
+ *   them (0126, 0128), and the gust rides the lean's own row rather than a sixth of anything, so a
+ *   halted yard's screen stands exactly as still as its picture. All of them move the tile as a
+ *   whole: the lean was once per row drawn, and no row is drawn on its own any more.
  * @instead The tile itself — the two gratings, the beat they make, the three channels, the band,
  *   the scene's own stops and the one pass that writes them into a pixel field →
  *   src/ui/moireScreenTile.ts, which this split out of at the 800-line hard cap (0045, 0332). The
@@ -57,6 +59,33 @@ const BREATH_PX = tunable("screen.breath", 0.5, { min: 0, max: 3, step: 0.05 });
  * `setTransform` and a `fillStyle` per row.
  */
 const SHEAR_TURNS = tunable("screen.shear", 0.02, { min: 0, max: 0.1, step: 0.001 });
+
+/**
+ * How many vertical strips the frame is filled in, so that the gust has somewhere to be read. The
+ * wave is a lean that varies across the picture and a pattern transform is affine (0331), so the
+ * only place a lean can vary with x is between one fill and the next: the tile is still one and
+ * still built on a rebuild, and what a strip costs is a `setTransform`, a `fillStyle` and a
+ * `fillRect` over its own share of the canvas — the same pixels the one fill covered, in more
+ * calls (0070). It is also what shrinks the step between two strips at the boundary between them,
+ * so the count is the knob and the amplitude is the yard's own reading.
+ *
+ * **The ceiling is the count the profile was run at and not one more.** Eight is what was measured
+ * against one, interleaved, and a group's own push drives every knob in it to its wild end — so a
+ * ceiling above the measurement is a gesture that spends a frame nobody timed (0338).
+ *
+ * A wind with no gust in it is filled once, which is the frame every picture drew before this: a
+ * wave of nought amplitude has nowhere to be, and a canvas full of identical fills is every one
+ * after the first spent drawing the picture the first one already drew.
+ */
+const WIND_STRIPS = tunable("wind.strips", 8, { min: 1, max: 8, step: 1 });
+
+/**
+ * How far apart two neighbouring strips may read the tile where they meet, as a share of one beat
+ * cell of it. A constant beside the tunables and not one of them: it is not a taste, it is the
+ * width at which a boundary stops being a lean and starts being a line, and a hand given a slider
+ * for it would be given a slider that draws the grid the whole film is built to avoid (0334).
+ */
+const GUST_BREAK = 0.12;
 
 /**
  * The motions the screen has, one entry each and named nowhere else. The band's roll is not among
@@ -125,7 +154,8 @@ const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 /**
  * The screen `canvas` is drawn through: the tile for what it is of, and this canvas's own pattern
  * over it. Nothing is built unless the colour, the height, the density or the tint has moved, so a
- * frame costs one `fillStyle` (0070) — and the channel tokens are read on a build for that same reason,
+ * frame costs a `fillStyle` per strip of the gust and no bake (0070) — and the channel tokens are
+ * read on a build for that same reason,
  * a `getComputedStyle` per frame being the style flush 0070 exists to keep out. The only thing
  * that moves those three is the scheme, which moves `color` with it, so the key catches them.
  *
@@ -167,13 +197,18 @@ function screenOf(
 }
 
 /**
- * Set the ink every row will be filled with: the screen, moved to where the picture's own phases
- * have carried it, or the flat colour where the engine would not build one. Sub-pixel throughout,
- * and nothing rounded to whole device pixels as the roll once was — the beat between the lattice
- * and the pixels it lands on is the effect now, and a term rounded to whole pixels is precisely
- * the one with no beat left in it. Leaves `fillStyle` set to the screen, or to the flat colour
- * where the engine would not build one, which is the picture its caller drew before there was a
- * screen behind it.
+ * Lay the ink every row will be cut out of over the whole canvas: the screen, moved to where the
+ * picture's own phases have carried it, or the flat colour where the engine would not build one.
+ * Sub-pixel throughout, and nothing rounded to whole device pixels as the roll once was — the beat
+ * between the lattice and the pixels it lands on is the effect now, and a term rounded to whole
+ * pixels is precisely the one with no beat left in it.
+ *
+ * **The fill is this file's and no longer its caller's**, because a gust is a lean that varies
+ * across the picture and the only place a lean can vary is between one fill and the next: the
+ * canvas is filled in `WIND_STRIPS` vertical strips under a wind that gusts and once under one
+ * that does not, and a caller filling the rectangle itself could only fill it flat. Leaves
+ * `fillStyle` set to the screen, or to the flat colour where the engine would not build one, which
+ * is the picture its caller drew before there was a screen behind it.
  *
  * `wind` is how far the standing rack's own tail has blown the whole field, in turns of one cell of
  * the grid (0267). The one term here that does not come back: every other motion of the screen is a
@@ -202,7 +237,13 @@ export function inkThrough(
   tinted.hue = steppedHue(ink.hue);
   tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted, yard);
-  if (pattern === null) return;
+  // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
+  // picture that engine draws is the one this file's caller drew before there was a screen behind
+  // it, and it is one fill whatever the wind says.
+  if (pattern === null) {
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
   // How far the yard's own adjective lets the field sway, on the two motions that are a sway: a
   // hushed yard breathes and leans a fraction of what a wild one does, and a still one all but
   // stands. The lean the same adjective bakes into the ground is the other half of the same
@@ -223,7 +264,49 @@ export function inkThrough(
   );
   // The lean, added to the term the turn already wrote: a skew on the tile as a whole, sweeping
   // through rest like the other three rather than sitting at one offset.
-  rolled.c += sway * TAU * SHEAR_TURNS.value * Math.sin(TAU * termTurns(rows, "shear"));
-  pattern.setTransform(rolled);
-  context.fillStyle = pattern;
+  const shear = TAU * SHEAR_TURNS.value;
+  const turns = termTurns(rows, "shear");
+  const lean = rolled.c + sway * Math.sin(TAU * turns) * shear;
+  // And the gust over it: the same shear again, read one strip of the wave further on in each
+  // vertical strip of the picture, so the lean travels across the field instead of standing over
+  // the whole of it. The wave comes round exactly once across the canvas — the strips sample one
+  // whole turn of it, so a strip past the last edge would be the first again — and it travels on
+  // the shear row's own phase, because
+  // the screen has no clock of its own (0126) and a gust on a second one would blow across a
+  // halted yard.
+  const gust = SCENE_WIND_TERMS[yard.wind].gust;
+  const strips = gust > 0 ? WIND_STRIPS.value : 1;
+  // **The gust is bowed about the picture's middle and not about its top row.** A shear carries a
+  // point by its own depth, so two strips leaned by different amounts read the same tile a step
+  // apart at the boundary between them, and that step grows all the way down: anchored at the top
+  // it is widest at the foot, which is a vertical break standing at the bottom of the picture.
+  // Pivoted, the two strips agree across the middle and part by half as much at either edge — the
+  // only term that cuts the break by construction, the other being the strip count itself.
+  const pivot = canvas.height / 2;
+  // **And the swing is bounded by the tile rather than by the wind alone.** Halving the break is
+  // not bounding it: what the break costs is measured in the tile's own beat cell and the picture
+  // is not always the same size, so the wildest wind that parts two strips by a thirtieth of a
+  // cell on a rack strip parts them by most of one on a full-bleed overlay — seven vertical breaks
+  // through the middle of the picture, which is the ruled grid 0334 refused. So the wave swings as
+  // far as the yard's reading asks or as far as `GUST_BREAK` of a beat cell allows, whichever is
+  // less. It binds only on a tall picture at a strong wind: a strip at rest is nowhere near it.
+  const swing = 2 * Math.sin(Math.PI / strips) * pivot;
+  const asked = gust * shear;
+  const bowed = swing > 0 ? Math.min(asked, (GUST_BREAK * beatPx(pitch)) / swing) : asked;
+  const crawl = rolled.e;
+  let edge = 0;
+  for (let at = 0; at < strips; at += 1) {
+    // Rounded to whole device pixels at both ends, so the strips tile the canvas exactly: a
+    // fractional edge would leave a hairline of cleared canvas between two fills.
+    const next = Math.round(((at + 1) * canvas.width) / strips);
+    const bow = bowed * Math.sin(TAU * (turns + at / strips));
+    rolled.c = lean + bow;
+    rolled.e = crawl - bow * pivot;
+    pattern.setTransform(rolled);
+    // Re-set on every strip, which is the cost this step is: one `fillStyle` a frame becomes one
+    // a strip, and the tile behind all of them is still the one the cache answered with.
+    context.fillStyle = pattern;
+    context.fillRect(edge, 0, next - edge, canvas.height);
+    edge = next;
+  }
 }

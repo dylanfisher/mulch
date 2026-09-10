@@ -140,6 +140,12 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         label: "Veer",
         hint: "The whole travel a direction has; two is a full reversal.",
       },
+      {
+        id: "wind.strips",
+        wild: "max",
+        label: "Gust",
+        hint: "How many vertical strips the field is leaned in, so a gust can travel across it; one is a field that leans all at once.",
+      },
     ],
   },
   {

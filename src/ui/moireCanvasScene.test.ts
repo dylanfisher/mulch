@@ -10,11 +10,13 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SCENE_NAMES, SCENE_REACHES, SCENE_STANDS } from "@/lib/moireScene";
+import { TAU } from "@/lib/moire";
+import { SCENE_NAMES, SCENE_REACHES, SCENE_STANDS, SCENE_WIND_TERMS } from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
+import { termTurns } from "@/ui/moireScreen";
 import { beatPx, gridPitchPx, rowPitchPx, SCREEN_FLOOR } from "@/ui/moireScreenTile";
 
 /**
@@ -153,6 +155,9 @@ describe("the picture is the field its name says", () => {
   it("still aims one grating per row whatever the scene, and lays the screen down once", () => {
     // A scene is a ground and a ramp and never a second painter: the rows, the looks and the
     // lattice reach it untouched, so what a painting is made of cannot move with the name.
+    // In one strip, so this counts the scenes and not the strips the yard's own gust travels
+    // across, which is the case below.
+    setTuning("wind.strips", 1);
     for (const scene of SCENE_NAMES) {
       const painted = paintingOf({ ...YARD_SCENE_REST, scene });
       expect(painted.aims, scene).toHaveLength(ROWS.length);
@@ -160,6 +165,51 @@ describe("the picture is the field its name says", () => {
         painted.laid.filter((each) => each.over === "source-over"),
         scene,
       ).toHaveLength(1);
+    }
+  });
+
+  it("cuts the fill into a strip per turn of the gust, and fills once where there is no wind in it", () => {
+    // The gust travels: the lean is one number for the whole tile, so the only place it can vary
+    // across the picture is between one fill and the next (0331 — a pattern transform is affine).
+    // A wind with nothing to gust is the one fill every frame made before this.
+    const strips = 5;
+    setTuning("wind.strips", strips);
+    setTuning("screen.shear", 0.03);
+    const still = paintingOf({ ...YARD_SCENE_REST, wind: "still" });
+    expect(still.laid.filter((each) => each.over === "source-over")).toHaveLength(1);
+    const wild = paintingOf({ ...YARD_SCENE_REST, wind: "wild" });
+    expect(wild.laid.filter((each) => each.over === "source-over")).toHaveLength(strips);
+    // And each strip is one strip of the wave further on than the one beside it, the wave coming
+    // round exactly once across the picture: the shear the sway writes is what every strip stands
+    // on, and the gust is what it is leaned by on top of that.
+    // Read against the still yard's one placement, which cancels the turn the same rows write into
+    // the same term: what is left is the sway the wind was widened by, plus the gust on top of it.
+    // Counted before it is walked: a loop over an empty list asserts nothing, and the shear per
+    // strip is the half of this case the step names (principle 5).
+    expect(wild.screened).toHaveLength(strips);
+    expect(still.screened).toHaveLength(1);
+    const shear = TAU * 0.03;
+    const turns = termTurns(ROWS, "shear");
+    const [placed] = still.screened;
+    if (placed === undefined) throw new Error("the still yard placed no screen to read against");
+    const stood = placed.c;
+    const swung =
+      (SCENE_WIND_TERMS.wild.sway - SCENE_WIND_TERMS.still.sway) * Math.sin(TAU * turns);
+    // How far the wave swings is read off the strip standing furthest from rest rather than pinned
+    // at the wind's own amount: on a tall picture the swing is bounded by the tile's own beat cell
+    // so that a boundary stays a lean and never becomes a line. What this case is about is that the
+    // strips sample one wave, one strip of it apart, and that the swing is real and no wider than
+    // the yard asked for.
+    const bows = wild.screened.map((move) => move.c - stood - swung * shear);
+    const lead = bows.reduce(
+      (most, bow, at) => (Math.abs(bow) > Math.abs(bows[most] ?? 0) ? at : most),
+      0,
+    );
+    const swing = (bows[lead] ?? 0) / Math.sin(TAU * (turns + lead / strips));
+    expect(Math.abs(swing)).toBeGreaterThan(0);
+    expect(Math.abs(swing)).toBeLessThanOrEqual(SCENE_WIND_TERMS.wild.gust * shear);
+    for (const [at, bow] of bows.entries()) {
+      expect(bow, `strip ${at}`).toBeCloseTo(swing * Math.sin(TAU * (turns + at / strips)), 10);
     }
   });
 

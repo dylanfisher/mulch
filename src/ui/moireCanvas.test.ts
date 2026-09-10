@@ -50,6 +50,7 @@ import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
+import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import {
   LOOK_FULL_RATE,
@@ -272,6 +273,7 @@ const paintedOn = painterOn((name, value) => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetTuning();
 });
 
 // One flat list of the painter's cases (0007).
@@ -283,6 +285,10 @@ describe("moireCanvas", () => {
     // one minus the grating, so the field is the rows' product — which is what a stack of physical
     // gratings is, and what makes a pair of them beat.
     vi.stubGlobal("devicePixelRatio", 2);
+    // In one strip, so this case is about the shape of a painting and not about the gust: a wind
+    // that gusts lays the same screen down once per strip of the picture, which is the case beside
+    // the scene's own in src/ui/moireCanvasScene.test.ts.
+    setTuning("wind.strips", 1);
     const rows = [row({ period: 3 }), row({ period: 4 }), row({ period: 5, reference: true })];
     const { laid, cuts, ground, left } = paintedOn(400, 128, rows);
     // One solid ground on the product's surface, then one cut per row out of it.

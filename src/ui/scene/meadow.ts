@@ -54,7 +54,9 @@ const SCALES: readonly { wide: number; tall: number; share: number; at: number }
  * How far the strokes lean off vertical at the wildest wind, and how far the standing gust bows
  * them on top of it, in device pixels. **A standing gust and not a travelling one**: the wave is
  * frozen at one phase, so the field is pushed over further here than there — a bake has no clock
- * (0126), and the gust that travels is its own step.
+ * (0126). The gust that travels is the screen's, a lean per vertical strip of the fill rather than
+ * a displacement inside the tile (`inkThrough`, src/ui/moireScreen.ts, 0338); this one stands
+ * because it is baked, and the two are the same reading spent in the two places it can be spent.
  *
  * **And the gust is a displacement, never a second lean.** A lean is snapped to a whole number of
  * the scale's own cells over the tile's depth (`sceneSlope`), which is a step function of what it
