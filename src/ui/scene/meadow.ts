@@ -10,8 +10,8 @@
  *   Which names read as this one → src/lib/yardScene.ts. The tile this is written into, and the
  *   film of gratings, blobs and band over it → src/ui/moireScreenTile.ts.
  */
-import { hash2, noiseCell, streakTiled } from "@/lib/moireNoise";
-import { type Scene, sceneAxis, sceneCells, sceneRepeat } from "@/lib/moireScene";
+import { hash2, noiseCell, speckTiled, streakTiled } from "@/lib/moireNoise";
+import { type Scene, sceneAxis, sceneCells, sceneFlockRare, sceneRepeat } from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -80,6 +80,15 @@ const FOOT = 0.5;
  */
 const SPARK = 2.6;
 
+/**
+ * How few of the cells hold one, how wide a flock's own point is as a share of its cell, and how
+ * far the hash a flock is placed by stands off the hash the seeds are: a bird over a meadow is a
+ * seed's own kind of mark at a seed's own size, and never one standing on a seed.
+ */
+const SPARK_RARE = 0.97;
+const WIDE = 0.12;
+const APART = 61;
+
 /** How far up the ramp a stalk is read, how far a spark is, and how much of the ramp the mass spans. */
 const STALK_TOP = 0.12;
 const SPARK_TOP = 0.97;
@@ -139,11 +148,26 @@ export const meadow: Scene = {
     const cols = sceneCells(terms.width, fibre);
     const rows = sceneCells(terms.height, SPARK * terms.reach);
     const seed = hash2(noiseCell(x, terms.width, cols), noiseCell(y, terms.height, rows));
-    value += clamp((seed - 0.97) / 0.03, 0, 1) * lit * (SPARK_TOP - value);
+    value += clamp((seed - SPARK_RARE) / 0.03, 0, 1) * lit * (SPARK_TOP - value);
     // And the field falls back at the tile's own middle: a band of shade a tile deep and coming
     // round at both its edges, which is the perspective every ground is under (0329) — the still
     // this is drawn from fell away once down a picture that never repeated.
     const band = FOOT + (1 - FOOT) * sceneAxis(y / terms.height);
     return clamp(MASS.value + (value - MASS.value) * band, 0, 1);
   },
+  // The seeds again at `SCENE_FLOCK` times their count and hashed apart from them, and read on a
+  // square cell rather than on the mass's own long one: what a flock is, is the field's own bright
+  // points where they are not — and a point placed on the fibre's cell would stand exactly where a
+  // seed already does.
+  specks: (x, y, terms) =>
+    speckTiled(
+      x,
+      y,
+      terms.width,
+      terms.height,
+      SPARK * terms.reach,
+      WIDE,
+      sceneFlockRare(SPARK_RARE),
+      APART,
+    ),
 };

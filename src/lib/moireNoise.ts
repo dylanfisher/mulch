@@ -10,6 +10,7 @@
  *   are read into → src/ui/scene/.
  */
 import { wrap } from "./moire.ts";
+import { clamp } from "./range.ts";
 import { sceneCells, sceneRepeat, sceneSlope } from "./moireScene.ts";
 
 /**
@@ -96,4 +97,55 @@ export function streakTiled(
   const c = seed(ix, iy + 1, cols, rows, twist);
   const d = seed(ix + 1, iy + 1, cols, rows, twist);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
+/**
+ * How wide a speck's own edge is as a share of its radius, and how far off its cell's centre one
+ * may be jittered. **Less than the room it has**: a disc offset further than half a cell less its
+ * own radius overhangs a neighbour whose hash almost never lights it, and is chopped along the cell
+ * boundary — a straight edge across a mark whose whole point is that it is not on a grid (0334).
+ */
+const SPECK_EDGE = 0.5;
+const SPECK_JITTER = 0.3;
+
+/**
+ * A rare bright point standing on a field that comes round: cells about `cell` device pixels each
+ * way, `wide` of one across as a share of it, and only the `rare` share of them holding a point at
+ * all — jittered off their own centres, so what comes out is scattered rather than ruled. Nought to
+ * one, unstepped, because what a caller does with the edge of a speck is the caller's: a canopy
+ * gates its sky on how thin the leaf is and a flock gates on nothing.
+ *
+ * **Hashed on the wrapped cell, for `streakTiled`'s reason**: the tile is laid as a repeating
+ * pattern and a hash does not repeat, so the speck a tile along has to be the speck at this edge.
+ * The canopy's own specks of sky were the first reader and every scene's flock is the second
+ * (0334, and the detail that fills a field with them).
+ */
+// Eight scalars and no object, for the reason above it: this is read once per device pixel of a bake.
+// oxlint-disable-next-line max-params
+export function speckTiled(
+  x: number,
+  y: number,
+  across: number,
+  down: number,
+  cell: number,
+  wide: number,
+  rare: number,
+  apart: number,
+): number {
+  const cols = sceneCells(across, cell);
+  const rows = sceneCells(down, cell);
+  const gx = across > 0 ? (x * cols) / across : 0;
+  const gy = down > 0 ? (y * rows) / down : 0;
+  const ix = Math.round(gx);
+  const iy = Math.round(gy);
+  // Which cell the point stands in is `noiseCell`'s and never a second rounding of the same
+  // quotient (principle 1); the whole index is kept beside it because the jitter wants the
+  // fraction the cell's own centre is off by, which a wrapped index cannot answer.
+  const cx = noiseCell(x, across, cols);
+  const cy = noiseCell(y, down, rows);
+  const dx = gx - ix - SPECK_JITTER * (hash2(cx + apart, cy) - 0.5);
+  const dy = gy - iy - SPECK_JITTER * (hash2(cx + apart + 9, cy + 3) - 0.5);
+  const near = clamp((wide - (dx * dx + dy * dy)) / (wide * SPECK_EDGE), 0, 1);
+  const chosen = clamp((hash2(cx + apart + 5, cy + 11) - rare) / 0.03, 0, 1);
+  return near * chosen;
 }

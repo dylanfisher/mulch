@@ -8,12 +8,14 @@ import {
   YARD_PLACE_WORDS_BY_REACH,
   YARD_AIR_NOUNS,
   YARD_AIR_WORDS,
+  YARD_AIR_WORDS_BY_SPREAD,
   YARD_DETAILS,
+  YARD_DETAILS_BY_SPECKS,
   YARD_PLACE_NOUNS,
   YARD_PLACE_WORDS,
   YARD_PLANTS,
 } from "./copyYard.ts";
-import { SCENE_REACHES, SCENE_STANDS } from "./moireScene.ts";
+import { SCENE_REACHES, SCENE_SPECKS, SCENE_SPREADS, SCENE_STANDS } from "./moireScene.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -71,6 +73,23 @@ describe("the banks a yard is named from", () => {
       expect(YARD_PLACE_WORDS_BY_REACH[reach], reach).not.toEqual([]);
     for (const stand of SCENE_STANDS)
       expect(YARD_PLACE_NOUNS_BY_STAND[stand], stand).not.toEqual([]);
+  });
+
+  it("groups every air word under a spread and every detail under its own kind of speck", () => {
+    // The same rule one bank on (0329): the flattened bank is the grouped one, entry for entry and
+    // in its order, so a word cannot be drawn without saying how its light falls and a detail
+    // cannot be drawn without saying what the field's bright points are.
+    expect(YARD_AIR_WORDS).toEqual(
+      SCENE_SPREADS.flatMap((spread) => YARD_AIR_WORDS_BY_SPREAD[spread]),
+    );
+    expect(YARD_DETAILS).toEqual(SCENE_SPECKS.flatMap((specks) => YARD_DETAILS_BY_SPECKS[specks]));
+    for (const spread of SCENE_SPREADS)
+      expect(YARD_AIR_WORDS_BY_SPREAD[spread], spread).not.toEqual([]);
+    // And the scene's own specks name no detail, exactly as the day names no air: it is what a name
+    // that says nothing reads as, and a phrase for it would be a phrase saying nothing (0317).
+    expect(YARD_DETAILS_BY_SPECKS.own).toEqual([]);
+    for (const specks of SCENE_SPECKS.filter((each) => each !== "own"))
+      expect(YARD_DETAILS_BY_SPECKS[specks], specks).not.toEqual([]);
   });
 
   it("writes no entry of any bank twice", () => {

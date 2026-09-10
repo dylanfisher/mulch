@@ -172,7 +172,12 @@ function washOf(
   // The colour and the yard's own reading together: two yards in one colour stand in two fields,
   // so one band cannot answer for both (0329). The colour is no longer a stop of the ramp since
   // 0332 — it is the scheme's own stand-in here, the one thing that moves every token at once.
-  const key = `${color}|${yard.scene}|${yard.light}`;
+  // **And how that light spreads**, because a wash mixes every stop of the ramp toward the light's
+  // token and a fall mixes none of them (`sceneStops`, 0336): two yards under one light in one
+  // colour read two ramps, and a key that could not tell them apart would hand the second yard the
+  // first one's band — the disagreement between the band and the tile below is the one thing this
+  // is read off the same stops to prevent. The detail is not here: `sceneStops` never reads it.
+  const key = `${color}|${yard.scene}|${yard.light}|${yard.spread}`;
   const held = washes.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const band = bandFor(canvas, yard, key);

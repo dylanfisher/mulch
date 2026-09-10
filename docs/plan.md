@@ -196,8 +196,8 @@ src/lib/copyDriftGroups.ts, read inside the bake and so covered by `tuned` in th
 
 The order is decided: the contract first, on one scene, because every other step reads the ramp
 per pixel; the two grating stills next and the two noise stills after them, each pair sharing its
-maths; the place, then the air's word and the detail, because each adds a reading to a contract
-that has to hold every scene already; and the gust last, because it is the one step whose cost lands
+maths; the place (0335), then the air's word and the detail (0336), because each adds a
+reading to a contract that has to hold every scene already; and the gust last, because it is the one step whose cost lands
 on the frame and the one that may not stand.
 
 bench-12 landed on 2026-09-09 as
@@ -286,7 +286,7 @@ than 0.43 — real, and cut by construction rather than by a bar. Two smaller on
 seed was hashed on a cell as long as an awn, which drew it as a one-pixel scratch eighteen pixels
 tall at the brightest stop the ramp has rather than as a point; and a canopy's speck could be
 jittered further off its cell's centre than its own radius, so it overhung a neighbour that never
-lights and was chopped along the boundary. The next free decision number is 0336.
+lights and was chopped along the boundary.
 
 bench-15 landed on 2026-09-10 as [0335](decisions/0335-a-place-is-a-reach-and-a-shadow.md): the six
 place words are grouped by reach and the twenty-four nouns by the four shapes of the shade they
@@ -330,6 +330,36 @@ blade bed is under (0333) — so the column is a colonnade at the strip's width 
 narrower than it was drawn. One known cost stands: the shade is multiplicative, so on a scene that
 already rests at its first stop it shows only where that scene has light in it — a wall on water is
 a band that comes and goes with the swell rather than one that crosses the whole field.
+
+bench-16 landed on 2026-09-10 as
+[0336](decisions/0336-the-air-falls-and-the-detail-is-the-bright-points.md): the air's joining word
+is a spread and the detail is what the field's bright points are, both banks flattened by `banked`;
+a wash mixes the ramp's stops toward the light's token as it always did and a fall mixes none of
+them, sliding the read up the scene's own ramp instead; and every scene declares
+`Scene.specks(x, y, terms)` beside its ground, drawn with the `speckTiled` the canopy's specks of
+sky were already made of. Six things moved off the step's own text. **A fall's foot is the tile's
+middle and not its bottom row**: the step said "from its top edge to nought at its foot", and a fall
+stated down a picture that never repeats is a bright line at every join — the same thing 0334 found
+for the meadow's and the canopy's own falls, so the fall is `sceneAxis(y / height)` like every other
+band a tile carries. **A flock is drawn beside the ground rather than lifted out of it**: the step's
+"the specks are the one shared term of a still that reads at the top stop" would have had the water's
+glints leave its ground, and the water _is_ its glints — the ground keeps every bright point it has,
+`own` reads nothing extra, and `Scene.specks` is what a name that says a creature adds. **A flock is
+not seeded per yard.** "Hashed so no two yards' flocks agree" wants a seed off the name, and a tile
+is keyed by what it is _of_ and never by whose it is (`screenOf`, and `TILE_CACHE` is spent across
+the readings a page is showing): a seed per yard is a tile per yard. A flock is hashed apart from
+the points its own ground places instead, so a bird is never one of the gaps it flies through, and
+two yards read the same way share one tile as they always have. The canopy names a flock rarity of
+its own, because `RARE` is the share of cells that could open _before_ the leaf is asked whether it
+is thin enough, and tripling that filled a tenth of the tile with birds where the sky shows in a
+handful of places. The two painter cases went to src/ui/moireCanvasScene.test.ts rather than
+src/ui/moireScreen.test.ts for 0335's reason — that file stands eight lines under the 800-line hard
+cap — and the kept speck is counted on a canvas exactly one beat cell tall, because a shorter strip
+holds a fraction of a tile and the shade repeats inside it (`standDown`, 0335): one kept thing per
+field the shade stands on, which on a rack strip is more than one island in the tile that is
+written. And no number this step added is a tunable: a speck's size and rarity are constants beside
+`SPARK` and `SPECK`, which are the constants the two scenes that already had specks state theirs as.
+The next free decision number is 0337.
 
 1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
     landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
@@ -590,7 +620,7 @@ a band that comes and goes with the swell rather than one that crosses the whole
     - **Raising `TILE_CACHE`** without measuring it (§4).
 
 5.  **The air's word and the detail read: how the light falls, and what the bright points are.**
-    _(bench-16)_ **Durable shape moved: none.**
+    _(bench-16, landed 0336)_ **Durable shape moved: none.**
 
     **"in" is a wash and "through" falls from one edge.** `SCENE_SPREADS = ["wash", "fall"]`,
     `YARD_AIR_WORDS_BY_SPREAD` (in is a wash, through a fall), and `SCENE_LIGHT_TERMS` is spent

@@ -91,6 +91,69 @@ export function standShade(x: number, y: number, terms: SceneTerms): number {
 }
 
 /**
+ * How wide the one kept thing a name can end on is drawn, in device pixels, and where across the
+ * tile it stands. **Larger and sharper than any speck a scene has of its own**: a bell is one
+ * object left at the foot of a wall, and what tells it from a seed catching the light is that it is
+ * bigger, harder-edged and there is exactly one of it. Constants and not dials, for the reason
+ * `WALL_AT` is one: where a kept thing stands is what makes it the same thing in every picture.
+ */
+const KEPT = 3.2;
+const KEPT_AT = 0.62;
+
+/**
+ * How much of that one kept thing stands at (`x`, `y`), nought to one — read in place of a scene's
+ * own specks when the yard's detail names an object rather than a creature, and lifted to the top
+ * of the ramp by the tile (src/ui/moireScreenTile.ts).
+ *
+ * **At the foot of the shade and not on the field**: the detail is the last thing a name says and
+ * the place is what it is left by, so the thing stands where the shade the place casts ends. It
+ * comes round on the same field the shade does, so a tile shows one of it wherever it is cut.
+ */
+export function standSpeck(x: number, y: number, terms: SceneTerms): number {
+  const { width, height, seen, reach, stand } = terms;
+  if (width <= 0 || height <= 0) return 0;
+  const down = standDown(height, seen);
+  const at = footOf(stand, width, down, reach);
+  const off = Math.hypot(sceneNear(x - at.x, width), sceneNear(y - at.y, down));
+  // Sharper than a scene's own speck: its edge is one pixel wide however big the thing is, which is
+  // what makes an object read as an object rather than as a bright patch of the field.
+  return clamp((KEPT * reach - off) / SOFT, 0, 1);
+}
+
+/**
+ * Where the foot of the shade stands, refilled in place and handed back: this is read once per
+ * device pixel of a bake, and a build allocates a ramp and no more (0129, 0070, and `nearestHead`
+ * in src/ui/scene/bloom.ts, which is the same shape). A caller that keeps it copies it.
+ */
+const foot = { x: 0, y: 0 };
+
+/**
+ * Where the shade each stand casts has its foot, in the tile's own pixels. Named per stand for
+ * `shapeOf`'s reason and refusing an unnamed one for the same: a fifth stand is a kept thing
+ * standing wherever the last branch happened to put it.
+ */
+function footOf(
+  stand: string,
+  width: number,
+  down: number,
+  reach: number,
+): { x: number; y: number } {
+  foot.x = KEPT_AT * width;
+  foot.y = FOOT_DOWN * down;
+  // Just under the band the wall lays across the tile, which is where a thing left against a wall
+  // stands: below its shade rather than inside it.
+  if (stand === "wall") foot.y = WALL_AT * down + WALL.value * down * reach;
+  // Beside the column rather than under it, the mass being the one shade that stands upright.
+  else if (stand === "mass") foot.x = MASS_AT * width + MASS.value * width * reach + KEPT;
+  else if (stand !== "steps" && stand !== "grille")
+    throw new Error(`No foot for a stand at "${stand}".`);
+  return foot;
+}
+
+/** How far down its own field the foot of a flight of steps and of a grille is. */
+const FOOT_DOWN = 0.92;
+
+/**
  * How far down the tile a stand's own field runs: the tile snapped to what the surface actually
  * shows of it. **A tile is not the picture.** `tilePx` rounds the tile *up* to a whole beat cell,
  * so a rack strip 64 device pixels tall is drawn from a tile 210 tall and shows its top third —

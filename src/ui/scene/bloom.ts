@@ -10,8 +10,15 @@
  *   the drift bench's entry 10 until this landed (0331), whose field left with it.
  */
 import { wrap } from "@/lib/moire";
-import { hash2 } from "@/lib/moireNoise";
-import { type Scene, sceneAxis, sceneCells, sceneRepeat, sceneSlope } from "@/lib/moireScene";
+import { hash2, speckTiled } from "@/lib/moireNoise";
+import {
+  type Scene,
+  sceneAxis,
+  sceneCells,
+  sceneFlockRare,
+  sceneRepeat,
+  sceneSlope,
+} from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -50,6 +57,18 @@ const SHADE = 0.02;
 const STEM = 0.23;
 const HOT = 0.66;
 const HOTTER = 0.26;
+
+/**
+ * How far apart a flock's own points stand over the poppies in device pixels, how wide one is as a
+ * share of that cell, how few of the cells hold one, and how far the hash placing them stands off
+ * the one the heads are scattered by. **The one scene with no bright points of its own**: a poppy
+ * field is warm rather than lit, so a flock over it is stated here rather than lifted from the
+ * ground — and it is the same mark every other scene's is, at the same size.
+ */
+const SPECK = 9;
+const SPECK_WIDE = 0.1;
+const SPECK_RARE = 0.93;
+const APART = 17;
 
 /**
  * The nearest head to a point of the field, over the nine cells that could hold one: how much of it
@@ -139,4 +158,15 @@ export const bloom: Scene = {
     const base = SHADE + STEM * stem * stem;
     return clamp(base + head.stands * (head.top - base), 0, 1);
   },
+  specks: (x, y, terms) =>
+    speckTiled(
+      x,
+      y,
+      terms.width,
+      terms.height,
+      SPECK * terms.reach,
+      SPECK_WIDE,
+      sceneFlockRare(SPECK_RARE),
+      APART,
+    ),
 };

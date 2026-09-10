@@ -20,6 +20,7 @@ import {
   SCENE_REACHES,
   SCENE_REACH_TERMS,
 } from "@/lib/moireScene";
+import { standSpeck } from "@/lib/moireStand";
 import { SCENES, refuseScene, sceneOf } from "@/ui/scene/scenes";
 
 /** The one file that says what a colour is (0236), read as text: a token declared nowhere is a colour nobody has. */
@@ -108,6 +109,47 @@ describe("the scene registry", () => {
       // Registered, or the scheme arrives at the canvas as text and `fillStyle` drops it without a
       // word — the silent fallback principle 5 forbids, and the reason 0130 registers the channels.
       expect(TOKENS, token).toContain(`@property ${token} {`);
+    }
+  });
+
+  it("declares specks of its own in every scene, and refuses a scene that declares none", () => {
+    // What a yard's detail reads into (0335's step after it): a flock is the scene's own bright
+    // points at three times their count, so every scene has to say where one of its own stands —
+    // and a scene that said nothing would draw "with Sparrows" as a yard named nothing, in silence.
+    for (const name of SCENE_NAMES) {
+      expect(typeof SCENES[name].specks, name).toBe("function");
+    }
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const mute = { ...SCENES.meadow, specks: undefined } as unknown as Scene;
+    expect(() => {
+      refuseScene("meadow", mute);
+    }).toThrow(/declares no specks/u);
+  });
+
+  it("stands a flock on more of a tile than one kept thing and on less than the field", () => {
+    // The two readings the detail has that the ground does not carry: a flock is a scattering of
+    // the scene's own points over the whole tile, and a kept thing is one object at the foot of
+    // whatever the yard stands by. Both are read at the top of the ramp, so what says they are
+    // different pictures is how much of the tile each stands on.
+    for (const name of SCENE_NAMES) {
+      const { specks } = SCENES[name];
+      let flock = 0;
+      let kept = 0;
+      for (let y = 0; y < TERMS.height; y += 1) {
+        for (let x = 0; x < TERMS.width; x += 1) {
+          const at = specks(x, y, TERMS);
+          expect(at, `${name} specks at ${x},${y}`).toBeGreaterThanOrEqual(0);
+          expect(at, `${name} specks at ${x},${y}`).toBeLessThanOrEqual(1);
+          if (at > 0.5) flock += 1;
+          if (standSpeck(x, y, TERMS) > 0.5) kept += 1;
+        }
+      }
+      const tile = TERMS.width * TERMS.height;
+      expect(kept, "one kept thing stands nowhere").toBeGreaterThan(0);
+      expect(flock, `${name} has no flock`).toBeGreaterThan(kept);
+      // And a flock is points in a field rather than a field of its own: a tenth of the tile is
+      // already a great many birds, and a half of it is a bright sheet.
+      expect(flock / tile, `${name} lights the whole tile`).toBeLessThan(0.1);
     }
   });
 

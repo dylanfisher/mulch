@@ -32,6 +32,12 @@ const held = new Map<string, Scene>(Object.entries(SCENES));
  * happened to resolve to, and a picture is the one place a mistake looks deliberate (principle 5).
  */
 export function refuseScene(name: string, scene: Scene): void {
+  // And that it says where its own bright points stand: a scene that declared none would draw a
+  // yard named "with Sparrows" as a yard named nothing, in silence (0335's `shapeOf` reason).
+  const specks: unknown = scene.specks;
+  if (typeof specks !== "function") {
+    throw new TypeError(`Scene "${name}" declares no specks of its own.`);
+  }
   if (scene.ramp.length !== SCENE_RAMP_STOPS) {
     throw new Error(`Scene "${name}" reads ${scene.ramp.length} stops, not ${SCENE_RAMP_STOPS}.`);
   }

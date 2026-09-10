@@ -34,7 +34,7 @@ import {
   SCENE_WIND_TERMS,
   sceneAxis,
 } from "@/lib/moireScene";
-import { standShade } from "@/lib/moireStand";
+import { standShade, standSpeck } from "@/lib/moireStand";
 import { subscribeTuning } from "@/lib/moireTuning";
 import { clamp, denormalize } from "@/lib/range";
 import type { ScreenInk } from "@/lib/moire";
@@ -461,7 +461,11 @@ const read: Ink = [0, 0, 0, 0];
 const stops: Ink[] = Array.from({ length: SCENE_RAMP_STOPS }, (): Ink => [0, 0, 0, 0]);
 
 /**
- * The scene's own five stops, resolved and mixed toward the light the yard's air puts it under.
+ * The scene's own five stops, resolved and mixed toward the light the yard's air puts it under —
+ * **when the air is one the field is stood in**. A light that falls *through* the field mixes no
+ * stop at all: it is spent on where the read stands rather than on what colour is there, down the
+ * tile from its top edge, and a stop mixed here as well would be that light paid for twice
+ * (`build` below, 0324's two air words).
  * Refilled in place and handed back, for the reason every other matrix in this file is: this runs
  * on a build, and a build allocates a ramp and no more.
  *
@@ -476,7 +480,8 @@ export function sceneStops(
   style: CSSStyleDeclaration,
 ): readonly Ink[] {
   const light = SCENE_LIGHT_TERMS[yard.light];
-  const lit = light.token === null ? null : inkOf(style.getPropertyValue(light.token).trim());
+  const wash = yard.spread === "wash" ? light.token : null;
+  const lit = wash === null ? null : inkOf(style.getPropertyValue(wash).trim());
   scene.ramp.forEach((token, at) => {
     const stop = inkOf(style.getPropertyValue(token).trim());
     const own = stops[at] ?? [0, 0, 0, 0];
@@ -538,10 +543,19 @@ function build(
   const gains = CHANNEL_TOKENS.map((token) =>
     channelGain(inkOf(style.getPropertyValue(token).trim()), tint.saturate),
   );
+  // How far a light that falls through the field slides the read up the scene's own ramp, and
+  // nought where the air is a wash or the name says no air at all.
+  const falling = yard.spread === "fall" ? SCENE_LIGHT_TERMS[yard.light].amount : 0;
+  const flock = yard.specks === "flock";
+  const kept = yard.specks === "kept";
   const field = ink.createImageData(width, height);
   const pixels = field.data;
   for (let y = 0; y < height; y++) {
     const down = rowKeep(y, rowPitch) * bandKeep(y, height);
+    // The fall, once a row: strongest at the tile's top edge and nought at its foot — which on a
+    // tile laid as a repeating pattern is its middle, because a fall down a picture that never
+    // repeats is a bright line at every join (0334, `sceneAxis(y / height)`).
+    const through = falling * sceneAxis(y / height);
     for (let x = 0; x < width; x++) {
       // How dark the film is here: the gratings, the lattice and the band, and nothing else. The
       // scene spends none of it — where the field stands is a colour and not an amount (0332).
@@ -554,7 +568,13 @@ function build(
       // not a shadow: the two ends of the travel would read a shaded band at the dark stop and at
       // the hot one, and the field's own shade would swing further than the field.
       const stood = sceneHue(scene.ground(x, y, terms), tint.hue) * (1 - standShade(x, y, terms));
-      const row = ramp(lift, stood, read);
+      // And how far up that ramp the air and the detail carry it: the light falling through the
+      // field, and then whatever bright points the name ends on — a flock of the scene's own or the
+      // one kept thing at the foot of the shade, lifted to the top stop and read after the shade,
+      // because a speck standing in a shadow is a speck nobody put there.
+      const air = stood + (1 - stood) * through;
+      const point = kept ? standSpeck(x, y, terms) : flock ? scene.specks(x, y, terms) : 0;
+      const row = ramp(lift, air + (1 - air) * point, read);
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
       // the ink read above and never more of it than that ink had.
       const lit = channelFringe(x, y, pitch, rowPitch, tint.fringe, tint.disperse);

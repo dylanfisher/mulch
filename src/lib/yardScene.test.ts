@@ -14,6 +14,9 @@ import {
   YARD_AIR_NOUNS,
   YARD_AIR_NOUNS_BY_LIGHT,
   YARD_AIR_WORDS,
+  YARD_AIR_WORDS_BY_SPREAD,
+  YARD_DETAILS,
+  YARD_DETAILS_BY_SPECKS,
   YARD_PLACE_NOUNS,
   YARD_PLACE_NOUNS_BY_STAND,
   YARD_PLACE_WORDS,
@@ -25,6 +28,8 @@ import {
   SCENE_LIGHTS,
   SCENE_NAMES,
   SCENE_REACHES,
+  SCENE_SPECKS,
+  SCENE_SPREADS,
   SCENE_STANDS,
   SCENE_WINDS,
 } from "@/lib/moireScene";
@@ -89,6 +94,8 @@ describe("yardScene reads the whole of every bank it keys on", () => {
     expect(yardScene("Quiet Fern past the Apple Tree")).toMatchObject({
       reach: "middle",
       stand: "mass",
+      spread: "wash",
+      specks: "own",
     });
   });
 
@@ -119,6 +126,8 @@ describe("yardScene reads one name one way", () => {
       wind: "windy",
       reach: "middle",
       stand: "mass",
+      spread: "wash",
+      specks: "own",
     });
   });
 
@@ -148,5 +157,48 @@ describe("yardScene reads one name one way", () => {
       expect(read.scene, name).toBe(yardScene(`Quiet ${plant} by the Shed`).scene);
       expect(read.wind, name).toBe(yardScene(`${adjective} Fern by the Shed`).wind);
     }
+  });
+});
+
+/**
+ * The two banks that read nothing until 0336, in a list of their own: the air's joining word and
+ * the detail. Beside the block above rather than inside it, which is where the file's own cases are
+ * grouped by what a name is read *for* (0007).
+ */
+describe("yardScene reads the air's spread and the detail's specks", () => {
+  it("reads every air word as a spread and every detail as its own kind of bright point", () => {
+    // The last two banks that read nothing (0329): the air's joining word says how its light falls
+    // and the detail says what the field's bright points are. Every entry of both, through the
+    // public reading, for the reason the four banks above are walked whole.
+    for (const [spread, words] of Object.entries(YARD_AIR_WORDS_BY_SPREAD)) {
+      for (const word of words) {
+        expect(yardScene(`Quiet Fern by the Shed ${word} Moonlight`).spread, word).toBe(spread);
+      }
+    }
+    for (const detail of YARD_DETAILS) {
+      const { specks } = yardScene(`Quiet Fern by the Shed ${detail}`);
+      expect(YARD_DETAILS_BY_SPECKS[specks], detail).toContain(detail);
+    }
+    // And both banks are read whole: a spread or a kind of speck no word reaches is a reading the
+    // picture has and the mint can never draw.
+    expect(
+      new Set(
+        YARD_AIR_WORDS.map((word) => yardScene(`Quiet Fern by the Shed ${word} Frost`).spread),
+      ),
+    ).toEqual(new Set(SCENE_SPREADS));
+    expect(
+      new Set(YARD_DETAILS.map((detail) => yardScene(`Quiet Fern by the Shed ${detail}`).specks)),
+    ).toEqual(new Set(SCENE_SPECKS.filter((specks) => specks !== "own")));
+  });
+
+  it("reads a name with no air as a wash and one with no detail as the scene's own specks", () => {
+    // What a name that says nothing reads as, for the day's reason (0317): the field as its own
+    // file draws it, washed by a light of no token and carrying the bright points it already has.
+    const plain = yardScene("Windy Reed past the Water Butt");
+    expect(plain.spread).toBe("wash");
+    expect(plain.specks).toBe("own");
+    expect(yardScene("Windy Reed past the Water Butt through Frost with Bees").specks).toBe(
+      "flock",
+    );
   });
 });

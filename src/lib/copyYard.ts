@@ -14,11 +14,15 @@ import {
   type SceneLight,
   type SceneName,
   type SceneReach,
+  type SceneSpecks,
+  type SceneSpread,
   type SceneStand,
   type SceneWind,
   SCENE_LIGHTS,
   SCENE_NAMES,
   SCENE_REACHES,
+  SCENE_SPECKS,
+  SCENE_SPREADS,
   SCENE_STANDS,
   SCENE_WINDS,
 } from "./moireScene.ts";
@@ -123,9 +127,18 @@ export const YARD_PLACE_NOUNS = banked(
  * nothing — half the yards carrying one is what makes it worth reading on the ones that do (0317).
  * Two words, because an air is a medium: it is stood in and moved through. "at" reads with a
  * moment and not a light, "toward" and "into" with a weather and not a still light — each of them
- * reads with half the bank below, which is what keeps them out of it (0324).
+ * reads with half the bank below, which is what keeps them out of it (0324). Grouped **under the
+ * way the light spreads** for the reason the adjectives are grouped under their wind: a field stood
+ * in its light is washed by it and a field seen through one has that light fall through it.
  */
-export const YARD_AIR_WORDS = words("in through");
+export const YARD_AIR_WORDS_BY_SPREAD: Readonly<Record<SceneSpread, readonly string[]>> = {
+  wash: words("in"),
+  fall: words("through"),
+};
+
+export const YARD_AIR_WORDS = banked(
+  SCENE_SPREADS.map((spread) => YARD_AIR_WORDS_BY_SPREAD[spread]),
+);
 
 /**
  * What the air is drawn against, **under the light it puts a scene in** (0329): a light or a
@@ -144,25 +157,38 @@ export const YARD_AIR_NOUNS_BY_LIGHT: Readonly<Record<SceneLight, readonly strin
 
 export const YARD_AIR_NOUNS = banked(SCENE_LIGHTS.map((light) => YARD_AIR_NOUNS_BY_LIGHT[light]));
 
-/** The second: one small living thing or quiet object, on its own coin, for the same reason. */
-export const YARD_DETAILS: readonly [string, ...string[]] = [
-  "with Moths",
-  "with a Bell",
-  "with Bees",
-  "with a Wren",
-  "with Snails",
-  "with a Watering Can",
-  "with Sparrows",
-  "with a Wind Chime",
-  "with Beetles",
-  "with a Wheelbarrow",
-  "with Swifts",
-  "with a Cracked Saucer",
-  "with Spiders",
-  "with a Rope Swing",
-  "with Blackbirds",
-  "with a Rusted Trowel",
-];
+/**
+ * The second: one small living thing or quiet object, on its own coin, for the same reason. Grouped
+ * **under what it makes of the field's bright points**: a creature is a flock of them and an object
+ * is one kept thing, left at the foot of whatever the yard stands by. The scene's own is not a
+ * group here and cannot be — it is what a name with *no* detail reads as, exactly as the day is for
+ * the air above.
+ */
+export const YARD_DETAILS_BY_SPECKS: Readonly<Record<SceneSpecks, readonly string[]>> = {
+  own: [],
+  flock: [
+    "with Moths",
+    "with Bees",
+    "with a Wren",
+    "with Snails",
+    "with Sparrows",
+    "with Beetles",
+    "with Swifts",
+    "with Spiders",
+    "with Blackbirds",
+  ],
+  kept: [
+    "with a Bell",
+    "with a Watering Can",
+    "with a Wind Chime",
+    "with a Wheelbarrow",
+    "with a Cracked Saucer",
+    "with a Rope Swing",
+    "with a Rusted Trowel",
+  ],
+};
+
+export const YARD_DETAILS = banked(SCENE_SPECKS.map((specks) => YARD_DETAILS_BY_SPECKS[specks]));
 
 /**
  * Draw a joining word against a noun — once, so the place and the air agree forever on what a

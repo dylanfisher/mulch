@@ -155,7 +155,7 @@ function screenOf(
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${tuneStamp()}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${tuneStamp()}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(key, beatPx(pitch), height, canvas, color, pitch, rowPitch, tint, yard);

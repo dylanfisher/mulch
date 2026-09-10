@@ -15,18 +15,23 @@ import {
   type SceneLight,
   type SceneName,
   type SceneReach,
+  type SceneSpecks,
+  type SceneSpread,
   type SceneStand,
   type SceneWind,
   SCENE_LIGHTS,
   SCENE_NAMES,
   SCENE_REACHES,
+  SCENE_SPECKS,
+  SCENE_SPREADS,
   SCENE_STANDS,
   SCENE_WINDS,
 } from "./moireScene.ts";
 import {
   YARD_ADJECTIVES_BY_WIND,
   YARD_AIR_NOUNS_BY_LIGHT,
-  YARD_AIR_WORDS,
+  YARD_AIR_WORDS_BY_SPREAD,
+  YARD_DETAILS_BY_SPECKS,
   YARD_PLACE_NOUNS_BY_STAND,
   YARD_PLACE_WORDS_BY_REACH,
   YARD_PLANTS_BY_SCENE,
@@ -42,6 +47,8 @@ export type YardScene = {
   readonly wind: SceneWind;
   readonly reach: SceneReach;
   readonly stand: SceneStand;
+  readonly spread: SceneSpread;
+  readonly specks: SceneSpecks;
 };
 
 /**
@@ -67,6 +74,8 @@ const SCENE_OF_PLANT = readingOf(SCENE_NAMES, YARD_PLANTS_BY_SCENE);
 const WIND_OF_ADJECTIVE = readingOf(SCENE_WINDS, YARD_ADJECTIVES_BY_WIND);
 const REACH_OF_WORD = readingOf(SCENE_REACHES, YARD_PLACE_WORDS_BY_REACH);
 const STAND_OF_NOUN = readingOf(SCENE_STANDS, YARD_PLACE_NOUNS_BY_STAND);
+const SPREAD_OF_WORD = readingOf(SCENE_SPREADS, YARD_AIR_WORDS_BY_SPREAD);
+const SPECKS_OF_DETAIL = readingOf(SCENE_SPECKS, YARD_DETAILS_BY_SPECKS);
 
 /**
  * The picture a name says nothing this file can read stands in. A name is durable text and a
@@ -82,18 +91,45 @@ export const YARD_SCENE_REST: YardScene = {
   // carries a place (`mintYardName`), so this is what text the banks cannot read is drawn as.
   reach: SCENE_REACHES[1],
   stand: SCENE_STANDS[0],
+  // The wash, which is what a light of no token spreads either way, and the scene's own bright
+  // points: a name that says no air and no detail is the field as its own file draws it.
+  spread: SCENE_SPREADS[0],
+  specks: SCENE_SPECKS[0],
 };
 
-/** Which air the name carries, as the joined phrase the mint actually wrote (0324), or the day. */
-function lightOf(name: string): SceneLight {
-  for (const word of YARD_AIR_WORDS) {
+/**
+ * Which air the name carries, as the joined phrase the mint actually wrote (0324): the light its
+ * noun names and the spread its joining word does, read together off the one phrase because that
+ * is how the mint drew it — a word matched apart from a noun would read "through" out of a name
+ * whose air is a wash and whose plant happens to be past a gate.
+ */
+function airOf(name: string): { light: SceneLight; spread: SceneSpread } {
+  for (const [word, spread] of SPREAD_OF_WORD) {
     for (const light of SCENE_LIGHTS) {
       for (const noun of YARD_AIR_NOUNS_BY_LIGHT[light]) {
-        if (name.includes(`${word} ${noun}`)) return light;
+        if (name.includes(`${word} ${noun}`)) return { light, spread };
       }
     }
   }
-  return YARD_SCENE_REST.light;
+  return { light: YARD_SCENE_REST.light, spread: YARD_SCENE_REST.spread };
+}
+
+/**
+ * What the name's detail makes of the field's bright points, as the whole phrase the mint wrote:
+ * a detail is several words, so it is read off the name for the reason a place noun is, and the
+ * earliest one wins because the mint draws exactly one.
+ */
+function specksOf(name: string): SceneSpecks {
+  let found: SceneSpecks | undefined;
+  let at = name.length;
+  for (const [detail, specks] of SPECKS_OF_DETAIL) {
+    const said = name.indexOf(detail);
+    if (said >= 0 && said < at) {
+      at = said;
+      found = specks;
+    }
+  }
+  return found ?? YARD_SCENE_REST.specks;
 }
 
 /**
@@ -134,11 +170,14 @@ export function yardScene(name: string): YardScene {
     reach ??= REACH_OF_WORD.get(word);
     if (scene !== undefined && wind !== undefined && reach !== undefined) break;
   }
+  const air = airOf(name);
   return {
     scene: scene ?? YARD_SCENE_REST.scene,
-    light: lightOf(name),
+    light: air.light,
     wind: wind ?? YARD_SCENE_REST.wind,
     reach: reach ?? YARD_SCENE_REST.reach,
     stand: standOf(name),
+    spread: air.spread,
+    specks: specksOf(name),
   };
 }

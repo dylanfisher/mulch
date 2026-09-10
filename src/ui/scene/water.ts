@@ -10,11 +10,12 @@
  *   the drift bench's entry 10 until this landed (0331), whose field left with it.
  */
 import { wrap } from "@/lib/moire";
-import { hash2 } from "@/lib/moireNoise";
+import { hash2, speckTiled } from "@/lib/moireNoise";
 import {
   type Scene,
   sceneAxis,
   sceneCells,
+  sceneFlockRare,
   sceneNear,
   sceneRepeat,
   sceneSharp,
@@ -96,6 +97,17 @@ const BLADES: readonly { x: number; y: number; lean: number; tall: number; half:
 /** How far a blade is leant over at the wildest wind, on top of the lean it was written with. */
 const SLANT = 0.35;
 
+/**
+ * How far apart a flock's own points stand over the water in device pixels, how wide one is as a
+ * share of that cell, how few of the cells hold one, and how far the hash placing them stands off
+ * the one the dashes are cut at. A glint is what this field's bright points are, so a flock is more
+ * of them and nothing new.
+ */
+const GLINT = 8;
+const GLINT_WIDE = 0.1;
+const GLINT_RARE = 0.94;
+const APART = 29;
+
 /** How far up its own ramp a blade is read, and its reflection: the fourth stop and just under it. */
 const BLADE_TOP = 0.78;
 const BLADE_FALL = 0.1;
@@ -170,4 +182,15 @@ export const water: Scene = {
     }
     return clamp(value, 0, 1);
   },
+  specks: (x, y, terms) =>
+    speckTiled(
+      x,
+      y,
+      terms.width,
+      terms.height,
+      GLINT * terms.reach,
+      GLINT_WIDE,
+      sceneFlockRare(GLINT_RARE),
+      APART,
+    ),
 };

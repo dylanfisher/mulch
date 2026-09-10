@@ -15,7 +15,31 @@ import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
-import { beatPx, gridPitchPx, SCREEN_FLOOR } from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx, rowPitchPx, SCREEN_FLOOR } from "@/ui/moireScreenTile";
+
+/**
+ * How many islands of lifted pixels a tile holds: a flood fill four ways over the marks, which is
+ * what tells one kept thing from a flock of the scene's own — a count of lit pixels cannot, two
+ * pictures being able to light the same number of them in one patch or in fifty.
+ */
+function countIslands(marks: readonly boolean[], wide: number): number {
+  const seen = new Set<number>();
+  let islands = 0;
+  for (const [at, lit] of marks.entries()) {
+    if (!lit || seen.has(at)) continue;
+    islands += 1;
+    const open = [at];
+    while (open.length > 0) {
+      const here = open.pop() ?? 0;
+      if (seen.has(here) || marks[here] !== true) continue;
+      seen.add(here);
+      if (here % wide > 0) open.push(here - 1);
+      if (here % wide < wide - 1) open.push(here + 1);
+      open.push(here - wide, here + wide);
+    }
+  }
+  return islands;
+}
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -46,9 +70,28 @@ function tileOf(painted: Painted): Uint8ClampedArray {
 }
 
 /** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
-function paintingOf(yard: Readonly<YardScene>): Painted {
+function paintingOf(yard: Readonly<YardScene>, high = 128): Painted {
   vi.stubGlobal("devicePixelRatio", 2);
-  return paintedOn(200, 128, ROWS, 2, 20, { yard });
+  return paintedOn(200, high, ROWS, 2, 20, { yard });
+}
+
+/**
+ * A canvas exactly one row beat cell tall: the one height at which the tile written is the tile
+ * shown, so a stand's own field is the whole of it and the thing standing in it stands once
+ * (`standDown`, 0335). A shorter strip holds a fraction of a tile and the shade repeats inside it,
+ * which is a picture with two walls in it and no way to count one thing.
+ */
+const WHOLE_TILE = beatPx(rowPitchPx(2));
+
+/** How bright one pixel of a tile is read, ink alone: the alpha is the film's and never the scene's. */
+const brightOf = (pixels: Uint8ClampedArray, at: number): number =>
+  ((pixels[at] ?? 0) + (pixels[at + 1] ?? 0) + (pixels[at + 2] ?? 0)) / 3;
+
+/** The mean ink of the rows from `top` to `foot` of a tile `wide` device pixels across. */
+function bandOf(pixels: Uint8ClampedArray, wide: number, top: number, foot: number): number {
+  let total = 0;
+  for (let at = top * wide * 4; at < foot * wide * 4; at += 4) total += brightOf(pixels, at);
+  return total / ((foot - top) * wide);
 }
 
 // One flat list of the scene's cases, all painted through the one stand-in canvas (0007).
@@ -158,6 +201,64 @@ describe("the picture is the field its name says", () => {
     // their own ramps and neither is the other's.
     const meadow = tileOf(paintingOf(yardScene("Quiet Heather by the Shed")));
     expect(meadow).not.toEqual(pixels);
+  });
+
+  it("lets a light fall through the field from the tile's top edge and washes one alike", () => {
+    // The air's joining word (0324): a field stood *in* its light is washed by it, and a field seen
+    // *through* one has that light fall through it — strongest where the field is thinnest, which
+    // is the tile's top edge, and nought at the foot of the fall. The foot is the tile's own middle
+    // rather than its bottom row, because a fall down a picture that never repeats is a bright line
+    // at every join (0334) — and the fall is spent on where the read stands rather than on the ink,
+    // so it is read along the scene's own five stops and no second interpolation is paid.
+    const wide = beatPx(gridPitchPx(2));
+    const read = (word: string): { top: number; middle: number } => {
+      const pixels = tileOf(
+        paintingOf(yardScene(`Quiet Heather by the Shed ${word} Falling Dusk`)),
+      );
+      const high = pixels.length / 4 / wide;
+      return {
+        top: bandOf(pixels, wide, 0, Math.round(high / 8)),
+        middle: bandOf(pixels, wide, Math.round(high * 0.44), Math.round(high * 0.56)),
+      };
+    };
+    const fall = read("through");
+    const wash = read("in");
+    expect(fall.top, "a fall does not light the tile's top edge").toBeGreaterThan(fall.middle);
+    // Against the same field washed, and not against a bar of its own: every ground already falls
+    // back at its own middle, so what is claimed is the *further* fall the air brought.
+    expect(fall.top - fall.middle, "the fall is the ground's own").toBeGreaterThan(
+      (wash.top - wash.middle) * 1.5,
+    );
+  });
+
+  it("stands one kept thing in a tile and a flock of the scene's own all over it", () => {
+    // The detail (0335's step after it): a creature fills the field with the bright points the
+    // scene already has, and an object is one of them — larger, sharper, and at the foot of the
+    // shade whatever the yard stands by casts. Painted on a canvas exactly one tile tall, so the
+    // shade's field is the whole tile and there is one wall to stand a thing at the foot of.
+    const wide = beatPx(gridPitchPx(2));
+    const of = (detail: string): Uint8ClampedArray =>
+      tileOf(paintingOf(yardScene(`Quiet Heather by the Old Wall${detail}`), WHOLE_TILE));
+    const own = of("");
+    const lifted = (pixels: Uint8ClampedArray): boolean[] => {
+      const marks: boolean[] = [];
+      for (let at = 0; at < pixels.length; at += 4) {
+        marks.push(brightOf(pixels, at) > brightOf(own, at) + 20);
+      }
+      return marks;
+    };
+    const kept = lifted(of(" with a Bell"));
+    const flock = lifted(of(" with Sparrows"));
+    // One island: every lifted pixel reached from any other of them, four ways, and none left over.
+    const islands = countIslands(kept, wide);
+    expect(kept.filter(Boolean).length, "a kept thing stands nowhere").toBeGreaterThan(4);
+    expect(islands, "a kept thing is not one island").toBe(1);
+    // And a flock is the opposite picture: many points, spread over the tile.
+    expect(countIslands(flock, wide), "a flock is one island").toBeGreaterThan(islands * 4);
+    expect(
+      flock.filter(Boolean).length,
+      "a flock stands on no more than one kept thing",
+    ).toBeGreaterThan(kept.filter(Boolean).length);
   });
 
   it("writes the ground on a rebuild and never on a frame", () => {

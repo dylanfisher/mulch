@@ -67,6 +67,43 @@ export const SCENE_LIGHT_TERMS: Readonly<Record<SceneLight, SceneLightTerms>> = 
 };
 
 /**
+ * How the light an air names falls on a field, from the joining word of that air: a scene stood
+ * *in* its light is washed by it and a scene seen *through* one has that light fall through it
+ * (0324). Two and not more, because the bank is two words and each of them is a whole way of
+ * lighting a picture.
+ */
+export const SCENE_SPREADS = ["wash", "fall"] as const;
+
+export type SceneSpread = (typeof SCENE_SPREADS)[number];
+
+/**
+ * What the bright points of a field are, from the detail a yard's name ends on: the scene's own —
+ * the sparks, the glints and the specks of sky the grounds already carry — a flock of them where
+ * the name says a creature, and one kept thing where it names an object.
+ */
+export const SCENE_SPECKS = ["own", "flock", "kept"] as const;
+
+export type SceneSpecks = (typeof SCENE_SPECKS)[number];
+
+/**
+ * How many times over its own count a scene's bright points stand when a name says a creature.
+ * **A flock is the scene's own specks and not a new mark**: what "with Sparrows" does to a meadow
+ * is fill it with the points a meadow already has, so the number is a count and never a shape
+ * (0334's rule that a detail lifts rather than invents).
+ */
+export const SCENE_FLOCK = 3;
+
+/**
+ * The rarity a flock's own points stand at, given the rarity the scene draws its own at: a rarity
+ * is the share of cells that hold no point, so three times as many holding one is three times the
+ * distance that share stands off one. **Floored short of every cell**, because a scene whose own
+ * points are common enough would otherwise light every cell it has and read as a solid sheet of
+ * the top stop rather than as a field with birds in it.
+ */
+export const sceneFlockRare = (rare: number): number =>
+  1 - Math.min(0.75, SCENE_FLOCK * (1 - rare));
+
+/**
  * How close the frame stands to the field, from the joining word of a yard's place: "by the Old
  * Wall" is close and "beyond" it is far. One reading and not a distance in metres — what it moves
  * is how big every mark in the picture is drawn.
@@ -145,6 +182,13 @@ export type SceneTerms = {
 export type Scene = {
   readonly ramp: readonly string[];
   readonly ground: (x: number, y: number, terms: SceneTerms) => number;
+  /**
+   * And where a bright point of this scene's own kind stands when the yard's detail names a
+   * creature: the same specks the ground carries, at `SCENE_FLOCK` times their count and hashed
+   * apart from them, nought to one. Read after the shade and lifted to the top of the ramp, so a
+   * flock stands in the light whatever is standing over the field (0335).
+   */
+  readonly specks: (x: number, y: number, terms: SceneTerms) => number;
 };
 
 /**

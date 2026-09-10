@@ -158,6 +158,53 @@ describe("the band washed across the picture", () => {
     expect(moves[1]?.e).toBeCloseTo(-0.5 * 0.5 * 400, 10);
   });
 
+  it("builds its own band for a light that falls through the field and one that washes it", () => {
+    // The band is read off the tile's own five stops (`sceneStops`), and since 0336 those stops
+    // depend on how the yard's air spreads: a wash mixes every one of them toward the light's token
+    // and a fall mixes none. Two yards under one light in one colour therefore read two ramps — and
+    // the band is held in a map shared by every canvas, so a key that could not tell them apart
+    // would hand whichever painted second the first one's band and leave the band and the tile
+    // under it disagreeing about what the ramp is.
+    const wrote: string[] = [];
+    vi.stubGlobal("document", {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          fillStyle: "" as unknown,
+          clearRect: () => {},
+          fillRect: () => {},
+          getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (field: { data: Uint8ClampedArray }) => wrote.push(field.data.join(",")),
+        }),
+      }),
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: (token: string) => token }));
+    const context = {
+      fillStyle: "" as unknown,
+      globalAlpha: 1,
+      globalCompositeOperation: "source-over",
+      createPattern: () => ({ setTransform: () => {} }),
+      fillRect: () => {},
+    };
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const ink = context as unknown as CanvasRenderingContext2D;
+    const tint = { strength: 0.3, spread: 0.5, phase: 0.25 };
+    const moon = { ...YARD_SCENE_REST, light: "moon" } as const;
+    for (const spread of ["wash", "fall"] as const) {
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      const canvas = { width: 400, height: 32 } as unknown as HTMLCanvasElement;
+      tintThrough(canvas, ink, "one colour for both", tint, { ...moon, spread });
+    }
+    // Two bands and not one: the second yard reads a ramp the first one's band was not written
+    // from, so a band answered out of the map for it is a band of the wrong stops. Counted rather
+    // than compared pixel for pixel, because the swatch every token is resolved through is one
+    // canvas held for the life of the module (`inkOf`) and a stub cannot give two tokens two inks
+    // once another case has built it.
+    expect(wrote, "a fall is washed through the band a wash built").toHaveLength(2);
+  });
+
   it("is laid by the painter after the cut, so it colours the picture and not the ground", () => {
     // Three patterns: the grating, the screen, and the band.
     const tinted = paintedOn(200, 64, [row({ period: 3 })], 3, undefined, {
