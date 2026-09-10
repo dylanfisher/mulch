@@ -828,7 +828,8 @@ The order is decided: **the dial first (landed 0339)**; the screen's shade next 
 because it is
 the largest single spend and the one that turns a comb into a picture; the sound's cut after it (landed 0341), because it is the instrument's subject
 and is re-aimed against what the shade left rather than against a white page; and the two sizes
-last, because whether the strip needs anything of its own is only knowable once the overlay reads.
+last (landed 0342), because whether the strip needs anything of its own is only knowable once the
+overlay reads.
 
 bench-19 landed on 2026-09-10 as
 [0339](decisions/0339-the-films-share-is-one-dial.md): `tunable("film.share")` is declared beside
@@ -877,7 +878,25 @@ still leave 0.25 and 0.125 of the ink as window where the rest asks for 0.1, so 
 little about the picture's weight again at those two counts, in the direction that a sparse yard is
 lighter and never darker.
 `./scripts/profile` interleaved base/head/base/head is flat: frame mean 8.28, 8.18, 8.19, 8.29 ms.
-The next free decision number is 0342.
+bench-22 landed on 2026-09-10 as
+[0342](decisions/0342-the-strip-is-the-field-at-a-strips-size.md): nothing moved, and that is the
+result. **The strip reads and 0109 stands**, unamended by this step — the two sizes share their
+window and not their marks, each reading the scene at its own `seen`, keeping the narrowing 0338
+already put on it. Three fixtures on three yards, one per
+scene, each read twice at 1:1: no rack 0.350 every time, the click train playing 0.524, the drift
+smoke's own rack of six 0.749–0.756 once `SHAPE_SECS` has run out, every pair agreeing to the
+digit. The mean does not move with the scene, which is right — what the film and the cut spend is
+the rows' business and the scene is what stands under it. At the crop every fixture is a band of
+the field's own colour with the beat's bars over it, and six yards playing on one page read as
+four different fields at a glance: bloom green shot with scarlet, water blue with pale blades,
+canopy a dark green, meadow a warm cream. **And the beat crawls**: two runs of the stopped yard
+are identical to the pixel and two of a playing one at the same elapsed second differ by 0.14 to
+0.23 RMSE, which is the picture travelling under a shot that catches one frame of it. Two
+readings needed naming, both the harness and not the app: the rack of six reads 0.68 three
+seconds in, before the lattice has finished tightening — which is 0341's 0.665 on the same
+fixture, taken unsettled — and a starved headless frame loop reads exactly the no-rack 0.350 on a
+yard that is playing.
+The next free decision number is 0343.
 
 1.  **The film's share is a dial, on the bench and in the app.** _(bench-19, landed 0339)_
     **Durable shape moved: none.** A tunable is a session preference and never durable (0329).
@@ -1013,7 +1032,7 @@ min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the til
     **Refused:** dropping the cut for a shade — a moiré that does not cut is not a moiré, and the
     step 2 shade is the screen's and not the rows' (0131); a floor per scene (0329).
 
-4.  **The overlay is the field and the strip is its film.** _(bench-22)_ **Durable shape moved:
+4.  **The overlay is the field and the strip is its film.** _(bench-22, landed 0342)_ **Durable shape moved:
     none.** The step that may not stand, and the one that says which of two decisions holds.
 
     **A head is under a pixel on the strip and a bench's-worth on the overlay.** The bench draws
@@ -1111,3 +1130,20 @@ sketch's own case (src/ui/sketch/structure/sketchStructure.test.ts) keeps a boun
 `TODAY_BITE`, whose headroom falls from 8.7× to 4.7× as the floor deepens every row's cut: it
 passes, its page renders the share live rather than quoting it, and re-arguing the bite's depth is
 bench-22's territory and not this step's.
+
+**The strip is measured where it starves, and two things it was pointed at were left (bench-22,
+0342).** The step is a measurement and it landed as one: 0109 stands, nothing in `src/` moved, and
+there is no case to write because the amendment the step held in reserve was refused on the shots.
+Three costs are known. **The crawl is proved by two frames and not seen in one**: `--shot` reads
+one frame, so that the bars move is a pair of comparisons — a stopped yard's strip identical to
+the pixel across runs, a playing one never identical at the same elapsed second — and what a
+crawl _looks_ like is 0341's reading carried forward rather than this step's. Headless Chromium
+also drops the drift's cadence under six painting yards or an unlucky click-train run, reading
+exactly the at-rest 0.350 on a yard that is playing. **A bare yard is a lighter strip**, 0.350 against
+the rack of six's 0.750, which is 0341's saturating pair and trio showing at the strip's size; the
+field's colour reads between the bars at every count, so the strip still says which field it is,
+and it says less about the weight. **And "the six-yard rack" was read both ways** rather than
+asked about — a rack of six on one yard and six yards on one page were both shot, and both say the
+same thing. The structure sketch's bite (src/ui/sketch/structure/sketchStructure.test.ts), which
+0341 handed to bench-22, is not re-argued: this step's text is the strip's size and nothing else,
+and the bound passes.
