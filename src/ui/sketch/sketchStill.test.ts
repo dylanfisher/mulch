@@ -1,5 +1,5 @@
 /**
- * The four still fields, pinned the way the five beside them are (sketchDrift.test.ts): every one
+ * The still fields, pinned the way the five beside them are (sketchDrift.test.ts): every one
  * answers inside nought and one at every end of its dial, and every one swings. And two claims the
  * five never made, because a still is a ramp position and not an amount of one ink — the picture
  * has to reach both ends of its own five stops, or the colour the still exists for is not on it;
@@ -9,24 +9,11 @@ import { describe, expect, it } from "vitest";
 
 import { type SketchDial, type SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
-import {
-  hash2,
-  printed,
-  STILL_DIALS,
-  STILL_NAMES,
-  STILL_STOPS,
-  streakAt,
-} from "@/ui/sketch/sketchStill";
-import {
-  glintField,
-  poppiesField,
-  seedheadsField,
-  skylightField,
-} from "@/ui/sketch/sketchStillField";
+import { printed, STILL_DIALS, STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
+import { glintField, seedheadsField, skylightField } from "@/ui/sketch/sketchStillField";
 
-/** Every still with the dial it is drawn under, so a fifth cannot be left out. */
+/** Every still with the dial it is drawn under, so a fourth cannot be left out. */
 const STILLS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "poppies", field: poppiesField, dial: STILL_DIALS.poppies },
   { name: "glint", field: glintField, dial: STILL_DIALS.glint },
   { name: "seedheads", field: seedheadsField, dial: STILL_DIALS.seedheads },
   { name: "skylight", field: skylightField, dial: STILL_DIALS.skylight },
@@ -104,9 +91,9 @@ describe("every still on the drift bench", () => {
 
 describe("what a still's own five stops are for", () => {
   /**
-   * The whole point of the four: the ramp is read per pixel, so one picture holds both ends of its
-   * own five stops at once. A field that never reached past the middle would be the shipped ground
-   * at a different dial, drawn in a nicer palette and saying nothing.
+   * The whole point of a still: the ramp is read per pixel, so one picture holds both ends of its
+   * own five stops at once. A field that never reached past the middle would be a ground at a
+   * different dial, drawn in a nicer palette and saying nothing.
    */
   it("reaches both ends of its own five stops inside one picture", () => {
     for (const { name, field, dial } of STILLS) {
@@ -136,9 +123,9 @@ describe("what a still's own five stops are for", () => {
   it("is a different picture half a turn of its dial away", () => {
     for (const { name, field, dial } of STILLS) {
       const share = movedShare(field, dial.min, dial.min + (dial.max - dial.min) / 2);
-      // A twenty-fifth of the box. The four measure 59%, 46%, 11% and 6% — the poppies move most,
-      // because every head in the picture is on its own phase, and the canopy least, because what
-      // its gust moves is which specks of sky are open, and a speck is rare by design.
+      // A twenty-fifth of the box. The three measure 46%, 11% and 6% — the canopy moves least,
+      // because what its gust moves is which specks of sky are open, and a speck is rare by design.
+      // The poppies moved most of the four and are a scene now (0332).
       expect(share, `${name} moves ${Math.round(share * 100)}% of the box`).toBeGreaterThan(0.04);
     }
   });
@@ -146,7 +133,7 @@ describe("what a still's own five stops are for", () => {
 
 describe("a still's own stops", () => {
   it("are five apiece, one list per name, and no two lists alike", () => {
-    // The fixture above is written by hand, so it is the one place a fifth still could be left out
+    // The fixture above is written by hand, so it is the one place a fourth still could be left out
     // of every case in this file while passing every case in it.
     expect(STILLS.map((still) => still.name)).toEqual([...STILL_NAMES]);
     const seen = new Set<string>();
@@ -166,45 +153,8 @@ describe("a still's own stops", () => {
   });
 });
 
-describe("the streaked noise two of the four are made of", () => {
-  /**
-   * The one thing it has to be is **smooth**, because the whole reason it is here is that gratings
-   * are not: a lookup that stepped between its hashed corners would draw the blocks a nearest
-   * neighbour draws, which is a lattice again by another road.
-   */
-  it("moves less between two near samples than its corners are apart", () => {
-    let worst = 0;
-    for (let at = 0; at < 400; at += 1) {
-      const px = at * 0.37;
-      const py = at * 0.11;
-      worst = Math.max(worst, Math.abs(streakAt(px, py, 4, 9) - streakAt(px + 0.02, py, 4, 9)));
-    }
-    // A twentieth of a cell moves the read by well under a twentieth of its own range.
-    expect(worst).toBeLessThan(0.02);
-  });
-
-  it("is longer along its cell than across it, and is the same field twice", () => {
-    expect(streakAt(6, 7, 3, 40)).toBe(streakAt(6, 7, 3, 40));
-    // The same three pixels stepped two ways: across a cell three wide it is a whole corner, and
-    // down a cell forty tall it is a fortieth of one. That difference is what makes a fibre.
-    let across = 0;
-    let along = 0;
-    for (let at = 0; at < 200; at += 1) {
-      const px = at * 0.7;
-      const py = at * 1.3;
-      across += Math.abs(streakAt(px, py, 3, 40) - streakAt(px + 3, py, 3, 40));
-      along += Math.abs(streakAt(px, py, 3, 40) - streakAt(px, py + 3, 3, 40));
-    }
-    expect(along * 4).toBeLessThan(across);
-  });
-});
-
 describe("the print", () => {
-  it("is the same grain twice, and darkens the corners more than the middle", () => {
-    // Same arguments, same grain — the one thing that would break it is a generator (0247).
-    expect(hash2(3, 7)).toBe(hash2(3, 7));
-    // And the two arguments are not interchangeable, or a grain is a diagonal.
-    expect(hash2(3, 7)).not.toBe(hash2(7, 3));
+  it("darkens the corners more than the middle", () => {
     // A flat field printed: the middle keeps nearly all of its read and a corner keeps less.
     const middle = printed(FIELD_ASPECT / 2, 0.5, 0.8);
     const corner = printed(0.01, 0.01, 0.8);

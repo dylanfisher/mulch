@@ -58,8 +58,7 @@ the reading keys on are now declared _as_ the grouping in src/lib/copyYard.ts an
 so no yard word is written twice; `latticeAxis` was lifted into the contract as `sceneAxis`, the
 scenes being its second caller; and a scene's tunables are read inside the bake, so the tile key
 carries a count of how many times any tuning has moved and the tiles are cleared when one does —
-without which every slider the bench argues a ground on was inert in the app. The next free decision
-number is 0332.
+without which every slider the bench argues a ground on was inert in the app.
 
 1.  **A yard's picture is a scene its name names.** _(bench-06, landed 0329)_ **Durable shape
     moved: none.**
@@ -184,8 +183,9 @@ which stands at 739 lines, for `src/ui/moireScreenTile.ts` — a split and not a
 step pays it (at-the-cap rule, docs/map.md). The noise two stills are made of is
 `src/lib/moireNoise.ts` beside src/lib/moireGrain.ts, lifted from `streakAt` and `hash2` in
 src/ui/sketch/sketchStill.ts and imported by both. Each still's field moves **into** its scene file
-under src/ui/scene/ — the still is the scene, not a sketch of one — and the bench's entries 10–13 go
-when their scene lands, the entries 06–09 drawing the shipped scene through its own stops (0247).
+under src/ui/scene/ — the still is the scene, not a sketch of one — and each bench still goes when
+its scene lands, the entries 06–09 drawing the shipped scene through its own stops (0247). The
+poppies went with bench-12, so the three left are 10, 11 and 12.
 The structure a place noun names is one ground shared by every scene, `src/lib/moireStand.ts`, and
 not a term per scene file. New readings go into src/lib/moireScene.ts as the three there did: a
 `const` list, a type off it, a terms record, and the grouping of the bank in src/lib/copyYard.ts
@@ -200,9 +200,33 @@ maths; the place, then the air's word and the detail, because each adds a readin
 that has to hold every scene already; and the gust last, because it is the one step whose cost lands
 on the frame and the one that may not stand.
 
-1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12)_
-    **Durable shape moved: none.** A name is a reading and nothing about the reading is stored
-    (0329).
+bench-12 landed on 2026-09-09 as
+[0332](decisions/0332-a-scene-is-the-colour-and-the-film-is-the-alpha.md): `Scene.ground` answers
+where on the scene's own ramp a device pixel is read, `build` reads that ramp per pixel into one ink
+it refills, and the bloom is the poppies. The tile left src/ui/moireScreen.ts **whole** rather than
+`build` alone — the bake needs the gratings, the beat, the channels and the band, so a split that
+moved only the bake would have been a cycle between the two halves of one picture; src/ui/moireScreenTile.ts is what
+a tile is made of and the pass that writes it, src/ui/moireScreen.ts is where a tile is put and what
+moves it, and the import runs one way. Seven things moved off the step's own text. A scene that
+wants the yard's own ink names `--primary`, which is registered as a `<color>` in src/ui/tokens.css
+— no colour is minted (0236), but the layout paragraph's "one token per new stop" now also covers
+registering one the theme already had. `--scene-bloom-ground` and `--scene-bloom-petal` went with
+the lattice they were for, nothing else naming them. The three `<scene>.depth` tunables went with
+`Scene.depth`, and the Bloom group is `bloom.far`, `bloom.near`, `bloom.head` and `bloom.stroke`.
+The bench's chips are a literal class per token, because Tailwind reads source as text and a class
+assembled at runtime is one it never generates — the scene still owns its ramp, and a stop with no
+chip is refused. The recorder in src/ui/moireCanvasPainted.ts resolves a token to its own ink
+(`resolvedInk`) rather than one colour to every token: with the ground out of the alpha, a stub that
+answered one colour drew every scene as the same tile, which is the measurement that cannot fail
+that file's own note warns about. The saturation case in src/ui/moireScreen.test.ts now measures how
+much of a pixel stands on the channel its own third of the cell lights rather than the plain spread
+between the three, the ink under the fringe no longer being one colour. And the poppies' bob is
+refused as the step says, so `nearestHead` takes no phase and the heads stand. The next free
+decision number is 0333.
+
+1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
+    landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
+    is stored (0329).
 
     **The contract answers where, not how much.** `Scene.ground` (src/lib/moireScene.ts) returns
     where on the scene's own ramp a device pixel is read, nought to one, instead of a share of the
@@ -216,7 +240,8 @@ on the frame and the one that may not stand.
     to spend and not four.
 
     **`build` reads the ramp in the pixel loop.** In `src/ui/moireScreenTile.ts`, the bake moved
-    whole out of src/ui/moireScreen.ts: `sceneStops` resolves the five stops and the light once a
+    whole out of src/ui/moireScreen.ts (which landed as the whole tile, not the bake alone):
+    `sceneStops` resolves the five stops and the light once a
     tile as it does today, and the pixel loop reads `ramp` at the ground's position for every pixel,
     into an out-parameter — `ramp(stops, value, into)` in src/lib/moireColour.ts fills a four-element
     ink it is handed, because a build allocates one ramp and no more (0129, 0070) and the shape
@@ -332,7 +357,7 @@ on the frame and the one that may not stand.
       one included; the water's ground reads at its first stop over most of the tile and at its top
       stop somewhere.
     - **src/ui/moireScreen.test.ts**: a water tile's median pixel is darker than a bloom's.
-    - **src/ui/sketch/SketchDrifts.test.tsx**: entry 11 is gone and 08 draws the shipped water.
+    - **src/ui/sketch/SketchDrifts.test.tsx**: entry 10 is gone and 08 draws the shipped water.
 
     **Verification:** as step 1; the crop is judged at the ripple's own pitch, where the dash
     either reads as a glint or as woven cloth.
@@ -387,7 +412,7 @@ on the frame and the one that may not stand.
     - **src/ui/scene/scenes.test.ts**: the meadow's median read sits between its second and fourth
       stops; the canopy's sits at its lowest two.
     - **src/ui/moireScreen.test.ts**: `SCREEN_FLOOR` holds on a canopy tile.
-    - **src/ui/sketch/SketchDrifts.test.tsx**: 12 and 13 are gone; `sketchStill.ts` and
+    - **src/ui/sketch/SketchDrifts.test.tsx**: the last two stills are gone; `sketchStill.ts` and
       `sketchStillField.ts` go with them, and the bench's second introduction says nine.
 
     **Verification:** as step 1, and the crop at a tile join — the seam is the thing a whole-canvas

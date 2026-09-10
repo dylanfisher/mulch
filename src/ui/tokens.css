@@ -94,15 +94,12 @@
   --drift-cool: light-dark(oklch(0.55 0.15 230), oklch(0.7 0.16 225));
   --drift-hot: light-dark(oklch(0.55 0.19 15), oklch(0.7 0.2 20));
 
-  /* The stops the three scenes that do not rest on the caller's own ink are read along (0329).
-     The meadow names none of its own — its ramp is the two inks and two channels above, which is
-     the ramp every picture was read along before a yard's name said which field it stood in — so
-     what is here is only what a bloom, a water and a canopy need that the palette did not have:
-     a cool ground under warm heads, a deep and a lit water, and the dark of a leaf mass against
-     the light that breaks through it. Off the primary in hue like the two inks, and lighter in the
-     dark scheme for the same reason. */
-  --scene-bloom-ground: light-dark(oklch(0.62 0.08 200), oklch(0.5 0.07 205));
-  --scene-bloom-petal: light-dark(oklch(0.72 0.16 350), oklch(0.78 0.17 350));
+  /* The stops the scenes are read along that the palette did not already hold (0329): a deep and a
+     lit water, and the dark of a leaf mass against the light that breaks through it — which the
+     bloom's poppy field borrows for its shade and its lit edge (0332). The meadow names none of its
+     own: its ramp is the two inks, two channels and the primary above, which is the ramp every
+     picture was read along before a yard's name said which field it stood in. Off the primary in
+     hue like the two inks, and lighter in the dark scheme for the same reason. */
   --scene-water-deep: light-dark(oklch(0.42 0.08 245), oklch(0.35 0.08 250));
   --scene-water-lit: light-dark(oklch(0.86 0.06 200), oklch(0.9 0.06 200));
   --scene-canopy-dark: light-dark(oklch(0.38 0.07 150), oklch(0.3 0.07 155));
@@ -164,18 +161,6 @@
    arrive as `light-dark(…)` text that `fillStyle` drops without a word (0329). Their initial value
    is the two inks' mid grey, because these are mixed into the picture's ink rather than multiplied
    over it — a scheme that failed to resolve has to be visible in both schemes. */
-@property --scene-bloom-ground {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: oklch(0.5 0 0);
-}
-
-@property --scene-bloom-petal {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: oklch(0.5 0 0);
-}
-
 @property --scene-water-deep {
   syntax: "<color>";
   inherits: true;
@@ -225,6 +210,21 @@
 }
 
 @property --light-sun {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+/* And the primary, for the same reason and no other: it is the token the drift surfaces resolve
+   their own ink from (`text-primary`, src/ui/MoireStrip.tsx), and since 0332 a scene names all five
+   of its stops rather than leaving the middle one for whatever the caller resolved — so a scene
+   that wants the yard's own ink names this, and the painter reads it off the computed style like
+   any other stop. Registering it changes no colour: the value written above is the one that
+   resolves. Inherited, like every other registration here, or every `bg-primary` under the root
+   would fall back to the initial value instead — and the initial is the neighbours' scheme-blind
+   mid grey rather than a second copy of the amber above, which would be a colour written twice and
+   a fallback that reads as light in both schemes. */
+@property --primary {
   syntax: "<color>";
   inherits: true;
   initial-value: oklch(0.5 0 0);

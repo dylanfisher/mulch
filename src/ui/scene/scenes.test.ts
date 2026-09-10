@@ -11,14 +11,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  type Scene,
   type SceneTerms,
   SCENE_NAMES,
   SCENE_LIGHTS,
   SCENE_LIGHT_TERMS,
-  SCENE_RAMP_INK,
   SCENE_RAMP_STOPS,
 } from "@/lib/moireScene";
-import { SCENES, sceneOf } from "@/ui/scene/scenes";
+import { SCENES, refuseScene, sceneOf } from "@/ui/scene/scenes";
 
 /** The one file that says what a colour is (0236), read as text: a token declared nowhere is a colour nobody has. */
 const TOKENS = readFileSync("src/ui/tokens.css", "utf8");
@@ -42,22 +42,36 @@ describe("the scene registry", () => {
     expect(() => sceneOf("hedgerow" as (typeof SCENE_NAMES)[number])).toThrow(/No scene/u);
   });
 
-  it("declares five stops per scene with the caller's own ink in the middle", () => {
+  it("declares five stops per scene, every one of them a token", () => {
     for (const name of SCENE_NAMES) {
       const scene = SCENES[name];
       expect(scene.ramp, name).toHaveLength(SCENE_RAMP_STOPS);
-      expect(scene.ramp.indexOf(null), name).toBe(SCENE_RAMP_INK);
-      expect(
-        scene.ramp.filter((stop) => stop === null),
-        name,
-      ).toHaveLength(1);
-      expect(scene.rest, name).toBeGreaterThanOrEqual(0);
-      expect(scene.rest, name).toBeLessThanOrEqual(1);
+      // None of them the caller's own ink: a ground read per pixel spends the whole ramp inside one
+      // tile, so a stop that flipped with whatever a surface resolved would flip the middle of every
+      // picture with it (0332).
+      for (const stop of scene.ramp) expect(stop, `${name} stop`).toMatch(/^--[a-z-]+$/u);
     }
-    // Exactly one scene rests on the caller's own ink, and it is the one the film's own cases paint
-    // through: a bench of four that all rested there would be four grounds and one colour.
-    const resting = SCENE_NAMES.filter((name) => SCENES[name].rest === 0.5);
-    expect(resting).toEqual(["meadow"]);
+  });
+
+  it("refuses a ramp holding a stop that is not a token, and a ramp that is not five", () => {
+    // The refusals the registry runs at load, reached the only way a test can reach them: through
+    // the same check, against a scene declared wrong. Until 0332 the middle stop was `null` for the
+    // caller's own ink, so a scene left half-converted is the case this is for.
+    const meadow = SCENES.meadow;
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const holed = {
+      ...meadow,
+      ramp: [...meadow.ramp.slice(0, 2), null, ...meadow.ramp.slice(3)],
+    } as Scene;
+    expect(() => {
+      refuseScene("meadow", holed);
+    }).toThrow(/is no token/u);
+    expect(() => {
+      refuseScene("meadow", { ...meadow, ramp: meadow.ramp.slice(0, 4) });
+    }).toThrow(/reads 4 stops/u);
+    expect(() => {
+      refuseScene("meadow", meadow);
+    }).not.toThrow();
   });
 
   it("names only tokens tokens.css declares and registers as a colour", () => {

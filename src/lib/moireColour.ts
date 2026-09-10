@@ -5,8 +5,8 @@
  *   nothing claiming its colour is drawn at a given second of sounding. Pure maths, no canvas, no
  *   clock of its own: the second it is handed is the deck's (0126).
  * @instead Which stops the ramp is made of — token names, never colours → the `ramp` each scene
- *   declares in src/ui/scene/, resolved by `sceneStops` in src/ui/moireScreen.ts, the one file that
- *   resolves them. What an age does to a claim made
+ *   declares in src/ui/scene/, resolved by `sceneStops` in src/ui/moireScreenTile.ts, the one file
+ *   that resolves them. What an age does to a claim made
  *   against the orbit → `agedHue` in src/lib/moireAge.ts. The travel toward the result, and the
  *   ladder it is rounded onto → src/ui/moireScreenInk.ts.
  */
@@ -21,24 +21,32 @@ export type Ink = [number, number, number, number];
  * A value read through a ramp of inks, the way a shader reads a scalar through a palette: nought is
  * the first stop, one the last, and between two stops the channels are mixed straight. Two stops
  * was the picture the instrument drew before 0301 — its ink and one token either side — and five
- * is what it draws now, with the caller's own ink at the middle stop.
+ * is what it draws now, one of them per stop a scene names.
+ *
+ * **Filled into the ink it is handed and handed back**, never a fresh one: this is read once per
+ * device pixel of a tile now rather than once per tile (0332), so a call that allocated would cost
+ * one array a pixel against the one array a build is allowed (0129, 0070). A caller that keeps the
+ * answer past the next call copies it.
  */
-export function ramp(stops: readonly Ink[], value: number): Ink {
+export function ramp(stops: readonly Ink[], value: number, into: Ink): Ink {
   const first = stops[0];
   if (first === undefined) throw new Error("A ramp of no inks reads nothing.");
-  if (stops.length === 1) return first;
+  if (stops.length === 1) return fill(into, first, first, 0);
   const at = clamp(value, 0, 1) * (stops.length - 1);
   const low = Math.min(Math.floor(at), stops.length - 2);
   const from = stops[low];
   const to = stops[low + 1];
   if (from === undefined || to === undefined) throw new Error(`The ramp has no stop ${low}.`);
-  const share = at - low;
-  return [
-    from[0] + (to[0] - from[0]) * share,
-    from[1] + (to[1] - from[1]) * share,
-    from[2] + (to[2] - from[2]) * share,
-    from[3] + (to[3] - from[3]) * share,
-  ];
+  return fill(into, from, to, at - low);
+}
+
+/** The two stops either side of a read, mixed straight into the ink the caller handed over. */
+function fill(into: Ink, from: Ink, to: Ink, share: number): Ink {
+  into[0] = from[0] + (to[0] - from[0]) * share;
+  into[1] = from[1] + (to[1] - from[1]) * share;
+  into[2] = from[2] + (to[2] - from[2]) * share;
+  into[3] = from[3] + (to[3] - from[3]) * share;
+  return into;
 }
 
 /**

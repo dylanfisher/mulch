@@ -1,5 +1,5 @@
 /**
- * The drift bench's own half of the naming rule (0252): thirteen directions of one picture, each on
+ * The drift bench's own half of the naming rule (0252): twelve directions of one picture, each on
  * a canvas under its own dial, each naming what the dial stands at and the inks it is drawn in,
  * and each saying where in the painter it would land — at a file that exists. Out of
  * `SketchPage.test.tsx` in the shape `SketchGrounds.test.tsx` took: that file mounts the bench and
@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { SCENE_NAMES } from "@/lib/moireScene";
+import { sceneOf } from "@/ui/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
 import { STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
 import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
@@ -37,20 +38,33 @@ function chipsOf(stage: string): string[] {
   return [...stage.matchAll(/data-chip="([^"]+)"/gu)].map((found) => found[1] ?? "");
 }
 
+/** And as the chips it would draw, which is what says two pictures are of one field (0332). */
+const chipList = (stops: readonly { chip: string }[]): string =>
+  stops.map((stop) => stop.chip).join();
+
 /** One list of stops as the names a legend would draw, so two inkings compare as one string. */
 const namesOf = (stops: readonly { name: string }[]): string =>
   stops.map((stop) => stop.name).join();
 
-/**
- * Every inking a picture on this bench may be drawn through: the two shared ones, and one per still.
- * Held as the names in their order and not as a count — four stills at five stops each and the
- * reference ramp at five would all pass a count, and what is being checked is which five.
- */
-const DECLARED = [...Object.values(INKING_STOPS), ...Object.values(STILL_STOPS)].map((stops) =>
-  namesOf(stops),
-);
+/** One scene's own ramp as the names its legend draws, which is the token's own last word. */
+const rampOf = (name: (typeof SCENE_NAMES)[number]): string =>
+  sceneOf(name)
+    .ramp.map((token) => token.split("-").at(-1) ?? token)
+    .join();
 
-describe("SketchPage draws where the picture goes, thirteen ways", () => {
+/**
+ * Every inking a picture on this bench may be drawn through: the two shared ones, one per still,
+ * and one per scene — the scenes read along their own five since 0332, exactly as the stills do.
+ * Held as the names in their order and not as a count — three stills, four scenes and the reference
+ * ramp all hold five, and what is being checked is which five.
+ */
+const DECLARED = [
+  ...Object.values(INKING_STOPS).map((stops) => namesOf(stops)),
+  ...Object.values(STILL_STOPS).map((stops) => namesOf(stops)),
+  ...SCENE_NAMES.map((name) => rampOf(name)),
+];
+
+describe("SketchPage draws where the picture goes, twelve ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
     expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length + STILL_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
@@ -78,7 +92,7 @@ describe("the bench spends colour on a scene, and on nothing else", () => {
    *
    * The second half is walked over **every entry** and not over the four names, which is what keeps
    * it as strong as the rule it replaces: "no picture but the Ramp draws five chips" banned a
-   * fourteenth entry from borrowing a still's palette, and a loop over `STILL_NAMES` would have let
+   * thirteenth entry from borrowing a still's palette, and a loop over `STILL_NAMES` would have let
    * one through the moment it was added under any other id (0331).
    */
   it("reads one picture through the reference ramp and every other palette once", () => {
@@ -113,7 +127,7 @@ describe("the bench draws every scene", () => {
    * field nobody argued about at 1:1 (0247, 0329) — so the bench draws one stage per name in the
    * contract, under the one term of the reading a hand can move: the wind's own lean.
    */
-  it("puts one stage on the bench for every name in the contract", () => {
+  it("puts one stage on the bench for every name in the contract, read through its own stops", () => {
     const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
     for (const name of SCENE_NAMES) {
       expect(drawn, `${name} is not on the bench`).toContain(name);
@@ -122,13 +136,38 @@ describe("the bench draws every scene", () => {
       expect(stage, `${name} says nothing of its lean`).toMatch(
         new RegExp(`data-said="${name}"[^>]*>[^<]*lean`, "u"),
       );
+      // And along the scene's own five stops rather than the two-stop inking every geometry
+      // direction shares: entry 07 is the shipped bloom in the shipped colours, which is what makes
+      // the bench a picture of what lands and not a drawing of it (0332).
+      expect(chipsOf(stage).join(), `${name} is not read along its own stops`).toBe(rampOf(name));
+    }
+  });
+
+  /**
+   * And no still stands on the bench drawing a picture that has shipped. A still is here to argue a
+   * field the painter does not have; the moment it lands as a scene the argument is over, and two
+   * entries of one picture is the duplicate the palette rule above is written against (0331, 0332).
+   */
+  it("keeps no still whose picture a scene already draws", () => {
+    // By the tokens and not by the names under them: a still names its stops for what they are in
+    // its own picture — a throat, a petal — and a scene for the token, so two drawings of one
+    // field share every chip and no name at all.
+    const shipped = new Set(
+      SCENE_NAMES.map((name) =>
+        sceneOf(name)
+          .ramp.map((token) => `bg-(${token})`)
+          .join(),
+      ),
+    );
+    for (const name of STILL_NAMES) {
+      expect(shipped.has(chipList(STILL_STOPS[name])), `${name} is a scene already`).toBe(false);
     }
   });
 });
 
-describe("each of the thirteen says where it would land", () => {
+describe("each of the twelve says where it would land", () => {
   /**
-   * A build note is the point of this bench: the thirteen are a plan's worth of parts, so each one
+   * A build note is the point of this bench: the twelve are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */

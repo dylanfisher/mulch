@@ -1,97 +1,22 @@
 /**
- * @role The four still fields: a poppy field, rippled water, backlit seed heads and a canopy from
- *   under it. Each answers **where on its own five stops** a point of the picture is read — not how
- *   much ink is there — which is the one thing that separates these from the nine beside them: the
- *   ramp is read per pixel, so a head is red and the ground between two heads is green inside one
- *   tile. Pure maths on picture units, no canvas, no clock, no context.
+ * @role The three still fields left on the bench: rippled water, backlit seed heads and a canopy
+ *   from under it. Each answers **where on its own five stops** a point of the picture is read — not
+ *   how much ink is there — which is the one thing that separates these from the nine beside them.
+ *   The fourth was a poppy field, and it left when it shipped as src/ui/scene/bloom.ts (0332). Pure
+ *   maths on picture units, no canvas, no clock, no context.
  * @instead The stops, the dials, the scale and the print they share →
  *   src/ui/sketch/sketchStill.ts. The nine fields that answer an amount of one ink →
  *   src/ui/sketch/sketchDrift.ts, and the moves both are built out of →
- *   src/ui/sketch/sketchField.ts. The four grounds that ship at a fifteenth of a tile's alpha,
- *   which these argue past → src/ui/scene/ and `build` in src/ui/moireScreen.ts.
+ *   src/ui/sketch/sketchField.ts. The two noises two of these are made of →
+ *   src/lib/moireNoise.ts. The four grounds that ship → src/ui/scene/ and `build` in
+ *   src/ui/moireScreenTile.ts.
  */
 import { TAU } from "@/lib/moire";
 import { sceneAxis, sceneSharp } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import type { SketchDriftField } from "@/ui/sketch/sketchDrift";
-import { hash2, printed, STILL_PX, STILL_WIDE, streakAt } from "@/ui/sketch/sketchStill";
-
-/**
- * The poppies: how far apart the heads stand at the top of the frame and at its foot, how far one
- * is knocked off its own place, how wide a head is and how much of it is flat colour, the stems
- * under them, how far a head bobs and how far the stems sway with it — all in the scale's pixels but
- * the two that are shares of one head.
- */
-const POPPY = {
-  far: 4.5,
-  near: 15,
-  jitter: 0.5,
-  head: 0.55,
-  soft: 0.9,
-  stroke: 3.4,
-  bob: 1.6,
-  sway: 0.22,
-};
-
-/**
- * The nearest head to a point of the field, over the nine cells that could hold one: how much of it
- * stands there, and how far up the ramp that head is read.
- *
- * **Nine and not one.** A head that had to fit inside its own cell could not touch its neighbour,
- * and a field of heads that never touch is a polka dot — which is what the first shot of this
- * picture was. Reading the neighbours instead lets a head be wider than its cell, lets one be
- * nearly absent and the one beside it huge, and lets two overlap, all of which the still does.
- */
-function nearestHead(
-  u: number,
-  v: number,
-  period: number,
-  amount: number,
-): { stands: number; top: number } {
-  let stands = 0;
-  let top = 0;
-  for (let ou = -1; ou <= 1; ou += 1) {
-    for (let ov = -1; ov <= 1; ov += 1) {
-      const hu = Math.round(u) + ou;
-      const hv = Math.round(v) + ov;
-      const bob = (POPPY.bob * Math.sin(TAU * (amount + hash2(hu, hv + 13)))) / period;
-      const du = u - hu - POPPY.jitter * (hash2(hu, hv) - 0.5) + bob;
-      const dv = v - hv - POPPY.jitter * (hash2(hu + 71, hv) - 0.5);
-      // Each head its own width, some of them barely there: the still's are every size at once.
-      const wide = POPPY.head * POPPY.head * (0.12 + 1.0 * hash2(hu + 19, hv + 41));
-      const at = clamp((wide - (du * du + dv * dv)) / (wide * POPPY.soft), 0, 1);
-      if (at > stands) {
-        stands = at;
-        top = 0.66 + 0.26 * hash2(hu + 7, hv + 3);
-      }
-    }
-  }
-  return { stands, top };
-}
-
-/**
- * A poppy field: soft round heads at the hot end of the ramp over stems at the green end, small and
- * dense toward the top and large and few at the foot. The perspective is in the mark's own period —
- * it grows down the picture, and the row coordinate is the integral of one over it, so rows are
- * spaced by their own period rather than by a constant and the field recedes instead of being
- * scaled. The dial is the bob, and every head takes its phase from where it stands, so the field
- * moves the way a hundred stems on a hundred springs do rather than as one sheet.
- */
-export const poppiesField: SketchDriftField = (x, y, amount) => {
-  const px = x * STILL_PX;
-  const py = y * STILL_PX;
-  const period = POPPY.far + (POPPY.near - POPPY.far) * y;
-  const u = (px - STILL_WIDE / 2) / period;
-  const v = (STILL_PX / (POPPY.near - POPPY.far)) * Math.log(period / POPPY.far);
-  const head = nearestHead(u, v, period, amount);
-  // The ground the heads stand in: fine stems leaning as one, dark between them and green along.
-  const lean = POPPY.sway * Math.sin(TAU * amount);
-  // Up to the green stop where a stem is lit and down to the shade between them: at a tenth of
-  // the ramp the whole ground sat inside the print's own grain and read as speckle, not as stems.
-  const stem = sceneAxis((px + lean * py) / POPPY.stroke);
-  const base = 0.02 + 0.23 * stem * stem;
-  return printed(x, y, base + head.stands * (head.top - base));
-};
+import { hash2, streakAt } from "@/lib/moireNoise";
+import { printed, STILL_PX } from "@/ui/sketch/sketchStill";
 
 /**
  * The water: how far apart the ripples run, the pitch of the second lattice they beat against, how

@@ -6,15 +6,9 @@
  *   names tokens and a token is the interface's (docs/boundaries.md).
  * @instead The grounds themselves → the four files beside this one. What a scene is, and the lights
  *   and winds a name puts one under → src/lib/moireScene.ts. The reading of a name →
- *   src/lib/yardScene.ts. The tile a scene is written into → src/ui/moireScreen.ts.
+ *   src/lib/yardScene.ts. The tile a scene is written into → src/ui/moireScreenTile.ts.
  */
-import {
-  type Scene,
-  type SceneName,
-  SCENE_NAMES,
-  SCENE_RAMP_INK,
-  SCENE_RAMP_STOPS,
-} from "@/lib/moireScene";
+import { type Scene, type SceneName, SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
 import { bloom } from "@/ui/scene/bloom";
 import { canopy } from "@/ui/scene/canopy";
 import { meadow } from "@/ui/scene/meadow";
@@ -37,22 +31,28 @@ const held = new Map<string, Scene>(Object.entries(SCENES));
  * registry does not hold. A scene that arrives half-declared would draw a tile in whatever the ramp
  * happened to resolve to, and a picture is the one place a mistake looks deliberate (principle 5).
  */
-for (const name of SCENE_NAMES) {
-  const scene = held.get(name);
-  if (scene === undefined) throw new Error(`Scene "${name}" has a name and no file.`);
+export function refuseScene(name: string, scene: Scene): void {
   if (scene.ramp.length !== SCENE_RAMP_STOPS) {
     throw new Error(`Scene "${name}" reads ${scene.ramp.length} stops, not ${SCENE_RAMP_STOPS}.`);
   }
-  // Where the caller's own ink is, and that there is exactly one of it: a ramp with a second
-  // `null` would draw two stops in one colour and flatten a fifth of itself, which `findIndex`
-  // alone cannot see.
-  const own = scene.ramp.filter((stop) => stop === null);
-  if (own.length !== 1 || scene.ramp[SCENE_RAMP_INK] !== null) {
-    throw new Error(`Scene "${name}" holds ${own.length} stops of the caller's own ink.`);
+  // And that every one of the five is a token the painter could hand to `getPropertyValue`. The
+  // type says so and a cast is one edit away from saying otherwise, which is the whole reason a
+  // registry checks itself (principle 5) — and until 0332 the middle stop was `null` for the
+  // caller's own ink, so a scene left half-converted is the mistake this catches rather than draws.
+  for (const [at, stop] of scene.ramp.entries()) {
+    // Read as unknown, because what this is here to catch is a scene whose type says one thing and
+    // whose value says another — a cast, or a half-finished edit.
+    const named: unknown = stop;
+    if (typeof named !== "string" || !named.startsWith("--")) {
+      throw new Error(`Scene "${name}" reads stop ${at} at ${String(named)}, which is no token.`);
+    }
   }
-  if (scene.rest < 0 || scene.rest > 1) {
-    throw new Error(`Scene "${name}" rests at ${scene.rest}, off its own ramp.`);
-  }
+}
+
+for (const name of SCENE_NAMES) {
+  const scene = held.get(name);
+  if (scene === undefined) throw new Error(`Scene "${name}" has a name and no file.`);
+  refuseScene(name, scene);
 }
 
 // And a file whose name the contract does not hold, which the loop above cannot see: it walks the

@@ -77,7 +77,7 @@ export const DRIFT_WIND_SECS = tunable("wind.secs", 6, { min: 0.5, max: 30, step
 /**
  * And how fast a fully blown field travels, in turns of one cell of the screen a second — the same
  * cell the crawl sweeps and comes back across, which is the tile's own period (`beatPx`,
- * src/ui/moireScreen.ts) and is therefore as wide as the screen is at whatever density it is drawn
+ * src/ui/moireScreenTile.ts) and is therefore as wide as the screen is at whatever density it is drawn
  * at, exactly as the crawl is. A fifth of one a second is a drift the eye reads as the field
  * sliding under everything standing on it rather than as a scroll — slow, because the whole of what
  * the reading says is a long tail, and a long tail is a slow wide drift.

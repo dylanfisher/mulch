@@ -1,22 +1,25 @@
 /**
- * @role What a still is on this bench: the four of them by name, the scale their marks are stated
+ * @role What a still is on this bench: the three of them by name, the scale their marks are stated
  *   at, the five stops each is read along, the one dial each is turned under, and the print every
  *   one of them is drawn through — a deterministic grain and a vignette, which is the half of a
- *   film still that belongs to the film rather than to the field. The vocabulary the four fields
- *   share, written once so no two of them can disagree about what a grain is (principle 1).
- * @instead The four fields themselves → src/ui/sketch/sketchStillField.ts. The nine drift fields
+ *   film still that belongs to the film rather than to the field. The vocabulary the fields
+ *   share, written once so no two of them can disagree about what a grain is (principle 1). The
+ *   fourth was the poppies, and it left the bench when it shipped as the bloom (0332).
+ * @instead The three fields themselves → src/ui/sketch/sketchStillField.ts. The two noises two of
+ *   them are drawn from → src/lib/moireNoise.ts. The nine drift fields
  *   these stand beside, and the scale they borrow → src/ui/sketch/sketchDrift.ts. The canvas one is
  *   written through, and the ramp it is read through → src/ui/sketch/SketchDriftStage.tsx. The four
  *   grounds that ship, which these push past → src/ui/scene/.
  */
+import { hash2 } from "@/lib/moireNoise";
 import { clamp } from "@/lib/range";
 import type { SketchDial } from "@/ui/sketch/sketchDrift";
 import { SCENE_BENCH_PX } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 import type { SketchStop } from "@/ui/sketch/SketchDriftStage";
 
-/** The four film stills the bench answers, one name each. */
-export const STILL_NAMES = ["poppies", "glint", "seedheads", "skylight"] as const;
+/** The film stills the bench still answers, one name each. */
+export const STILL_NAMES = ["glint", "seedheads", "skylight"] as const;
 
 export type StillName = (typeof STILL_NAMES)[number];
 
@@ -25,9 +28,6 @@ export type StillName = (typeof STILL_NAMES)[number];
  * borrowed rather than restated so a mark that reads at 1:1 here reads at 1:1 in a tile (0329).
  */
 export const STILL_PX = SCENE_BENCH_PX;
-
-/** The picture's own size at that scale, in those pixels: what a mark is measured against. */
-export const STILL_WIDE = FIELD_ASPECT * STILL_PX;
 
 /**
  * The five stops each still is read along, as the classes its legend chips are drawn in — every one
@@ -48,20 +48,12 @@ export const STILL_WIDE = FIELD_ASPECT * STILL_PX;
  * warm end to end now, and its stalks are the dark olive its first stop mixes toward — the colours a
  * still does not use cost it as much as the ones it does.
  *
- * **Five, and none of them the caller's own ink.** A shipped scene's middle stop is `null`, which
- * is whatever ink its caller resolved (`sceneStops`, src/ui/moireScreen.ts); a bench picture has no
- * caller, and drawing that stop as the box's own foreground would flip the middle of every ramp
- * with the scheme. So a still names all five, which is also what lets four pictures on one page
- * hold four palettes rather than four settings of one.
+ * **Five, and none of them the caller's own ink.** A bench picture has no caller, and drawing a
+ * stop as the box's own foreground would flip the middle of every ramp with the scheme. So a still
+ * names all five — and since 0332 so does every shipped scene, for the same reason read at the
+ * scale of a tile.
  */
 export const STILL_STOPS: Readonly<Record<StillName, readonly SketchStop[]>> = {
-  poppies: [
-    { name: "shade", chip: "bg-(--scene-canopy-dark)" },
-    { name: "stem", chip: "bg-(--screen-green)" },
-    { name: "throat", chip: "bg-(--drift-hot)" },
-    { name: "petal", chip: "bg-(--screen-red)" },
-    { name: "edge", chip: "bg-(--scene-canopy-lit)" },
-  ],
   glint: [
     { name: "deep", chip: "bg-(--scene-water-deep)" },
     { name: "swell", chip: "bg-(--drift-cool)" },
@@ -89,52 +81,13 @@ export const STILL_STOPS: Readonly<Record<StillName, readonly SketchStop[]>> = {
  * The one dial each still is turned under. Every one of them is a **phase**, nought to one and back
  * to where it started, because that is the only motion the real painter has: the screen carries no
  * clock and every term in it rides a row's own phase (0126). What differs is where each rests, so
- * four pictures on one page do not all open at the same moment of their own gust.
+ * the pictures on one page do not all open at the same moment of their own gust.
  */
 export const STILL_DIALS: Readonly<Record<StillName, SketchDial>> = {
-  poppies: { min: 0, max: 1, step: 0.02, rest: 0.3 },
   glint: { min: 0, max: 1, step: 0.02, rest: 0.44 },
   seedheads: { min: 0, max: 1, step: 0.02, rest: 0.16 },
   skylight: { min: 0, max: 1, step: 0.02, rest: 0.6 },
 };
-
-/**
- * A value in nought to one from two whole numbers — the stand-in for a seed, so a head bobs out of
- * phase with its neighbour and a seed catches the light where the one beside it does not. Written
- * rather than drawn from a generator for the fake walk's reason: two shots of one still have to be
- * the same picture (0247).
- */
-export function hash2(a: number, b: number): number {
-  const mixed = Math.sin(a * 127.1 + b * 311.7) * 43_758.545_3;
-  return mixed - Math.floor(mixed);
-}
-
-/**
- * Smooth value noise, sampled anisotropically: one cell is `wide` of the scale's pixels across and
- * `tall` of them down, so a field of it reads as **fibres lying one way** rather than as blobs.
- * Four hashed corners with a smooth step between them — the cheapest thing that is soft everywhere,
- * has an edge nowhere, and repeats nowhere.
- *
- * **Two of the four stills need this and no product of gratings can give it.** A mass of grass and a
- * wall of leaf are textures with no spacing in them; two gratings crossed always have one, and what
- * comes out is a comb, a herringbone or a moiré — which this bench already has nine pictures of.
- * The other two stills stay on gratings, because a ripple and a lattice of poppies do have a pitch.
- */
-export function streakAt(across: number, down: number, wide: number, tall: number): number {
-  const gx = across / wide;
-  const gy = down / tall;
-  const ix = Math.floor(gx);
-  const iy = Math.floor(gy);
-  const fx = gx - ix;
-  const fy = gy - iy;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const a = hash2(ix, iy);
-  const b = hash2(ix + 1, iy);
-  const c = hash2(ix, iy + 1);
-  const d = hash2(ix + 1, iy + 1);
-  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-}
 
 /**
  * The print: how much grain is laid over a still, how far the corners fall away, and how many grains
@@ -155,7 +108,7 @@ const PRINT = { grain: 0.035, fall: 0.13, per: 2 };
  * One still's ramp position, printed: dimmed toward the corners and shaken by a grain. **This is
  * the film and not the field** — a vignette is the lens and a grain is the stock, and neither is
  * anything a meadow or a canopy does — so it is one term the four share and the one thing on these
- * pictures that would not land in `build` (src/ui/moireScreen.ts) with the rest of them.
+ * pictures that would not land in `build` (src/ui/moireScreenTile.ts) with the rest of them.
  *
  * Laid on the ramp position rather than on the finished pixel, which is what makes it cheap: a
  * grain that darkened a pixel would have to know the ink, and a grain that slides the read along the

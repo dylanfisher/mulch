@@ -21,12 +21,13 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
-import { YARD_SCENE_REST } from "@/lib/yardScene";
+import { SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
+import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
-import { arrivedInk, PRODUCT } from "@/ui/moireCanvasPainted";
+import { arrivedInk, PRODUCT, resolvedInk } from "@/ui/moireCanvasPainted";
+import { bandTurns, termTurns, SCREEN_TERMS } from "@/ui/moireScreen";
 import {
   bandKeep,
-  bandTurns,
   beatPx,
   channelAt,
   blobKeep,
@@ -37,11 +38,10 @@ import {
   rowKeep,
   rowPitchPx,
   scanKeep,
-  termTurns,
+  sceneHue,
   tilePx,
   SCREEN_FLOOR,
-  SCREEN_TERMS,
-} from "@/ui/moireScreen";
+} from "@/ui/moireScreenTile";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 import { tintRest } from "@/ui/moireTint";
@@ -69,21 +69,6 @@ const claiming = (term: (typeof SCREEN_TERMS)[number], over: Partial<MoireRow> =
 
 /** Where the painter put the screen for one fill: the whole matrix, not just how far it rolled. */
 type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
-
-/**
- * What the theme resolved a colour the painter asked for to. The three channels are distinct and
- * primary on purpose: a test that gave them one colour could not tell a fringe from a tint.
- */
-function resolved(css: string): [number, number, number, number] {
-  if (css.includes("--screen-red")) return [255, 0, 0, 255];
-  if (css.includes("--screen-green")) return [0, 255, 0, 255];
-  if (css.includes("--screen-blue")) return [0, 0, 255, 255];
-  // The two inks the picture travels between: distinct from each other and from the resting ink
-  // below, or a test could not tell a picture that travelled from one that did not (0141).
-  if (css.includes("--drift-hot")) return [240, 40, 40, 255];
-  if (css.includes("--drift-cool")) return [40, 80, 240, 255];
-  return [200, 120, 40, 255];
-}
 
 /**
  * A colour no other painting in this file asked for. The painter holds its tiles by what they are
@@ -119,7 +104,7 @@ function tileStub() {
         setTransform: () => {},
         createPattern: () => ({ setTransform: () => {} }),
         getImageData(): { data: Uint8ClampedArray } {
-          return { data: Uint8ClampedArray.from(resolved(this.fillStyle)) };
+          return { data: Uint8ClampedArray.from(resolvedInk(this.fillStyle)) };
         },
         createImageData: (w: number, h: number) => ({
           width: w,
@@ -164,6 +149,7 @@ function paintedOn(
   ink?: ScreenInk,
   wind = 0,
   color = nextColor(),
+  yard: Readonly<YardScene> = YARD_SCENE_REST,
 ) {
   const { create, taken, tile } = tileStub();
   const made: { moves: Move[]; pattern: unknown }[] = [];
@@ -214,10 +200,10 @@ function paintedOn(
     [],
     shapeRest(),
     tintRest(),
-    // Every case here paints the one scene that rests on the caller's own resolved ink, so what the
-    // film does to the picture is read against the picture the instrument drew before it had scenes
+    // Every case but the scene's own paints the meadow, whose ramp is the two inks, two channels
+    // and the primary the picture was read along before a yard's name said which field it stood in
     // (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
-    YARD_SCENE_REST,
+    yard,
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
@@ -575,33 +561,42 @@ describe("moireScreen", () => {
 
   // P283: pop's saturation, the one thing about the picture's colour that no row claims.
   it("saturates the ink a standing look asks for, without moving what the cell averages to", () => {
-    // The whole reading, over one tile: how far the three channels of a pixel stand apart, and how
-    // much ink the tile carries in total. A saturated picture says the same colour more strongly —
-    // each third of a cell purer in its own channel — so the first moves and the second does not.
-    const measured = (saturate: number): { spread: number; total: number } => {
+    // The whole reading, over one tile: how much of each pixel stands on the channel its own third
+    // of the cell lights, and how much ink the tile carries in total. A saturated picture says the
+    // same colour more strongly — each third purer in its own channel — so the first moves and the
+    // second does not.
+    const measured = (saturate: number): { purity: number; total: number } => {
       vi.stubGlobal("devicePixelRatio", 2);
+      const pitch = gridPitchPx(2);
       const { written } = paintedOn(200, 640, [row({ period: 3 })], {
         ...screenInkRest(),
         saturate,
       });
       const pixels = written?.data ?? new Uint8ClampedArray();
-      let spread = 0;
+      const width = written?.width ?? 1;
+      let purity = 0;
       let total = 0;
       for (let at = 0; at < pixels.length; at += 4) {
         const red = pixels[at] ?? 0;
         const green = pixels[at + 1] ?? 0;
         const blue = pixels[at + 2] ?? 0;
-        spread += Math.max(red, green, blue) - Math.min(red, green, blue);
-        total += red + green + blue;
+        const sum = red + green + blue;
+        // How much of this pixel stands on the channel its own third of the cell lights. The share
+        // and not the plain spread between the three: since 0332 the ink under the fringe is the
+        // scene's ramp read per pixel rather than one colour, so a pixel already sitting on a
+        // saturated stop has a wide spread the fringe did nothing to (`ramp`, src/ui/scene/).
+        const own = [red, green, blue][channelAt((at / 4) % width, pitch)] ?? 0;
+        purity += sum > 0 ? own / sum : 0;
+        total += sum;
       }
-      return { spread, total };
+      return { purity: purity / (pixels.length / 4), total };
     };
     const rest = measured(0);
     const lit = measured(1);
     const half = measured(0.5);
-    expect(lit.spread).toBeGreaterThan(rest.spread);
-    expect(half.spread).toBeGreaterThan(rest.spread);
-    expect(half.spread).toBeLessThan(lit.spread);
+    expect(lit.purity).toBeGreaterThan(rest.purity);
+    expect(half.purity).toBeGreaterThan(rest.purity);
+    expect(half.purity).toBeLessThan(lit.purity);
     // And the cell still comes back very nearly to the ink that was sent, which is what a subpixel
     // is (0130): each third gains in its own channel exactly what it gives up in the other two, at
     // any saturation. Nearly, and not exactly, because a purer third is a brighter one and a pixel
@@ -662,11 +657,10 @@ describe("moireScreen", () => {
     expect(new Set(lattices).size).toBe(3);
   });
 
-  it("reads the picture's ink along a ramp of five, and none of the stops at rest", () => {
-    // The fourth crossing of the colour boundary (0141), read along the structure bench's ramp
-    // (0301): a claiming value carries the ink its caller resolved through the green channel to
-    // the cool token one way and through the red channel to the hot one the other, so a yard can
-    // be cool where another is hot and each passes through a stop between.
+  it("reads the scene's own five stops per pixel, and slides the whole field with the travel", () => {
+    // The fourth crossing of the colour boundary (0141), read along the scene's own ramp (0301,
+    // 0329) — and since 0332 read **per pixel**, so one tile holds both ends of that ramp at once
+    // and the travel is an offset on where the ground already put each pixel.
     // Through an ink standing at `hue` and not through a claim of it: a claim is spent against the
     // age and the orbit (`agedHue`), and this case is about where on the ramp a hue is read.
     const meanOf = (hue: number, channel: number): number => {
@@ -680,17 +674,59 @@ describe("moireScreen", () => {
       for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
       return total / (pixels.length / 4);
     };
-    // The theme's cool ink is blue where the resting one is amber, and its hot one is redder.
+    // The travel slides the field down its ramp toward the cool end and up it toward the hot one:
+    // the meadow's is cool, green, the picture's own ink, red and hot, in that order.
     expect(meanOf(0, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
     expect(meanOf(1, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
-    // At rest no token is reached at all: the picture is the ink its caller resolved (0130).
-    expect(meanOf(DRIFT_REST.hue, 0)).toBeGreaterThan(meanOf(0, 0));
-    // A quarter of the way along is the stop between, which is the green channel's token: greener
-    // than rest, than the cool end, and than the far side of the ramp, where the red channel's is.
-    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 1));
-    expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(0, 1));
+    // And it slides it and never replaces it: at rest the field is already spread across its own
+    // ramp, so the picture is greener at rest than at either end, where the travel has carried the
+    // whole of it past the stop the strokes were reading.
+    expect(meanOf(DRIFT_REST.hue, 1)).toBeGreaterThan(meanOf(1, 1));
     expect(meanOf(0.25, 1)).toBeGreaterThan(meanOf(0.75, 1));
     expect(meanOf(0.75, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
+  });
+
+  it("carries a claim by one stop of the ramp and no further", () => {
+    // A field that is already two hues at full strength has one stop of travel to spend and not
+    // four: the read was the picture's only colour when a scene was read once a tile, and it is an
+    // offset on the ground now (0332). One stop is a quarter of a ramp of five.
+    const stop = 1 / (SCENE_RAMP_STOPS - 1);
+    expect(sceneHue(0.5, 1) - sceneHue(0.5, DRIFT_REST.hue)).toBeCloseTo(stop, 12);
+    expect(sceneHue(0.5, DRIFT_REST.hue) - sceneHue(0.5, 0)).toBeCloseTo(stop, 12);
+    // And where the ground put the pixel is where a picture nobody has claimed a colour for reads.
+    expect(sceneHue(0.2, DRIFT_REST.hue)).toBe(0.2);
+    // Off either end it holds rather than wrapping: a claim past the ramp is the ramp's last stop.
+    expect(sceneHue(0.95, 1)).toBe(1);
+    expect(sceneHue(0.05, 0)).toBe(0);
+  });
+
+  it("reads two places of one tile in two inks, and spends none of the alpha doing it", () => {
+    // The whole of 0332 in one case: a head is scarlet and the ground between two heads is green,
+    // inside one tile, and the tile's alpha is the film's alone — so a bloom takes exactly as much
+    // of the picture's ink as a meadow does, and `SCREEN_FLOOR` holds for every scene there is.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const readings = SCENE_NAMES.map((scene) => {
+      const { written } = paintedOn(200, 640, [row({ period: 3 })], undefined, 0, nextColor(), {
+        ...YARD_SCENE_REST,
+        scene,
+      });
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      const inks = new Set<string>();
+      for (let at = 0; at < pixels.length; at += 4) {
+        inks.add(`${pixels[at]},${pixels[at + 1]},${pixels[at + 2]}`);
+      }
+      return { scene, inks: inks.size, keep: tileKeep(pixels) };
+    });
+    const meadow = readings[0]?.keep ?? 0;
+    for (const { scene, inks, keep } of readings) {
+      // Two pixels of one tile in different places on the ground are read in different inks.
+      expect(inks, `${scene} is one ink`).toBeGreaterThan(1);
+      // The floor holds for every scene, and every scene keeps the same ink the meadow does: the
+      // ground no longer appears in the alpha at all, which is the case 0331's canopy said did not
+      // exist (`SCREEN_FLOOR`).
+      expect(keep, `${scene} is under the floor`).toBeGreaterThan(SCREEN_FLOOR);
+      expect(keep, `${scene} takes a different share of the ink`).toBeCloseTo(meadow, 12);
+    }
   });
 
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {

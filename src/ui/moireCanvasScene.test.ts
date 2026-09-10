@@ -14,7 +14,7 @@ import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
-import { beatPx, gridPitchPx } from "@/ui/moireScreen";
+import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -31,7 +31,7 @@ const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })]
 
 /**
  * The screen's own tile out of one painting: the surface a beat cell wide, which is the only one
- * the screen writes a pixel field into (`beatPx`, src/ui/moireScreen.ts). Exactly one write, which
+ * the screen writes a pixel field into (`beatPx`, src/ui/moireScreenTile.ts). Exactly one write, which
  * is the rule the third case below is about — the loop over a tile's pixels runs on a rebuild and
  * never on a frame (0129).
  */
@@ -92,10 +92,34 @@ describe("the picture is the field its name says", () => {
     // the cache and only the second one is about the counter.
     const yard = yardScene("Quiet Heather by the Gate in Frost");
     const first = tileOf(paintingOf(yard));
-    setTuning("meadow.depth", 0.4);
+    setTuning("meadow.stroke", 6);
     expect(tileOf(paintingOf(yard))).not.toEqual(first);
     resetTuning();
     expect(tileOf(paintingOf(yard))).toEqual(first);
+  });
+
+  it("lays down a bloom whose pixels span more than one of its own stops", () => {
+    // The whole of 0332 through the painter: the bloom's ramp is read per pixel, so one tile holds
+    // a scarlet head and a green stem at full strength — and not one ink the ground dimmed. The
+    // stops are src/ui/scene/bloom.ts's own, resolved by the recorder (`resolvedInk`).
+    const pixels = tileOf(paintingOf(yardScene("Quiet Foxglove by the Shed")));
+    let heads = 0;
+    let stems = 0;
+    for (let at = 0; at < pixels.length; at += 4) {
+      const red = pixels[at] ?? 0;
+      const green = pixels[at + 1] ?? 0;
+      if (red > green + 60) heads += 1;
+      if (green > red + 60) stems += 1;
+    }
+    // A twentieth of the tile each way: a picture with a handful of red pixels in it is a fringe,
+    // and what this claims is a field of heads standing in a field of stems.
+    const share = pixels.length / 4 / 20;
+    expect(heads, "the bloom has no heads").toBeGreaterThan(share);
+    expect(stems, "the bloom has no stems").toBeGreaterThan(share);
+    // And the meadow, painted through the same recorder, is not that picture: the two grounds read
+    // their own ramps and neither is the other's.
+    const meadow = tileOf(paintingOf(yardScene("Quiet Heather by the Shed")));
+    expect(meadow).not.toEqual(pixels);
   });
 
   it("writes the ground on a rebuild and never on a frame", () => {

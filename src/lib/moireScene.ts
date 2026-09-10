@@ -8,7 +8,7 @@
  *   along → src/ui/scene/, one file per name, and the registry that refuses them →
  *   src/ui/scene/scenes.ts. The reading of a yard's name into one of these →
  *   src/lib/yardScene.ts. The tile a scene's ground is written into, and the film over it →
- *   src/ui/moireScreen.ts. The shape this contract copies → src/lib/moireLook.ts.
+ *   src/ui/moireScreenTile.ts. The shape this contract copies → src/lib/moireLook.ts.
  */
 import { cosTurn } from "./moire.ts";
 
@@ -66,16 +66,21 @@ export const SCENE_LIGHT_TERMS: Readonly<Record<SceneLight, SceneLightTerms>> = 
   sun: { token: "--light-sun", amount: 0.35 },
 };
 
-/** How many stops a scene's ramp has, and the one of them that is the caller's own resolved ink. */
+/**
+ * How many stops a scene's ramp has. **None of them is the caller's own ink**: a scene names all
+ * five, as every still on the bench does (0331), because a ground that answers where on the ramp a
+ * pixel is read spends the whole of that ramp inside one tile — and a stop that flipped with
+ * whatever token a surface resolved would flip the middle of every picture with it (0332). A scene
+ * that wants the yard's own ink names the token the surface resolves it from.
+ */
 export const SCENE_RAMP_STOPS = 5;
-export const SCENE_RAMP_INK = 2;
 
 /**
  * What a scene reads to write one device pixel of the tile: the tile's own size, and how far the
  * yard's own wind leans the field. The size, because the tile is laid down as a repeating pattern
  * and every mark in it has to come round at its edges — a ground stated in absolute pixels would
  * ride a seam down the picture once a tile, which is the one artefact the film's own terms are
- * built to avoid (`beatPx`, `tilePx`, src/ui/moireScreen.ts). Neither of them is a clock: the
+ * built to avoid (`beatPx`, `tilePx`, src/ui/moireScreenTile.ts). Neither of them is a clock: the
  * ground is written on a rebuild and never on a frame (0129).
  */
 export type SceneTerms = {
@@ -85,17 +90,17 @@ export type SceneTerms = {
 };
 
 /**
- * One scene: the five stops its ink is read along, where on them a picture nobody has claimed a
- * colour for rests, how much of the tile's own alpha its ground may take, and the ground itself.
+ * One scene: the five stops its ink is read along, and the ground that says **where on them** a
+ * device pixel of the tile is read, nought to one.
  *
  * A stop is a token name and never a colour, for the reason `CHANNEL_TOKENS` are (0130,
- * docs/boundaries.md); the stop at `SCENE_RAMP_INK` is `null`, which is the caller's own resolved
- * ink, so a scene resting at its middle is the picture the instrument drew before it had scenes.
+ * docs/boundaries.md). The ground answers *where*, not *how much*: how solid a pixel is belongs to
+ * the film alone — the gratings, the beat, the blob and the band — so a canopy goes as dark as its
+ * own stops allow without spending a thing against `SCREEN_FLOOR` (0332). Neither a rest nor a
+ * depth stands beside it, because a ground that says where it rests needs neither.
  */
 export type Scene = {
-  readonly ramp: readonly (string | null)[];
-  readonly rest: number;
-  readonly depth: { readonly value: number };
+  readonly ramp: readonly string[];
   readonly ground: (x: number, y: number, terms: SceneTerms) => number;
 };
 

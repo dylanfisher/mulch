@@ -23,6 +23,45 @@ import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
  * about something other than the travel itself paints through it, and the travel's own cases hand
  * the painter an ink partway there instead.
  */
+/**
+ * What the theme resolved a token the painter asked for to. **Distinct per token, and that is the
+ * point**: since 0332 a scene's ground answers where on its own ramp a pixel is read and spends
+ * nothing of the tile's alpha, so a stub that answered one colour to every token would draw every
+ * scene as the same flat tile — the measurement that cannot fail this file's own `getImageData`
+ * note warns about, one contract further on. The three channels are primary and the rest are as far
+ * apart as the tokens they stand for, or a case could not tell a fringe from a tint, a cool scene
+ * from a warm one, or a meadow from a canopy.
+ *
+ * A token nothing here names is the caller's own resolved ink, which is the amber the picture is
+ * drawn in when nothing has claimed a colour.
+ */
+export function resolvedInk(css: string): [number, number, number, number] {
+  for (const [token, ink] of RESOLVED) if (css.includes(token)) return [...ink];
+  return [200, 120, 40, 255];
+}
+
+const RESOLVED: readonly (readonly [string, readonly [number, number, number, number]])[] = [
+  ["--screen-red", [255, 0, 0, 255]],
+  ["--screen-green", [0, 255, 0, 255]],
+  ["--screen-blue", [0, 0, 255, 255]],
+  // The two inks the picture travels between: distinct from each other and from the resting ink
+  // above, or a test could not tell a picture that travelled from one that did not (0141).
+  ["--drift-hot", [240, 40, 40, 255]],
+  ["--drift-cool", [40, 80, 240, 255]],
+  // The scene stops, each in the direction its own token goes: a deep and a lit water, and the dark
+  // of a leaf mass against the light that breaks through it.
+  ["--scene-water-deep", [20, 30, 90, 255]],
+  ["--scene-water-lit", [200, 230, 245, 255]],
+  ["--scene-canopy-dark", [20, 60, 30, 255]],
+  ["--scene-canopy-lit", [235, 220, 120, 255]],
+  // And the lights an air puts a scene under, each one a mix toward something the day is not.
+  ["--light-dusk", [130, 60, 40, 255]],
+  ["--light-moon", [110, 120, 160, 255]],
+  ["--light-frost", [210, 225, 235, 255]],
+  ["--light-rain", [120, 125, 135, 255]],
+  ["--light-sun", [235, 195, 90, 255]],
+];
+
 export function arrivedInk(rows: readonly MoireRow[], wash = 0, age = 0): ScreenInk {
   const ink = screenInkRest();
   // Saturated at nothing, because that term is the standing rack's looks' and no row's (0283): a
@@ -225,13 +264,11 @@ export function painterOn(stubGlobal: StubGlobal) {
         // The colour probe reading its own fill back, and the only read-back left in the painter:
         // nothing here measures a picture any more, the fractal being a row whose weight
         // `gratingDepth` already solves rather than a layer whose coverage had to be measured
-        // (0246). **A stub that answers 255 to a whole-picture read is a measurement that cannot
-        // fail**, and one stood behind 0245's own compensation for its whole life — so if anything
-        // ever reads a field back here again, it needs a stub that can say something else.
-        getImageData: () => {
-          const data = new Uint8ClampedArray(4);
-          data.set([200, 120, 40, 255], 0);
-          return { data };
+        // (0246). **A stub that answers one value to every read is a measurement that cannot
+        // fail**, and one stood behind 0245's own compensation for its whole life — so this answers
+        // per token (`resolvedInk`), which is what lets a case tell one scene's ramp from another's.
+        getImageData(): { data: Uint8ClampedArray } {
+          return { data: Uint8ClampedArray.from(resolvedInk(String(this.fillStyle))) };
         },
         fillRect(): void {
           fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha });

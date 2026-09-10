@@ -4,7 +4,7 @@
  *   the dial the picture is drawn under, and the one readout that says what the dial stands at.
  *   Eight pictures each opening their own canvas would be eight chances to read a token a ninth
  *   way — so the inks are read here, once, off the element the way the real painter reads them
- *   (`inkOf`, src/ui/moireScreen.ts), and never parsed.
+ *   (`inkOf`, src/ui/moireScreenTile.ts), and never parsed.
  * @instead The fields themselves → src/ui/sketch/sketchDrift.ts. The moves they are built out of →
  *   src/ui/sketch/sketchField.ts. The box, the ground bench's stage and the frame around every
  *   entry → src/ui/sketch/SketchFrame.tsx and src/ui/sketch/SketchStage.tsx.
@@ -20,7 +20,7 @@ import { cn } from "@/lib/cn";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { Slider } from "@/ui/components/slider";
 import { type Ink, ramp } from "@/lib/moireColour";
-import { inkOf } from "@/ui/moireScreen";
+import { inkOf } from "@/ui/moireScreenTile";
 import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
 
@@ -73,11 +73,14 @@ function paintField(
   if (width === 0 || height === 0) return;
   const image = context.createImageData(width, height);
   const { data } = image;
+  // One ink for the whole canvas: `ramp` fills the array it is handed rather than returning a fresh
+  // one, so a picture of a hundred thousand pixels allocates a ramp and no more (0332, 0070).
+  const pixel: Ink = [0, 0, 0, 0];
   let at = 0;
   for (let py = 0; py < height; py += 1) {
     const y = (py + 0.5) / height;
     for (let px = 0; px < width; px += 1) {
-      const pixel = ramp(stops, field((px + 0.5) / height, y, amount));
+      ramp(stops, field((px + 0.5) / height, y, amount), pixel);
       data[at] = pixel[0];
       data[at + 1] = pixel[1];
       data[at + 2] = pixel[2];

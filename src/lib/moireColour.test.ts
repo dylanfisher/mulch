@@ -9,19 +9,47 @@ import { describe, expect, it } from "vitest";
 import { DRIFT_REST } from "./moire.ts";
 import { INK_ORBIT_SECS, INK_WANDER, type Ink, orbitHue, ramp } from "./moireColour.ts";
 
+/** The three stops every case below reads through, dark to light with one warm stop between. */
+const STOPS: readonly Ink[] = [
+  [0, 0, 0, 255],
+  [100, 50, 0, 255],
+  [255, 255, 255, 255],
+];
+
+/** A fresh ink to read into, so one case cannot read what the case before it left behind. */
+const ink = (): Ink => [0, 0, 0, 0];
+
 describe("the ramp", () => {
   it("reads nought as the first ink and one as the last, and refuses a ramp of none", () => {
-    const stops: readonly Ink[] = [
-      [0, 0, 0, 255],
-      [100, 50, 0, 255],
-      [255, 255, 255, 255],
-    ];
-    expect(ramp(stops, 0)).toEqual([0, 0, 0, 255]);
-    expect(ramp(stops, 1)).toEqual([255, 255, 255, 255]);
-    expect(ramp(stops, 0.5)).toEqual([100, 50, 0, 255]);
-    expect(ramp(stops, 0.25)).toEqual([50, 25, 0, 255]);
-    expect(ramp(stops.slice(1, 2), 0.9)).toEqual([100, 50, 0, 255]);
-    expect(() => ramp([], 0)).toThrow("reads nothing");
+    expect(ramp(STOPS, 0, ink())).toEqual([0, 0, 0, 255]);
+    expect(ramp(STOPS, 1, ink())).toEqual([255, 255, 255, 255]);
+    expect(ramp(STOPS, 0.5, ink())).toEqual([100, 50, 0, 255]);
+    expect(ramp(STOPS, 0.25, ink())).toEqual([50, 25, 0, 255]);
+    expect(ramp(STOPS.slice(1, 2), 0.9, ink())).toEqual([100, 50, 0, 255]);
+    expect(() => ramp([], 0, ink())).toThrow("reads nothing");
+  });
+
+  it("fills the ink it is handed and hands that same array back", () => {
+    // One array a build and not one a pixel: the tile's own loop reads this width × height times,
+    // and a call that returned a fresh ink would allocate one of them per pixel against the one a
+    // build is allowed (0129, 0070, 0332).
+    const into = ink();
+    const read = ramp(STOPS, 1, into);
+    expect(read).toBe(into);
+    expect(into).toEqual([255, 255, 255, 255]);
+    // And refilled rather than added to: a second read leaves nothing of the first behind.
+    expect(ramp(STOPS, 0, into)).toEqual([0, 0, 0, 255]);
+    expect(into).toEqual([0, 0, 0, 255]);
+  });
+
+  it("reads a value between two stops as a colour between them", () => {
+    const between = ramp(STOPS, 0.75, ink());
+    for (const channel of [0, 1, 2]) {
+      const low = STOPS[1]?.[channel] ?? 0;
+      const high = STOPS[2]?.[channel] ?? 0;
+      expect(between[channel], `channel ${channel}`).toBeGreaterThan(low);
+      expect(between[channel], `channel ${channel}`).toBeLessThan(high);
+    }
   });
 });
 

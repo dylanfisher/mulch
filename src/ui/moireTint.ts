@@ -6,18 +6,18 @@
  *   No bake a frame: the band is one tile written once a colour and moved on its own transform,
  *   exactly as the screen is (0129, 0070).
  * @instead The ramp itself, and the orbit the whole picture's ink runs on → src/lib/moireColour.ts
- *   and `sceneStops` in src/ui/moireScreen.ts, which this reads and never restates — the band is
+ *   and `sceneStops` in src/ui/moireScreenTile.ts, which this reads and never restates — the band is
  *   the yard's own scene's ramp, so the wash and the tile under it cannot disagree about what the
  *   ramp is (0329). The
  *   screen the band lies over → src/ui/moireScreen.ts. Where the reading rests → `MoireRowSet` in
  *   src/ui/moireRowsField.ts; keeping it across a rebuilt set → src/ui/moireCarry.ts.
  */
 import { DRIFT_DISPERSE_REACH, easedToward, type ScreenInk, wrap } from "@/lib/moire";
-import { ramp } from "@/lib/moireColour";
+import { type Ink, ramp } from "@/lib/moireColour";
 import { heardLevel } from "@/lib/moireSound";
 import { tunable } from "@/lib/moireTuning";
 import { denormalize } from "@/lib/range";
-import { inkOf, sceneStops } from "@/ui/moireScreen";
+import { sceneStops } from "@/ui/moireScreenTile";
 import { sceneOf } from "@/ui/scene/scenes";
 import type { YardScene } from "@/lib/yardScene";
 
@@ -123,7 +123,6 @@ const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
  */
 function bandFor(
   canvas: HTMLCanvasElement,
-  color: string,
   yard: Readonly<YardScene>,
   key: string,
 ): HTMLCanvasElement | null {
@@ -136,15 +135,18 @@ function bandFor(
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
   // The yard's own scene's five stops, read here and never restated (`sceneStops`,
-  // src/ui/moireScreen.ts): the band and the tile under it cannot disagree about what the ramp is.
+  // src/ui/moireScreenTile.ts): the band and the tile under it cannot disagree about what the ramp is.
   // Local, because what comes back is that module's own buffer — held past this call it would name
   // whatever the next tile's ramp is (0070 keeps the buffer; this keeps it out of two files).
-  const stops = sceneStops(sceneOf(yard.scene), yard, style, inkOf(color));
+  const stops = sceneStops(sceneOf(yard.scene), yard, style);
   const field = ink.createImageData(TINT_TILE_PX, 1);
   const pixels = field.data;
+  // One ink for the whole band, refilled at every step: `ramp` fills what it is handed rather than
+  // returning a fresh array, for the reason the tile's own loop needs it to (0332, 0070).
+  const read: Ink = [0, 0, 0, 0];
   for (let x = 0; x < TINT_TILE_PX; x++) {
     const along = x / TINT_TILE_PX;
-    const read = ramp(stops, along < 0.5 ? 2 * along : 2 - 2 * along);
+    ramp(stops, along < 0.5 ? 2 * along : 2 - 2 * along, read);
     const at = x * 4;
     pixels[at] = read[0];
     pixels[at + 1] = read[1];
@@ -168,11 +170,12 @@ function washOf(
   yard: Readonly<YardScene>,
 ): CanvasPattern | null {
   // The colour and the yard's own reading together: two yards in one colour stand in two fields,
-  // so one band cannot answer for both (0329).
+  // so one band cannot answer for both (0329). The colour is no longer a stop of the ramp since
+  // 0332 — it is the scheme's own stand-in here, the one thing that moves every token at once.
   const key = `${color}|${yard.scene}|${yard.light}`;
   const held = washes.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
-  const band = bandFor(canvas, color, yard, key);
+  const band = bandFor(canvas, yard, key);
   if (band === null) return null;
   const pattern = context.createPattern(band, "repeat");
   if (pattern === null) return null;

@@ -111,7 +111,7 @@ export const SKETCH_STRUCTURES: readonly StructureEntry[] = [
     trades:
       "the one-hue instrument, the same trade the drift bench's ramp names — and less of it, since the ramp is spent on one row and not on the picture. Five stops out of existing tokens spend no new colour; a sixth is a colour-boundary crossing with its own record (0236).",
     built:
-      "in build at src/ui/moireScreen.ts, where every pixel is multiplied by one row ink today: the fractal tile's own value is read through the ramp the drift bench's ramp sketch names, and every other row through the ink as now. Bake-side — the ramp is baked into the screen tile — and the frame still costs one fillStyle.",
+      "in build at src/ui/moireScreenTile.ts, where every pixel is multiplied by one row ink today: the fractal tile's own value is read through the ramp the drift bench's ramp sketch names, and every other row through the ink as now. Bake-side — the ramp is baked into the screen tile — and the frame still costs one fillStyle.",
     Content: SketchStructureColour,
   },
   {

@@ -289,7 +289,7 @@ export const DRIFT_PITCH_REACH = 1.35;
 
 /**
  * How far a value may stand the three channels of its row's ink apart, as a ratio on the lag the
- * picture rests at (`CHANNEL_LAG`, src/ui/moireScreen.ts). Nothing at one end — the three lattices
+ * picture rests at (`CHANNEL_LAG`, src/ui/moireScreenTile.ts). Nothing at one end — the three lattices
  * on top of each other, which is a row in one flat hue — and twice the resting lag at the other,
  * which is a third of a beat cell each and the furthest three lattices can stand before they begin
  * closing on each other again. So one knob's travel takes the picture from near-monochrome to

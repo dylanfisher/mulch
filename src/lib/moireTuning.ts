@@ -11,7 +11,7 @@
  *   worker runs — those are consts still, for the reasons beside them. A number a *tile* is baked
  *   under may be tunable, and a scene's are (0329), on one condition: what the tile is keyed by has
  *   to move when the number does, or the slider is answered out of a cache and does nothing
- *   (`tuned`, src/ui/moireScreen.ts).
+ *   (`tuned`, src/ui/moireScreenTile.ts).
  */
 import { clamp } from "./range.ts";
 

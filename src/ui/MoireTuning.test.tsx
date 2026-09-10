@@ -66,6 +66,22 @@ describe("DriftTuning", () => {
     }
   });
 
+  it("holds the poppy field's own numbers under the Bloom group", () => {
+    // The bloom is a poppy field since 0332, and what a hand argues on it is how far apart the
+    // heads stand at the top of a tile and at its foot, how wide a head is, and how far apart the
+    // stems run — the four the ground actually reads (src/ui/scene/bloom.ts).
+    const bloom = grouped(tunings()).find(({ group }) => group.title === "Bloom");
+    expect(bloom?.rows.map((row) => row.handle.id)).toEqual([
+      "bloom.far",
+      "bloom.near",
+      "bloom.head",
+      "bloom.stroke",
+    ]);
+    // And no scene declares a depth any more: how much of the tile's ink a ground takes is not a
+    // thing a ground says, the alpha being the film's alone.
+    expect(tunings().filter((handle) => handle.id.endsWith(".depth"))).toEqual([]);
+  });
+
   it("refuses a tunable with no words and words with no tunable", () => {
     const wordless = { id: "nobody.saysThis", rest: 0, min: 0, max: 1, step: 0.1, value: 0 };
     expect(() => grouped([...tunings(), wordless])).toThrow(

@@ -13,7 +13,6 @@ import {
   SCENE_LIGHTS,
   SCENE_LIGHT_TERMS,
   SCENE_NAMES,
-  SCENE_RAMP_INK,
   SCENE_RAMP_STOPS,
   SCENE_WINDS,
   SCENE_WIND_TERMS,
@@ -26,10 +25,9 @@ describe("the scene contract", () => {
     for (const bank of [SCENE_NAMES, SCENE_LIGHTS, SCENE_WINDS]) {
       expect(new Set(bank).size).toBe(bank.length);
     }
-    // The caller's own ink is a stop inside the ramp and not one of its ends: a scene resting there
-    // is the picture the instrument drew before it had scenes (0130, 0301).
-    expect(SCENE_RAMP_INK).toBeGreaterThan(0);
-    expect(SCENE_RAMP_INK).toBeLessThan(SCENE_RAMP_STOPS - 1);
+    // Five stops, which is what the ramp the picture's ink was read along has held since 0301 —
+    // and since 0332 every one of them is a token a scene names, none of them the caller's own ink.
+    expect(SCENE_RAMP_STOPS).toBe(5);
   });
 
   it("gives every light one token and one share, and the day neither", () => {
