@@ -149,625 +149,400 @@ number is 0332.
     - **A second painter per scene.** Rows, looks and lattice stay one painter's; a scene is a
       ground and a ramp.
 
-### Block: the instrument says more
+### Block: the name is the whole picture
 
-Five steps that each widen one thing a hand already has: the yard's name, the EQ card, the delay
-card, the motion menu and the spark row. None adds a tier, a command or a file outside the layout
-the thing already lives in. The order is decided: the name first, because bench-06 reads the air
-bank by its entries and should read the shape this step leaves; the two effect cards next, because
-the second reuses the choice control the first introduces nothing of but the delay's tap reuses the
-burst's arithmetic; the character and the sparks last, each alone in its module.
+The four scenes that landed in 0329 read as textures: a ground takes a sixth of a tile's alpha and
+its five stops are read once a tile, so every yard is one colour at a sixth strength under one fine
+grid. The four stills on the drift bench (`#/sketch`, entries 10–13, 0331) are the answer, and this
+block ships them: a scene is read along its own five stops **per pixel**, at full strength, and a
+field with no pitch in it is drawn with noise. A poppy field, black rippled water, backlit seed heads
+and a canopy from under it are what a Foxglove, a Reed, a Heather and a Willow stand in.
 
-bench-07 landed on 2026-09-08 as
-[0324](decisions/0324-a-place-and-an-air-are-a-word-drawn-against-a-noun.md); `YARD_PLACE_WORDS` ×
-`YARD_PLACE_NOUNS` and `YARD_AIR_WORDS` × `YARD_AIR_NOUNS` are joined by `joinedName` at the one
-mint site, over `twoPartName`; 24 places became 144 and 16 airs 32. The rule that a joining word
-must read against every noun of its family is what sized the two word banks: six for the place (by,
-beside, near, past, behind, beyond) and two for the air (in, through). Review read the product aloud
-and caught the air's first bank saying "through Frost" and "toward Low Sun", so the air is a medium
-now — its words are the two that cross the whole bank, and the two nouns that were moments are
-spelled as mediums, "Falling Dusk" and "Low Sunlight". bench-06 still reads the air by its nouns,
-and its own paragraph names those two by their new spelling.
+And every phrase the mint writes reads into the picture. Today three of the seven banks read —
+the plant, the air's noun and the adjective — and the place, the air's joining word and the detail
+read nothing (src/lib/yardScene.ts). By the end of this block a name is read whole, one table per
+bank and never a hash (0329):
 
-bench-08 landed on 2026-09-08 as
-[0325](decisions/0325-a-choice-is-picked-by-name-and-the-eq-ships-as-a-filter.md);
-`ParamDeclaration` gains `choices`, refused at `defineEffect` for a list that disagrees with the
-steps, and `ParameterChoice` draws such a parameter as a select in the knob's place — the same
-column, caption and `data-automation` mark, and the same `param.set`. The EQ/Filter ships as a
-low-pass at a kilohertz, its shape picked from Peak, Low-pass, High-pass and Band-pass, and its
-presence moved to the frequency: silent at 20kHz, full at 500Hz, the shape still held. Two things
-the step's own text asked for could not stand: "EQ Gain" becomes "Band Gain" rather than "Gain",
-because two automatable parameters may not share a label and the yard's own Gain has it
-(src/audio/params.ts) — §4; and the two smoke renders that measured a peaking band now say
-`eq.shape` 0 rather than lean on the default. bench-09 reuses the declaration-keyed control this
-step introduced, by the same rule and in the same place.
+| Phrase                              | Bank                        | Reading  | What it does to the picture                                             |
+| ----------------------------------- | --------------------------- | -------- | ----------------------------------------------------------------------- |
+| Windy, Hushed, Wild…                | `YARD_ADJECTIVES_BY_WIND`   | `wind`   | lean baked, sway on the frame — and a gust that travels (step 7)        |
+| Foxglove, Reed, Heather, Willow…    | `YARD_PLANTS_BY_SCENE`      | `scene`  | which still the picture is                                              |
+| by, beside · near, past · behind…   | `YARD_PLACE_WORDS_BY_REACH` | `reach`  | how close the frame stands: the marks' period and the structure's size  |
+| the Old Wall, the Stairs, the Gate… | `YARD_PLACE_NOUNS_BY_STAND` | `stand`  | the one large thing standing in the field, as the shadow it casts       |
+| in · through                        | `YARD_AIR_WORDS_BY_SPREAD`  | `spread` | whether the light is a wash or falls through the field from one edge    |
+| Falling Dusk, Moonlight, Frost…     | `YARD_AIR_NOUNS_BY_LIGHT`   | `light`  | the token every stop is mixed toward                                    |
+| with Moths, with a Bell…            | `YARD_DETAILS_BY_SPECKS`    | `specks` | the bright points: the still's own, a flock that comes and goes, or one |
 
-bench-09 landed on 2026-09-08 as
-[0326](decisions/0326-a-tapped-parameter-is-declared-and-drawn-by-the-rack.md); `ParamSpec` gains
-`beat?: true`, `delay.time` declares it and nothing else does, and `ParameterBeat` draws the burst
-row's own tap and hold beside any dial whose parameter says so — the four exports of
-src/lib/playerBurst.ts imported as they are, and `defineEffect` refusing `beat` on a parameter that
-names its choices or runs outside `PLAYER_BURST_MIN`…`PLAYER_BURST_MAX`. The rounding is one
-optional `round` on `ParameterKnob`, applied to every value that dial writes, which the tap calls
-itself; the holds are a `paramKey`-keyed set the yard keeps beside its folds, and the master rack's
-bpm is nought, so there the tap works and the hold is greyed. Review moved three things off the
-step's own text: the two burst functions gained a `BurstBounds` so the hold answers inside the
-parameter's range and not the burst's, neither gesture sends a `gesture.end`, and the sounding beat
-is one `soundingBpm` rather than a second reading — all three below. The five browser-free cases the step
-asked of src/ui/EffectRack.test.tsx are in src/ui/ParameterBeat.test.tsx instead, because that file
-would otherwise have crossed the 800-line hard cap — §4.
+Gestural and digital, never literal, as before: a wall is a band of shade and a wren is a speck.
+The film — the gratings, the beat, the three channels, the band — stays exactly where 0329 left it,
+because the one thing this block changes about `build` is what colour a pixel is, never how much of
+it the gratings cut. **The scene becomes the colour and the film stays the alpha**, which is what
+lets a canopy go as dark as its stops allow without touching `SCREEN_FLOOR`.
 
-bench-10 landed on 2026-09-08 as
-[0327](decisions/0327-a-sixth-character-glides-with-the-variety-a-hand-has.md); `MOTION_CHARACTERS`
-gains **wander** after smooth, a region of `pace: [0.4, 2.5]`, `jitter: [0.5, 0.9]`,
-`reach: [0.3, 0.9]`, `glide: [0.7, 1]`, `flurry: [0, 0]`, with "Wander" and its sentence in the two
-total records of src/lib/copyMotion.ts. The menu offers it and the validator accepts it by mapping
-the list, as they already did. The one number moved off the step's own text is the flurry: `move`
-takes the flurry branch before it reads `glide`, and that branch lays a hold and a jump one gap
-apart, so a name that says "never a step" cannot carry a flurry of `[0, 0.1]` — §4. Review found the
-step's second test asserting a per-seed win the numbers do not always give — a smooth lane lays as
-few as six gaps, and at a span of 9.5 seed 1 hands smooth the wider spread — so the unevenness is
-read as a mean over 64 seeds at three spans, and what the jitter itself contributes is said once
-against the region rather than measured through a lane.
+**Layout, before the first step.** `build` and the bake beside it leave src/ui/moireScreen.ts,
+which stands at 739 lines, for `src/ui/moireScreenTile.ts` — a split and not a shave, and the first
+step pays it (at-the-cap rule, docs/map.md). The noise two stills are made of is
+`src/lib/moireNoise.ts` beside src/lib/moireGrain.ts, lifted from `streakAt` and `hash2` in
+src/ui/sketch/sketchStill.ts and imported by both. Each still's field moves **into** its scene file
+under src/ui/scene/ — the still is the scene, not a sketch of one — and the bench's entries 10–13 go
+when their scene lands, the entries 06–09 drawing the shipped scene through its own stops (0247).
+The structure a place noun names is one ground shared by every scene, `src/lib/moireStand.ts`, and
+not a term per scene file. New readings go into src/lib/moireScene.ts as the three there did: a
+`const` list, a type off it, a terms record, and the grouping of the bank in src/lib/copyYard.ts
+flattened by `banked`. A new stop is a token in src/ui/tokens.css, registered with `@property`
+like the twelve there, named `--scene-<name>-<stop>`, and there is no other file a colour may enter
+(0236). Every number a scene declares stays a `tunable("<scene>.<term>")` in its own group in
+src/lib/copyDriftGroups.ts, read inside the bake and so covered by `tuned` in the key (0329).
 
-bench-11 landed on 2026-09-09 as
-[0328](decisions/0328-a-landings-sparks-are-counted-and-spaced-by-one-delay.md); `SparkSpec` gains
-`sparkCount`, a whole 1…4 refused by the wire's own key set (0026), stepped in
-src/lib/playerKnobs.ts, captioned "Count" and drawn as the spark row's fourth dial. The walk draws
-one `travelFrom` per companion into `sparked.slots`, and `sparkStartOf` — the one arithmetic both
-the transport and the picture of the walk read — puts the last of them on the delay and the rest
-evenly before it, so the count is a rhythm and the 0175 bound is untouched. `sparkPosition` on the
-per-frame read became `sparkPositions`, refilled in place, and the peaks mount four cursors of
-which only the sounding ones show. Three things moved off the step's own text, all below: the
-count-1 stream golden and the transport's three cases are files of their own because
-src/lib/playerWalk.test.ts and src/audio/playerLanding.test.ts were each within a few lines of the
-hard cap; src/audio/player.ts crossed it, so the companions are built in
-src/audio/playerSparks.ts; and a spark may still land on its landing's own slot, so the walk case
-asserts the count and the grid rather than "none equal to its own".
+The order is decided: the contract first, on one scene, because every other step reads the ramp
+per pixel; the two grating stills next and the two noise stills after them, each pair sharing its
+maths; the place, then the air's word and the detail, because each adds a reading to a contract
+that has to hold every scene already; and the gust last, because it is the one step whose cost lands
+on the frame and the one that may not stand.
 
-1.  **A yard's place and its air are joined by a word drawn on its own.** _(bench-07, landed 0324)_ **Durable
-    shape moved: none.** A name is durable text bounded by `DURABLE_TEXT_MAX` (src/lib/guards.ts)
-    and stays so; only what the draw is made of changes, and every name already minted stays the
-    name it is.
+1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12)_
+    **Durable shape moved: none.** A name is a reading and nothing about the reading is stored
+    (0329).
 
-    **Two banks become four.** `YARD_PLACES` and `YARD_AIRS` (src/lib/copyYard.ts) are each a
-    joining word and a noun drawn together: "beneath the Stairs" becomes a draw of one word from
-    `YARD_PLACE_WORDS` — by, beneath, beside, under, behind, along, at, near, past, over, beyond,
-    within… — and one noun from `YARD_PLACE_NOUNS` — the Old Wall, the Stairs, the Stone Path…;
-    "at Dusk" a draw of one from `YARD_AIR_WORDS` — at, in, under, before, after, toward, through,
-    against — and one from `YARD_AIR_NOUNS` — Dusk, Soft Rain, Moonlight… Every joining word must
-    read against every noun of its own family: a word that reads with half the nouns ("over the
-    Stairs") is not in the bank, and the bank is chosen by reading the whole product aloud, not by
-    listing prepositions. The nouns are the entries the scene reads (bench-06), so a scene keys on
-    `YARD_AIR_NOUNS` and never on a joined phrase. The joining word opens lowercase and the noun
-    Titlecase, as the phrases do now (0059).
+    **The contract answers where, not how much.** `Scene.ground` (src/lib/moireScene.ts) returns
+    where on the scene's own ramp a device pixel is read, nought to one, instead of a share of the
+    tile's alpha; `depth` and `rest` go, since a ground that says where it rests needs neither. The
+    ramp is five token names and **none of them is `null`**: a scene names all its stops, as every
+    still does (0331), and `SCENE_RAMP_INK` and the registry's caller's-ink refusal go with it. The
+    yard's own hue travel is an offset on the read — `sceneHue` becomes
+    `clamp(ground + SCENE_HUE_REACH * (hue - DRIFT_REST.hue), 0, 1)` — so an effect claiming a hue
+    still slides the whole field along its ramp, and `SCENE_HUE_REACH` is now sized so a claim moves
+    the read by at most one stop, because a field that is already two hues has one stop of travel
+    to spend and not four.
 
-    **The draw is the same draw.** `mintYardName` joins the same three-then-two sequence on the same
-    coins; a place or an air is now two picks instead of one. The bound check stays where it is, and
-    the longest joining word plus the longest noun of each family is what the three-that-always-speak
-    proof is recomputed over.
+    **`build` reads the ramp in the pixel loop.** In `src/ui/moireScreenTile.ts`, the bake moved
+    whole out of src/ui/moireScreen.ts: `sceneStops` resolves the five stops and the light once a
+    tile as it does today, and the pixel loop reads `ramp` at the ground's position for every pixel,
+    into an out-parameter — `ramp(stops, value, into)` in src/lib/moireColour.ts fills a four-element
+    ink it is handed, because a build allocates one ramp and no more (0129, 0070) and the shape
+    today hands back a fresh array on every call. The alpha of the pixel is the film's alone:
+    `keep` is the row, the column, the blob and the band, and the scene's ground no longer appears
+    in it. The channel fringe still pushes each third of a cell onto its own channel of whatever ink
+    the ramp read.
+
+    **The bloom is the poppies.** `poppiesField` (src/ui/sketch/sketchStillField.ts) moves into
+    src/ui/scene/bloom.ts as its ground: heads at a period that grows down the tile, nine-cell
+    nearest-head read, stems leaning by `terms.lean`, every number a tunable in the Bloom group —
+    `bloom.far`, `bloom.near`, `bloom.head`, `bloom.stroke`. The period grows down the **tile** and
+    comes round at its foot by `sceneRepeat`, so the perspective is one tile deep and repeats: a
+    field seen in stripes a tile tall, each receding, which is the constraint every ground is under
+    (0329) and is judged at the crop. The bob rides no dial in the app — the ground has no phase —
+    and is refused below. The stops are the still's five, all existing tokens.
+
+    **The bench draws a scene through its own stops.** `SceneStage` (src/ui/sketch/drift/
+    SketchDriftScenes.tsx) hands `SketchDriftStage` the scene's `ramp` resolved as `SketchStop`s
+    instead of `inking="ink"`, so entry 07 is the shipped bloom in the shipped colours; entry 10
+    goes, with its field, its stops and its dial. `printed` stays on the bench for the three stills
+    still there: the print is the film's and not the field's, and it does not land (0331).
+
+    **The other three scenes hold under the new contract** by returning the value they return today
+    as a ramp position — the meadow's strokes read as a swing about the middle stop, the water's
+    and canopy's as they were — so this step ships one still and breaks nothing, and the next three
+    steps replace each in turn.
 
     **Stands on:**
-    - The five banks and the join are one file, and the join is called from the mint site only
-      (src/lib/copyYard.ts, src/ui/actions.ts:44, 0317).
-    - The tests already prove the banks' shape: no entry twice, Titlecase words, lowercase phrases,
-      the bound, and all five banks over enough runs (src/lib/copyYard.test.ts).
-    - bench-06 reads "Dusk, Moonlight, Frost, Soft Rain, Low Sun" as entries of the air bank, so the
-      noun bank is the one it should key on.
+    - The bench already reads a still's own stops per pixel and paints `ramp(stops, field(x, y))`
+      (src/ui/sketch/SketchDriftStage.tsx, 0331), so the app is catching up with a picture that
+      exists.
+    - `build` is one loop over the pixels and `sceneStops` is refilled in place
+      (src/ui/moireScreen.ts:534, :623); `ramp` allocates (src/lib/moireColour.ts:26).
+    - The floor is asserted on the tile's alpha (src/ui/moireScreen.test.ts:344, :615), and this
+      step takes the scene out of the alpha altogether.
+    - src/ui/moireScreen.ts is at 739 of 800 lines; the split is the layout paragraph's.
+    - The registry refuses a ramp that is not five stops and holds the `null` stop at
+      `SCENE_RAMP_INK` (src/ui/scene/scenes.ts).
 
-    **Outcome wanted:** a rack of eight yards whose places and airs repeat a noun without repeating
-    a phrase — "past the Stairs at Dusk", "beneath the Stairs toward Dusk" — and no pair of joining
-    word and noun that a reader stumbles on.
+    **Outcome wanted:** a yard named for a Foxglove is scarlet heads over green stems at full
+    strength, under the same fine grid, fringe and band every yard has, and every other yard looks
+    exactly as it did. A rack of six shows one red field among five textures. Adding a stop to a
+    scene is one token and one name in its ramp.
 
     **Tests that must fail first:**
-    - **src/lib/copyYard.test.ts**: the two joined families each have a words bank and a nouns
-      bank, the words all lowercase and the nouns all Titlecase after their article; over enough
-      runs one noun is seen under more than one joining word; the bound proof holds over the
-      longest word plus the longest noun of each family.
+    - **src/lib/moireColour.test.ts**: `ramp` fills the ink it is handed and hands the same array
+      back; a value between two stops is between them.
+    - **src/ui/scene/scenes.test.ts**: a ramp holding `null` is refused; a ramp of four stops is
+      refused; every scene's ground answers inside nought to one across a whole tile.
+    - **src/ui/moireScreen.test.ts**: two pixels of one tile in different places on the bloom's
+      ground are read in different inks; the tile's mean alpha is the same with the scene as
+      without it, for every scene in the contract, and `SCREEN_FLOOR` holds for every scene — the
+      case 0331's canopy said did not exist.
+    - **src/ui/moireCanvasScene.test.ts**: through the recorder, the bloom lays down a tile whose
+      pixels span more than one stop.
+    - **src/ui/sketch/SketchDrifts.test.tsx**: the bench holds one stage per scene, each read
+      through that scene's own stops, and no still by the name of a scene that has shipped.
+    - **src/ui/MoireTuning.test.tsx**: the Bloom group holds the poppies' numbers.
 
-    **Verification:** `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole. Then mint
-    forty names in a test log and read every one: this is the check a count cannot do.
+    **Verification:**
+    - `./scripts/fix`, `git diff --stat` for collateral, then `./scripts/check` read whole.
+    - `./scripts/drive --shot` of one yard named for a Foxglove, read at the 1:1 crop, and one
+      rack of six; and the bench at `--route '#/sketch'` to see 07 and 10 side by side before 10
+      goes. A tile a hundred pixels tall makes the perspective a stripe; judge whether it reads as a
+      field at the crop before tuning `bloom.near` down.
+    - `./scripts/profile`: a per-pixel `ramp` on the bake must not move the rebuild past what a
+      tint step costs today.
 
     **Refused:**
-    - **A word that only some nouns take.** Per-noun word lists are structure the name does not
-      need; a word that does not read everywhere is left out.
-    - **Joining the adjective or the plant.** Those two are one word each and already multiply.
-    - **A rename command.** A minted name stays what it is (0317).
+    - **A phase on the ground.** The bob is a dial on the bench and the bake has no clock (0126);
+      the heads stand and the film moves over them. A motion that needs a phase is step 7's.
+    - **The print.** A vignette and a grain are the lens, and a meadow has no lens (0331).
+    - **Keeping the caller's ink as a stop.** It was the one-hue instrument's identity, and 0331
+      already found a still cannot hold it; a scene that wants the yard's own ink names the token
+      the surface resolves it from.
+    - **Two tiles.** One bake, one `fillStyle`, one `fillRect` a frame (0070) is the rule this whole
+      block keeps.
 
-2.  **The EQ is the EQ/Filter, its shape is a choice a hand picks by name, and it ships as a
-    low-pass.** _(bench-08, landed 0325)_ **Durable shape moved: the default of `eq.shape` moves from peaking
-    to low-pass.** A stored value is still a whole number over `EQ_SHAPES`; a session built before
-    this step holds the same numbers and is read as it is (0026). Nothing else durable changes: the
-    id `eq` and the ids `eq.*` are keys and stay.
+2.  **The water is the glint.** _(bench-13)_ **Durable shape moved: none.**
 
-    **What the words say.** Everywhere a reader sees "EQ" they see "EQ/Filter": the entry's `label`
-    (src/audio/effects/eq.ts), the automator's weight label `auto.eq`
-    (src/audio/effects/automatorParams.ts), and the sentence under it (src/lib/copyParams.ts:112).
-    "EQ Gain" becomes "Gain". The name pools an instance is drawn from (src/lib/copyNames.ts) are
-    about shaping already and stay.
+    **Black water under a lattice of short glints, with blades and their broken reflections.**
+    `glintField` moves into src/ui/scene/water.ts as its ground: the ripple row, the second lattice
+    it beats against, the dash cut across at a phase of the row's own, the slow diagonal swell, and
+    the ten blades written by hand in the tile's own pixels — kept as written, because a still
+    argued at 1:1 has to be the same picture twice (0247), placed in the tile by
+    `sceneRepeat` so they come round. Tunables in the Water group: `water.ripple` and `water.beat`
+    (the two pitches, and the beat is their difference), `water.dash`, `water.swell`, `water.deep`.
 
-    **A choice is drawn as a choice.** `ParamDeclaration` (src/audio/effects/contract.ts) gains
-    `choices?: readonly string[]`: the name of each step from `min`, exactly `(max - min) / step +
-1` long, refused at `defineEffect` otherwise. A parameter with choices is drawn by the rack as
-    a select (src/ui/components/select.tsx) in the knob's place, its items the names, its value the
-    number — through the same `param.set` a knob sends, so it undoes, persists, archives and drives
-    exactly as a turn does (0089). It keeps the knob's label, its hover sentence and its
-    `data-automation` marks so ./scripts/smoke reads it as it reads a knob. `eq.shape` declares the
-    four names — Peak, Low-pass, High-pass, Band-pass — in `EQ_SHAPES`' own order, spelled once
-    beside the shapes in src/lib/biquad.ts so the picture and the card agree.
+    **The beat is one ground, not a second tile.** 0331 costed the glint as a second tile and a
+    second full-canvas fill, so a crest lit at one setting is dark at the next. It is refused: a
+    ground is a function of a pixel and both lattices are computed in it, so the beat is baked, and
+    what flickers is the film's own gratings crawling and breathing over it on the frame — the
+    instrument's subject read at the scale of a ripple, which is what the sketch said it was for.
 
-    **A low-pass by default, and the presence follows it.** `default` becomes the index of
-    `lowpass`. The presence pair is then wrong as it stands: a gain of nought is silent for the
-    peaking shape alone (0322), and the held shape is now a low-pass at 1 kHz, which is not a wire.
-    The presence moves to the frequency — `{ param: "eq.frequency", silent: 20_000, full: …,
-held: ["eq.shape"] }` — a low-pass whose edge stands above hearing is transparent, and an
-    automator-grown EQ/Filter now arrives as a sweep closing down from open, which is the sound a
-    filter is grown for. The `full` value is argued on the card and stated in the ADR. `eq.gain`
-    keeps its default of nought. The drift reading (`driftFrom`, `lookFrom`) is unchanged: the band
-    look already reads the shape (0322).
+    **A darker water is one token.** The deepest stop the instrument holds is `--scene-water-deep`
+    at a lightness of 0.42 (src/ui/tokens.css:106), and the still is near black. This step mints
+    `--scene-water-black` in tokens.css, registered like the rest — the layout paragraph's one door,
+    and the first time a scene opens it — and the water's ramp is black, deep, blue, blade, lit.
 
     **Stands on:**
-    - A discrete choice is a number stepped by one, and the shape is written onto the node's own
-      `type` (src/audio/effects/contract.ts:25, src/audio/effects/eq.ts, 0322).
-    - The four shapes are `EQ_SHAPES` in src/lib/biquad.ts, in the knob's order; `eqShapeAt`
-      refuses a value that names none.
-    - A face is keyed on what the plugin declares and never on its id (src/ui/EffectRack.tsx:172,
-      0055, 0205); a choice control keyed on a declaration is that rule kept.
-    - The presence names one parameter, its silent value and the parameters it holds
-      (src/audio/effects/contract.ts:165, 0202); the automator holds `held` parameters at their
-      default (src/audio/effects/automator.ts:100).
-    - A select exists and is in the gallery (src/ui/components/select.tsx,
-      src/ui/dev/InputsSection.tsx); a durable key stays what it is while the words change
-      (src/lib/copy.ts `@instead`).
+    - Step 1's contract, and the ground reading both lattices in one call
+      (src/ui/sketch/sketchStillField.ts, `glintField`).
+    - `sceneRepeat` snaps a mark's period onto the tile (src/lib/moireScene.ts), and a hand-placed
+      blade is a mark like any other.
+    - Every scene stop is a registered `@property` (src/ui/tokens.css:162).
 
-    **Outcome wanted:** the picker offers an EQ/Filter; a fresh one is a low-pass at 1 kHz, its
-    shape a dropdown reading "Low-pass" that a hand switches to "Peak" by name; an automator grows
-    one as a filter sweep; the old shape knob is nowhere.
+    **Outcome wanted:** a yard named for a Reed or a Rush is dark water at full strength with a few
+    green blades and glints along the ripples, and the glints shimmer as the film crawls.
 
     **Tests that must fail first:**
-    - **src/audio/effects/registry.test.ts**: an entry whose `choices` length disagrees with its
-      steps is refused at `defineEffect`.
-    - **src/audio/effects/eq.test.ts**: the shape declares four choices in `EQ_SHAPES`' order and
-      defaults to low-pass; the presence is silent at the top of the frequency with the shape held;
-      a built instance at defaults passes a low frequency and cuts a high one (through
-      `magnitudeDbAt`).
-    - **src/ui/EffectRack.test.tsx**: a parameter with choices is drawn as a select carrying the
-      knob's label and marks and sends `param.set` with the chosen index; one without is still a
-      knob.
-    - **src/ui/tooltips.test.ts** or the copy total it already keeps: every user-facing "EQ" reads
-      "EQ/Filter".
+    - **src/ui/scene/scenes.test.ts**: every token a scene names resolves in tokens.css, the new
+      one included; the water's ground reads at its first stop over most of the tile and at its top
+      stop somewhere.
+    - **src/ui/moireScreen.test.ts**: a water tile's median pixel is darker than a bloom's.
+    - **src/ui/sketch/SketchDrifts.test.tsx**: entry 11 is gone and 08 draws the shipped water.
 
-    **Verification:** `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole; the browser
-    smoke's EQ windows still pass at the moved default; one `./scripts/drive --shot` of a rack with
-    an EQ/Filter open, read at 1:1, so the select sits where the knob sat.
+    **Verification:** as step 1; the crop is judged at the ripple's own pitch, where the dash
+    either reads as a glint or as woven cloth.
 
     **Refused:**
-    - **Turning the panner's three 0/1 knobs into switches.** A second occurrence; a choice of two
-      is a knob until a third asks (principle 3).
-    - **A lane on the shape.** It is written to a string and takes no lane (0322).
-    - **A migration of stored shapes.** The numbers still name the same shapes; only the default
-      moved (0026).
+    - **A second tile and a second fill** (above).
+    - **A scattered blade.** Placed, or two shots disagree.
 
-3.  **A delay's time is tapped, and held to the beat.** _(bench-09, landed 0326)_ **Durable shape moved:
-    none.** The time stays `delay.time` in seconds; a tap and a hold are two more writers of it,
-    and the hold is runtime state the yard keeps beside its folds, as the burst's is.
+3.  **The meadow is the seed heads and the canopy is the light through it.** _(bench-14)_ **Durable
+    shape moved: none.**
 
-    **The declaration says it can be tapped.** `ParamDeclaration` gains `beat?: true`: this
-    parameter is a length of time in seconds a hand may tap out or hold to the beat. `delay.time`
-    declares it and nothing else does. A rack draws, beside any parameter that declares it, the
-    same tap and the same hold the mulcher's burst row draws (src/ui/PlayerDials.tsx,
-    src/ui/playerBurstControls.ts) — keyed on the declaration and never on the effect's id, the
-    rule every face already keeps.
+    **Two stills that are noise, not gratings.** `hash2` and `streakAt` leave the bench for
+    `src/lib/moireNoise.ts` — the precedent for a painter reading a hash a pixel at a time is
+    `grainTile` (src/lib/moireGrain.ts:40), and this is its second occurrence, so it is lifted rather
+    than copied. `seedheadsField` becomes the meadow's ground — four scales of streaked noise, the
+    stalks, the sparks, the mass held between two warm stops — and `skylightField` the canopy's —
+    four scales of leaf, the fall to the foot, the specks of sky where the leaf has thinned. Their
+    numbers are the Meadow and Canopy groups: `meadow.fibre`, `meadow.awn`, `meadow.stalk`,
+    `meadow.mass`; `canopy.crown`, `canopy.leaf`, `canopy.mass`, `canopy.thin`, `canopy.rare`.
 
-    **The arithmetic is the burst's.** `tapPress` and `tapBurst` are the tap; `beatBurst` with
-    `PLAYER_BEAT_DIVISIONS` is the hold — the beat and its halvings to a thirty-second, which at
-    any tempo an analysis produces lie inside the delay's own range (0.01…2 s). All four are
-    imported from src/lib/playerBurst.ts as they are; its `@role` line grows to say the delay
-    reads it too. A value written with the hold on is rounded before it is sent, through one place
-    in front of the card's `param.set`, the shape `heldPatch` already has; the knob, the readout
-    and the tap all pass through it.
+    **The lean is `terms.lean` and the gust is not here.** Both stills carry a gust that travels
+    across the picture as a wave under their dial. A bake has no phase, so both grounds take the
+    wind's lean as the meadow's grating did and a standing gust — the wave frozen at one phase, so a
+    field leans more here than there — and the travel is step 7's.
 
-    **The beat is the yard's.** The sounding tempo is the analysis's bpm at the deck's rate
-    (src/ui/PlayerCard.tsx:283); it reaches the effect card through the rack's `whose`, and the
-    rack that is no yard's has none (0320, 0321), so on the master rack the hold is refused and
-    the tap offered, exactly as on a deck with no grid.
+    **Noise comes round at the tile.** A hash does not repeat, and the tile does: the noise is
+    sampled on coordinates wrapped by `sceneRepeat`'s constraint — a cell count that divides the
+    tile on each axis, the way a grating's period is snapped — or a seam runs down the picture once
+    a tile at full contrast. This is the one new piece of maths in the step and it is in
+    moireNoise.ts, tested on its own.
+
+    **Two tokens.** A tan is a mix of two stops today and reads scarlet on its way down (0331); a
+    canopy's shade is `--scene-canopy-dark` at 0.38 and the still is darker. `--scene-meadow-tan`
+    and `--scene-canopy-shade` are minted in tokens.css and registered, and each ramp is rewritten
+    to hold what its picture uses and nothing it must not reach.
 
     **Stands on:**
-    - The tap and the hold are one hook with one rounding in front of the patch
-      (src/ui/playerBurstControls.ts); the arithmetic is pure (src/lib/playerBurst.ts).
-    - The sounding beat is computed once in the mulcher card (src/ui/PlayerCard.tsx:283) and would
-      be a second occurrence here: lift it to the yard's own read if the two would disagree.
-    - `delay.time` is one AudioParam with a log curve and a lane (src/audio/effects/delay.ts).
-    - The hold refuses a deck with no grid and offers the tap anyway
-      (src/ui/PlayerDials.test.tsx:107).
+    - The two fields as drawn (src/ui/sketch/sketchStillField.ts) and the argument that a mass
+      has no pitch (0331).
+    - `grainTile` bakes a hash a pixel at a time and holds it (src/lib/moireGrain.ts).
+    - The floor is asserted on alpha and the scene no longer touches alpha (step 1), so a canopy
+      may sit on its darkest stop.
 
-    **Outcome wanted:** four presses on the delay card's tap set its time to the interval tapped;
-    with the hold on, the time snaps to a sixteenth or an eighth of the yard's beat and stays there
-    when the knob is turned; on the master rack the tap works and the hold is greyed.
+    **Outcome wanted:** a yard named for a Heather is a warm tan mass with dark stalks through it,
+    one named for a Willow a dark green wall of leaf with pale specks in its upper half, both at full
+    strength, neither showing a seam at any tile join, and the four scenes together read as four
+    different photographs.
 
     **Tests that must fail first:**
-    - **src/audio/effects/registry.test.ts**: `beat` is accepted on a time parameter and refused
-      on a parameter with `choices` or without a seconds range.
-    - **src/audio/effects/delay.test.ts** (new): `delay.time` declares `beat` and the other two do
-      not.
-    - **src/ui/EffectRack.test.tsx**: a card whose parameter declares `beat` draws a tap and a hold
-      after the knob; the tap sends one `param.set` with the mean interval; with the hold on, a
-      turn of the knob sends the nearest division of the beat; on the master rack the hold is
-      disabled and the tap is not.
+    - **src/lib/moireNoise.test.ts** (new): a value at the tile's right edge equals the value at
+      its left; the noise is in nought to one; the same coordinates read the same value twice.
+    - **src/ui/scene/scenes.test.ts**: the meadow's median read sits between its second and fourth
+      stops; the canopy's sits at its lowest two.
+    - **src/ui/moireScreen.test.ts**: `SCREEN_FLOOR` holds on a canopy tile.
+    - **src/ui/sketch/SketchDrifts.test.tsx**: 12 and 13 are gone; `sketchStill.ts` and
+      `sketchStillField.ts` go with them, and the bench's second introduction says nine.
 
-    **Verification:** `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole; one
-    one-off Playwright run against the dev server that taps four times and reads the knob.
+    **Verification:** as step 1, and the crop at a tile join — the seam is the thing a whole-canvas
+    view cannot show.
 
     **Refused:**
-    - **A `delay.sync` parameter.** A durable division would be a second fact about the time that
-      can disagree with the seconds the graph plays (principle 1); the hold rounds what is written.
-    - **A tempo of the session's own.** The beat is the deck's analysis at its rate (0031).
-    - **Re-rounding on a rate change.** The burst does not; a held value is rounded when written.
+    - **A travelling gust** (step 7).
+    - **The print** (0331).
 
-4.  **A sixth character glides like Smooth and varies like Pulse.** _(bench-10, landed 0327)_ **Durable shape
-    moved: the set of names a stored `MotionDrawn.character` may hold gains one.** No field changes
-    (0314).
+4.  **The place reads: how close the frame stands, and what stands in the field.** _(bench-15)_
+    **Durable shape moved: none.**
 
-    **The region.** `MOTION_CHARACTERS` (src/lib/motion.ts) gains **wander**, between smooth and
-    pulse in the list: always a glide and never a step — `glide: [0.7, 1]`, `flurry: [0, 0.1]` — at
-    a pace and a reach that change move to move, `pace: [0.4, 2.5]`, `jitter: [0.5, 0.9]`,
-    `reach: [0.3, 0.9]`. What smooth lacks is variety and what pulse lacks is curve; this is the
-    curve with the variety. The numbers are the first draw, argued by ear on a filter frequency
-    and a delay time before they land; the bounds stay inside each dial's range so the arithmetic
-    never clamps.
+    **The joining word is the reach.** `SCENE_REACHES = ["close", "middle", "far"]` in
+    src/lib/moireScene.ts, and `YARD_PLACE_WORDS` becomes `YARD_PLACE_WORDS_BY_REACH` in
+    src/lib/copyYard.ts — by and beside are close; near and past are middle; behind and beyond are
+    far — flattened by `banked` like the adjectives, so a word exists in one place. `SCENE_REACH_TERMS`
+    is one number per reach, a scale on every mark's period: close multiplies the poppies' `near`
+    and the seed heads' cells up, far down. The reading rides `terms.reach` into every ground,
+    which is one multiply on the period each ground already snaps with `sceneRepeat`.
 
-    **The words.** `MOTION_CHARACTER_LABELS` and `MOTION_CHARACTER_TOOLTIPS` (src/lib/copyMotion.ts)
-    gain "Wander" and one sentence in the shape the five have. The menu offers it by being total
-    over the list (src/ui/MotionMenu.tsx); the validator accepts it by the same list
-    (`isMotionCharacter`).
+    **The noun is the stand.** `SCENE_STANDS = ["wall", "steps", "grille", "mass"]` and
+    `YARD_PLACE_NOUNS_BY_STAND`: the Old Wall, the Fence, the Hedge, the Low Bridge, the Garden
+    Seat are a **wall** — a band of shade across the tile at one height; the Stairs, the Cold Frame,
+    the Potting Bench, the Log Store, the Woodpile are **steps** — the tile cut into terraces
+    (sketch 03's move, landing here); the Greenhouse, the Gate, the Chicken Run, the Ivy Arch are a
+    **grille** — a coarse open lattice at many times the film's pitch; and the Shed, the Water Butt,
+    the Rain Barrel, the Old Pump, the Stone Trough, the Beehive, the Coal Bunker, the Compost
+    Heap, the Back Door, the Apple Tree are a **mass** — one upright column of shade standing to
+    one side. Each is a **shadow**: `standShade(x, y, terms)` in `src/lib/moireStand.ts` answers
+    nought to one and `build` pulls the ramp position toward the scene's first stop by it, so the
+    thing a yard stands by is drawn as the shade it casts on the field, in the field's own darkest
+    ink, and never as an object. The reach scales it: close is a wide soft shadow, far a thin one.
+
+    **`yardScene` reads both** the way it reads the plant, first match wins, and the mint's order
+    holds: the place word is drawn after the plant and before the air. `YardScene` gains `reach` and
+    `stand`, both in the tile's key.
 
     **Stands on:**
-    - A character is a region over five dials, drawn fresh per lane (src/lib/motion.ts:661).
-    - The labels and tooltips are total records checked in src/ui/tooltips.test.ts.
-    - A stored character is asserted against the list (src/lib/motion.ts:606, 0314).
+    - The banks and the join (src/lib/copyYard.ts, 0324): six words that each read against every
+      noun, and the nouns solid enough to stand on one side of — which is what a shadow needs.
+    - `readingOf` refuses a word read two ways (src/lib/yardScene.ts).
+    - The terrace's profile argument (src/ui/sketch/sketchEntries.ts, `terrace`), and its own
+      note that a riser aliases unless softened by a pixel.
+    - `TILE_CACHE` is spent across `(scene, light, wind)` triples (§4); this step multiplies the
+      triples by twelve and does not raise the cap.
 
-    **Outcome wanted:** a lane drawn in Wander on a filter frequency reads as a hand riding it —
-    slow here, quick there, never a step — where Smooth reads as one metronome of glides.
+    **Outcome wanted:** "Quiet Reed behind the Old Wall" is dark water with a band of deeper shade
+    across its lower third, small and far; "Bright Foxglove by the Greenhouse" is poppies close up
+    under a coarse open lattice; and a hand can say which before it is added.
 
     **Tests that must fail first:**
-    - **src/lib/motion.test.ts**: wander lays no step (no two points a gap apart at different
-      values without a ramp between); its waits vary more across a lane than smooth's do on the
-      same seed.
-    - **src/ui/MotionMenu.test.tsx**: the row offers six names.
+    - **src/lib/copyYard.test.ts**: every place word has a reach and every noun a stand, and the
+      flattened banks are the grouped ones.
+    - **src/lib/yardScene.test.ts**: every word reads a reach and every noun a stand; a noun's
+      adjective does not rename the wind; "past the Apple Tree" reads mass and middle.
+    - **src/lib/moireStand.test.ts** (new): each stand shades part of a tile and not all of it; a
+      far shade is narrower than a close one; steps have as many risers as their term says.
+    - **src/ui/moireScreen.test.ts**: two yards differing only in their noun lay down different
+      tiles; the key carries reach and stand.
+    - **src/ui/MoireTuning.test.tsx**: a Stand group.
 
-    **Verification:** `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole; the lane
-    preview (src/ui/AutomationPreview.tsx) of one wander lane beside one smooth lane, by eye.
+    **Verification:** as step 1; four shots, one per stand, on one scene.
 
     **Refused:**
-    - **A dial for variety.** A character is a name for a region, not a knob (0152, 0309).
-    - **Reordering the five.** Their order is the row's order.
+    - **A stand per scene.** One shadow, four scenes; a wall on water and a wall in a meadow are the
+      same shade on different ink, which is the point.
+    - **Drawing the thing.** A bench is a band of shade, never a bench.
+    - **Raising `TILE_CACHE`** without measuring it (§4).
 
-5.  **A landing throws as many sparks as its Count says.** _(bench-11, landed 0328)_ **Durable shape moved:
-    `PlayerSpec` gains `sparkCount`, a whole number 1…`PLAYER_SPARK_COUNT_MAX`, default 1.** The
-    wire validator's exact keys grow by one; a stored session of the old shape is discarded, not
-    repaired (0026).
+5.  **The air's word and the detail read: how the light falls, and what the bright points are.**
+    _(bench-16)_ **Durable shape moved: none.**
 
-    **The dial.** `PLAYER_SPARK_COUNT_MIN = 1`, `PLAYER_SPARK_COUNT_MAX = 4` in
-    src/lib/playerSpark.ts, with the family's `SparkSpec` growing the field; a stepped range in
-    src/lib/playerKnobs.ts; "Count" and its sentence in src/lib/copyKnobs.ts; the fourth dial on
-    the spark row after Delay (src/ui/PlayerDials.tsx), carried like the level and the delay
-    rather than drawn (0124).
+    **"in" is a wash and "through" falls from one edge.** `SCENE_SPREADS = ["wash", "fall"]`,
+    `YARD_AIR_WORDS_BY_SPREAD` (in is a wash, through a fall), and `SCENE_LIGHT_TERMS` is spent
+    two ways: a wash mixes every stop toward the light's token by `amount`, as today; a fall mixes by
+    `amount` scaled down the tile from its top edge to nought at its foot — light seen _through_
+    the field, strongest where the field is thinnest. The mix moves from `sceneStops`, once a tile,
+    into the pixel loop, on the position rather than the ink: a fall slides the read toward the top
+    stop by the light's amount at that height, so the light is read along the scene's own ramp and
+    no second interpolation is paid. A name with no air is the day and spreads nothing.
 
-    **The roll.** A landing that sparks throws `sparkCount` companions, each at a slot of its own
-    from `travelFrom` (src/lib/playerWalk.ts:325): `sparked` becomes a list of slots beside one
-    level and one delay, still null where the roll fails, so a pattern that sparks nothing rolls
-    nothing and draws the stream it drew (P123). The odds are rolled once per landing, not once per
-    spark: the Spark dial says whether, the Count says how many.
-
-    **The sound.** Each spark is one more source through its own level gain into the landing's own
-    fader (src/audio/player.ts:383), stopped by the landing's stop, so every one of them stays
-    inside the entry it rides (0166, 0175). Where they begin: the delay says how far into the
-    landing the **last** spark begins, and the rest stand evenly between the landing's start and
-    it — at a delay of nought all sound together as a chord of regions, at a delay of one they are
-    a ratchet across the window. That keeps the one bound the dial has and gives the count a
-    rhythm rather than a pile.
-
-    **The read.** `sparkPosition` in the per-frame read becomes the positions of every spark, so
-    the waveform (src/ui/Waveform.tsx:116) draws each; `sparkPositionOf` (src/audio/player.ts:589)
-    answers per spark.
+    **A creature is a flock and an object is one kept thing.** `SCENE_SPECKS = ["own", "flock",
+"kept"]` and `YARD_DETAILS_BY_SPECKS`: Moths, Bees, a Wren, Snails, Sparrows, Beetles, Swifts,
+    Spiders, Blackbirds are a **flock**; a Bell, a Watering Can, a Wind Chime, a Wheelbarrow, a
+    Cracked Saucer, a Rope Swing, a Rusted Trowel are **kept**; and a name with no detail is the
+    scene's **own** specks — the sparks, the glints and the sky the stills already carry. The specks
+    are the one shared term of a still that reads at the top stop, and every scene declares them as
+    `Scene.specks(x, y, terms)` the way it declares its ground; `build` reads it after the shade,
+    lifting the position to the top stop where a speck stands. A flock is the scene's own specks at
+    three times their count, hashed so no two yards' flocks agree; kept is one speck, larger and
+    sharper, at the foot of the stand's shade.
 
     **Stands on:**
-    - The spark is rolled per landing with the drop and the reverse (src/lib/playerWalk.ts:642) and
-      rides the landing's entry (src/audio/player.ts:45, 0166).
-    - Its delay is a fraction of the window so no value can outlive the landing
-      (src/lib/playerSpark.ts:40, 0175).
-    - The level is carried and not drawn (src/lib/playerWalk.test.ts:653, 0124).
-    - The spec's exact keys are one list (src/lib/playerWire.ts:298) and the knobs one record
-      (src/lib/player.ts:373).
+    - The air's two words are a medium stood in and moved through (src/lib/copyYard.ts, 0324),
+      which is exactly wash and fall.
+    - Each still already has specks read at its top stop (`spark`, `sky`, `lit` in
+      src/ui/sketch/sketchStillField.ts).
+    - The detail is on its own coin and the last thing drawn (`mintYardName`), so `yardScene`
+      reads it last and its words collide with no bank before it.
 
-    **Outcome wanted:** Spark all the way, Count at three, Delay at half: every landing is
-    followed by three quieter reads of three other regions spaced across its first half, in rhythm
-    with it, and the waveform shows all three cursors.
+    **Outcome wanted:** "Damp Heather through Falling Dusk" is a tan mass lit warm at its top and
+    tan at its foot; "with Sparrows" fills a field with bright points; "with a Bell" puts one at the
+    foot of the wall.
 
     **Tests that must fail first:**
-    - **src/lib/playerWalk.test.ts**: a landing that sparks carries as many slots as the count,
-      none equal to its own; a count of one draws exactly the stream drawn before the field.
-    - **src/audio/player.test.ts** and **src/audio/playerLanding.test.ts**: a count of three builds
-      three sources into the landing's fader, begins them evenly up to the delayed fraction, and
-      stops all three with the landing; the read answers three positions.
-    - **src/ui/PlayerDials.test.tsx**: the spark row draws four dials.
-    - **src/lib/player.test.ts**: a spec without `sparkCount` is refused.
+    - **src/lib/yardScene.test.ts**: every air word reads a spread and every detail reads specks;
+      no air reads wash and no detail reads own.
+    - **src/ui/scene/scenes.test.ts**: every scene declares specks; a flock stands on more pixels
+      than own and kept on fewer.
+    - **src/ui/moireScreen.test.ts**: a fall reads a top row nearer the light than its bottom row,
+      a wash reads both alike; a tile with a kept speck has one bright island.
 
-    **Verification:** `./scripts/fix`, `git diff --stat`, `./scripts/check` read whole; the
-    keyboard smoke on a sparking pattern; one headed listen at count four.
+    **Verification:** as step 1, and one rack of six with every reading in play.
 
     **Refused:**
-    - **A count of nought.** Whether a landing sparks is the Spark dial; the count begins at one.
-    - **A per-spark level or delay.** One level, one delay, spaced by rule (0124).
-    - **Sparks with a rhythm of their own.** Each takes the landing's window, count and seams
-      (P123); the spacing is arithmetic on the landing's delay, never a second clock.
+    - **A speck that moves.** A flock comes and goes in step 7 if the gust lands, and stands until
+      then.
+    - **A sound for a bell.** The name reads into the picture and nothing else.
 
----
+6.  **The reading is said on the yard.** _(bench-17)_ **Durable shape moved: none.**
 
-## 2. Rules for every feature
+    The name is now seven readings, and a hand should be able to see them. The yard's header shows
+    its name as it does; beside it, on hover or in the tuning panel's Scene group, the reading is
+    said in the scene contract's own words — "poppies, close, by a grille, a wash of dusk, a flock"
+    — so a hand can check what a name was read as against what was drawn. Copy in src/lib/copy.ts
+    or, that file being at its cap (0045), in `src/lib/copyScene.ts`; no command, no durable field,
+    no session state (§2, a view preference).
 
-The invariants in [boundaries.md](boundaries.md) hold for every step. These are the rules about the
-shape of a _change_ rather than the shape of the code.
+    **Tests that must fail first:** **src/ui/MoireTuning.test.tsx**: the Scene group says every
+    reading of the active yard; **src/lib/copyScene.test.ts**: every reading in every contract list
+    has a word.
 
-- `src/app` remains the only writer of session state. UI, workers, keyboard, and agent JSONL call
-  `send()` with serialisable commands.
-- Scheduling stays on `Envelope.at`. Command shapes do not grow independent time fields.
-- Raw files, audio nodes, functions, and browser permission objects never enter commands or the
-  durable session.
-- Durable edits participate in bounded history, persistence, portable archives, and graph restore
-  unless a decision proves why they do not.
-- Async work carries source or operation identity, so a stale completion cannot overwrite newer
-  state.
-- Analysis is not a pure function of stored bytes: `decodeAudioData` may resample to the device's
-  rate, so onsets differ across machines. Nothing durable may rest on derived analysis.
-- A view preference, such as snap, theme, or whether the debug console is open, is not session
-  state: no command, nothing durable, no history entry.
+    **Refused:** a rename, and a scene picker — the name is the picker (0329).
 
-## 3. Proof and delivery
+7.  **The wind gusts.** _(bench-18)_ **Durable shape moved: none.** The step that may not stand.
 
-`./scripts/check` is the full gate. It may get slower as the instrument gets bigger, but no single
-feature may move its mean by more than 250ms without asking the human first
-([0012](decisions/0012-no-one-feature-jumps-the-gate.md)). Each feature adds the cheapest proof at
-the layer that owns the behavior:
+    **The lean travels across the picture as a wave.** Two stills carry a gust — a lean that is a
+    function of where a stroke stands and of the phase — and 0331 said where it can and cannot go:
+    not in `cutField`, which slices the gratings and never the screen, and not as a pattern
+    transform, a `DOMMatrix` being affine. It is the screen fill in src/ui/moireCanvas.ts:596 cut
+    into vertical strips, each under one more turn of the shear the sway already writes
+    (src/ui/moireScreen.ts:736), so a frame goes from one `fillStyle` to one per strip.
+    `SCENE_WIND_TERMS` gains `gust`, the wave's amplitude per wind, still at nought and wild at
+    the most; the strip count is `tunable("wind.strips")`, and a flock's specks ride the strip's
+    phase so they come and go.
 
-- pure normalization, analysis, and DSP assertions in colocated Vitest tests;
-- command, event, history, and failure atomicity through `createInstrument` and its manual clock;
-- graph scheduling and sound through the existing live and offline browser run;
-- UI focus, pointer, and file handling in the existing preview smoke;
-- export parity by comparing every encoded sample with the shared graph buffer.
+    **The cost is 0070 and it is measured before it is kept.** `./scripts/profile` before and
+    after, interleaved, on a rack of six grown yards; and `./scripts/drive` at the measured drag
+    (headed, per the memory of measuring a drag on the dev server). If a frame at eight strips
+    costs more than a tint step, the step lands as a **standing** gust — the wave baked at one phase,
+    which steps 3 and 5 already draw — and §4 records the measurement.
 
-One fact has one emitter. `probe()` reports durable and session state, the event log reports
-discrete behavior, and `peek()` and `peaks()` stay allocation-free continuous and sample-derived
-reads. A UI ring drop is loud. A sequence gap in `./scripts/drive` is always a bug.
+    **Tests that must fail first:** **src/ui/moireScreen.test.ts**: the fill is cut into as many
+    strips as the term says and each strip's shear differs from its neighbour's by one turn of
+    the gust; **src/ui/moireCanvasScene.test.ts**: through the recorder, a still yard fills once and
+    a wild one fills the strip count.
 
-**0012's line is a rule about browser work.** `./scripts/check` runs its steps concurrently and
-`drive` is nearly the whole wall clock, with the second-slowest step finishing seconds early: a
-feature may add two seconds of Vitest and cost the gate nothing, while a browser scenario's cost
-lands on the mean one for one. Offline `render()` calls are the cheap place to prove sound — they
-join underneath the deck fixture's real-time waits and cost close to nothing. New browser work that
-cannot be a render picks one of the browser half's three lanes and states what that lane's page must
-already hold in its prelude, rather than reading what a neighbouring scenario happened to leave
-([0238](decisions/0238-the-browser-smoke-runs-in-lanes.md)). Two traps are measured: a popup whose
-entries `./scripts/drive` presses opens instantly, because Playwright waits out enter and exit
-animations before it may click, which has cost one scenario up to 1.68s
-([0056](decisions/0056-an-effect-carries-its-own-icon.md)); and browser work added _before_ the
-chain lane's `page.reload()` — the only reload in the smoke — is kept after it instead, for a
-reloaded-audio-clock stall that has not reproduced since `88173b2` and was never explained.
-
-Measure a change by stashing it and comparing means across several runs, **interleaved**. A single
-run's spread is wider than most features cost: the same unchanged commit read 414ms apart across two
-windows fifteen minutes apart, 1.7 times 0012's own step size. Never quote a mean measured in a
-different window from the one it is compared against.
-
-When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and a
-failing seam-level test before broad UI work. Do not turn the driver into a second application by
-teaching it feature semantics.
-
-## 4. Not taken
-
-Everything abandoned, narrowed, or landed with a known cost, one paragraph each. Nothing here is
-scheduled by being here.
-
-**A tile is no longer shared between yards, and the cache is not resized** (bench-06, 0329). The
-screen's tile is keyed by the field a yard's name reads as, so two yards that differ only in their
-plant hold two tiles where they used to hold one. `TILE_CACHE` stays at 48 and `PLAYER_TINTS` at 4:
-the room is now spent across as many `(scene, light, wind)` triples as the page is showing, so a
-rack of six yards all playing songs asks for more tints than the cache holds and pays a build on the
-paint that revisits one. Raising the cap is the obvious answer and was not taken — a tile is a
-hundred pixels by a few hundred, so the cap is megabytes rather than the kilobytes its own paragraph
-claims, and picking a bigger number without measuring the memory is guessing twice. The two
-paragraphs that size these numbers now say what the key made true.
-
-**The film stays and the scene is the ground and the ramp** (bench-06, 0329). The step said "the
-monitor tile goes; its motions become terms every scene reads". Its motions did become that, and the
-tile did not go: the two gratings, the blob lattice they beat into, the three channels a lag apart
-and the rolling band are still `build`'s, and what a scene adds is a ground multiplied into the
-tile's alpha and five stops the row's ink is read along. Taking the film out would have rewritten
-every case in src/ui/moireScreen.test.ts — the floor, the fringe, the divergence, the ramp — against
-four grounds that had not been drawn yet, on the same step that first draws them. What it costs is
-that a scene cannot yet say a mark is _not_ a filmed monitor: every field is under the same fine
-grid. The seam is one call and the terms are already the scene's to read, so a later step that wants
-a scene to spend the film's own depth moves numbers rather than structure.
-
-**A wind is two amplitudes, not a lean and a recovery** (bench-06, 0329). The step asked the
-adjective to set "how far the field leans and how fast it recovers". Nothing in the screen carries a
-clock — every motion in it rides a row's phase (0126) — so there is no rate for a recovery to be
-stated as, and inventing one would be a second way the picture moves that nothing else agreed to.
-`SCENE_WIND_TERMS` is a `lean`, baked into the ground on the rebuild, and a `sway` scaling the
-screen's own shear and breath on the frame. A yard called Hushed leans and sways a fraction of one
-called Wild; neither of them settles at its own pace.
-
-**A light is one token, not a second row of five** (bench-06, 0329). The step said "the air is a
-second row of stops the ramp is mixed toward". Five stops per light against six lights is thirty
-tokens and thirty chances to say inconsistently what a frost does; `SCENE_LIGHT_TERMS` is one token
-and one share, mixed into every stop of whichever ramp is being read, so a frost cools a meadow and
-a canopy the same way. What it cannot do is recolour one end of a ramp without the other.
-
-**A tunable is `<scene>.<term>`** (bench-06, 0329). The step asked for `tunable("scene.<name>.…")`.
-An id is `group.name` and the registry refuses anything else (`src/lib/moireTuning.ts`), the group
-heading being the part before the dot — which is exactly the group-per-scene the same paragraph
-asks for. So the ids are `meadow.stroke`, `bloom.blob`, `water.ripple`, `canopy.gap`, and the four
-groups on the panel are named by the scenes themselves rather than by a prefix nobody would read.
-
-**The scene bench draws the grounds in one ink, not through their own ramps** (bench-06, 0329). The
-four stages on the drift bench are inked ground-to-foreground like every stage but the ramp's, so
-what they argue about is the marks. Drawing each through its own five stops would have made the
-bench's "exactly one picture is read through the ramp of five" case say five, which is the case that
-keeps the bench about moves rather than about the palette (0247). The colour is judged where it
-lands instead: four yards shot at 1:1 through `./scripts/drive --shot`.
-
-**The hold is bounded by the dial, not by the burst** (bench-09, 0326). The step said the beat and
-its halvings "at any tempo an analysis produces lie inside the delay's own range (0.01…2 s)", and
-asked for all four burst functions imported as they are. That premise is about the _measured_ tempo;
-the beat the same step mandates is the _sounding_ one, `analysis.bpm * deckRate`, four times the
-measured tempo at a doubled speed. A 120bpm loop at 2× makes the thirty-second 7.8ms, under the
-delay's 10ms floor, so a dial turned to its bottom with the hold on wrote a value the reducer
-clamped onto no division at all while the toggle read pressed. `tapBurst` and `beatBurst` take a
-`BurstBounds` now — the burst's own by default, a `ParamSpec` from a rack — and the answer is the
-fastest division that parameter can hold.
-
-**Neither gesture ends its own** (bench-09, 0326). The step said the tap is the burst row's, and the
-burst row's sends no `gesture.end`: a run of presses carries one (instance, parameter) key
-converging on one value, which history keeps as one entry and closes when the presses stop (0067).
-The first landing copied `ParameterChoice`'s `gesture.end` instead, which is right for one press
-writing one value and wrong for a run — four taps left three undos holding intermediate means.
-
-**The die was a fourth writer, and now is not** (bench-09, 0326). The step named the knob, the
-readout and the tap as what passes through the rounding. Review pointed at the card's own die: a
-throw of the whole card with the hold pressed left the time on no division while the toggle read
-pressed, where the precedent it is modelled on — `heldPatch`, which _is_ the mulcher card's patch —
-has no such hole. The rule is `heldValue` now, one exported function, and `randomizeEffectCommand`
-takes a rounding that defaults to the identity every other card's die gets.
-
-**A drawn lane is not rounded** (bench-09, 0326, declined). `delay.time` holds a lane, and a lane
-the menu draws or a paste brings does not pass through the hold. Declined: a lane is a continuous
-sweep and not a value being written, so rounding one would turn a hold into a staircase. A lane a
-hand rode _is_ rounded, because its points are the values that were written and heard — which is
-the rule holding rather than an inconsistency.
-
-**A hold outlives the card it was pressed on** (bench-09, 0326, declined). Review found that the
-rack's set of held keys is never pruned: removing a card leaves its key behind, an undo of that
-removal brings the parameter back held, and `effect.move` carries a card to another rack while the
-hold stays with the first. Declined as coherent rather than wrong. A hold is a view preference of a
-rack, like its fold, and a rack's view preferences do not travel with a card; a hold restored by an
-undo is the state the hand left, and a card moved to another yard is being held to a beat that yard
-does not sound. Nothing durable is written either way (0026).
-
-**The tapped parameter's cases are their own file** (bench-09, 0326). The step put five browser-free
-cases in src/ui/EffectRack.test.tsx; they took that file to 939 lines against a hard cap of 800, and
-the cap is split rather than shaved. src/ui/ParameterBeat.test.tsx holds the tap, the hold, the
-rounding and the grid-less rack, and EffectRack.test.tsx keeps the one case that is about the rack —
-that a card draws the two controls beside a tapped parameter's dial and beside no other. The label
-walk both suites now read a card by moved to src/ui/effectRackDouble.tsx with them.
-
-**A turn of the knob is proved at the knob** (bench-09, 0326). The step wanted the whole of "with the
-hold on, a turn of the knob sends the nearest division of the beat" in the rack's suite. The dial is
-`memo`-wrapped there and its `onChange` is not reachable without unwrapping the memo by hand, so the
-claim is split across the seam it actually crosses: src/ui/ParameterBeat.test.tsx proves the rounding
-the card hands the dial answers the nearest division, and src/ui/ParameterKnob.test.tsx — where the
-knob is already mounted outside a renderer — proves a turn sends what that rounding says. Both were
-watched failing.
-
-**The sounding beat is lifted, not said a third time** (bench-09, 0326). The step allowed a second
-occurrence of `analysis.bpm * deckRate(params)` beside the jumps card's. Review counted three: the
-yard's waveform (src/ui/Waveform.tsx) already spelled the same derivation and only wrapped it in
-`Math.round` for its readout, which is presentation over one fact rather than a second fact. So it
-is `soundingBpm` in src/audio/params.ts, beside `deckRate`, read by all three — the lift the step's
-own text asked for if the readings could disagree, taken because principle 3's threshold was already
-crossed rather than about to be.
-
-**The air keeps two joining words, and six of the place's twelve are out** (bench-07, 0324). The
-step listed eight air words — at, in, under, before, after, toward, through, against — and twelve
-for the place; the rule that every word must read against every noun left two and six. An air is a
-medium, so in and through cross the bank and every word of time or direction fails somewhere in it:
-"at Moonlight", "through Frost", "toward Low Sun". Two nouns were respelled to be mediums rather
-than moments — "Falling Dusk" for Dusk, "Low Sunlight" for Low Sun — which is a change bench-06
-reads, and its paragraph is updated to the new spelling. The place lost the six that ask something
-of the noun: "over" and "within" outright, "beneath" and "under" for wanting an overhang the Fence
-has not got, "along" for wanting a line, "at" for wanting a locus — so the step's own example
-reading, "beneath the Stairs toward Dusk", cannot be minted, and neither can a noun walked along
-rather than stood behind ("the Stone Path"). The air multiplies by two rather than eight, 32
-readings against 16. Widening either family again means splitting it in two, which is a per-noun
-word list by another name and is what the step refused.
-
-**The EQ's gain is Band Gain, not Gain** (bench-08, 0325). The step asked for "EQ Gain" to become
-"Gain"; two automatable parameters may not share a label, and `deck.gain` is already Gain — the rule
-is a load-time throw in src/audio/params.ts, written there because the marker and the preview name a
-lane by its label alone. "Band Gain" is what carries the step's actual requirement, which is that no
-user-facing word says "EQ" bare, and it stays a two-word label so the caption box a rack row is
-measured by is the one it already was. Making it "Gain" means renaming the yard's own dial or
-loosening that rule, and neither is this step.
-
-**A presence names one parameter, so it is right for one shape** (bench-08, 0325). Review found
-the reading, not a test: a fresh EQ/Filter, and a flat Peak picked by hand, are both heard at 0.97
-and draw a near-full band, where before this step a freshly added one was heard at nought and drew
-none. A 1kHz low-pass is audible and reading it near-whole is honest; a flat Peak is not, and the
-ADR's own argument for `full` — that a kilohertz is "a place arriving and nobody noticing" — is
-about where an automator fades to and not about what the picture weighs, which is the one
-declaration being read two ways. The reading reaches the band's alpha, the tail's weight
-and the shape's (src/lib/moireBand.ts, moireWind.ts, moireShape.ts), so what moved is which shape
-the picture is honest about. A presence that reads the shape is a second field on the contract and
-was not taken. `effectHeard` also reads a presence as a distance along the parameter, so a grown
-filter's is linear across a range the knob turns logarithmically — the gain's own crudeness, moved.
-And with the shape held at low-pass, `eq.gain` is drawn over -24…24dB where the node does not read
-it, and stirred there too — `stir` skips only what is held, the presence and what has no lane — so a
-grown place schedules ramps nothing hears. Inert rather than wrong, at the cost of the schedule; a
-window on it would be a second presence.
-
-**Three browser renders now say the peaking shape rather than assume it** (bench-08, 0325).
-scripts/smoke.d/renderEq.js, renderLanes.js and parity.js each set a gain or a Q on a band and
-measured it, which is the peaking shape; each gained one `param.set` of `eq.shape` to 0 — parity's
-found by review, its `eq.gain` of 6 having become inert. No assertion, `fail(` or window moved; the
-moved default is what made the assumption visible.
-
-**The picker's column is a third wider than a dial's** (bench-08, 0325). A name is wider than three
-digits, so `ParameterChoice` is `w-24` where `Knob` is `w-16`, and the EQ/Filter's row went from
-~280px of content to ~312px — one more viewport band in which that row wraps and its card stands a
-line taller than the card beside it (0093). Both layout smokes pass as they stand
-(scripts/smoke.d/rackRow.js, and the 360px reflow), and the row already wrapped at the narrow end
-before this step, so what changed is where the band falls and not that there is one. Narrower means
-truncating "High-pass" in its own trigger, which is a picker that cannot be read.
-
-**Wander has no flurry** (bench-10, 0327). The step's first draw of the region said
-`flurry: [0, 0.1]` in the same breath as "always a glide and never a step", and the two cannot both
-stand: `move` (src/lib/motion.ts) tests the flurry odds before it reads `glide`, and the branch it
-takes lays its judders and its landing through `step` — a hold and a jump one `MOTION_STEP_GAP_SECS`
-apart, which is the step. On a lane of 16s at those odds a step arrives within a few seeds, so the
-region ships at `flurry: [0, 0]` and the character keeps the word its tooltip gives it. The variety
-the name promises is the pace and the reach, which are drawn per lane and jittered per move; the
-flurry was only ever the judder restless already owns.
-
-**A spark may still land on its landing's own slot** (bench-11, 0328). The step's first test asked
-that a sparking landing carry "as many slots as the count, none equal to its own", which the walk
-does not promise and P123 explicitly refuses: each companion's slot is one ordinary `travelFrom`
-jump, and that jump may roll home or wrap the grid back onto the landing — a redraw would spend a
-second draw per landing and move the stream. The case asserts what is true instead: the list is as
-long as the count, every slot is inside the grid, and nearly every landing's three are three
-different slots. The pre-existing case one block up already reads the same way for a single spark.
-
-**The count's cases are two test files of their own** (bench-11, 0328). The step named
-src/lib/playerWalk.test.ts, src/audio/player.test.ts and src/audio/playerLanding.test.ts; those
-three stood at 799, 738 and 776 lines against the 800-line hard cap, so the walk's two cases and
-`sparkStartOf`'s are in src/lib/playerSpark.test.ts and the transport's three in
-src/audio/playerSparkCount.test.ts — the shape bench-09 used for the same reason. The transport's
-file imports `deck`, `PLAYER`, `SLOT` and `SPAN` from src/audio/player.test.ts the way
-src/audio/playerArm.test.ts already does, which re-runs that suite's 30 cases: the count moved from
-2381 to 2419, of which +8 are new cases and +30 are those re-executions.
-
-**A third `jumping` fixture stands** (bench-11, 0328). Review's Reuse lens counted
-`{ seed: 11, ...PLAYER_DEFAULTS, ...fields }` in src/lib/playerWalk.test.ts, src/lib/playerBed.test.ts
-and now src/lib/playerSpark.test.ts — the third occurrence principle 3 names. It stands: this
-instrument's convention is that each test file declares the spec it is asking about
-(src/audio/playerLanding.test.ts says so in as many words, citing principle 2), the helper is five
-lines, and the only import-based route — exporting it from src/lib/playerWalk.test.ts the way
-src/audio/playerSparkCount.test.ts imports from src/audio/player.test.ts — would re-execute that
-file's 37 cases to save them. A shared `playerWalkDouble.ts` is the answer if a fourth arrives.
-
-**The companions are built in a module of their own** (bench-11, 0328). src/audio/player.ts was 795
-lines and the count's arithmetic put it at 811, past the hard cap no waiver applies to. `buildSparks`
-and the `Spark` type moved to src/audio/playerSparks.ts, which takes the landing's fader, its
-window, the `readSlot` the landing itself is read through and the tuning of its own source — so the
-companion and the landing still differ by nothing but a slot, a level and a start, and player.ts is
-back to 763. The diff touches scripts/smoke.d/renderPlayer.js as well: `sparkCount: 1` on the
-fixture spec, a `counted` render at the top of the dial, one `fail(` for it and one clause in the
-lane's report. No assertion, `fail(` or scenario was removed.
+    **Refused:** a clock of the gust's own (0126); a strip count above what the profile allows.
