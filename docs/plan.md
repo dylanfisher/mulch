@@ -1066,6 +1066,66 @@ min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the til
 
 ---
 
+### Block: the picture is a lattice of marks
+
+The reference is the hero at cognition.com/blog/swe-2: a Unicorn Studio scene whose signature pass
+is a glyph dither — a square cell grid of about seven CSS pixels, each cell one of ten glyphs
+chosen by the luminance under it through a ramp that starts two glyphs in and wraps, one flat ink
+on an off-white page, two slow sources under it. Nothing the scenes do goes: the ground, the
+specks, the stand's shade, the air, the film's shade, the sound's cut, the ghost and the tint all
+stay where they are. What changes is how a pixel is _presented_: a cell of the field is a mark,
+the mark's coverage is the alpha, and the page shows between marks. No mouse layer.
+
+**Layout, before the first step.** The marks and the wrapped ramp onto them are pure maths in
+`src/lib/moireGlyph.ts` with `moireGlyph.test.ts` beside it: ten bit-grids ordered by ink,
+`markCoverage`, `markAt`, `glyphCellPx`, and the dials `glyph.px` and `glyph.phase`; `glyph.flat`
+is declared beside `FILM_SHARE` in src/ui/moireScreenTile.ts, read in the bake, and a **Glyph**
+group in src/lib/copyDriftGroups.ts holds the three. The bench entry that argues the flat rest is
+`src/ui/sketch/drift/SketchDriftGlyph.tsx`, entry 11, reading the app's own handles for its dials.
+New painter cases go in src/ui/moireCanvasFilm.test.ts. Decision numbers from 0345; bench tags
+from bench-23.
+
+bench-23 and bench-24 landed on 2026-09-10 as
+[0345](decisions/0345-the-picture-is-a-lattice-of-marks.md): the ten marks and the wrap in
+src/lib/moireGlyph.ts, and `build` written a mark at a time — each cell the mean of the body over
+its pixels, its mark by `markAt`, its coverage the alpha. Three things moved off the step's own
+text. **A cell reads its mean and not its centre**: at the rest the cell and the screen's row
+pitch coincide, so a centre read sees the row grating at one phase in every cell and the grating
+vanishes; and not its brightest, which lights every cell a speck grazes and turns a flock into a
+blanket. **The film's share moves which mark a cell gets**, because a mark is read off the read and
+the share is a shade on it — so the film case asserts the same five coverages at every share and
+not the same alpha at every pixel. **And the tile's colour resolving left for
+src/ui/moireScreenStops.ts** at the 800-line cap. The strip with a click train and no rack reads a
+mean alpha of 0.072 against 0.524 before, and the crop is a lattice of colons, dashes and pluses in
+the bloom's own inks.
+
+bench-25 and bench-26 landed on 2026-09-10 as
+[0346](decisions/0346-the-lattice-stands-still.md), and the measurement is what decided both: read
+off the zoomed drift's own canvas, after 0345 no pixel of the marks stood above three quarters of
+its alpha and most under a quarter — the pattern laid at a fraction of a pixel, turned and leaned
+by a fraction of a turn, and the rows' gratings sampled a pixel at a time across a stroke a pixel
+wide, each about a half. So: the cell is the screen's column pitch and not a dial, and the marks
+are five bits a side, a bit a whole device pixel; `inkThrough` rounds its two translations to
+whole cells and the turn, breath and shear rest at nought; the field is boxed to the cell grid in
+its own corner and hardened three times before it is taken out (`boxField`), so the sound's cut
+is holes in a lattice of whole marks; `CHANNEL_MIX` rests at nought, the rainbow grille it drew
+on five-pixel strokes being the reference's one ink's opposite; and `glyph.flat` rests at one,
+the covered pixels averaging the scene's middle stop there and a mud of all five at nought. Entry
+11 on the bench draws the water under the marks with the handle's own dial. The recorder keeps a
+surface's `frame` — its draws with the cell read left out — beside `drew`.
+
+**Step 5 — the field is mostly ground (bench-27).** _Durable shape moved:_ none. The lattice reads
+denser than the reference on a bloom or a meadow: the wrap makes the middle of the ramp the dense
+marks, and those scenes stand most of their field there where the reference's sources are mostly
+dark with bands of light. A mapping from the read to the mark and not a matter for a scene — one
+dial, how far a cell's read is pushed toward the ends of its ramp before it is cut into marks, with
+its rest chosen on the bench and the zoomed drift so that most of a field is a sparse mark and a
+band of it is dense. **Stands on:** `markAt` in src/lib/moireGlyph.ts; entry 11 in
+src/ui/sketch/drift/SketchDriftGlyph.tsx. **Outcome wanted:** a bloom and a meadow that read as
+the reference's sparse ground with dense ribbons through it. **Tests that must fail first:** at the
+rest, fewer than a third of a bloom tile's cells are marks heavier than the plus. **Refused:**
+touching a scene's ground; a second wrap.
+
 ## 4. Not taken
 
 **The film's share does not rest at one (bench-19, 0339).** The step wrote the dial as

@@ -188,7 +188,7 @@ const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
 
 /** What each row of one painting was actually drawn with, in the order the painter walked them. */
 const drawnWith = (painted: Painted): unknown[] =>
-  (painted.surfaces[0]?.drew ?? []).map((one) => one.tile);
+  (painted.surfaces[0]?.frame ?? []).map((one) => one.tile);
 
 /**
  * The two rows the structure is cut at, set apart on their own breaths: they share a shape, a
@@ -273,7 +273,7 @@ describe("moireCanvas tiles", () => {
     const alpha = (x: number, y: number): number => field?.data[(y * 96 + x) * 4 + 3] ?? -1;
     expect(alpha(8, 4)).not.toBe(alpha(8, 40));
     // Cut into the product like every other row, and by drawing rather than by filling.
-    const drew = first.surfaces[0]?.drew ?? [];
+    const drew = first.surfaces[0]?.frame ?? [];
     expect(drew).toHaveLength(1);
     expect(drew[0]?.over).toBe("destination-out");
     // Painted again a third of the way round its cycle, the tile is the one already baked and only
@@ -285,7 +285,7 @@ describe("moireCanvas tiles", () => {
         (surface, at) => surface.wrote.length > 0 && later.elements[at]?.width === 96,
       ),
     ).toBe(false);
-    expect(later.surfaces[0]?.drew[0]?.move.a).not.toBeCloseTo(drew[0]?.move.a ?? 0, 9);
+    expect(later.surfaces[0]?.frame[0]?.move.a).not.toBeCloseTo(drew[0]?.move.a ?? 0, 9);
   });
 
   it("bakes one curved tile a painting, and none at all once it holds them", () => {
@@ -471,7 +471,7 @@ describe("moireCanvas tiles", () => {
     // And no painting of that travel goes blank: only the first draws nothing — one bake a
     // painting, and neither row has a tile yet — and every painting after it draws both rows,
     // wherever on the plane the picture has got to (0144, 0248).
-    expect(painted.surfaces[0]?.drew.length).toBe(2 * sweep - 2);
+    expect(painted.surfaces[0]?.frame.length).toBe(2 * sweep - 2);
     expect(stops).toBeGreaterThan(2);
     expect(stops).toBeLessThanOrEqual(2 * DRIFT_STEPS);
   });
@@ -597,14 +597,14 @@ describe("moireCanvas tiles", () => {
     standingOn(stood, ONE_PLACE);
     apart(stood);
     const first = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
-    expect(first.surfaces[0]?.drew).toHaveLength(0);
+    expect(first.surfaces[0]?.frame).toHaveLength(0);
     // Three tiles asked for and no two of them one tile: the structure's two rows are each on a
     // breath of their own, so what one of them falls back to is never the other's picture. And a
     // fourth, the lattice's own cell, which is a pattern and is never drawn as a tile (0278).
     expect(new Set(worker.asked.map((one) => one.key)).size).toBe(4);
     worker.answer();
     const held = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
-    expect(held.surfaces[0]?.drew).toHaveLength(3);
+    expect(held.surfaces[0]?.frame).toHaveLength(3);
     // Then the turnover: one more place under the same automator, so the rows are rebuilt with the
     // new place's row among them — ahead of the structure's own two — and the structure has
     // travelled to where the larger population folds to.
@@ -644,7 +644,7 @@ describe("moireCanvas tiles", () => {
     const { surfaces } = paintedOn(100, 50, alike, 2, WINDOW, { frames: 1 });
     // One bake a painting, and the row that did not get it has nothing of its own yet: it draws
     // nothing this painting rather than the other row's rings.
-    expect(surfaces[0]?.drew ?? []).toHaveLength(1);
+    expect(surfaces[0]?.frame ?? []).toHaveLength(1);
   });
 
   // P169: a row an automator grew is drawn at as many scales as the run is holding, and a *swept*

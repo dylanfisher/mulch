@@ -10,13 +10,15 @@
  *   real picture these argue about → src/lib/moireFractal.ts, src/ui/moireCanvas.ts and
  *   src/ui/moireScreen.ts, none of which this reads.
  */
+import { GLYPH_COUNT, GLYPH_PHASE, markAt, markCoverage } from "@/lib/moireGlyph";
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
-import { type SceneName, SCENE_REACH_TERMS } from "@/lib/moireScene";
+import { type SceneName, SCENE_REACH_TERMS, sceneCells, sceneRepeat } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import {
   beatPx,
   FILM_SHARE,
   filmStand,
+  GLYPH_FLAT,
   gridPitchPx,
   rowPitchPx,
   screenKeep,
@@ -296,3 +298,74 @@ export const filmField: SketchDriftField = (x, y, share) =>
   (1 - FILM_GROUND_STOP) *
     (filmStand(filmKeep(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX), share) *
       filmScene(x, y, SCENE_DIAL.rest));
+
+/**
+ * 11 — the lattice of marks over the shipped water under the shipped film, and the dial is
+ * `glyph.flat` itself, read off the handle the painter reads (principle 1): how far every mark's
+ * colour is pulled toward the ramp's middle stop, nought leaving the bloom's own five stops and
+ * one the single ink the reference this lattice was drawn against is printed in (0345).
+ */
+export const GLYPH_DIAL: SketchDial = {
+  min: GLYPH_FLAT.min,
+  max: GLYPH_FLAT.max,
+  step: GLYPH_FLAT.step,
+  rest: GLYPH_FLAT.rest,
+};
+
+/** The cell of marks at the bench's own display, and how many span the bench picture each way. */
+const GLYPH_CELL = FILM_PITCH;
+const GLYPH_WIDE = Math.round(FIELD_ASPECT * SCENE_BENCH_PX);
+const GLYPH_ACROSS = sceneRepeat(GLYPH_WIDE, GLYPH_CELL);
+const GLYPH_DOWN = sceneRepeat(SCENE_BENCH_PX, GLYPH_CELL);
+const GLYPH_COLS = sceneCells(GLYPH_WIDE, GLYPH_CELL);
+
+/**
+ * Where on the water's ramp one cell of the bench picture stands: the film's shade over the scene's
+ * own read, averaged over every pixel of the cell, which is how the tile reads a cell (0345). Held
+ * per cell, because the stage asks a pixel at a time and a cell is forty-nine of them: a mean
+ * recomputed at every pixel is the scene run fifty times over per paint.
+ */
+const cells = new Map<number, number>();
+const glyphScene = sceneField("water");
+function glyphCell(col: number, row: number): number {
+  const key = row * GLYPH_COLS + col;
+  const held = cells.get(key);
+  if (held !== undefined) return held;
+  const x0 = Math.floor(col * GLYPH_ACROSS);
+  const x1 = Math.min(GLYPH_WIDE, Math.ceil((col + 1) * GLYPH_ACROSS));
+  const y0 = Math.floor(row * GLYPH_DOWN);
+  const y1 = Math.min(SCENE_BENCH_PX, Math.ceil((row + 1) * GLYPH_DOWN));
+  let sum = 0;
+  for (let py = y0; py < y1; py += 1) {
+    for (let px = x0; px < x1; px += 1) {
+      sum +=
+        filmStand(filmKeep(px, py), FILM_SHARE.rest) *
+        glyphScene((px + 0.5) / SCENE_BENCH_PX, (py + 0.5) / SCENE_BENCH_PX, SCENE_DIAL.rest);
+    }
+  }
+  const mean = sum / Math.max(1, (y1 - y0) * (x1 - x0));
+  cells.set(key, mean);
+  return mean;
+}
+
+/**
+ * The lattice as the stage draws it: a pixel a mark covers stands where its cell stands on the
+ * water's ramp, pulled toward the ramp's middle by the dial, above the page's ground the way the
+ * film's palette is laid; a pixel it leaves uncovered is the page. The water and not the film's
+ * bloom, because the reference is glints on black water in one ink, and because the bench reads
+ * every palette once (SketchDrifts.test.tsx). The mark is the tile's own
+ * (`markAt`, `markCoverage`), read hard rather than soft, because the bench is read at its own
+ * pixels and a soft edge is the painter's business.
+ */
+export const glyphField: SketchDriftField = (x, y, flat) => {
+  const px = Math.floor(x * SCENE_BENCH_PX);
+  const py = Math.floor(y * SCENE_BENCH_PX);
+  const col = Math.min(GLYPH_COLS - 1, Math.floor(px / GLYPH_ACROSS));
+  const row = Math.floor(py / GLYPH_DOWN);
+  const stood = glyphCell(col, row);
+  const mark = markAt(stood, GLYPH_COUNT, GLYPH_PHASE.rest);
+  const u = (px - Math.floor(px / GLYPH_ACROSS) * GLYPH_ACROSS) / GLYPH_ACROSS;
+  const v = (py - row * GLYPH_DOWN) / GLYPH_DOWN;
+  if (markCoverage(mark, u, v, 0) < 0.5) return 0;
+  return FILM_GROUND_STOP + (1 - FILM_GROUND_STOP) * (stood + (0.5 - stood) * flat);
+};

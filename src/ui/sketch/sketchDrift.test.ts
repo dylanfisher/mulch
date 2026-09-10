@@ -17,6 +17,8 @@ import {
   CELL_GUTTER,
   FILM_DIAL,
   filmField,
+  GLYPH_DIAL,
+  glyphField,
   RAMP_DIAL,
   rampField,
   SKETCH_BANDS,
@@ -37,6 +39,7 @@ const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial
   { name: "blobs", field: blobsField, dial: BLOBS_DIAL },
   { name: "bands", field: bandsField, dial: BANDS_DIAL },
   { name: "film", field: filmField, dial: FILM_DIAL },
+  { name: "glyph", field: glyphField, dial: GLYPH_DIAL },
 ];
 
 /** The picture sampled coarsely across the whole box: its least, its most and the swing between. */

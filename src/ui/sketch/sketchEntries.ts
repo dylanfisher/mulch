@@ -26,6 +26,7 @@ import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { SketchDriftBands } from "@/ui/sketch/drift/SketchDriftBands";
 import { SketchDriftBlobs } from "@/ui/sketch/drift/SketchDriftBlobs";
 import { SketchDriftFilm } from "@/ui/sketch/drift/SketchDriftFilm";
+import { SketchDriftGlyph } from "@/ui/sketch/drift/SketchDriftGlyph";
 import { SketchDriftRamp } from "@/ui/sketch/drift/SketchDriftRamp";
 import {
   SketchDriftBloom,
@@ -233,7 +234,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the picture at rest being the caller's own resolved ink. A scene names all five of its own stops and is read along them per pixel, so a yard is coloured by its name before anything has claimed a hue — which is the point, and which is one more thing between the token a surface asked for and what it sees (0332).",
     built:
-      "the ground and the five stops in src/ui/scene/bloom.ts, resolved by sceneStops in src/ui/moireScreenTile.ts and read at sceneHue. Bake-side: the stops are read once a tile and the ramp is read at every pixel of it, which is what a poppy head standing scarlet over a green stem costs (0332).",
+      "the ground and the five stops in src/ui/scene/bloom.ts, resolved by sceneStops in src/ui/moireScreenStops.ts and read at sceneHue. Bake-side: the stops are read once a tile and the ramp is read at every pixel of it, which is what a poppy head standing scarlet over a green stem costs (0332).",
     Content: SketchDriftBloom,
   },
   {
@@ -268,5 +269,16 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "one tunable, film.share, declared in src/ui/moireScreenTile.ts beside SCREEN_FLOOR and eased over the product of the four keep terms in build, `1 - share * (1 - keep)`, with its row in a Film group in src/lib/copyDriftGroups.ts. Spent on the read and not on the alpha since 0340: the eased product pulls the pixel toward the scene's own first stop the way standShade does, and the tile is written at the caller's own alpha at every pixel. Bake-side: it is read once a tile and tuneStamp() already keys the tile, so a drag rebakes the ground and no frame reads it (0126, 0129).",
     Content: SketchDriftFilm,
+  },
+  {
+    id: "glyph",
+    label: "The Marks",
+    thesis:
+      "The picture is a lattice of marks: a cell of the field is one of ten marks chosen by where its mean stands on the scene's ramp, through a ramp that starts two marks in and wraps, so the ground and the peaks read sparse and the band between reads dense — and the page shows between the marks. Whether the marks are printed in the scene's five stops or in one ink is glyph.flat, and it is chosen here by looking.",
+    trades:
+      "the scene's colour for its density. At one ink every scene is told apart by its field's shape alone, which is what the reference does and what a picture in a monospace texture reads best as; at five stops a canopy is green and a bloom is scarlet over green, but a lattice of coloured marks reads busier than either. The channels' fringe is outside the dial: a chromatic lattice on a seven-pixel stroke is measured on the shots and not argued here.",
+    built:
+      "the ten marks and the wrap in src/lib/moireGlyph.ts, read by build in src/ui/moireScreenTile.ts a cell at a time — the cell's mean over the body, its mark by markAt, its coverage the tile's alpha — with glyph.flat declared beside FILM_SHARE and its row in a Glyph group in src/lib/copyDriftGroups.ts. Bake-side: the marks are baked into the tile and a frame still costs one fillStyle (0345).",
+    Content: SketchDriftGlyph,
   },
 ];

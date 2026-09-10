@@ -6,12 +6,17 @@
  *   the whole of it a pixel at a time. **The scene is the body of the picture and this screen is
  *   a shade laid over it** (0340, amending 0332): where on its ramp a pixel is read is the yard's
  *   name's business, the four terms here pull that read toward the field's own first stop by the
- *   film's share, and the alpha the tile is written at is the caller's own at every pixel. The
- *   sound's own gratings are still the alpha, and they are cut outside this file (`cutField`).
+ *   film's share — and since 0345 the tile is written **a mark at a time**: a cell of the field is
+ *   one of ten marks chosen by where its centre stands on the ramp, the mark's coverage is the
+ *   alpha, and the page shows between marks. The sound's own gratings are still cut outside this
+ *   file (`cutField`).
  *
  *   That pass runs on the rebuild — a resize, a scheme, a display, a knob an effect turns colour
  *   with, or a tuning slider a ground is baked under — and never on a frame (0129), which is why
- *   everything here allocates once and refills in place.
+ *   everything here allocates once and refills in place. **And the scene's own maths runs once per
+ *   what the scene is of, not once per tile** (0344): the ink walks its ladders all the while a
+ *   yard sounds, every step is a tile, and a tile is the scene's body read through the ink rather
+ *   than the ground, the shade and the streaks run again.
  * @instead Where a tile is put and what moves it — the pattern, the roll, the crawl, the breath and
  *   the lean, each riding the phase of the parameter that claims it → src/ui/moireScreen.ts, which
  *   this split out of at the 800-line cap (0045, 0332) and which is this file's only caller in the
@@ -26,6 +31,7 @@
 // oxlint-disable max-lines
 import { DRIFT_REST, TAU, wrap } from "@/lib/moire";
 import { type Ink, ramp } from "@/lib/moireColour";
+import { GLYPH_COUNT, GLYPH_PHASE, markAt, markCoverage } from "@/lib/moireGlyph";
 import { gratingKeep } from "@/lib/moireGrating";
 import {
   type Scene,
@@ -35,12 +41,16 @@ import {
   SCENE_REACH_TERMS,
   SCENE_WIND_TERMS,
   sceneAxis,
+  sceneCells,
+  sceneRepeat,
 } from "@/lib/moireScene";
 import { standShade, standSpeck } from "@/lib/moireStand";
 import { subscribeTuning, tunable } from "@/lib/moireTuning";
 import { clamp, denormalize } from "@/lib/range";
 import type { ScreenInk } from "@/lib/moire";
 import type { YardScene } from "@/lib/yardScene";
+import { hold } from "@/ui/driftTiles";
+import { inkOf, sceneStops } from "@/ui/moireScreenStops";
 import { sceneOf } from "@/ui/scene/scenes";
 
 /**
@@ -103,6 +113,18 @@ export const SCREEN_FLOOR = 0.6;
 export const FILM_SHARE = tunable("film.share", 0.15, { min: 0, max: 1, step: 0.05 });
 
 /**
+ * How far every mark's colour is pulled toward the ramp's middle stop: at nought each cell is read
+ * in the ramp colour its ground stands at, and at one the whole picture is one ink and the ramp is
+ * spent on which mark a cell gets and nothing else (0345). **It rests at one** (0346): the reference
+ * this lattice was drawn against is one ink on a pale page, and read off the zoomed drift the
+ * covered pixels at one average the scene's own middle stop — a bloom's red, a canopy's green —
+ * where at nought they average a mud of all five. A scene keeps its ink and loses its gradient,
+ * which in a lattice of marks was never legible: a mark is five pixels and a stop is a tone. The
+ * cases that read the film's shade in colour pin this at nought, because that is what they read.
+ */
+export const GLYPH_FLAT = tunable("glyph.flat", 1, { min: 0, max: 1, step: 0.05 });
+
+/**
  * How much of a pixel's read the film leaves standing: the four keep terms eased toward one by
  * the share, applied **once to their product** and never per term, so the beat between the
  * gratings survives at every setting and only its depth moves. Spent on the read and not on the
@@ -152,8 +174,13 @@ export const sceneHue = (ground: number, hue: number): number =>
  * yard read as red and green candy stripes rather than as its own ink — the cell still averaged
  * back to the row's colour, exactly as 0130 says, but nothing in the picture is as wide as a cell
  * any more.
+ *
+ * **Nought since the picture became a lattice of marks** (0346): a mark's stroke is a device pixel
+ * and a cell's third is under two, so at 0.16 every stroke of every mark took a different channel
+ * and the zoomed drift read as a rainbow grille where the reference is one ink. A standing pop
+ * still pushes the split to `CHANNEL_MIX_FULL`, which is where the chromatic lattice lives now.
  */
-const CHANNEL_MIX = 0.16;
+const CHANNEL_MIX = 0;
 
 /**
  * And how far a wholly saturated picture pushes it — where a standing pop's Sheen carries the same
@@ -413,7 +440,105 @@ let tuned = 0;
 subscribeTuning(() => {
   tuned += 1;
   tiles.clear();
+  bodies.clear();
+  fringes.clear();
 });
+
+/**
+ * The scene's own body of a tile, baked once per what the *scene* is of and read by every tile of
+ * it: where on its ramp each pixel stands, how far the shade over it and the film's four terms
+ * pull that read back, and how bright a point stands there — three numbers a pixel, before the ink
+ * has touched any of them. **This is the loop that costs**, the ground, the shade and the streaks,
+ * and none of it moves with the ink: what walks while a yard sounds is the hue, the fringe, the
+ * dispersion and the saturation (`inkTravelInto`, 0266, 0301), and every step of those was a whole
+ * bake — measured at twenty to forty-six milliseconds apiece, three times a second, on the thread
+ * the hand is on. Split so, a step re-reads this body and re-runs nothing of the scene.
+ *
+ * Room for both sizes of both yards a page shows with a little over: a body is three floats a
+ * pixel and an overlay's is a megabyte, so this is the one cache here that is not kilobytes.
+ */
+const BODY_CACHE = 8;
+const bodies = new Map<string, Float32Array>();
+
+/**
+ * And the three channels' lattices over one beat cell, baked once per how far the ink stands them
+ * apart: the fringe repeats with the cell by construction (`channelKeep`), so a tile reads one cell
+ * of it at `(x, y mod cell)` rather than running the three cosines at every pixel. A cell is
+ * kilobytes.
+ */
+const FRINGE_CACHE = 16;
+const fringes = new Map<string, Float32Array>();
+
+/**
+ * How many numbers a pixel of a body, and of a fringe cell, carries: the ground, the pull and the
+ * point; or one multiplier per channel.
+ */
+const PER_PIXEL = 3;
+
+/**
+ * The body `terms` and `yard` describe, at `width` by `height`, under the film's `share`: the one
+ * held, or one baked now. Everything the scene's maths reads is in the key and nothing the ink
+ * moves is.
+ */
+function bodyOf(
+  width: number,
+  height: number,
+  pitch: number,
+  rowPitch: number,
+  terms: SceneTerms,
+  yard: Readonly<YardScene>,
+  scene: Scene,
+  share: number,
+): Float32Array {
+  const key = `${yard.scene}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.specks}|${width}|${height}|${terms.seen}|${pitch}|${rowPitch}|${share}`;
+  const held = bodies.get(key);
+  if (held !== undefined) return held;
+  const flock = yard.specks === "flock";
+  const kept = yard.specks === "kept";
+  const body = new Float32Array(width * height * PER_PIXEL);
+  for (let y = 0; y < height; y++) {
+    const down = rowKeep(y, rowPitch) * bandKeep(y, height);
+    for (let x = 0; x < width; x++) {
+      // How dark the film is here: the gratings, the lattice and the band, and nothing else — the
+      // `screenKeep` product with its row half hoisted into `down` (0129). The scene spends none
+      // of it: where the field stands is a colour and not an amount (0332).
+      const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
+      const at = (y * width + x) * PER_PIXEL;
+      // This pixel's own place on the scene's ramp, before the picture's hue has carried it.
+      body[at] = scene.ground(x, y, terms);
+      // And how far it is pulled toward the scene's own first stop, twice over: by whatever shade
+      // the thing the yard stands by casts here, the wall, the steps, the grille or the mass, in
+      // the field's own darkest ink and never as an object (0335); and then by the film's own
+      // share of what its four terms take here, which is a shade over the field and no longer a
+      // window cut in it (0340).
+      body[at + 1] = (1 - standShade(x, y, terms)) * filmStand(keep, share);
+      // And whatever bright points the name ends on — a flock of the scene's own or the one kept
+      // thing at the foot of the shade.
+      body[at + 2] = kept ? standSpeck(x, y, terms) : flock ? scene.specks(x, y, terms) : 0;
+    }
+  }
+  return hold(bodies, key, body, BODY_CACHE);
+}
+
+/** One beat cell of the three channels' lattices, at how far apart the ink stands them. */
+function fringeOf(pitch: number, rowPitch: number, spread: number, disperse: number): Float32Array {
+  const key = `${pitch}|${rowPitch}|${spread}|${disperse}`;
+  const held = fringes.get(key);
+  if (held !== undefined) return held;
+  const wide = beatPx(pitch);
+  const deep = beatPx(rowPitch);
+  const cell = new Float32Array(wide * deep * PER_PIXEL);
+  for (let y = 0; y < deep; y++) {
+    for (let x = 0; x < wide; x++) {
+      const lit = channelFringe(x, y, pitch, rowPitch, spread, disperse);
+      const at = (y * wide + x) * PER_PIXEL;
+      cell[at] = lit[0];
+      cell[at + 1] = lit[1];
+      cell[at + 2] = lit[2];
+    }
+  }
+  return hold(fringes, key, cell, FRINGE_CACHE);
+}
 
 /** How many times a tunable has moved, for the key its caller writes (`screenOf`). */
 export const tuneStamp = (): number => tuned;
@@ -433,8 +558,11 @@ export function screenTile(
   rowPitch: number,
   tint: Readonly<ScreenInk>,
   yard: Readonly<YardScene>,
+  cell: number,
 ): HTMLCanvasElement | null {
-  return tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch, tint, yard);
+  return (
+    tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch, tint, yard, cell)
+  );
 }
 
 /** What a third of a cell does to each of the row's own channels, when no token says otherwise. */
@@ -465,77 +593,11 @@ function channelGain(lit: Ink, saturate: number): readonly [number, number, numb
 }
 
 /**
- * The one pixel every colour is read through. Its own rather than a corner of the tile: the tile is
- * a hundred pixels by a thousand and lives on the GPU, and reading a pixel back off it brings the
- * whole of it down.
- */
-let swatch: CanvasRenderingContext2D | null = null;
-
-/**
- * What `css` actually is, as the four channels a pixel is written in — read back out of a pixel the
- * engine painted it into rather than parsed here. Any colour a token can hold is a colour the
- * canvas already knows how to lay down, and a painter with its own colour parser would be a second
- * reading of the theme (principle 1). A canvas that will not give a context back leaves the colour
- * black and transparent, which draws nothing rather than drawing a guess.
- */
-export function inkOf(css: string): Ink {
-  if (swatch === null) {
-    const pixel = document.createElement("canvas");
-    pixel.width = 1;
-    pixel.height = 1;
-    swatch = pixel.getContext("2d", { willReadFrequently: true });
-  }
-  if (swatch === null) return [0, 0, 0, 0];
-  swatch.clearRect(0, 0, 1, 1);
-  swatch.fillStyle = css;
-  swatch.fillRect(0, 0, 1, 1);
-  const [r = 0, g = 0, b = 0, a = 0] = swatch.getImageData(0, 0, 1, 1).data;
-  return [r, g, b, a];
-}
-
-/**
  * The one ink a whole tile is read into: refilled by `ramp` at every pixel and written straight out
  * into the field, because the loop below runs width × height times and a build allocates a ramp and
  * no more (0129, 0070).
  */
 const read: Ink = [0, 0, 0, 0];
-
-/** The five stops, resolved: one list refilled on a build, so a build allocates a ramp and no more. */
-const stops: Ink[] = Array.from({ length: SCENE_RAMP_STOPS }, (): Ink => [0, 0, 0, 0]);
-
-/**
- * The scene's own five stops, resolved and mixed toward the light the yard's air puts it under —
- * **when the air is one the field is stood in**. A light that falls *through* the field mixes no
- * stop at all: it is spent on where the read stands rather than on what colour is there, down the
- * tile from its top edge, and a stop mixed here as well would be that light paid for twice
- * (`build` below, 0324's two air words).
- * Refilled in place and handed back, for the reason every other matrix in this file is: this runs
- * on a build, and a build allocates a ramp and no more.
- *
- * Every one of the five is a token the scene names and none of them is the caller's own ink (0332):
- * a scene that wants the yard's own ink names the token the surface resolves it from, and the light
- * reaches that stop like any other, because an air is what the whole field is seen through and a
- * light that spared one stop would leave part of every yard the same colour under every sky.
- */
-export function sceneStops(
-  scene: Scene,
-  yard: Readonly<YardScene>,
-  style: CSSStyleDeclaration,
-): readonly Ink[] {
-  const light = SCENE_LIGHT_TERMS[yard.light];
-  const wash = yard.spread === "wash" ? light.token : null;
-  const lit = wash === null ? null : inkOf(style.getPropertyValue(wash).trim());
-  scene.ramp.forEach((token, at) => {
-    const stop = inkOf(style.getPropertyValue(token).trim());
-    const own = stops[at] ?? [0, 0, 0, 0];
-    for (const channel of [0, 1, 2, 3]) {
-      const from = stop[channel] ?? 0;
-      own[channel] = lit === null ? from : from + ((lit[channel] ?? 0) - from) * light.amount;
-    }
-    stops[at] = own;
-  });
-  return stops;
-}
 
 /**
  * One tile, written a pixel at a time — the one loop over the pixels there is, and it runs on a
@@ -565,6 +627,7 @@ function build(
   rowPitch: number,
   tint: Readonly<ScreenInk>,
   yard: Readonly<YardScene>,
+  cell: number,
 ): HTMLCanvasElement | null {
   const tile = document.createElement("canvas");
   tile.width = width;
@@ -594,53 +657,104 @@ function build(
   // Read once a tile and not once a pixel: the share is baked in, `tuneStamp()` keys the tile, and
   // a handle read in the pixel loop would be a property read three hundred thousand times (0070).
   const share = FILM_SHARE.value;
-  const flock = yard.specks === "flock";
-  const kept = yard.specks === "kept";
+  // The scene's body and the channels' cell, both held across every tile of the same scene: what
+  // this loop does per pixel is read the ink along the ramp and split it, and nothing heavier.
+  const body = bodyOf(width, height, pitch, rowPitch, terms, yard, scene, share);
+  const lattices = fringeOf(pitch, rowPitch, tint.fringe, tint.disperse);
+  const deep = beatPx(rowPitch);
+  // The lattice of marks (0345): a cell snapped on each axis so a whole number of them span the
+  // tile and the pattern comes round (`sceneRepeat`), and the mark's four soft reads a quarter of
+  // a device pixel apart. **A cell says everything it says once, and says the mean of it**: where
+  // on the ramp it stands is the read — the ground under its shade, its air and its bright points
+  // — averaged over every pixel in it, the box a lattice of marks reads its picture through. Not
+  // its centre pixel, which reads a grating a cell's own pitch apart at one phase in every cell;
+  // and not its brightest, which lights a cell a speck only grazes and turns a flock into a
+  // blanket. A point smaller than a mark is a mark one step denser, which is what a point is at
+  // this scale. So one colour and one mark from edge to edge, refilled once a cell row and not
+  // once a pixel.
+  const across = sceneRepeat(width, cell);
+  const downCell = sceneRepeat(height, cell);
+  const cols = sceneCells(width, cell);
+  const blur = 0.25 / across;
+  const phase = GLYPH_PHASE.value;
+  const flat = GLYPH_FLAT.value;
+  const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
+  const colOf = Int32Array.from({ length: width }, (_, x) =>
+    Math.min(cols - 1, Math.floor(x / across)),
+  );
+  const uAt = Float32Array.from({ length: width }, (_, x) => (x % across) / across);
+  const cellInk = new Float32Array(cols * PER_PIXEL);
+  const cellMark = new Uint8Array(cols);
+  let filled = -1;
+  // The fall, once a row: strongest at the tile's top edge and nought at its foot — which on a
+  // tile laid as a repeating pattern is its middle, because a fall down a picture that never
+  // repeats is a bright line at every join (0334, `sceneAxis(y / height)`).
+  const throughAt = Float32Array.from(
+    { length: height },
+    (_, y) => falling * sceneAxis(y / height),
+  );
+  // Which channel lights each column, resolved once a column rather than once a pixel.
+  const gainAt = Array.from({ length: width }, (_, x) => gains[channelAt(x, pitch)] ?? FLAT_GAIN);
   const field = ink.createImageData(width, height);
   const pixels = field.data;
   for (let y = 0; y < height; y++) {
-    const down = rowKeep(y, rowPitch) * bandKeep(y, height);
-    // The fall, once a row: strongest at the tile's top edge and nought at its foot — which on a
-    // tile laid as a repeating pattern is its middle, because a fall down a picture that never
-    // repeats is a bright line at every join (0334, `sceneAxis(y / height)`).
-    const through = falling * sceneAxis(y / height);
+    const cellRow = Math.floor(y / downCell);
+    if (cellRow !== filled) {
+      filled = cellRow;
+      const y0 = Math.floor(cellRow * downCell);
+      const y1 = Math.min(height, Math.ceil((cellRow + 1) * downCell));
+      for (let c = 0; c < cols; c++) {
+        const x0 = Math.floor(c * across);
+        const x1 = Math.min(width, Math.ceil((c + 1) * across));
+        let sum = 0;
+        for (let yy = y0; yy < y1; yy++) {
+          const through = throughAt[yy] ?? 0;
+          for (let xx = x0; xx < x1; xx++) {
+            const into = (yy * width + xx) * PER_PIXEL;
+            // Where on the ramp this pixel stands: its own place, carried along it by however far
+            // the picture's own hue has travelled — and then pulled toward the scene's own first
+            // stop by the shade and the film the body already holds (`bodyOf`). **After the
+            // travel and not before it**, because a shadow a claimed colour could light is not a
+            // shadow: the two ends of the travel would read a shaded band at the dark stop and at
+            // the hot one, and the field's own shade would swing further than the field.
+            const shaded = sceneHue(body[into] ?? 0, tint.hue) * (body[into + 1] ?? 0);
+            // And how far up that ramp the air and the detail carry it: the light falling through
+            // the field, and then whatever bright point the name ends on, lifted to the top stop
+            // and read after the shade, because a speck in a shadow is a speck nobody put there.
+            const air = shaded + (1 - shaded) * through;
+            sum += air + (1 - air) * (body[into + 2] ?? 0);
+          }
+        }
+        const stood = sum / Math.max(1, (y1 - y0) * (x1 - x0));
+        const inked = ramp(lift, stood, read);
+        // Pulled toward the ramp's middle stop by however flat the picture is asked to be; and
+        // the mark: where the cell stands on its ramp, cut into as many steps as there are marks
+        // and wrapped, so the ground and the peaks are sparse and the band between is dense.
+        const at = c * PER_PIXEL;
+        cellInk[at] = inked[0] + (mid[0] - inked[0]) * flat;
+        cellInk[at + 1] = inked[1] + (mid[1] - inked[1]) * flat;
+        cellInk[at + 2] = inked[2] + (mid[2] - inked[2]) * flat;
+        cellMark[c] = markAt(stood, GLYPH_COUNT, phase);
+      }
+    }
+    const v = (y - cellRow * downCell) / downCell;
+    const lattice = (y % deep) * width;
     for (let x = 0; x < width; x++) {
-      // How dark the film is here: the gratings, the lattice and the band, and nothing else — the
-      // `screenKeep` product with its row half hoisted into `down` (0129). The scene spends none
-      // of it: where the field stands is a colour and not an amount (0332).
-      const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
-      // And which colour it is: this pixel's own place on the scene's ramp, carried along it by
-      // however far the picture's own hue has travelled — and then pulled toward the scene's own
-      // first stop twice over: by whatever shade the thing the yard stands by casts here, the
-      // wall, the steps, the grille or the mass, in the field's own darkest ink and never as an
-      // object (0335); and then by the film's own share of what its four terms take here, which
-      // is a shade over the field and no longer a window cut in it (0340).
-      // **After the travel and not before it**, because a shadow a claimed colour could light is
-      // not a shadow: the two ends of the travel would read a shaded band at the dark stop and at
-      // the hot one, and the field's own shade would swing further than the field.
-      const stood =
-        sceneHue(scene.ground(x, y, terms), tint.hue) *
-        (1 - standShade(x, y, terms)) *
-        filmStand(keep, share);
-      // And how far up that ramp the air and the detail carry it: the light falling through the
-      // field, and then whatever bright points the name ends on — a flock of the scene's own or the
-      // one kept thing at the foot of the shade, lifted to the top stop and read after the shade,
-      // because a speck standing in a shadow is a speck nobody put there.
-      const air = stood + (1 - stood) * through;
-      const point = kept ? standSpeck(x, y, terms) : flock ? scene.specks(x, y, terms) : 0;
-      const row = ramp(lift, air + (1 - air) * point, read);
+      const col = colOf[x] ?? 0;
+      const inked = col * PER_PIXEL;
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
-      // the ink read above and never more of it than that ink had.
-      const lit = channelFringe(x, y, pitch, rowPitch, tint.fringe, tint.disperse);
-      const gain = gains[channelAt(x, pitch)] ?? FLAT_GAIN;
+      // the ink read above and never more of it than that ink had — one cell of them, repeated.
+      const lit = (lattice + x) * PER_PIXEL;
+      const gain = gainAt[x] ?? FLAT_GAIN;
       const at = (y * width + x) * 4;
-      pixels[at] = row[0] * gain[0] * lit[0];
-      pixels[at + 1] = row[1] * gain[1] * lit[1];
-      pixels[at + 2] = row[2] * gain[2] * lit[2];
-      // The alpha is the caller's whole, because how solid the picture is belongs to the surface
-      // it is on and not to what colour it went (0141) — and the screen no longer cuts a window
-      // in it at any share: what it spends, it spends as darkness up on the read (0340).
-      pixels[at + 3] = own[3];
+      pixels[at] = (cellInk[inked] ?? 0) * gain[0] * (lattices[lit] ?? 1);
+      pixels[at + 1] = (cellInk[inked + 1] ?? 0) * gain[1] * (lattices[lit + 1] ?? 1);
+      pixels[at + 2] = (cellInk[inked + 2] ?? 0) * gain[2] * (lattices[lit + 2] ?? 1);
+      // The alpha is the mark's coverage of the caller's whole (0345, amending 0340): how solid the
+      // picture is still belongs to the surface it is on (0141), and what a mark leaves uncovered
+      // is the page, which is the ground this lattice is written on. The screen's own four terms
+      // still reach none of it: what they spend, they spend as darkness up on the read (0340).
+      pixels[at + 3] = own[3] * markCoverage(cellMark[col] ?? 0, uAt[x] ?? 0, v, blur);
     }
   }
   ink.putImageData(field, 0, 0);

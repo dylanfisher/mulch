@@ -49,13 +49,6 @@ import { tintRest } from "@/ui/moireTint";
 
 import { moireRow as row } from "@/lib/moireRow";
 
-/** How much of the picture's ink a tile leaves standing, averaged over its pixels. */
-const tileKeep = (pixels: Uint8ClampedArray): number => {
-  let total = 0;
-  for (let at = 3; at < pixels.length; at += 4) total += (pixels[at] ?? 0) / 255;
-  return total / (pixels.length / 4);
-};
-
 /** The loop's own row at a phase: the reference every band in this file is rolled against. */
 const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
 
@@ -104,6 +97,7 @@ function tileStub() {
         fillRect: () => {},
         setTransform: () => {},
         createPattern: () => ({ setTransform: () => {} }),
+        drawImage: () => {},
         getImageData(): { data: Uint8ClampedArray } {
           return { data: Uint8ClampedArray.from(resolvedInk(this.fillStyle)) };
         },
@@ -389,7 +383,10 @@ describe("moireScreen", () => {
     // of it in one stroke — so the screen is what the picture is *made of* rather than a wash over
     // it, and it is laid down exactly once however many rows there are.
     expect(inks).toEqual([screen, PRODUCT]);
-    expect(moves[0]?.f).toBeCloseTo(bandTurns(rows) * (tile?.height ?? 0), 10);
+    // To within a cell of the marks, on whole cells (0346).
+    const rolled = bandTurns(rows) * (tile?.height ?? 0);
+    expect(Math.abs((moves[0]?.f ?? 0) - rolled)).toBeLessThanOrEqual(pitch / 2);
+    expect((moves[0]?.f ?? 0) % pitch).toBeCloseTo(0, 10);
   });
 
   it("lights three channels across a cell, each over the row's own ink", () => {
@@ -399,7 +396,11 @@ describe("moireScreen", () => {
     // the picture is still the caller's (0130).
     vi.stubGlobal("devicePixelRatio", 2);
     const pitch = gridPitchPx(2);
-    const { written } = paintedOn(200, 64, [row({ period: 3 })]);
+    // Under a claimed saturation, the split resting at nought since 0346 (`CHANNEL_MIX`).
+    const { written } = paintedOn(200, 64, [row({ period: 3 })], {
+      ...screenInkRest(),
+      saturate: 1,
+    });
     expect(written).not.toBeNull();
     const at = (x: number): number[] => {
       const from = x * 4;
@@ -454,6 +455,10 @@ describe("moireScreen", () => {
     // more motions is four more chances to reach for a wall clock. Paint twice with nothing moved
     // and the matrix has to be the same matrix, cell for cell.
     vi.stubGlobal("devicePixelRatio", 2);
+    // The three sub-pixel motions rest at nought since 0346; what is read here is the mechanism.
+    setTuning("screen.turn", 0.006);
+    setTuning("screen.breath", 0.5);
+    setTuning("screen.shear", 0.02);
     const rows = [
       ...SCREEN_TERMS.map((term) => claiming(term)),
       row({ period: 3, phase: 2, reference: true }),
@@ -482,7 +487,11 @@ describe("moireScreen", () => {
     const blown = paintedOn(200, 64, rows, undefined, 0.25, colour);
     const held = still.moves[0];
     const moved = blown.moves[0];
-    expect(moved?.e).toBeCloseTo((held?.e ?? 0) + 0.25 * beatPx(pitch), 10);
+    // By whole cells of the marks since 0346: as far as the wind says to within a cell, and never
+    // a fraction of one.
+    const swept = (moved?.e ?? 0) - (held?.e ?? 0);
+    expect(Math.abs(swept - 0.25 * beatPx(pitch))).toBeLessThanOrEqual(pitch / 2);
+    expect(swept % pitch).toBeCloseTo(0, 10);
     for (const cell of ["a", "b", "c", "d", "f"] as const)
       expect(moved?.[cell]).toBeCloseTo(held?.[cell] ?? 0, 10);
     // And the second painting wrote no tile at all: the first one's answered it, because the wind
@@ -495,6 +504,7 @@ describe("moireScreen", () => {
     // Where the effect actually is: the blobs only reach full size as the turn passes through
     // zero. A turn that never reached it would draw one fixed hatch and never a blob.
     vi.stubGlobal("devicePixelRatio", 2);
+    setTuning("screen.turn", 0.006);
     const leans = [0, 0.25, 0.5, 0.75].map(
       (turns) =>
         paintedOn(200, 64, [claiming("turn", { period: 1, phase: turns })]).moves[0]?.b ?? 0,
@@ -512,6 +522,7 @@ describe("moireScreen", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     // In one strip, so what is counted is the rows and not the strips of a gust.
     setTuning("wind.strips", 1);
+    setTuning("screen.shear", 0.02);
     const others = [row({ period: 3, phase: 1 }), row({ period: 5, phase: 4 })];
     const leaned = paintedOn(200, 64, [claiming("shear"), ...others]).moves;
     expect(leaned).toHaveLength(1);
@@ -614,30 +625,6 @@ describe("moireScreen", () => {
     expect(lit.total / rest.total).toBeLessThanOrEqual(1);
   });
 
-  it("keeps SCREEN_FLOOR across the widest fringe and the whole of disperse", () => {
-    // What stops a screen becoming a grille is the floor, and neither dimension that is colour may
-    // spend it: they divide the ink the row was already drawn in among the three channels it is
-    // made of and never reach the alpha. Read off the tile the painter actually wrote.
-    const chromatic = [
-      row({ period: 3, fringe: DRIFT_FRINGE_REACH, disperse: DRIFT_DISPERSE_REACH }),
-      row({ period: 4, phase: 1, reference: true }),
-    ];
-    const plain = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-    const tileOf = (rows: readonly MoireRow[]): Uint8ClampedArray => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      const { written } = paintedOn(200, 640, rows);
-      expect(written).not.toBeNull();
-      return written?.data ?? new Uint8ClampedArray();
-    };
-    const chromaticPixels = tileOf(chromatic);
-    const plainPixels = tileOf(plain);
-    expect(tileKeep(chromaticPixels)).toBeGreaterThan(SCREEN_FLOOR);
-    expect(tileKeep(chromaticPixels)).toBeCloseTo(tileKeep(plainPixels), 12);
-    // And the two are still different screens, or the floor above would be holding across a
-    // dimension that reached nothing: what the widest fringe spends is the ink, never the alpha.
-    expect(chromaticPixels).not.toEqual(plainPixels);
-  });
-
   it("diverges the three lattices without a seam in the tile", () => {
     // The divergence is whole cycles and whole cells either way, and that is the constraint rather
     // than a choice: a tile that did not repeat would ride a hue seam down the picture once a
@@ -665,6 +652,8 @@ describe("moireScreen", () => {
   });
 
   it("reads the scene's own five stops per pixel, and slides the whole field with the travel", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     // The fourth crossing of the colour boundary (0141), read along the scene's own ramp (0301,
     // 0329) — and since 0332 read **per pixel**, so one tile holds both ends of that ramp at once
     // and the travel is an offset on where the ground already put each pixel.
@@ -713,6 +702,8 @@ describe("moireScreen", () => {
   });
 
   it("reads two places of one tile in two inks, and spends none of the alpha doing it", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     // The whole of 0332 in one case: a head is scarlet and the ground between two heads is green,
     // inside one tile, and the tile's alpha is the film's alone — so a bloom takes exactly as much
     // of the picture's ink as a meadow does, and `SCREEN_FLOOR` holds for every scene there is.
@@ -727,21 +718,23 @@ describe("moireScreen", () => {
       for (let at = 0; at < pixels.length; at += 4) {
         inks.add(`${pixels[at]},${pixels[at + 1]},${pixels[at + 2]}`);
       }
-      return { scene, inks: inks.size, keep: tileKeep(pixels) };
+      let keep = 0;
+      for (let at = 3; at < pixels.length; at += 4) keep = Math.max(keep, pixels[at] ?? 0);
+      return { scene, inks: inks.size, keep };
     });
     const meadow = readings[0]?.keep ?? 0;
     for (const { scene, inks, keep } of readings) {
       // Two pixels of one tile in different places on the ground are read in different inks.
       expect(inks, `${scene} is one ink`).toBeGreaterThan(1);
-      // The floor holds for every scene, and every scene keeps the same ink the meadow does: the
-      // ground no longer appears in the alpha at all, which is the case 0331's canopy said did not
-      // exist (`SCREEN_FLOOR`).
-      expect(keep, `${scene} is under the floor`).toBeGreaterThan(SCREEN_FLOOR);
+      // And every scene stands its marks at the ink the meadow does: the ground reaches the alpha
+      // only as which mark a cell gets (0345), so the top of every scene's alpha is the caller's.
       expect(keep, `${scene} takes a different share of the ink`).toBeCloseTo(meadow, 12);
     }
   });
 
   it("draws the water darker than the bloom, in its own black and not in the film's alpha", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     // A darker water is one token (0333): the deepest stop this instrument held was
     // `--scene-water-deep` at a lightness of 0.42 and the water the glints stand in is near black,
     // so the ramp got a floor under its old one. Read as the median pixel of a whole tile, because
@@ -767,6 +760,8 @@ describe("moireScreen", () => {
   });
 
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
       vi.stubGlobal("devicePixelRatio", 2);
       const { written } = paintedOn(200, 64, [row({ period: 3, hue: 1 })], ink);

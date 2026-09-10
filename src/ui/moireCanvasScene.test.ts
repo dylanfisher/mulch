@@ -11,7 +11,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TAU } from "@/lib/moire";
-import { SCENE_NAMES, SCENE_REACHES, SCENE_STANDS, SCENE_WIND_TERMS } from "@/lib/moireScene";
+import {
+  SCENE_NAMES,
+  SCENE_REACHES,
+  SCENE_STANDS,
+  SCENE_WIND_TERMS,
+  sceneCells,
+  sceneRepeat,
+} from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
@@ -20,9 +27,11 @@ import { termTurns } from "@/ui/moireScreen";
 import { beatPx, gridPitchPx, rowPitchPx } from "@/ui/moireScreenTile";
 
 /**
- * How many islands of lifted pixels a tile holds: a flood fill four ways over the marks, which is
- * what tells one kept thing from a flock of the scene's own — a count of lit pixels cannot, two
- * pictures being able to light the same number of them in one patch or in fifty.
+ * How many islands of moved cells a tile holds: a flood fill eight ways over the marks, which is
+ * what tells one kept thing from a flock of the scene's own — a count of moved cells cannot, two
+ * pictures being able to move the same number of them in one patch or in fifty. Eight ways and
+ * not four since 0345, because the marks are cells and a thing that straddles a cell's corner is
+ * one thing standing on two of them.
  */
 function countIslands(marks: readonly boolean[], wide: number): number {
   const seen = new Set<number>();
@@ -35,8 +44,10 @@ function countIslands(marks: readonly boolean[], wide: number): number {
       const here = open.pop() ?? 0;
       if (seen.has(here) || marks[here] !== true) continue;
       seen.add(here);
-      if (here % wide > 0) open.push(here - 1);
-      if (here % wide < wide - 1) open.push(here + 1);
+      const left = here % wide > 0;
+      const right = here % wide < wide - 1;
+      if (left) open.push(here - 1, here - wide - 1, here + wide - 1);
+      if (right) open.push(here + 1, here - wide + 1, here + wide + 1);
       open.push(here - wide, here + wide);
     }
   }
@@ -135,16 +146,18 @@ describe("the picture is the field its name says", () => {
       for (const other of reached.slice(at + 1)) expect(tile).not.toEqual(other);
     }
     // And the shade is spent on the ramp and never on the alpha, like everything else a name says
-    // (0332): a yard standing by a wall keeps exactly the ink a yard standing by a grille does.
-    // Asserted as one alpha across the whole tile rather than as a mean above `SCREEN_FLOOR`,
-    // which the screen's own terms no longer reach: since 0340 the floor guards the tile's
-    // lightness and is read there (src/ui/moireCanvasFilm.test.ts).
-    const alphas = new Set<number>();
+    // (0332): a yard standing by a wall stands its marks at exactly the alpha a yard standing by
+    // a grille does. Since 0345 the alpha is each mark's coverage, so what is asserted is the top
+    // of it — the caller's whole in every stand — rather than one alpha across the tile; the
+    // floor guards the tile's lightness and is read there (src/ui/moireCanvasFilm.test.ts).
+    const peaks = new Set<number>();
     for (const pixels of stood) {
-      for (let at = 3; at < pixels.length; at += 4) alphas.add(pixels[at] ?? -1);
+      let peak = 0;
+      for (let at = 3; at < pixels.length; at += 4) peak = Math.max(peak, pixels[at] ?? -1);
+      peaks.add(peak);
     }
-    expect([...alphas], "a stand spends the film's own alpha").toHaveLength(1);
-    expect([...alphas][0] ?? 0, "a stand stands at no alpha at all").toBeGreaterThan(0);
+    expect([...peaks], "a stand spends the film's own alpha").toHaveLength(1);
+    expect([...peaks][0] ?? 0, "a stand stands at no alpha at all").toBeGreaterThan(0);
   });
 
   it("still aims one grating per row whatever the scene, and lays the screen down once", () => {
@@ -225,6 +238,8 @@ describe("the picture is the field its name says", () => {
   });
 
   it("lays down a bloom whose pixels span more than one of its own stops", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     // The whole of 0332 through the painter: the bloom's ramp is read per pixel, so one tile holds
     // a scarlet head and a green stem at full strength — and not one ink the ground dimmed. The
     // stops are src/ui/scene/bloom.ts's own, resolved by the recorder (`resolvedInk`).
@@ -249,6 +264,8 @@ describe("the picture is the field its name says", () => {
   });
 
   it("lets a light fall through the field from the tile's top edge and washes one alike", () => {
+    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    setTuning("glyph.flat", 0);
     // The air's joining word (0324): a field stood *in* its light is washed by it, and a field seen
     // *through* one has that light fall through it — strongest where the field is thinnest, which
     // is the tile's top edge, and nought at the foot of the fall. The foot is the tile's own middle
@@ -285,21 +302,36 @@ describe("the picture is the field its name says", () => {
     const of = (detail: string): Uint8ClampedArray =>
       tileOf(paintingOf(yardScene(`Quiet Heather by the Old Wall${detail}`), WHOLE_TILE));
     const own = of("");
-    const lifted = (pixels: Uint8ClampedArray): boolean[] => {
-      const marks: boolean[] = [];
-      for (let at = 0; at < pixels.length; at += 4) {
-        marks.push(brightOf(pixels, at) > brightOf(own, at) + 20);
+    // Since 0345 a point is read at the lattice's own scale: a cell a bright point stands in is a
+    // mark one step denser, so what is counted is cells whose mark moved — any pixel of the
+    // cell's alpha differing from the bare yard's — and the islands are islands of cells.
+    const cell = gridPitchPx(2);
+    const cols = sceneCells(wide, cell);
+    const across = sceneRepeat(wide, cell);
+    const moved = (pixels: Uint8ClampedArray): boolean[] => {
+      const deep = pixels.length / 4 / wide;
+      const rows = sceneCells(deep, cell);
+      const down = sceneRepeat(deep, cell);
+      const cells: boolean[] = Array.from({ length: cols * rows }, () => false);
+      for (let y = 0; y < deep; y++) {
+        for (let x = 0; x < wide; x++) {
+          const at = (y * wide + x) * 4 + 3;
+          if (pixels[at] === own[at]) continue;
+          const col = Math.min(cols - 1, Math.floor(x / across));
+          const line = Math.min(rows - 1, Math.floor(y / down));
+          cells[line * cols + col] = true;
+        }
       }
-      return marks;
+      return cells;
     };
-    const kept = lifted(of(" with a Bell"));
-    const flock = lifted(of(" with Sparrows"));
-    // One island: every lifted pixel reached from any other of them, four ways, and none left over.
-    const islands = countIslands(kept, wide);
-    expect(kept.filter(Boolean).length, "a kept thing stands nowhere").toBeGreaterThan(4);
+    const kept = moved(of(" with a Bell"));
+    const flock = moved(of(" with Sparrows"));
+    // One island: every moved cell reached from any other of them, four ways, and none left over.
+    const islands = countIslands(kept, cols);
+    expect(kept.filter(Boolean).length, "a kept thing stands nowhere").toBeGreaterThan(0);
     expect(islands, "a kept thing is not one island").toBe(1);
     // And a flock is the opposite picture: many points, spread over the tile.
-    expect(countIslands(flock, wide), "a flock is one island").toBeGreaterThan(islands * 4);
+    expect(countIslands(flock, cols), "a flock is one island").toBeGreaterThan(islands * 4);
     expect(
       flock.filter(Boolean).length,
       "a flock stands on no more than one kept thing",

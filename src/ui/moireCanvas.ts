@@ -90,6 +90,7 @@ import { cutField } from "@/ui/moireCanvasField";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
+import { gridPitchPx } from "@/ui/moireScreenTile";
 import type { YardScene } from "@/lib/yardScene";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
@@ -197,6 +198,47 @@ const forget = (canvas: HTMLCanvasElement): void => {
 /** How far a fed-back frame is scaled and turned before it is laid back into this one. */
 const FEEDBACK_ZOOM = tunable("feedback.zoom", 0.03, { min: 0, max: 0.2, step: 0.005 });
 const FEEDBACK_TURNS = tunable("feedback.turns", 0.006, { min: 0, max: 0.05, step: 0.001 });
+
+/**
+ * How many times the boxed field is composed with itself before it is taken out of the picture
+ * (`destination-in`, the block look's own hardening). The field is how much the rows' gratings
+ * block, and a cell's mean of a cosine grating is about a half: taken out as it is, every mark
+ * stands at half its ink and the lattice is pale. Composed with itself the field falls away
+ * everywhere the gratings only half block and stands where they crest together, so the sound's cut
+ * is holes in a lattice of whole marks — the sparse moiré of holes 0341 aimed at, through marks.
+ * Three, because at three a cell the gratings half block keeps seven eighths of its mark and one
+ * they block by nine tenths keeps a quarter, which is a hole and not a stain; measured on the zoomed
+ * drift, unhardened, no pixel of the marks stood above three quarters of its ink.
+ */
+const BOX_HARDENINGS = 3;
+
+/**
+ * Read the field a cell of the marks at a time (0346): boxed down into its own corner, one pixel
+ * per cell and the mean of the window the rows' gratings leave over that cell, and laid back over
+ * itself a whole cell at a time. **The picture is the tile seen through this window**, and a
+ * window a pixel wide across a stroke a pixel wide is a stroke shredded — measured on the zoomed
+ * drift, no pixel of the marks stood above three quarters of its alpha, and most under a quarter.
+ * Read a cell at a time the window takes and leaves whole marks, which is what the sound's cut is
+ * through a lattice. Two draws the engine makes, on the frame and in no loop of ours (0129), in
+ * the field's own corner and under `copy` the way the blocks look draws (`blocksPass`,
+ * src/lib/moireLook.ts) so no surface is made for it; the cell is the column pitch, so the box
+ * lands on the lattice `inkThrough` lays on whole cells of it.
+ */
+function boxField(field: HTMLCanvasElement, ink: CanvasRenderingContext2D, cell: number): void {
+  const wide = Math.max(1, Math.ceil(field.width / cell));
+  const deep = Math.max(1, Math.ceil(field.height / cell));
+  const over = ink.globalCompositeOperation;
+  ink.globalCompositeOperation = "copy";
+  ink.imageSmoothingEnabled = true;
+  ink.imageSmoothingQuality = "high";
+  ink.drawImage(field, 0, 0, field.width, field.height, 0, 0, wide, deep);
+  ink.imageSmoothingEnabled = false;
+  ink.drawImage(field, 0, 0, wide, deep, 0, 0, wide * cell, deep * cell);
+  ink.imageSmoothingEnabled = true;
+  ink.globalCompositeOperation = "destination-in";
+  for (let taken = 0; taken < BOX_HARDENINGS; taken++) ink.drawImage(field, 0, 0);
+  ink.globalCompositeOperation = over;
+}
 
 /** The surface `canvas` builds its product on, kept at the canvas's own size. */
 function fieldFor(canvas: HTMLCanvasElement): HTMLCanvasElement {
@@ -591,6 +633,7 @@ export function paintMoire(
     return;
   }
   feedFrame(canvas, field, ink, rows);
+  boxField(field, ink, gridPitchPx(dpr));
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs

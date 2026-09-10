@@ -211,6 +211,12 @@ export function painterOn(stubGlobal: StubGlobal) {
         move: Aim;
         smooth: boolean;
       }[];
+      /**
+       * The same draws with the field's own cell read left out (`boxField`, 0346): two `copy`
+       * draws a frame that box the field into its corner and back and the hardenings of it
+       * against itself, which a case about what a frame lays into the field is not about.
+       */
+      frame: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[];
     }[] = [];
     // One stand-in context is one object literal of methods, each writing into the same tally, and
     // recording the box a draw was made in is one more field on one of them (0007).
@@ -228,8 +234,9 @@ export function painterOn(stubGlobal: StubGlobal) {
       }[] = [];
       // What a curved row is drawn with: the tile it was baked into, placed by a matrix rather than
       // rebuilt. One object refilled by the painter, so the recorder keeps a copy of each.
+      const frame: { tile: unknown; box: number[]; over: string; alpha: number; move: Aim }[] = [];
       let move: Aim = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-      surfaces.push({ fills, wrote, drew });
+      surfaces.push({ fills, wrote, drew, frame });
       return {
         // The surface this context belongs to, which a pass reading its own back reaches through.
         canvas,
@@ -256,6 +263,9 @@ export function painterOn(stubGlobal: StubGlobal) {
             imageSmoothingEnabled: smooth,
           } = this;
           drew.push({ tile, box, alpha, over, move, smooth });
+          // The cell read's own draws: the two under `copy` and the hardenings of the field
+          // against itself, which are the only draws of a surface into itself.
+          if (over !== "copy" && tile !== canvas) frame.push({ tile, box, alpha, over, move });
         },
         createPattern: () => (allowed() ? { setTransform: (m: Aim) => aims.push({ ...m }) } : null),
         createImageData: (w: number, h: number) => ({

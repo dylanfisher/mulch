@@ -217,7 +217,7 @@ const runRows = (): MoireRow[] => {
  * its baked tile with the same call, and does it cutting (`destination-out`) rather than laying on.
  */
 const laysOf = (painted: Painted): { alpha: number; move: Aim }[] =>
-  (painted.surfaces[0]?.drew ?? []).filter((drew) => drew.over === "source-over");
+  (painted.surfaces[0]?.frame ?? []).filter((drew) => drew.over === "source-over");
 
 /**
  * The rows a yard jumping through `song` draws while `standing` is the part it is in — through the
@@ -604,13 +604,14 @@ describe("moireCanvas", () => {
     vi.stubGlobal("devicePixelRatio", 1);
 
     // Nothing to feed back on the first frame, and nothing kept where no row asks for it.
-    expect(paintedOn(400, 128, [fedRow()]).surfaces[0]?.drew).toEqual([]);
+    expect(paintedOn(400, 128, [fedRow()]).surfaces[0]?.frame).toEqual([]);
     expect(
-      paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, { frames: 4 }).surfaces[0]?.drew,
+      paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, { frames: 4 }).surfaces[0]?.frame,
     ).toEqual([]);
     // And from the second frame on, the last one laid back onto the field — onto it, because the
     // field is what the gratings let through and a ghost fills its own fringes back in.
-    const twice = paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 2 }).surfaces[0]?.drew ?? [];
+    const twice =
+      paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 2 }).surfaces[0]?.frame ?? [];
     expect(twice).toHaveLength(1);
     expect(twice[0]?.over).toBe("source-over");
     expect(twice[0]?.alpha).toBe(DRIFT_FEEDBACK_CEILING);
@@ -622,7 +623,8 @@ describe("moireCanvas", () => {
     expect(twice[0]?.alpha).toBeLessThanOrEqual(0.25);
     // However many frames run, and whatever a row asks for: the share is the ceiling's, not the
     // row's, so the field settles instead of filling to opaque a few seconds after a knob moved.
-    const many = paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 20 }).surfaces[0]?.drew ?? [];
+    const many =
+      paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 20 }).surfaces[0]?.frame ?? [];
     expect(many).toHaveLength(19);
     for (const drew of many) expect(drew.alpha).toBeLessThanOrEqual(DRIFT_FEEDBACK_CEILING);
     // A little larger and a little turned each time, or the ghost is a second copy of the picture
@@ -666,7 +668,7 @@ describe("moireCanvas", () => {
       frames: 30,
       advance: 0,
     });
-    expect(held.surfaces[0]?.drew).toEqual([]);
+    expect(held.surfaces[0]?.frame).toEqual([]);
     // Thirty repaints of one halted yard are thirty of the picture one painting draws, cut for cut
     // and matrix for matrix — the same pixels again, which is what a commit-driven repaint is.
     const once = paintedOn(400, 128, [fedRow()]);
@@ -696,7 +698,7 @@ describe("moireCanvas", () => {
         if (frame === 2) rows.push(fed);
       },
     });
-    expect(painted.surfaces[0]?.drew).toHaveLength(1);
+    expect(painted.surfaces[0]?.frame).toHaveLength(1);
   });
 
   it("takes half the ink at the sixty-four places the tile asks each profile", () => {
@@ -723,7 +725,7 @@ describe("moireCanvas", () => {
     const laid = paintedOn(400, 128, rows, 3, WINDOW, { shape });
     // Cut like every other row, through a fill and not a draw.
     expect(laid.cuts).toHaveLength(2);
-    expect(laid.surfaces[0]?.drew).toEqual([]);
+    expect(laid.surfaces[0]?.frame).toEqual([]);
     const aim = laid.aims.at(-1);
     if (aim === undefined) throw new Error("the lattice was not aimed");
     expect(aim.b).not.toBeCloseTo(0, 9);

@@ -709,4 +709,21 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
       },
     ],
   },
+  {
+    title: "Glyph",
+    hint: "The lattice of marks the picture is written in — a cell is the screen's own column pitch — where along the ten marks the ramp starts before it wraps, and how far every mark is pulled toward one ink.",
+    entries: [
+      {
+        id: "glyph.phase",
+        label: "Phase",
+        hint: "Where along the marks the ramp starts, as a share of their count; at nothing the ground is blank and the ramp never wraps.",
+      },
+      {
+        id: "glyph.flat",
+        wild: "max",
+        label: "Flat",
+        hint: "How far every mark's colour is pulled toward the ramp's middle stop; at everything the picture is one ink.",
+      },
+    ],
+  },
 ];

@@ -15,6 +15,7 @@ import { tunings } from "@/lib/moireTuning";
 import { sceneOf } from "@/ui/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
 import { FILM_STOPS } from "@/ui/sketch/drift/SketchDriftFilm";
+import { GLYPH_STOPS } from "@/ui/sketch/drift/SketchDriftGlyph";
 import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
 import { SketchPage } from "@/ui/sketch/SketchPage";
 
@@ -62,11 +63,13 @@ const DECLARED = [
   // And one more: the film draws a scene's five from a fifth of the way along the page's own
   // ground, so the share is spent inside the scene's ramp the way the painter spends it (0340).
   namesOf(FILM_STOPS),
+  // And the marks, drawn the same way over the water's five (0345).
+  namesOf(GLYPH_STOPS),
 ];
 
 describe("SketchPage draws where the picture goes, ten ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
-    expect(SKETCH_DRIFTS).toHaveLength(6 + SCENE_NAMES.length);
+    expect(SKETCH_DRIFTS).toHaveLength(7 + SCENE_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
       const stage = stageOf(entry.id, SKETCH_DRIFTS[index + 1]?.id);
       expect(stage, `${entry.id} draws no canvas`).toContain("<canvas");
@@ -153,7 +156,7 @@ describe("the bench draws every scene", () => {
     }
     // And the bench's second introduction counts what it mounts: ten, not eleven.
     expect(markup, "the drift introduction miscounts the bench").toContain(
-      "so the ten are a plan&#x27;s worth of parts",
+      "so the eleven are a plan&#x27;s worth of parts",
     );
   });
 });
@@ -188,7 +191,7 @@ describe("the bench argues the film's share under a dial", () => {
    */
   it("stands the film tenth, under the dial the app declares", () => {
     const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
-    expect(drawn, "the bench does not hold ten entries").toHaveLength(10);
+    expect(drawn, "the bench does not hold eleven entries").toHaveLength(11);
     expect(drawn.indexOf("film"), "the film is not entry 10").toBe(9);
     const entry = SKETCH_DRIFTS[9];
     expect(entry?.built, "the film names no tunable").toContain("film.share");
@@ -196,7 +199,7 @@ describe("the bench argues the film's share under a dial", () => {
       tunings().map((handle) => handle.id),
       "nothing declares film.share",
     ).toContain("film.share");
-    const stage = stageOf("film");
+    const stage = stageOf("film", "glyph");
     expect(stage, "the film says nothing of what it leaves standing").toMatch(
       /data-said="film"[^>]*>[^<]*lightness stands/u,
     );
@@ -208,9 +211,35 @@ describe("the bench argues the film's share under a dial", () => {
   });
 });
 
-describe("each of the ten says where it would land", () => {
+describe("the bench argues the marks' ink under a dial", () => {
   /**
-   * A build note is the point of this bench: the ten are a plan's worth of parts, so each one
+   * The marks block's third step (0345): whether the lattice is printed in the scene's five stops
+   * or in one ink is `glyph.flat`, and a rest in a file is not what a hand decides on. So the
+   * eleventh entry is the marks, it names the tunable, and it is drawn the way the film is — the
+   * page's ground and then a scene's five, the water's, because a pixel a mark leaves uncovered is
+   * the page and the bench reads every palette once.
+   */
+  it("stands the marks eleventh, under the dial the app declares", () => {
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    expect(drawn.indexOf("glyph"), "the marks are not entry 11").toBe(10);
+    expect(SKETCH_DRIFTS[10]?.built, "the marks name no tunable").toContain("glyph.flat");
+    expect(
+      tunings().map((handle) => handle.id),
+      "nothing declares glyph.flat",
+    ).toContain("glyph.flat");
+    const stage = stageOf("glyph");
+    expect(stage, "the marks say nothing of their ink").toMatch(
+      /data-said="glyph"[^>]*>[^<]*(one ink|five stops)/u,
+    );
+    expect(chipsOf(stage).join(), "the marks are not the water over the ground").toBe(
+      `ground,${rampOf("water")}`,
+    );
+  });
+});
+
+describe("each of the eleven says where it would land", () => {
+  /**
+   * A build note is the point of this bench: the eleven are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */

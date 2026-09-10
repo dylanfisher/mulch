@@ -17,7 +17,7 @@ import { type Ink, ramp } from "@/lib/moireColour";
 import { heardLevel } from "@/lib/moireSound";
 import { tunable } from "@/lib/moireTuning";
 import { denormalize } from "@/lib/range";
-import { sceneStops } from "@/ui/moireScreenTile";
+import { sceneStops } from "@/ui/moireScreenStops";
 import { sceneOf } from "@/ui/scene/scenes";
 import type { YardScene } from "@/lib/yardScene";
 

@@ -47,18 +47,23 @@ import { viewOf } from "@/ui/canvasSurface";
 /**
  * How far the lattice turns off the picture's own axis, in turns of a circle, and how far its pitch
  * breathes, in device pixels. Both small, and both sweeping *through* rest rather than around it,
- * so what they do to the lattice passes through square instead of sitting at one offset.
+ * so what they do to the lattice passes through square instead of sitting at one offset. **Both
+ * rest at nought since the picture became a lattice of marks** (0346): a stroke one device pixel
+ * wide resampled under any turn or scale is two pixels at half strength, and measured on the zoomed
+ * drift no pixel of the marks stood above half alpha until they rested here. The dials stay, for a
+ * hand that wants the blur.
  */
-const TURN_TURNS = tunable("screen.turn", 0.006, { min: 0, max: 0.05, step: 0.001 });
-const BREATH_PX = tunable("screen.breath", 0.5, { min: 0, max: 3, step: 0.05 });
+const TURN_TURNS = tunable("screen.turn", 0, { min: 0, max: 0.05, step: 0.001 });
+const BREATH_PX = tunable("screen.breath", 0, { min: 0, max: 3, step: 0.05 });
 
 /**
  * How far the lattice leans, in the same turns. Once over the whole tile rather than once per row
  * drawn: no row is drawn on its own any more, so there is nothing for a per-row lean to be under
  * (0128 amended). It costs the matrix write it was already making and no longer costs a
- * `setTransform` and a `fillStyle` per row.
+ * `setTransform` and a `fillStyle` per row. At rest nought since 0346, for the turn's reason; the
+ * gust rides this term, so a yard's gust is a lean only when a hand has asked for one.
  */
-const SHEAR_TURNS = tunable("screen.shear", 0.02, { min: 0, max: 0.1, step: 0.001 });
+const SHEAR_TURNS = tunable("screen.shear", 0, { min: 0, max: 0.1, step: 0.001 });
 
 /**
  * How many vertical strips the frame is filled in, so that the gust has somewhere to be read. The
@@ -172,6 +177,9 @@ function screenOf(
   yard: Readonly<YardScene>,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
+  // And the cell the marks are written in: the screen's own column pitch, so a bit of a mark is a
+  // whole device pixel on every display and the tile is a whole number of cells wide (0345, 0346).
+  const cell = pitch;
   // The hue itself and no longer where it lands on a scene's ramp: since 0332 the read is a
   // per-pixel offset on the ground rather than one position for the whole tile, so there is no
   // single read to key through and every step of the travel is its own tile.
@@ -185,10 +193,21 @@ function screenOf(
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${tuneStamp()}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${tuneStamp()}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
-  const made = screenTile(key, beatPx(pitch), height, canvas, color, pitch, rowPitch, tint, yard);
+  const made = screenTile(
+    key,
+    beatPx(pitch),
+    height,
+    canvas,
+    color,
+    pitch,
+    rowPitch,
+    tint,
+    yard,
+    cell,
+  );
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
   if (pattern === null) return null;
@@ -199,9 +218,10 @@ function screenOf(
 /**
  * Lay the ink every row will be cut out of over the whole canvas: the screen, moved to where the
  * picture's own phases have carried it, or the flat colour where the engine would not build one.
- * Sub-pixel throughout, and nothing rounded to whole device pixels as the roll once was — the beat
- * between the lattice and the pixels it lands on is the effect now, and a term rounded to whole
- * pixels is precisely the one with no beat left in it.
+ * Sub-pixel in its turn, breath and lean, which rest at nought since 0346; its two translations are
+ * rounded to whole cells of the marks, because the picture is a lattice fixed to the screen and the
+ * beat is now between that lattice and the sound's cut through it, not between the tile and the
+ * pixels it lands on.
  *
  * **The fill is this file's and no longer its caller's**, because a gust is a lean that varies
  * across the picture and the only place a lean can vary is between one fill and the next: the
@@ -251,12 +271,16 @@ export function inkThrough(
   const sway = SCENE_WIND_TERMS[yard.wind].sway;
   // Each over the span the term comes round in, so every one of them arrives back where it left
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.
-  rolled.f = bandTurns(rows) * tilePx(canvas.height, rowPitch);
+  // **On whole cells of the marks since 0346** — the lattice is fixed to the screen and what moves
+  // through it steps a cell at a time, which is what the reference's fixed glyph grid does with the
+  // picture flowing under it; and a stroke a pixel wide laid at a fraction of a pixel is two pixels
+  // at half strength. The cell is the column pitch, so a whole cell is a whole pixel too.
+  rolled.f = Math.round((bandTurns(rows) * tilePx(canvas.height, rowPitch)) / pitch) * pitch;
   // And the wind on that same axis, added to the crawl rather than given one of its own: the crawl
   // sweeps a cell and comes back, and this is the same axis running one way — how far the standing
   // rack's own tail has blown the whole field (`windTravelInto`, src/ui/moireWind.ts, 0267). It is a
   // term on the transform and touches no key, so a field blowing all day bakes nothing (0129).
-  rolled.e = (termTurns(rows, "crawl") + wind) * beatPx(pitch);
+  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * beatPx(pitch)) / pitch) * pitch;
   turnedScale(
     rolled,
     1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

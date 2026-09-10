@@ -20,7 +20,7 @@ import { cn } from "@/lib/cn";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { Slider } from "@/ui/components/slider";
 import { type Ink, ramp } from "@/lib/moireColour";
-import { inkOf } from "@/ui/moireScreenTile";
+import { inkOf } from "@/ui/moireScreenStops";
 import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
 

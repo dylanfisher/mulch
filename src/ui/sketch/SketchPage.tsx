@@ -87,7 +87,7 @@ function DriftIntro() {
       be pushed in, none exclusive of another, each one move a shader would make, drawn on a
       stand-in weave in the instrument&apos;s own inks and under the one dial that move turns. Each
       says where in the painter it would land and which side of the bake line it falls on — a tile
-      is a bake and a frame is a fill — so the ten are a plan&apos;s worth of parts and not ten
+      is a bake and a frame is a fill — so the eleven are a plan&apos;s worth of parts and not ten
       wishes. The stand-in is two gratings a pixel apart in pitch, which is what the real picture is
       under everything else; what is judged is the move, not the weave. The pictures are painted by
       a pixel loop on this bench and would not be in the painter, where anything per frame is a
