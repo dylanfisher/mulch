@@ -12,7 +12,7 @@
  *   the panel is worn by, and where it is asked to paint again → src/ui/MoireStrip.tsx and
  *   `useDriftSurface` in src/ui/driftTiles.ts. The words → src/lib/copyDrift.ts, and the groups,
  *   labels and hints → src/lib/copyDriftGroups.ts. The words a reading is said in →
- *   src/lib/copyScene.ts, and the reading itself → src/lib/yardScene.ts.
+ *   src/lib/copyScene.ts, and the card that says it and offers the field → src/ui/MoireSceneCard.tsx.
  */
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -28,7 +28,6 @@ import {
   tuningPrompt,
 } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS, type TuningEntry, type TuningGroup } from "@/lib/copyDriftGroups";
-import { SCENE_READING_HINT, SCENE_READING_TITLE, sceneReading } from "@/lib/copyScene";
 import {
   resetTuning,
   setTuning,
@@ -50,10 +49,10 @@ import {
   PopoverTrigger,
 } from "@/ui/components/popover";
 import { Slider } from "@/ui/components/slider";
+import { MoireSceneCard } from "@/ui/MoireSceneCard";
 import { Says } from "@/ui/Says";
 import { toast } from "@/ui/components/toast";
 import { INSTANT_POPUP } from "@/ui/shell";
-import { useYardScene } from "@/ui/yardSceneRead";
 
 /**
  * Whether a page is being served to its own author: the copy button is a step in a loop that
@@ -213,28 +212,6 @@ const onCopy = (): void => {
 };
 
 /**
- * What the yard's name was read as, at the head of the panel: the one card here that moves
- * nothing. A reading is not a dial — the name is the only thing that sets it (0329) — so it is
- * said rather than offered, and it is said here because this is where a hand already stands while
- * it is checking the picture against what it expected.
- */
-function SceneCard({ name }: { name: string }) {
-  const scene = useYardScene(name);
-  return (
-    <Card size="sm" className="mb-3 break-inside-avoid">
-      <CardHeader>
-        <Says what={SCENE_READING_HINT}>
-          <h3 className="type-eyebrow text-muted-foreground">{SCENE_READING_TITLE}</h3>
-        </Says>
-      </CardHeader>
-      <CardContent>
-        <p className="type-readout">{sceneReading(scene)}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
  * The panel's body, on its own so a test can render it open: what the yard's name was read as,
  * the groups, each heading and each
  * label saying on hover what its numbers do, then the reset and,
@@ -247,7 +224,7 @@ export function TuningFields({ debug, name }: { debug: boolean; name: string }) 
   return (
     <>
       <div className="columns-[16rem] gap-3">
-        <SceneCard name={name} />
+        <MoireSceneCard name={name} />
         {grouped(tunings()).map(({ group, rows }) => (
           <Card key={group.title} size="sm" className="mb-3 break-inside-avoid">
             <CardHeader>

@@ -23,7 +23,16 @@ import type { YardScene } from "./yardScene.ts";
 /** The card the tuning panel says a reading under, and the sentence it is read by. */
 export const SCENE_READING_TITLE = "Scene";
 export const SCENE_READING_HINT =
-  "What this yard's name was read as: the wind its adjective sets, the field its plant stands in, how close the frame stands, what stands in it, the air its light falls through, and what its bright points are. Nothing here is a dial — the name is the only thing that moves it.";
+  "What this yard's name was read as: the wind its adjective sets, the field its plant stands in, how close the frame stands, what stands in it, the air its light falls through, and what its bright points are. The name sets all of it; the field alone can be set aside for this tab, to see the others under this yard's own light.";
+
+/**
+ * The dropdown under the reading that sets the field aside, and its rest: the name's own field,
+ * said with the field so a hand can see what it is leaving before it leaves it.
+ */
+export const SCENE_PICK_LABEL = "Field";
+export const SCENE_PICK_HINT =
+  "Which field this yard stands in, for this tab only: at rest the one its name reads as. Nothing is stored — a reload reads the name again.";
+export const sceneAsNamed = (field: string): string => `as named — ${field}`;
 
 /**
  * A field in the words the still it came from was drawn in, not the name of its file: a hand

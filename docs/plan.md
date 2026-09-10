@@ -896,7 +896,7 @@ readings needed naming, both the harness and not the app: the rack of six reads 
 seconds in, before the lattice has finished tightening — which is 0341's 0.665 on the same
 fixture, taken unsettled — and a starved headless frame loop reads exactly the no-rack 0.350 on a
 yard that is playing.
-The next free decision number is 0343.
+The next free decision number is 0344.
 
 1.  **The film's share is a dial, on the bench and in the app.** _(bench-19, landed 0339)_
     **Durable shape moved: none.** A tunable is a session preference and never durable (0329).
