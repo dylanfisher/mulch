@@ -802,12 +802,12 @@ two is the figure and which is the ground.
 
 Where the ink goes today, in the order the frame spends it (`paintMoire`, src/ui/moireCanvas.ts):
 
-| Pass                                     | Where                                 | What it costs the scene                                                                 |
-| ---------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
-| the screen's own gratings, blob and band | `build`, src/ui/moireScreenTile.ts    | since 0340 no alpha at all: a shade on the read, held above `SCREEN_FLOOR` in lightness |
-| the rows' gratings, taken back out       | `cutField`, destination-out           | one minus their product: a window wherever the sound's gratings agree                   |
-| the feedback ghost                       | `feedFrame`, `DRIFT_FEEDBACK_CEILING` | the last frame laid under this one at up to half strength, blurring the field           |
-| the strip's height                       | src/ui/MoireStrip.tsx, 32 CSS px      | a head is under a device pixel; the overlay pulls back rather than zooms (0109)         |
+| Pass                                     | Where                                 | What it costs the scene                                                                  |
+| ---------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| the screen's own gratings, blob and band | `build`, src/ui/moireScreenTile.ts    | since 0340 no alpha at all: a shade on the read, held above `SCREEN_FLOOR` in lightness  |
+| the rows' gratings, taken back out       | `cutField`, destination-out           | since 0341 a tenth of the page on average: a sparse moiré of holes in a solid field      |
+| the feedback ghost                       | `feedFrame`, `DRIFT_FEEDBACK_CEILING` | since 0341 the last frame laid under this one at up to a quarter, spiralling its fringes |
+| the strip's height                       | src/ui/MoireStrip.tsx, 32 CSS px      | a head is under a device pixel; the overlay pulls back rather than zooms (0109)          |
 
 **Layout, before the first step.** The share the film spends is one number, `tunable("film.share")`,
 in a new **Film** group in src/lib/copyDriftGroups.ts (700 lines; the group is under twenty and the
@@ -826,7 +826,7 @@ colour can enter. Decision numbers from 0339; bench tags from bench-19.
 
 The order is decided: **the dial first (landed 0339)**; the screen's shade next (landed 0340),
 because it is
-the largest single spend and the one that turns a comb into a picture; the sound's cut after it, because it is the instrument's subject
+the largest single spend and the one that turns a comb into a picture; the sound's cut after it (landed 0341), because it is the instrument's subject
 and is re-aimed against what the shade left rather than against a white page; and the two sizes
 last, because whether the strip needs anything of its own is only knowable once the overlay reads.
 
@@ -861,7 +861,23 @@ and the zoomed drift's 0.332 → 0.350, both pairs agreeing to the digit. 0.350 
 measured with the film off outright, so the screen now spends none of the alpha at any setting —
 what is left is the rows' cut and the ghost, which is step 3. At the 1:1 crop the field reads as
 heads over stems in their own ink, and the vertical grating still over them is the sound's.
-The next free decision number is 0341.
+bench-21 landed on 2026-09-10 as
+[0341](decisions/0341-the-cut-is-aimed-at-a-field.md): two numbers move and nothing else does —
+`grating.floor` rests at 0.1 where it rested at 0.3, and `DRIFT_FEEDBACK_CEILING` is 0.25 where it
+was 0.5. `cutField` and `feedFrame` are untouched; what changed is what they are aimed at, the tile
+under them being solid since 0340. **The shots say the field stands.** The drift smoke's own rack of
+six on a bloom yard with a click train playing, base and head interleaved and each fixture read
+twice: the strip 0.389 → 0.665 and the zoomed drift 0.457/0.458 → 0.729/0.721, every pair agreeing
+to the digit. At the 1:1 crop the base is a pale blurred lattice with the scene only guessable
+behind it and the head is scarlet heads over green stems with the beat crawling over them. The whole
+travel was swept on that fixture before the rest was chosen — 0.05 (0.830), 0.15 (0.648), 0.55
+(0.253), 0.8 (0.130) — and at 0.05 the moiré has nothing left to cut and the picture is a wallpaper.
+**And a pair and a trio saturate**, which is the step's known cost: cut to their own troughs they
+still leave 0.25 and 0.125 of the ink as window where the rest asks for 0.1, so the count says a
+little about the picture's weight again at those two counts, in the direction that a sparse yard is
+lighter and never darker.
+`./scripts/profile` interleaved base/head/base/head is flat: frame mean 8.28, 8.18, 8.19, 8.29 ms.
+The next free decision number is 0342.
 
 1.  **The film's share is a dial, on the bench and in the app.** _(bench-19, landed 0339)_
     **Durable shape moved: none.** A tunable is a session preference and never durable (0329).
@@ -958,7 +974,7 @@ min: 0, max: 1, step: 0.05 })`, wild at `min`, in the Film group. At one the til
     stays, as shade (0131); a shade toward black or toward the page — the pull is toward the
     scene's own dark stop, which is what keeps a canopy a canopy and a meadow a meadow (0335).
 
-3.  **The sound's cut is aimed at the field, and the ghost stands behind it.** _(bench-21)_
+3.  **The sound's cut is aimed at the field, and the ghost stands behind it.** _(bench-21, landed 0341)_
     **Durable shape moved: none.**
 
     **The rows keep cutting, because the rows are the instrument.** `cutField` still takes one
@@ -1069,3 +1085,29 @@ the alpha the screen no longer touches. They are left standing because the step 
 cases as holding unchanged and because what they still guard is real — that neither a fringe nor
 a ground reaches the alpha — but the floor's own teeth are in src/ui/moireCanvasFilm.test.ts and
 nowhere else.
+
+**A pair and a trio saturate under a floor of a tenth, and two cases in src/lib/moire.test.ts were
+re-aimed for it (bench-21, 0341).** `gratingDepth` never cuts a grating past its own trough, so
+below a floor of a quarter a pair cannot reach the floor at all and below an eighth a trio cannot
+either: at a tenth a pair leaves 0.25 of the ink as window and a trio 0.125 where the rest asks for
+0.1, while a quartet solves to a depth of 0.875 and reaches it exactly. The count therefore says a
+little about the picture's weight again at two rows and at three, which is the thing `gratingDepth` exists to prevent
+— kept because it says it in the safe direction, a sparse yard reading lighter than a full one and
+never darker, and because the shots argue the tenth on every fixture. Two cases moved with it. "Holds one brightness however many rows a yard has" asserts the
+identity where the depth is under one and the saturation where it is not, and reads the field's
+own mean against the stack it actually cuts rather than against the floor; "beats two gratings
+into fringes far slower than either of them" asked for twelve raw crests per fringe and now asks
+for six, a pair cut to its trough reaching nought and leaving no fine crests standing where the
+field is dark — 21 against 3, where it was better than 24. Neither claim was dropped, and no
+tolerance in the gate moved. **And the ceiling's argument is in the decision and not beside the
+constant**: src/lib/moire.ts stood at 799 of its 800 hard-capped lines, so `DRIFT_FEEDBACK_CEILING`
+carries one line saying a quarter and why, and the paragraph is in 0341.
+**Three findings were declined.** The two literals the new cases assert — `0.85` on the field
+and `0.25` on the ghost — restate numbers the same files already import, which is what the Reuse
+lens caught; they are kept because a bound phrased against `PICTURE_FLOOR` or
+`DRIFT_FEEDBACK_CEILING` cannot fail when the rest moves, and failing when the rest moves is the
+whole of what those two assertions are for. Each now says so in a comment. And the structure
+sketch's own case (src/ui/sketch/structure/sketchStructure.test.ts) keeps a bound of four times
+`TODAY_BITE`, whose headroom falls from 8.7× to 4.7× as the floor deepens every row's cut: it
+passes, its page renders the share live rather than quoting it, and re-arguing the bite's depth is
+bench-22's territory and not this step's.

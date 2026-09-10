@@ -33,7 +33,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { runFeedback } from "@/lib/moireAge";
-import { gratingDepth, gratingTurns, latticeCellPx } from "@/lib/moireGrating";
+import { gratingDepth, gratingTurns, latticeCellPx, PICTURE_FLOOR } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import {
@@ -303,6 +303,27 @@ describe("moireCanvas", () => {
     expect(laid[0]?.over).toBe("source-over");
     expect(laid[1]).toEqual({ ink: PRODUCT, over: "destination-out" });
     expect(left).toBe("source-over");
+  });
+
+  // 0341: the cut is aimed at a field now, and a dozen rows is what a grown run draws. The window
+  // the whole stack agrees on has to stay a sparse moiré of holes rather than a veil over the
+  // scene, which is a claim about where `grating.floor` rests and not about the arithmetic above.
+  it("leaves the field standing under a dozen rows at rest", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    setTuning("wind.strips", 1);
+    const rows = Array.from({ length: 12 }, (_, at) => row({ period: 3 + at }));
+    const { cuts } = paintedOn(400, 128, rows);
+    expect(cuts).toHaveLength(rows.length);
+    // One grating keeps `1 - depth / 2` of the ink on average, `halfCosine` averaging a half, so
+    // the window the stack agrees on is their product and the picture is one minus it.
+    const window = cuts.reduce((agreed, cut) => agreed * (1 - cut.alpha / 2), 1);
+    expect(window).toBeCloseTo(PICTURE_FLOOR.value, 6);
+    // And at rest the field keeps better than five sixths of its own ink — nine tenths of it, as
+    // it happens. Under that bound the moiré is a haze over every head rather than holes cut
+    // between them (0341). The bound is written out and not read off `PICTURE_FLOOR`: it is a
+    // claim about where the rest sits, and one phrased against the declaration could not fail
+    // when the rest moved, which is the whole of what this case is for.
+    expect(1 - window).toBeGreaterThan(0.85);
   });
 
   it("lays down no ink at all where the engine will not make the pattern", () => {
@@ -593,6 +614,12 @@ describe("moireCanvas", () => {
     expect(twice).toHaveLength(1);
     expect(twice[0]?.over).toBe("source-over");
     expect(twice[0]?.alpha).toBe(DRIFT_FEEDBACK_CEILING);
+    // And a quarter of it at most, read off the lay itself and written out rather than taken from
+    // the constant the line above pins it to — a bound phrased against `DRIFT_FEEDBACK_CEILING`
+    // says nothing about where the ceiling rests. What the ghost doubles is a solid field since
+    // 0340, and half of one laid back over itself, turned and enlarged, is a blur across every
+    // head in it where half of a comb was a spiral of its own fringes (0341).
+    expect(twice[0]?.alpha).toBeLessThanOrEqual(0.25);
     // However many frames run, and whatever a row asks for: the share is the ceiling's, not the
     // row's, so the field settles instead of filling to opaque a few seconds after a knob moved.
     const many = paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 20 }).surfaces[0]?.drew ?? [];

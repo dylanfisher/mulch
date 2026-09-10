@@ -514,8 +514,9 @@ export const DRIFT_FEEDBACK_REACH = 1;
  * one would fill the field to opaque after enough frames however shallow each one was — and a field
  * filled to opaque is a picture with nothing left in it. Under one, the stack settles at
  * `feedbackSettles` instead of running away, and this is what makes that fraction bounded (0143).
+ * **A quarter since 0341**: the ghost doubles a solid field now, and half of one is a blur.
  */
-export const DRIFT_FEEDBACK_CEILING = 0.5;
+export const DRIFT_FEEDBACK_CEILING = 0.25;
 
 /** How much of the last frame's field a row asking `amount` lays into this one. Never past it. */
 export const feedbackAlpha = (amount: number): number =>

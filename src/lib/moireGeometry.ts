@@ -278,8 +278,9 @@ export const lensSlide = (amount: number, turns: number, slice: number, slices: 
 
 /**
  * The most of the picture that may be drawn from somewhere else in it. **A hard ceiling and not a
- * tuning**, bounded for the reason the frame feedback's is and at the number that one happens to be
- * (`DRIFT_FEEDBACK_CEILING`, src/lib/moire.ts, 0250): a share of one is every piece of the picture
+ * tuning**, bounded for the reason the frame feedback's is — at the number that one used to be, the
+ * two having parted when the ghost came to rest at a quarter (`DRIFT_FEEDBACK_CEILING`,
+ * src/lib/moire.ts, 0250, 0341): a share of one is every piece of the picture
  * taken from a piece it has nothing to do with, which is a picture of nothing rather than a picture
  * come apart. Written here rather than derived from that one, because a picture that wanted this
  * pass deeper should not have to lay the last frame back in harder to get it. Under a half, most of

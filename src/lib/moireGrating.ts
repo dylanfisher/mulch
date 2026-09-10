@@ -13,9 +13,19 @@ import { tunable } from "./moireTuning.ts";
 /**
  * How much light a whole stack of gratings lets through on average — and so, since the picture is
  * one minus that, how much of it is a window rather than ink. Not a tuning: it is what
- * `gratingDepth` solves for, so how many rows a yard has does not say what the picture weighs.
+ * `gratingDepth` solves for, so how many rows a yard has does not say what the picture weighs —
+ * down to the count that can still reach it, which since 0341 is four.
+ *
+ * **A tenth, because the window is cut in a field and no longer in a page** (0341). It rested at
+ * three tenths while the screen above it was itself mostly window: a third of the page taken out
+ * before the rows took anything, so the rows' own share had to be read against a picture that was
+ * already thin. Since 0340 the tile is solid at every pixel and this is the only thing left
+ * spending the picture's alpha — a third of it taken out on average is a haze over the whole
+ * field. At a tenth the same count of rows cuts *deeper* per grating (`gratingDepth` below solves
+ * for the product) and so beats harder, and what it takes out is a sparse moiré of holes rather
+ * than an even veil: the field stands and the beat crawls over it.
  */
-export const PICTURE_FLOOR = tunable("grating.floor", 0.3, { min: 0.05, max: 0.8, step: 0.01 });
+export const PICTURE_FLOOR = tunable("grating.floor", 0.1, { min: 0.05, max: 0.8, step: 0.01 });
 
 /**
  * How deep each of `count` gratings cuts, so that all of them multiplied leave `floor` of the ink
@@ -26,11 +36,15 @@ export const PICTURE_FLOOR = tunable("grating.floor", 0.3, { min: 0.05, max: 0.8
  * Chromium, five gratings at full depth leave 3% of the ink standing and eight leave 0.4%, which
  * is a black rectangle. It is also the answer to the depth² objection that kept the beat out of
  * the screen (0129): that held while a picture had to survive underneath the gratings, and here
- * the gratings *are* the picture. Measured across two to twelve rows, the field's mean holds at
+ * the gratings *are* the picture. Measured across four to twelve rows, the field's mean holds at
  * the floor and the beat's own swing does not fall with it.
  *
- * Never past one: a grating cannot cut deeper than its own trough. A picture of one row is
- * therefore lighter than the floor, which is right — one grating has nothing to beat against.
+ * Never past one: a grating cannot cut deeper than its own trough, so a count too few to reach the
+ * floor saturates there and leaves a *lighter* picture than the floor asks for. Below `0.5 ** count`
+ * a floor is out of reach: one row always, and since the floor came to rest at a tenth (0341) a pair
+ * and a trio too, at 0.25 and 0.125 against the tenth. Which is the right direction and the reason
+ * this exists — a fuller yard is never darker than a sparse one, and one grating has nothing to
+ * beat against anyway.
  *
  * What this solves is the share the *count* takes, which is the part a yard's contents must not
  * say. A row then cuts its own fraction of that share (`MoireRow.depth`, 0139), so a yard whose

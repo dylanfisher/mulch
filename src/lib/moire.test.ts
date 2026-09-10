@@ -178,10 +178,12 @@ describe("moire", () => {
     expect(fringes(fieldAcross([10, 11], 330, depth), [10, 11])).toBe(3);
     expect(fringes(fieldAcross([10], 330, depth), [10])).toBe(0);
     // The fringe is far slower than the gratings that make it — the same field left unsmoothed
-    // holds crests by the dozen inside those three fringes. That ratio is the difference between a
-    // lattice and a hatch, and it is the whole reason a beat can be seen at all.
+    // holds crests by the handful inside each of those three fringes. That ratio is the difference
+    // between a lattice and a hatch, and it is the whole reason a beat can be seen at all. Six and
+    // not the dozen it was: since the floor rests at a tenth (0341) a pair is cut to its own
+    // trough, and a field that reaches nought has no fine crests left standing where it is dark.
     const raw = fringes(fieldAcross([10, 11], 330, depth), []);
-    expect(raw).toBeGreaterThan(8 * fringes(fieldAcross([10, 11], 330, depth), [10, 11]));
+    expect(raw).toBeGreaterThan(6 * fringes(fieldAcross([10, 11], 330, depth), [10, 11]));
     // And where the two agree the field is brightest, where they oppose it is darkest.
     const field = fieldAcross([10, 11], 330, depth);
     expect(field[0]).toBeGreaterThan(field[55] ?? 0);
@@ -194,12 +196,18 @@ describe("moire", () => {
     // the depth is solved for the floor, and the floor is what every count comes back to.
     for (const count of [2, 3, 5, 8, 12]) {
       const depth = gratingDepth(count);
-      expect((1 - depth / 2) ** count).toBeCloseTo(PICTURE_FLOOR.value, 9);
+      const stack = (1 - depth / 2) ** count;
+      // Every count that can reach the floor comes back to it exactly. Since the floor rests at a
+      // tenth (0341) a pair and a trio cannot — a grating never cuts past its own trough — so
+      // they saturate there and leave a *lighter* picture than the floor asks for. The direction
+      // that matters holds either way: a fuller yard is never darker than a sparse one.
+      if (depth < 1) expect(stack).toBeCloseTo(PICTURE_FLOOR.value, 9);
+      else expect(stack).toBeGreaterThan(PICTURE_FLOOR.value);
       // A field of that many really does average to it, and not merely in the mean of one cosine.
       const pitches = Array.from({ length: count }, (_, at) => 9 + at);
       const field = fieldAcross(pitches, 5040, depth);
       const mean = field.reduce((sum, keep) => sum + keep, 0) / field.length;
-      expect(mean).toBeCloseTo(PICTURE_FLOOR.value, 1);
+      expect(mean).toBeCloseTo(stack, 1);
     }
     // Never past one: a grating cannot cut deeper than its own trough, so one row is lighter than
     // the floor — which is right, because one grating has no beat in it to see.
