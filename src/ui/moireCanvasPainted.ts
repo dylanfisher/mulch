@@ -48,8 +48,9 @@ const RESOLVED: readonly (readonly [string, readonly [number, number, number, nu
   // above, or a test could not tell a picture that travelled from one that did not (0141).
   ["--drift-hot", [240, 40, 40, 255]],
   ["--drift-cool", [40, 80, 240, 255]],
-  // The scene stops, each in the direction its own token goes: a deep and a lit water, and the dark
-  // of a leaf mass against the light that breaks through it.
+  // The scene stops, each in the direction its own token goes: a black, a deep and a lit water, and
+  // the dark of a leaf mass against the light that breaks through it.
+  ["--scene-water-black", [8, 12, 30, 255]],
   ["--scene-water-deep", [20, 30, 90, 255]],
   ["--scene-water-lit", [200, 230, 245, 255]],
   ["--scene-canopy-dark", [20, 60, 30, 255]],

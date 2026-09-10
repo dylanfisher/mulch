@@ -19,6 +19,9 @@ import {
 // The strip is what wears the panel, and loading it declares every tunable the panel lists.
 import "@/ui/MoireStrip";
 
+/** One tuning handle by its id, live: the object the panel moves, not a reading of it. */
+const tuning = (id: string) => tunings().find((handle) => handle.id === id);
+
 describe("DriftTuning", () => {
   afterEach(resetTuning);
 
@@ -80,6 +83,34 @@ describe("DriftTuning", () => {
     // And no scene declares a depth any more: how much of the tile's ink a ground takes is not a
     // thing a ground says, the alpha being the film's alone.
     expect(tunings().filter((handle) => handle.id.endsWith(".depth"))).toEqual([]);
+  });
+
+  it("holds the glint's own numbers under the Water group", () => {
+    // The water is the glint since 0333, and what a hand argues on it is the two pitches the glints
+    // are the beat of, how long one is, how wide the swell is and how black the water under it is —
+    // the five the ground actually reads (src/ui/scene/water.ts). The blades are written by hand
+    // and are no longer a spacing anyone can turn.
+    const water = grouped(tunings()).find(({ group }) => group.title === "Water");
+    expect(water?.rows.map((row) => row.handle.id)).toEqual([
+      "water.ripple",
+      "water.beat",
+      "water.dash",
+      "water.swell",
+      "water.deep",
+    ]);
+  });
+
+  it("pushes the water's ripple and leaves the pitch it beats against where it stands", () => {
+    // A beat is two pitches a fraction apart, so a push that drove both toward one wild end would
+    // drive them onto each other and leave the water one grating with no beat in it — the one
+    // setting that ground has nothing to say at (0333). The second pitch names no wild end, which
+    // is what a row a push leaves alone is for (src/lib/copyDriftGroups.ts).
+    const ripple = tuning("water.ripple");
+    const beat = tuning("water.beat");
+    pushGroup("Water", 1);
+    expect(ripple?.value, "the ripple is not pushed").toBe(ripple?.min);
+    expect(beat?.value, "the beat is pushed onto the ripple").toBe(beat?.rest);
+    expect(ripple?.value).not.toBe(beat?.value);
   });
 
   it("refuses a tunable with no words and words with no tunable", () => {

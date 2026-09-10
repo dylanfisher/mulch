@@ -3,7 +3,7 @@
  *   of sky at the top stop breaking through the gaps in the upper half. The argument: a scene's
  *   ground may take most of the tile rather than a fifteenth of it, and the light it does not let
  *   past is the picture (0331).
- * @instead The other twelve directions → the files beside this one. The field itself →
+ * @instead The other ten directions → the files beside this one. The field itself →
  *   src/ui/sketch/sketchStillField.ts, and the stops and the dial it is drawn under →
  *   src/ui/sketch/sketchStill.ts. The ground it pushes past → src/ui/scene/canopy.ts.
  */

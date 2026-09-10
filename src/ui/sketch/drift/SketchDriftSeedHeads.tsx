@@ -2,7 +2,7 @@
  * @role Drift sketch 12 — backlit wild grass: feathery strokes amber at the tip and olive at the
  *   root, lying over as a gust travels across the picture. The argument: a lean is a function of
  *   where a stroke stands and of the phase, not one lean baked over a whole tile (0331).
- * @instead The other twelve directions → the files beside this one. The field itself →
+ * @instead The other ten directions → the files beside this one. The field itself →
  *   src/ui/sketch/sketchStillField.ts, and the stops and the dial it is drawn under →
  *   src/ui/sketch/sketchStill.ts. The ground it pushes past → src/ui/scene/meadow.ts.
  */

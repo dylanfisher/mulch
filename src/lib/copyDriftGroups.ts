@@ -580,7 +580,7 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
   },
   {
     title: "Water",
-    hint: "The field a yard named for a reed stands in: a fine rippled grating with a few sparse tall blades standing in it.",
+    hint: "The field a yard named for a reed stands in: black water under a lattice of short glints, with a few tall blades standing in it and their reflections broken under them.",
     entries: [
       {
         id: "water.ripple",
@@ -589,22 +589,27 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         hint: "How far apart the ripples run down the picture, in device pixels.",
       },
       {
-        id: "water.wave",
+        id: "water.beat",
+        label: "Beat",
+        hint: "And the pitch of the second lattice they beat against: how far apart the lit rows stand, is how far these two stand apart, and two pitches dragged onto one number stop beating. No wild end, because the push drives every driven row the same way and a second pitch driven onto the first is the one setting this field has nothing left to say at.",
+      },
+      {
+        id: "water.dash",
         wild: "min",
-        label: "Swell",
-        hint: "How wide the slow swell that bends the ripples across the picture is, in the same pixels.",
+        label: "Glint",
+        hint: "How long one glint is across the ripple it lies on, in the same pixels.",
       },
       {
         id: "water.swell",
-        wild: "max",
-        label: "Bend",
-        hint: "How far that swell carries one ripple, in the same pixels.",
+        wild: "min",
+        label: "Swell",
+        hint: "How wide the slow swell that bends the ripples and lights them in bands is, in the same pixels.",
       },
       {
-        id: "water.blade",
+        id: "water.deep",
         wild: "min",
-        label: "Blades",
-        hint: "How far apart the blades standing in the water are, in the same pixels.",
+        label: "Deep",
+        hint: "How far up its own ramp the water reads under all of it; near the floor is black water.",
       },
     ],
   },

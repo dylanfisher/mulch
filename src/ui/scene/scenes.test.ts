@@ -105,6 +105,26 @@ describe("the scene registry", () => {
     }
   });
 
+  it("keeps the water black under its glints, and lights a few of them outright", () => {
+    // The whole of 0333 read off the ground: black water is where the picture rests, and a glint is
+    // lit or it is not — a crest allowed to fade through the ramp would spend the middle stops on
+    // its own edge, and the middle of this ramp is a reed (src/ui/scene/water.ts).
+    const stop = 1 / (SCENE_RAMP_STOPS - 1);
+    let below = 0;
+    let read = 0;
+    let top = 0;
+    for (let y = 0; y < TERMS.height; y += 1) {
+      for (let x = 0; x < TERMS.width; x += 1) {
+        const at = SCENES.water.ground(x, y, TERMS);
+        read += 1;
+        if (at < stop) below += 1;
+        if (at > top) top = at;
+      }
+    }
+    expect(below / read, "the water is not black over most of the tile").toBeGreaterThan(0.5);
+    expect(top, "no glint reaches the water's own top stop").toBeGreaterThan(1 - stop / 2);
+  });
+
   it("comes round at both edges of the tile, at every lean", () => {
     // The tile is laid down as a repeating pattern (`createPattern`, src/ui/moireScreen.ts), so a
     // ground whose marks did not divide it would step by a fraction of a mark at every join — a

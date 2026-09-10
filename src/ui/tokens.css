@@ -94,12 +94,16 @@
   --drift-cool: light-dark(oklch(0.55 0.15 230), oklch(0.7 0.16 225));
   --drift-hot: light-dark(oklch(0.55 0.19 15), oklch(0.7 0.2 20));
 
-  /* The stops the scenes are read along that the palette did not already hold (0329): a deep and a
-     lit water, and the dark of a leaf mass against the light that breaks through it — which the
-     bloom's poppy field borrows for its shade and its lit edge (0332). The meadow names none of its
+  /* The stops the scenes are read along that the palette did not already hold (0329): a black, a
+     deep and a lit water, and the dark of a leaf mass against the light that breaks through it —
+     which the bloom's poppy field borrows for its shade and its lit edge (0332). The black is the
+     one this instrument had no ink for: the deep above is a lightness of 0.42 and the water the
+     glints stand in is near black, so the ramp gets a floor under its old one rather than the
+     picture being lifted to meet it (0333). The meadow names none of its
      own: its ramp is the two inks, two channels and the primary above, which is the ramp every
      picture was read along before a yard's name said which field it stood in. Off the primary in
      hue like the two inks, and lighter in the dark scheme for the same reason. */
+  --scene-water-black: light-dark(oklch(0.17 0.04 250), oklch(0.13 0.035 250));
   --scene-water-deep: light-dark(oklch(0.42 0.08 245), oklch(0.35 0.08 250));
   --scene-water-lit: light-dark(oklch(0.86 0.06 200), oklch(0.9 0.06 200));
   --scene-canopy-dark: light-dark(oklch(0.38 0.07 150), oklch(0.3 0.07 155));
@@ -161,6 +165,12 @@
    arrive as `light-dark(…)` text that `fillStyle` drops without a word (0329). Their initial value
    is the two inks' mid grey, because these are mixed into the picture's ink rather than multiplied
    over it — a scheme that failed to resolve has to be visible in both schemes. */
+@property --scene-water-black {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
 @property --scene-water-deep {
   syntax: "<color>";
   inherits: true;

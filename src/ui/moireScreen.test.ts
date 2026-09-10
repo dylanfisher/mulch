@@ -729,6 +729,31 @@ describe("moireScreen", () => {
     }
   });
 
+  it("draws the water darker than the bloom, in its own black and not in the film's alpha", () => {
+    // A darker water is one token (0333): the deepest stop this instrument held was
+    // `--scene-water-deep` at a lightness of 0.42 and the water the glints stand in is near black,
+    // so the ramp got a floor under its old one. Read as the median pixel of a whole tile, because
+    // a mean is carried by the glints and the blades and what is being said here is what the water
+    // between them is. The RGB is the ramp's alone — the alpha is the film's (0332).
+    const medianOf = (scene: YardScene["scene"]): number => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 640, [row({ period: 3 })], undefined, 0, nextColor(), {
+        ...YARD_SCENE_REST,
+        scene,
+      });
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      const lit: number[] = [];
+      for (let at = 0; at < pixels.length; at += 4) {
+        lit.push((pixels[at] ?? 0) + (pixels[at + 1] ?? 0) + (pixels[at + 2] ?? 0));
+      }
+      lit.sort((one, two) => one - two);
+      return lit[Math.floor(lit.length / 2)] ?? 0;
+    };
+    expect(medianOf("water"), "the water is not darker than the bloom").toBeLessThan(
+      medianOf("bloom"),
+    );
+  });
+
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
     const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
       vi.stubGlobal("devicePixelRatio", 2);

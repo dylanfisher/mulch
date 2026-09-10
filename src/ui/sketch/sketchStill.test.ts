@@ -10,11 +10,10 @@ import { describe, expect, it } from "vitest";
 import { type SketchDial, type SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 import { printed, STILL_DIALS, STILL_NAMES, STILL_STOPS } from "@/ui/sketch/sketchStill";
-import { glintField, seedheadsField, skylightField } from "@/ui/sketch/sketchStillField";
+import { seedheadsField, skylightField } from "@/ui/sketch/sketchStillField";
 
 /** Every still with the dial it is drawn under, so a fourth cannot be left out. */
 const STILLS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "glint", field: glintField, dial: STILL_DIALS.glint },
   { name: "seedheads", field: seedheadsField, dial: STILL_DIALS.seedheads },
   { name: "skylight", field: skylightField, dial: STILL_DIALS.skylight },
 ];

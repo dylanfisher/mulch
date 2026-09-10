@@ -185,7 +185,7 @@ step pays it (at-the-cap rule, docs/map.md). The noise two stills are made of is
 src/ui/sketch/sketchStill.ts and imported by both. Each still's field moves **into** its scene file
 under src/ui/scene/ — the still is the scene, not a sketch of one — and each bench still goes when
 its scene lands, the entries 06–09 drawing the shipped scene through its own stops (0247). The
-poppies went with bench-12, so the three left are 10, 11 and 12.
+poppies went with bench-12 and the glint with bench-13, so the two left are 10 and 11.
 The structure a place noun names is one ground shared by every scene, `src/lib/moireStand.ts`, and
 not a term per scene file. New readings go into src/lib/moireScene.ts as the three there did: a
 `const` list, a type off it, a terms record, and the grouping of the bank in src/lib/copyYard.ts
@@ -223,6 +223,29 @@ much of a pixel stands on the channel its own third of the cell lights rather th
 between the three, the ink under the fringe no longer being one colour. And the poppies' bob is
 refused as the step says, so `nearestHead` takes no phase and the heads stand. The next free
 decision number is 0333.
+
+bench-13 landed on 2026-09-09 as
+[0333](decisions/0333-the-water-is-the-glint-and-the-beat-is-one-ground.md): both lattices are
+computed inside one ground, so the beat is baked and the second tile is refused outright; the ten
+blades are kept as written and reached through the shortest signed offset on a period `sceneRepeat`
+snapped from the frame they were drawn in, which is the general answer for a mark placed by hand
+rather than by a cosine; and `--scene-water-black` is the first stop this block mints. Six things
+moved off the step's own text. The Water group is exactly the five the step named, which means
+`water.wave` and `water.blade` go: the swell is one dial now and the blades are placed rather than
+spaced, so a spacing nobody reads is a slider that lies. The bend, the swell's own banding, and how
+much of a crest is dark before a glint lights are constants beside them, for the poppies' reason —
+three more sliders under one field is three ways to say the same thing. The still's dial was a
+phase and a bake has no clock (0126), so it is dropped rather than frozen: the flicker is the film
+crawling over a standing beat, which is the step's own argument. The frame the blades were written
+in is a declared constant of the scene — 330 by 110 device pixels, the still's own — because
+src/ui/scene/ may not read src/ui/sketch/ and the import would run the wrong way. `--drift-cool`
+leaves the water's ramp with the swell stop, nothing else in the scene naming it. And
+`resolvedInk` (src/ui/moireCanvasPainted.ts) gained the new token, or the recorder would have read
+a scene stop as its own default orange and the darkest picture in the app as the brightest. The
+review then found a seventh: the Water group's own push drove both pitches to their shared floor and
+took the beat out on its whole travel, so the second pitch names no wild end — the step's claim that
+only a hand can tune this ground into nothing was false until it did. The
+next free decision number is 0334.
 
 1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
     landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
@@ -321,7 +344,7 @@ decision number is 0333.
     - **Two tiles.** One bake, one `fillStyle`, one `fillRect` a frame (0070) is the rule this whole
       block keeps.
 
-2.  **The water is the glint.** _(bench-13)_ **Durable shape moved: none.**
+2.  **The water is the glint.** _(bench-13, landed 0333)_ **Durable shape moved: none.**
 
     **Black water under a lattice of short glints, with blades and their broken reflections.**
     `glintField` moves into src/ui/scene/water.ts as its ground: the ripple row, the second lattice

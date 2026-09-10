@@ -1,9 +1,10 @@
 /**
- * @role The three still fields left on the bench: rippled water, backlit seed heads and a canopy
- *   from under it. Each answers **where on its own five stops** a point of the picture is read — not
- *   how much ink is there — which is the one thing that separates these from the nine beside them.
- *   The fourth was a poppy field, and it left when it shipped as src/ui/scene/bloom.ts (0332). Pure
- *   maths on picture units, no canvas, no clock, no context.
+ * @role The two still fields left on the bench: backlit seed heads and a canopy from under it.
+ *   Each answers **where on its own five stops** a point of the picture is read — not how much ink
+ *   is there — which is the one thing that separates these from the nine beside them. There were
+ *   four: a poppy field left when it shipped as src/ui/scene/bloom.ts (0332) and rippled water when
+ *   it shipped as src/ui/scene/water.ts (0333). Pure maths on picture units, no canvas, no clock,
+ *   no context.
  * @instead The stops, the dials, the scale and the print they share →
  *   src/ui/sketch/sketchStill.ts. The nine fields that answer an amount of one ink →
  *   src/ui/sketch/sketchDrift.ts, and the moves both are built out of →
@@ -12,116 +13,10 @@
  *   src/ui/moireScreenTile.ts.
  */
 import { TAU } from "@/lib/moire";
-import { sceneAxis, sceneSharp } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import type { SketchDriftField } from "@/ui/sketch/sketchDrift";
 import { hash2, streakAt } from "@/lib/moireNoise";
 import { printed, STILL_PX } from "@/ui/sketch/sketchStill";
-
-/**
- * The water: how far apart the ripples run, the pitch of the second lattice they beat against, how
- * long one glint is across, how wide the slow swell is and how far it carries a ripple, and how dark
- * the water is under all of it.
- */
-const GLINT = {
-  ripple: 2.7,
-  beat: 3.2,
-  dash: 5.5,
-  swell: 34,
-  bend: 2.4,
-  deep: 0.02,
-  band: 0.12,
-  cut: 0.22,
-  over: 0.3,
-};
-
-/**
- * The blades standing in the water, written by hand in the scale's own pixels: four clusters of two
- * to four, each a base, a lean and a height. Written rather than scattered for the fake walk's
- * reason — a picture argued about at 1:1 has to be the same picture twice (0247) — and clustered
- * because the still's are: reeds come up where the bottom is shallow and nowhere else.
- */
-const BLADES: readonly { x: number; y: number; lean: number; tall: number; half: number }[] = [
-  { x: 62, y: 74, lean: -0.1, tall: 46, half: 1.4 },
-  { x: 66, y: 76, lean: 0.14, tall: 38, half: 1.2 },
-  { x: 71, y: 75, lean: 0.3, tall: 30, half: 1.05 },
-  { x: 148, y: 58, lean: 0.42, tall: 24, half: 1.05 },
-  { x: 152, y: 59, lean: 0.2, tall: 18, half: 0.9 },
-  { x: 232, y: 86, lean: -0.22, tall: 52, half: 1.4 },
-  { x: 238, y: 88, lean: 0.05, tall: 44, half: 1.2 },
-  { x: 244, y: 87, lean: 0.26, tall: 36, half: 1.2 },
-  { x: 249, y: 89, lean: 0.44, tall: 27, half: 1.05 },
-  { x: 300, y: 44, lean: -0.3, tall: 20, half: 0.9 },
-];
-
-/** How far along a segment the nearest point is, and how far off it the sample stands. */
-function alongBlade(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): { at: number; off: number } {
-  const vx = bx - ax;
-  const vy = by - ay;
-  const span = vx * vx + vy * vy;
-  const at = span === 0 ? 0 : clamp(((px - ax) * vx + (py - ay) * vy) / span, 0, 1);
-  return { at, off: Math.hypot(px - ax - at * vx, py - ay - at * vy) };
-}
-
-/** How much of a blade stands at a point, given how wide it is there and how far off the sample is. */
-const blade = (off: number, half: number): number =>
-  clamp((half - off) / Math.max(half, 0.001), 0, 1);
-
-/**
- * Rippled dark water: as near black as this ramp's first stop goes, under a dense lattice of
- * short horizontal glints, with a slow
- * diagonal swell darkening it in bands and a few sparse blades standing in it, each with its
- * reflection broken under it. The dial is the **phase of the flicker** — the glint is a second fine
- * lattice beating against the first, so a crest lit at one setting is dark at the next, which is the
- * instrument's own subject read at the scale of a ripple rather than of a row.
- */
-export const glintField: SketchDriftField = (x, y, amount) => {
-  const px = x * STILL_PX;
-  const py = y * STILL_PX;
-  const swell = sceneAxis((px * 0.5 + py) / GLINT.swell);
-  const bent = py + GLINT.bend * swell;
-  const crest = sceneSharp(
-    sceneAxis(bent / GLINT.ripple + amount) * sceneAxis(bent / GLINT.beat),
-    3,
-  );
-  // Cut across, so a crest is a short horizontal glint and never a ruled line down the picture —
-  // and cut at a phase of the ripple row's own, or every dash in the picture lines up under the one
-  // above it and the water reads as a woven cloth.
-  const row = Math.round(bent / GLINT.ripple);
-  const dash = sceneSharp(sceneAxis((px + 3 * py) / GLINT.dash + hash2(row, 5)), 2);
-  // A glint is lit or it is not. A crest allowed to fade through the whole ramp would spend the
-  // middle stops on its own edge, and the middle of this ramp is a reed.
-  const lit = clamp((crest * dash - GLINT.cut) / GLINT.over, 0, 1);
-  const water = GLINT.deep + GLINT.band * swell;
-  let value = water + lit * (0.4 + 0.6 * swell) * (0.99 - water);
-  for (const reed of BLADES) {
-    const tipX = reed.x + reed.lean * reed.tall;
-    const stood = alongBlade(px, py, reed.x, reed.y, tipX, reed.y - reed.tall);
-    const stands = blade(stood.off - reed.half * 0.5, reed.half * (1 - 0.6 * stood.at) * 0.5);
-    value = Math.max(value, water + stands * (0.78 - 0.1 * stood.at - water));
-    if (py <= reed.y) continue;
-    // The reflection: the sample folded back over the waterline against a shorter blade, and only
-    // as far as the ripple under it is up — which is what "broken" is.
-    const back = alongBlade(
-      px,
-      2 * reed.y - py,
-      reed.x,
-      reed.y,
-      reed.x + reed.lean * reed.tall * 0.55,
-      reed.y - reed.tall * 0.55,
-    );
-    const echo = blade(back.off, reed.half * 1.6 * (1 - 0.5 * back.at)) * (0.15 + 0.85 * crest);
-    value = Math.max(value, water + echo * (0.62 - water));
-  }
-  return printed(x, y, value);
-};
 
 /**
  * The seed heads: the three scales of fibre the mass is built from — each stated as how wide a cell
@@ -246,8 +141,9 @@ const CANOPY_SCALES: readonly { wide: number; share: number; shivers: number; at
  * pale specks of sky in the upper half where the leaf has thinned. The dial is the gust: it shivers
  * the three fine scales and decides which specks are open.
  *
- * **The picture cannot be as dark as the still and does not try.** The darkest ink the instrument
- * holds is `--scene-canopy-dark` at a lightness of 0.38, so what carries this one is the contrast
+ * **The picture cannot be as dark as the still and does not try.** The darkest ink a canopy may
+ * name is `--scene-canopy-dark` at a lightness of 0.38 — the water's own black is under it and is a
+ * blue (0333) — so what carries this one is the contrast
  * between a lit crown and the shade beside it, not how black the shade is — the whole mass lives in
  * the lower two stops and the foot sits on the first of them.
  */

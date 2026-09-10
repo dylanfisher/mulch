@@ -1,5 +1,5 @@
 /**
- * The drift bench's own half of the naming rule (0252): twelve directions of one picture, each on
+ * The drift bench's own half of the naming rule (0252): eleven directions of one picture, each on
  * a canvas under its own dial, each naming what the dial stands at and the inks it is drawn in,
  * and each saying where in the painter it would land — at a file that exists. Out of
  * `SketchPage.test.tsx` in the shape `SketchGrounds.test.tsx` took: that file mounts the bench and
@@ -55,7 +55,7 @@ const rampOf = (name: (typeof SCENE_NAMES)[number]): string =>
 /**
  * Every inking a picture on this bench may be drawn through: the two shared ones, one per still,
  * and one per scene — the scenes read along their own five since 0332, exactly as the stills do.
- * Held as the names in their order and not as a count — three stills, four scenes and the reference
+ * Held as the names in their order and not as a count — two stills, four scenes and the reference
  * ramp all hold five, and what is being checked is which five.
  */
 const DECLARED = [
@@ -64,7 +64,7 @@ const DECLARED = [
   ...SCENE_NAMES.map((name) => rampOf(name)),
 ];
 
-describe("SketchPage draws where the picture goes, twelve ways", () => {
+describe("SketchPage draws where the picture goes, eleven ways", () => {
   it("puts every direction on a canvas under a dial, with its readout and its inks named", () => {
     expect(SKETCH_DRIFTS).toHaveLength(5 + SCENE_NAMES.length + STILL_NAMES.length);
     for (const [index, entry] of SKETCH_DRIFTS.entries()) {
@@ -165,9 +165,25 @@ describe("the bench draws every scene", () => {
   });
 });
 
-describe("each of the twelve says where it would land", () => {
+describe("the bench keeps no picture a scene has taken", () => {
   /**
-   * A build note is the point of this bench: the twelve are a plan's worth of parts, so each one
+   * The water is the glint since 0333, so entry 08 is the shipped water read along the shipped
+   * water's own stops — black first, which is the stop this instrument had no ink for until the
+   * scene landed — and entry 10, which argued it, is gone with the still behind it.
+   */
+  it("draws the shipped water at 08 and keeps no glint behind it", () => {
+    const drawn = SKETCH_DRIFTS.map((entry) => entry.id);
+    expect(drawn.indexOf("water"), "the water is not entry 08").toBe(7);
+    expect(drawn, "the glint still stands on the bench").not.toContain("glint");
+    expect([...STILL_NAMES], "the glint is still a still").not.toContain("glint");
+    const stage = stageOf("water", drawn[8]);
+    expect(chipsOf(stage)[0], "the water does not open at its black").toBe("black");
+  });
+});
+
+describe("each of the eleven says where it would land", () => {
+  /**
+   * A build note is the point of this bench: the eleven are a plan's worth of parts, so each one
    * names the file it would land in, and that file exists. A note pointing at a file that was
    * renamed is a plan nobody can follow.
    */

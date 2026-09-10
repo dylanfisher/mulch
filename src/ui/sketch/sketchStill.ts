@@ -1,11 +1,12 @@
 /**
- * @role What a still is on this bench: the three of them by name, the scale their marks are stated
+ * @role What a still is on this bench: the two of them by name, the scale their marks are stated
  *   at, the five stops each is read along, the one dial each is turned under, and the print every
  *   one of them is drawn through — a deterministic grain and a vignette, which is the half of a
  *   film still that belongs to the film rather than to the field. The vocabulary the fields
- *   share, written once so no two of them can disagree about what a grain is (principle 1). The
- *   fourth was the poppies, and it left the bench when it shipped as the bloom (0332).
- * @instead The three fields themselves → src/ui/sketch/sketchStillField.ts. The two noises two of
+ *   share, written once so no two of them can disagree about what a grain is (principle 1). There
+ *   were four: the poppies left the bench when they shipped as the bloom (0332) and the glint when
+ *   it shipped as the water (0333).
+ * @instead The two fields themselves → src/ui/sketch/sketchStillField.ts. The two noises two of
  *   them are drawn from → src/lib/moireNoise.ts. The nine drift fields
  *   these stand beside, and the scale they borrow → src/ui/sketch/sketchDrift.ts. The canvas one is
  *   written through, and the ramp it is read through → src/ui/sketch/SketchDriftStage.tsx. The four
@@ -19,7 +20,7 @@ import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 import type { SketchStop } from "@/ui/sketch/SketchDriftStage";
 
 /** The film stills the bench still answers, one name each. */
-export const STILL_NAMES = ["glint", "seedheads", "skylight"] as const;
+export const STILL_NAMES = ["seedheads", "skylight"] as const;
 
 export type StillName = (typeof STILL_NAMES)[number];
 
@@ -54,13 +55,6 @@ export const STILL_PX = SCENE_BENCH_PX;
  * scale of a tile.
  */
 export const STILL_STOPS: Readonly<Record<StillName, readonly SketchStop[]>> = {
-  glint: [
-    { name: "deep", chip: "bg-(--scene-water-deep)" },
-    { name: "swell", chip: "bg-(--drift-cool)" },
-    { name: "water", chip: "bg-(--screen-blue)" },
-    { name: "blade", chip: "bg-(--screen-green)" },
-    { name: "glint", chip: "bg-(--scene-water-lit)" },
-  ],
   seedheads: [
     { name: "root", chip: "bg-(--scene-canopy-dark)" },
     { name: "shadow", chip: "bg-(--drift-hot)" },
@@ -84,7 +78,6 @@ export const STILL_STOPS: Readonly<Record<StillName, readonly SketchStop[]>> = {
  * the pictures on one page do not all open at the same moment of their own gust.
  */
 export const STILL_DIALS: Readonly<Record<StillName, SketchDial>> = {
-  glint: { min: 0, max: 1, step: 0.02, rest: 0.44 },
   seedheads: { min: 0, max: 1, step: 0.02, rest: 0.16 },
   skylight: { min: 0, max: 1, step: 0.02, rest: 0.6 },
 };
@@ -107,14 +100,14 @@ const PRINT = { grain: 0.035, fall: 0.13, per: 2 };
 /**
  * One still's ramp position, printed: dimmed toward the corners and shaken by a grain. **This is
  * the film and not the field** — a vignette is the lens and a grain is the stock, and neither is
- * anything a meadow or a canopy does — so it is one term the four share and the one thing on these
+ * anything a meadow or a canopy does — so it is one term both share and the one thing on these
  * pictures that would not land in `build` (src/ui/moireScreenTile.ts) with the rest of them.
  *
  * Laid on the ramp position rather than on the finished pixel, which is what makes it cheap: a
  * grain that darkened a pixel would have to know the ink, and a grain that slides the read along the
  * ramp changes the hue with the value, the way an underexposed frame does. Toward the still's own
- * first stop, which is warm in two of the four and cold in the other two — a corner goes to
- * whatever that picture calls its darkest, not to black and not to warm.
+ * first stop, which is the dark of a leaf mass in both of them — a corner goes to whatever that
+ * picture calls its darkest, and never to black.
  */
 export function printed(x: number, y: number, value: number): number {
   const dx = x / FIELD_ASPECT - 0.5;
