@@ -286,7 +286,50 @@ than 0.43 — real, and cut by construction rather than by a bar. Two smaller on
 seed was hashed on a cell as long as an awn, which drew it as a one-pixel scratch eighteen pixels
 tall at the brightest stop the ramp has rather than as a point; and a canopy's speck could be
 jittered further off its cell's centre than its own radius, so it overhung a neighbour that never
-lights and was chopped along the boundary. The next free decision number is 0335.
+lights and was chopped along the boundary. The next free decision number is 0336.
+
+bench-15 landed on 2026-09-10 as [0335](decisions/0335-a-place-is-a-reach-and-a-shadow.md): the six
+place words are grouped by reach and the twenty-four nouns by the four shapes of the shade they
+cast, both banks flattened by `banked` as the adjectives are; `SCENE_REACH_TERMS` multiplies every
+mark's period in all four grounds before each snaps it; and `standShade` (src/lib/moireStand.ts) is
+one shadow spent over any scene. Five things moved off the step's own text. **The shade is spent
+after the yard's own hue travel and not before it**, and its rest is 0.45 of the read rather than
+the 0.72 it was drawn at: a shaded band sits at the foot of the ramp, the meadow's second stop is
+the hot ink, and either the wrong order or a deeper rest swung the claim from the ramp's darkest
+stop to its second — the travel repainting the field rather than sliding it, which
+src/ui/moireScreen.test.ts already stood against. The bar is crossed just past 0.6, measured. The
+reach scales a **mark's period** and a **shade's width**, which is not one rule stated twice: a
+shadow has no spacing, so a far wall is a thinner band on the same field rather than the same band
+drawn smaller — and it is what makes "a far shade is narrower than a close one" true of the grille
+too, whose bars would otherwise scale with their own lattice and cover exactly as much. `sceneNear`
+left src/ui/scene/water.ts for src/lib/moireScene.ts, the blades having gained a second caller in
+the wall and the mass. The step's "two yards differing only in their noun lay down different tiles"
+went to src/ui/moireCanvasScene.test.ts rather than src/ui/moireScreen.test.ts, which the case would
+have pushed past the 800-line hard cap — that neighbour exists for exactly this (0045) and holds the
+painter this step's key is read through. And the water's blades keep the size they were written at:
+they are placed by hand rather than cut by a cosine, so there is no period on them for a reach to
+multiply. The review then found four more. **A tile is not the picture**: `tilePx` rounds a tile up
+to a whole beat cell, so the rack strip is 64 device pixels of a tile 210 tall and a wall placed two
+thirds down that tile was a wall nobody ever saw — the roll that could carry it into view is nought
+at rest (`bandTurns`). A stand's field is the tile snapped to what is shown of it (`standDown`), so
+`SceneTerms` gains `seen` and the tile's key gains the canvas's own height; the cost is that two
+canvases whose heights snapped to one tile now hold two, which is one warm-up painting in
+src/ui/moireCanvasChain.test.ts where an index was counted off a cache they used to share. A close
+flight of steps was falling 1.36 of a ramp that clamps at 1, so a flight of nine drew seven terraces
+where the term said nine — the descent is floored, and the count is asserted at all three reaches
+now rather than at the middle alone. `shapeOf` fell through to the terraces for a stand it did not
+name, so a fifth stand would have drawn steps in silence; it refuses one instead, which is the same
+check the scene registry runs and needed the dispatch read as a string to stay reachable. And the
+meadow's gust was the one period snapped by `sceneRepeat` that the reach did not multiply. Three
+more were refuted by measurement rather than argument: the four grounds hold on nought to one and
+come round at both tile edges at every reach, not just the middle (src/ui/scene/scenes.test.ts walks
+all three now); a far water's ripple snaps under two device pixels and the water is still black
+under lit glints there, which is what that case now asserts at every reach; and the mass repeats
+once a tile across, because a tile is one beat cell wide by construction — the same wrap the water's
+blade bed is under (0333) — so the column is a colonnade at the strip's width and is left at that,
+narrower than it was drawn. One known cost stands: the shade is multiplicative, so on a scene that
+already rests at its first stop it shows only where that scene has light in it — a wall on water is
+a band that comes and goes with the swell rather than one that crosses the whole field.
 
 1.  **A scene is read along its own stops, per pixel, and the bloom is the poppies.** _(bench-12,
     landed 0332)_ **Durable shape moved: none.** A name is a reading and nothing about the reading
@@ -485,7 +528,8 @@ lights and was chopped along the boundary. The next free decision number is 0335
     - **A travelling gust** (step 7).
     - **The print** (0331).
 
-4.  **The place reads: how close the frame stands, and what stands in the field.** _(bench-15)_
+4.  **The place reads: how close the frame stands, and what stands in the field.** _(bench-15,
+    landed 0335)_
     **Durable shape moved: none.**
 
     **The joining word is the reach.** `SCENE_REACHES = ["close", "middle", "far"]` in

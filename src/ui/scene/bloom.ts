@@ -113,9 +113,12 @@ export const bloom: Scene = {
     // A near spacing at least a little wider than the far one, whichever way a hand turned the two
     // dials: a field that did not recede has no perspective to state, and the logarithm below has
     // no answer for one that recedes backwards.
-    const near = Math.max(FAR.value + FAR.step, NEAR.value);
-    const spread = near - FAR.value;
-    const period = FAR.value + spread * down;
+    // Every spacing here is the reach's: how close the frame stands is one multiply on a mark's
+    // period, and the whole field is drawn bigger or smaller by it (0335).
+    const far = FAR.value * terms.reach;
+    const near = Math.max(far + FAR.step, NEAR.value * terms.reach);
+    const spread = near - far;
+    const period = far + spread * down;
     // Snapped across the tile, so a whole number of heads span it and the column a tile's width
     // along is the column it began at (`sceneRepeat`).
     const across = sceneRepeat(terms.width, period);
@@ -124,13 +127,13 @@ export const bloom: Scene = {
     // The rows, spaced by their own period: the integral of one over a period that grows linearly
     // down the tile, which is a logarithm, and the whole of the perspective. Stretched onto a whole
     // number of rows for the same reason the columns are snapped.
-    const foot = (terms.height / spread) * Math.log(near / FAR.value);
+    const foot = (terms.height / spread) * Math.log(near / far);
     const rows = Math.max(1, Math.round(foot));
-    const v = foot > 0 ? ((terms.height / spread) * Math.log(period / FAR.value) * rows) / foot : 0;
+    const v = foot > 0 ? ((terms.height / spread) * Math.log(period / far) * rows) / foot : 0;
     const head = nearestHead(u, v, cols, rows);
     // The ground the heads stand in: fine stems leaning as one, dark between them and green along.
     // Both the pitch and the lean snapped onto the tile, or the stems step sideways at every join.
-    const stroke = sceneRepeat(terms.width, STROKE.value);
+    const stroke = sceneRepeat(terms.width, STROKE.value * terms.reach);
     const leaning = sceneSlope(terms.height, stroke, terms.lean * SLANT);
     const stem = sceneAxis((x + leaning * y) / stroke);
     const base = SHADE + STEM * stem * stem;

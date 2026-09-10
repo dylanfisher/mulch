@@ -15,7 +15,11 @@ import { type Scene, sceneAxis, sceneCells, sceneRepeat } from "@/lib/moireScene
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
-/** How wide one fibre of the mass is across the stroke, in device pixels: under the film's own pitch. */
+/**
+ * How wide one fibre of the mass is across the stroke, in device pixels: under the film's own
+ * pitch. Every cell this ground reads — this one, the awn, the stalk and the spark's — is
+ * multiplied by how close the frame stands before it is snapped (`terms.reach`, 0335).
+ */
 const FIBRE = tunable("meadow.fibre", 0.85, { min: 0.4, max: 4, step: 0.05 });
 
 /** And how long one is along it — an awn, several times its own width, which is what makes a fibre. */
@@ -91,13 +95,15 @@ export const meadow: Scene = {
   ],
   ground: (x, y, terms) => {
     const lean = terms.lean * SLANT;
+    const fibre = FIBRE.value * terms.reach;
+    const awn = AWN.value * terms.reach;
     // The gust: a standing wave across the tile, at its own width, pushing the field over most at
     // the tile's top and foot and least across its middle. Both terms come round on the tile, so
     // the offset is the same at either edge of every join.
     const gust =
       terms.lean *
       GUST_SWING *
-      sceneAxis(x / sceneRepeat(terms.width, GUST)) *
+      sceneAxis(x / sceneRepeat(terms.width, GUST * terms.reach)) *
       sceneAxis(y / terms.height);
     let mass = 0;
     for (const scale of SCALES) {
@@ -108,8 +114,8 @@ export const meadow: Scene = {
           y + scale.at * 0.6,
           terms.width,
           terms.height,
-          FIBRE.value * scale.wide,
-          AWN.value * scale.tall,
+          fibre * scale.wide,
+          awn * scale.tall,
           lean,
         );
     }
@@ -123,17 +129,15 @@ export const meadow: Scene = {
     let value = MASS.value + SPAN * lit;
     // The stalks: one very long, very narrow cell, read by pulling the mass back toward the root
     // stop rather than drawn over it, so they stand inside the grass and not on top of it.
-    const stalk = clamp(
-      (streakTiled(x + gust + 13, y, terms.width, terms.height, STALK.value, TALL, lean) - 0.82) /
-        0.07,
-      0,
-      1,
-    );
+    const wide = STALK.value * terms.reach;
+    const tall = TALL * terms.reach;
+    const thread = streakTiled(x + gust + 13, y, terms.width, terms.height, wide, tall, lean);
+    const stalk = clamp((thread - 0.82) / 0.07, 0, 1);
     value += (STALK_TOP - value) * stalk * 0.92;
     // A seed catching the light outright: rare, hashed on the cell it stands in rather than placed,
     // and only where the mass is already lit — a spark in the shade is a dead pixel.
-    const cols = sceneCells(terms.width, FIBRE.value);
-    const rows = sceneCells(terms.height, SPARK);
+    const cols = sceneCells(terms.width, fibre);
+    const rows = sceneCells(terms.height, SPARK * terms.reach);
     const seed = hash2(noiseCell(x, terms.width, cols), noiseCell(y, terms.height, rows));
     value += clamp((seed - 0.97) / 0.03, 0, 1) * lit * (SPARK_TOP - value);
     // And the field falls back at the tile's own middle: a band of shade a tile deep and coming

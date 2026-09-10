@@ -530,7 +530,8 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  *
  * And `yard`, the field this picture is of, read off the yard's own name and nothing else
  * (`yardScene`, src/lib/yardScene.ts, 0329): the scene its plant stands in, the light its air puts
- * that scene under, and the wind its adjective sets. Handed in rather than read here, because the
+ * that scene under, the wind its adjective sets, and how close its place word stands to the one
+ * thing its place noun names (0335). Handed in rather than read here, because the
  * name belongs to the surface and a painter that read the store would be a second reader of it —
  * and nothing about it is stored, because a reading of a name that is already durable is not a
  * second fact that can disagree with the first (0145).

@@ -489,6 +489,13 @@ describe("the chain of passes", () => {
     // On a field shorter than its own taper — the strip is thirty-two rows, and the narrow end of
     // the Q is a twenty-fourth of that — every step still draws, one row deep, so how hard a band
     // is drawn never depends on where its own frequency happened to round (0287).
+    // A tile is held by what it is of, and since 0335 that includes the canvas's own height — the
+    // shade a yard's place noun casts is placed in what is *shown* of a tile rather than in the
+    // whole of it. So the first painting at a new height builds a tile and the next one does not,
+    // and the two paintings below have to be counted from the same cache: this one warms it, so
+    // that `flat` and `thin` create the same surfaces and the index into them still lines up.
+    vi.stubGlobal("devicePixelRatio", 2);
+    paintedOn(128, 16, [row({ period: 4 })]);
     vi.stubGlobal("devicePixelRatio", 2);
     const flat = paintedOn(128, 16, [row({ period: 4 })]);
     vi.stubGlobal("devicePixelRatio", 2);

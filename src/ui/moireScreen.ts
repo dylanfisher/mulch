@@ -150,9 +150,12 @@ function screenOf(
   // is the computed `color` of the canvas (`viewOf`, src/ui/canvasSurface.ts), so it is the one
   // entry here the scheme moves, and every stop is resolved off that scheme (0332).
   // The yard's own reading is part of what a tile is *of*, so two yards in different fields hold
-  // two tiles rather than one they fight over — and a name never changes, so a yard's three terms
-  // move the key exactly once, when its picture is first drawn (0329).
-  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${tuneStamp()}`;
+  // two tiles rather than one they fight over — and a name never changes, so a yard's five terms
+  // move the key exactly once, when its picture is first drawn (0329, 0335).
+  // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
+  // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
+  // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${tuneStamp()}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(key, beatPx(pitch), height, canvas, color, pitch, rowPitch, tint, yard);

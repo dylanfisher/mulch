@@ -10,7 +10,7 @@
  *   src/lib/yardScene.ts. The tile a scene's ground is written into, and the film over it →
  *   src/ui/moireScreenTile.ts. The shape this contract copies → src/lib/moireLook.ts.
  */
-import { cosTurn } from "./moire.ts";
+import { cosTurn, wrap } from "./moire.ts";
 
 /** Every scene the picture has a ground for. One name per field a yard's plant stands in. */
 export const SCENE_NAMES = ["meadow", "bloom", "water", "canopy"] as const;
@@ -67,6 +67,37 @@ export const SCENE_LIGHT_TERMS: Readonly<Record<SceneLight, SceneLightTerms>> = 
 };
 
 /**
+ * How close the frame stands to the field, from the joining word of a yard's place: "by the Old
+ * Wall" is close and "beyond" it is far. One reading and not a distance in metres — what it moves
+ * is how big every mark in the picture is drawn.
+ */
+export const SCENE_REACHES = ["close", "middle", "far"] as const;
+
+export type SceneReach = (typeof SCENE_REACHES)[number];
+
+/**
+ * The scale a reach puts on every mark's period: close draws the poppies' spacing and the seed
+ * heads' cells up, far draws them down. **One number and not a term per scene**, for the reason a
+ * light is one token: what standing closer does to a field is make everything in it bigger, and a
+ * scale per scene would be four chances to say that inconsistently. The middle is one, so a name
+ * read as neither close nor far is drawn at the size its ground declares.
+ */
+export const SCENE_REACH_TERMS: Readonly<Record<SceneReach, number>> = {
+  close: 1.6,
+  middle: 1,
+  far: 0.62,
+};
+
+/**
+ * The one large thing standing in the field, from the noun of a yard's place. Four shapes and not
+ * twenty-four nouns: a fence, a hedge and a low bridge cast the same shadow, and what the picture
+ * draws is the shadow (docs/decisions/0335-a-place-is-a-reach-and-a-shadow.md).
+ */
+export const SCENE_STANDS = ["wall", "steps", "grille", "mass"] as const;
+
+export type SceneStand = (typeof SCENE_STANDS)[number];
+
+/**
  * How many stops a scene's ramp has. **None of them is the caller's own ink**: a scene names all
  * five, as every still on the bench does (0331), because a ground that answers where on the ramp a
  * pixel is read spends the whole of that ramp inside one tile — and a stop that flipped with
@@ -76,17 +107,29 @@ export const SCENE_LIGHT_TERMS: Readonly<Record<SceneLight, SceneLightTerms>> = 
 export const SCENE_RAMP_STOPS = 5;
 
 /**
- * What a scene reads to write one device pixel of the tile: the tile's own size, and how far the
- * yard's own wind leans the field. The size, because the tile is laid down as a repeating pattern
+ * What a scene reads to write one device pixel of the tile: the tile's own size, how far the
+ * yard's own wind leans the field, how close the frame stands to it, and what stands in it. The
+ * size, because the tile is laid down as a repeating pattern
  * and every mark in it has to come round at its edges — a ground stated in absolute pixels would
  * ride a seam down the picture once a tile, which is the one artefact the film's own terms are
  * built to avoid (`beatPx`, `tilePx`, src/ui/moireScreenTile.ts). Neither of them is a clock: the
- * ground is written on a rebuild and never on a frame (0129).
+ * ground is written on a rebuild and never on a frame (0129). `reach` is a multiplier on every
+ * mark's period and `stand` is read by the shade over every scene rather than by a ground, both
+ * being the yard's place rather than its plant (0335).
+ *
+ * `seen` is how many of the tile's rows the surface actually shows — the canvas's own height, never
+ * more than `height`, because the tile is snapped **up** to a whole beat cell. A field of small
+ * marks does not care, which is why no ground reads it; **one large thing does**, and a thing
+ * placed two thirds down a tile three times taller than the strip it is drawn on is a thing nobody
+ * ever sees (0335).
  */
 export type SceneTerms = {
   readonly width: number;
   readonly height: number;
+  readonly seen: number;
   readonly lean: number;
+  readonly reach: number;
+  readonly stand: SceneStand;
 };
 
 /**
@@ -141,6 +184,16 @@ export const sceneCells = (across: number, period: number): number =>
  */
 export const sceneSlope = (down: number, period: number, lean: number): number =>
   down > 0 && period > 0 ? (Math.round((lean * down) / period) * period) / down : 0;
+
+/**
+ * The shortest signed offset from a mark to a sample on an axis that comes round every `span`. The
+ * tile is laid as a repeating pattern, so a mark at one edge of it has to reach across to the
+ * other — the same constraint `sceneRepeat` is written under, one step further on, because this is
+ * for a mark placed by hand rather than cut by a cosine. The water's blades were its first reader
+ * and the stand's own shade is its second (0333, 0335).
+ */
+export const sceneNear = (delta: number, span: number): number =>
+  span > 0 ? wrap(delta + span / 2, span) - span / 2 : delta;
 
 /**
  * A mark sharpened toward its own crests: the axis above raised to a whole power, which narrows a

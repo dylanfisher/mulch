@@ -11,7 +11,7 @@
  *   src/ui/moireScreen.ts, none of which this reads.
  */
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
-import type { SceneName } from "@/lib/moireScene";
+import { type SceneName, SCENE_REACH_TERMS } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 import { sceneOf } from "@/ui/scene/scenes";
 import {
@@ -199,7 +199,12 @@ export const sceneField = (name: SceneName): SketchDriftField => {
       scene.ground(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX, {
         width: FIELD_ASPECT * SCENE_BENCH_PX,
         height: SCENE_BENCH_PX,
+        seen: SCENE_BENCH_PX,
         lean: amount,
+        // At the reach that scales nothing and under a stand no ground reads: what the bench
+        // judges is the field a plant stands in, and a place is a shadow spent over it (0335).
+        reach: SCENE_REACH_TERMS.middle,
+        stand: "wall",
       }),
       0,
       1,

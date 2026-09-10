@@ -14,7 +14,8 @@
  *   the lean, each riding the phase of the parameter that claims it → src/ui/moireScreen.ts, which
  *   this split out of at the 800-line cap (0045, 0332) and which is this file's only caller in the
  *   painter. The ink the tile is keyed through → src/ui/moireScreenInk.ts. The grounds the scenes
- *   lay down → src/ui/scene/, and what a scene is → src/lib/moireScene.ts. The ramp a stop list is
+ *   lay down → src/ui/scene/, and what a scene is → src/lib/moireScene.ts. The shade whatever the
+ *   yard stands by casts over any of them → src/lib/moireStand.ts. The ramp a stop list is
  *   read through → src/lib/moireColour.ts.
  */
 // One tile, written a pixel at a time, and every grating, lattice, band and ground below is a term
@@ -29,9 +30,11 @@ import {
   type SceneTerms,
   SCENE_LIGHT_TERMS,
   SCENE_RAMP_STOPS,
+  SCENE_REACH_TERMS,
   SCENE_WIND_TERMS,
   sceneAxis,
 } from "@/lib/moireScene";
+import { standShade } from "@/lib/moireStand";
 import { subscribeTuning } from "@/lib/moireTuning";
 import { clamp, denormalize } from "@/lib/range";
 import type { ScreenInk } from "@/lib/moire";
@@ -520,7 +523,14 @@ function build(
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
   const scene = sceneOf(yard.scene);
-  const terms: SceneTerms = { width, height, lean: SCENE_WIND_TERMS[yard.wind].lean };
+  const terms: SceneTerms = {
+    width,
+    height,
+    seen: Math.min(height, canvas.height),
+    lean: SCENE_WIND_TERMS[yard.wind].lean,
+    reach: SCENE_REACH_TERMS[yard.reach],
+    stand: yard.stand,
+  };
   // Resolved once a tile, as they were before the read moved into the loop: what costs per pixel is
   // the mix between two of them and never a `getComputedStyle`.
   const own = inkOf(color);
@@ -537,8 +547,14 @@ function build(
       // scene spends none of it — where the field stands is a colour and not an amount (0332).
       const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
       // And which colour it is: this pixel's own place on the scene's ramp, carried along it by
-      // however far the picture's own hue has travelled.
-      const row = ramp(lift, sceneHue(scene.ground(x, y, terms), tint.hue), read);
+      // however far the picture's own hue has travelled — and then pulled toward the scene's own
+      // first stop by whatever shade the thing the yard stands by casts here: the wall, the steps,
+      // the grille or the mass, in the field's own darkest ink and never as an object (0335).
+      // **After the travel and not before it**, because a shadow a claimed colour could light is
+      // not a shadow: the two ends of the travel would read a shaded band at the dark stop and at
+      // the hot one, and the field's own shade would swing further than the field.
+      const stood = sceneHue(scene.ground(x, y, terms), tint.hue) * (1 - standShade(x, y, terms));
+      const row = ramp(lift, stood, read);
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
       // the ink read above and never more of it than that ink had.
       const lit = channelFringe(x, y, pitch, rowPitch, tint.fringe, tint.disperse);

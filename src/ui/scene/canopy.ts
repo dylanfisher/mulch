@@ -15,7 +15,11 @@ import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 import { wrap } from "@/lib/moire";
 
-/** How wide one whole crown is, in device pixels: the coarsest of the four scales, and the shape. */
+/**
+ * How wide one whole crown is, in device pixels: the coarsest of the four scales, and the shape.
+ * Every scale of leaf, and the cell a speck of sky falls in, is multiplied by how close the frame
+ * stands before it is read (`terms.reach`, 0335), so the leaf is coarser close up.
+ */
 const CROWN = tunable("canopy.crown", 44, { min: 12, max: 140, step: 1 });
 
 /** And how wide one leaf clump inside it is — the two finer scales are read as fractions of this. */
@@ -76,7 +80,7 @@ export const canopy: Scene = {
   ground: (x, y, terms) => {
     let raw = 0;
     for (const scale of SCALES) {
-      const wide = (scale.of === "crown" ? CROWN.value : LEAF.value) * scale.wide;
+      const wide = (scale.of === "crown" ? CROWN.value : LEAF.value) * scale.wide * terms.reach;
       raw +=
         scale.share *
         streakTiled(
@@ -101,8 +105,8 @@ export const canopy: Scene = {
     const value = (SHADE + MASS.value * lit) * (FOOT + (1 - FOOT) * high);
     // A speck is a break in the leaf and not a mark on a grid, so where one falls is a hash — on
     // the cell's wrapped index, because the tile comes round and a hash does not.
-    const cols = sceneCells(terms.width, SPECK);
-    const rows = sceneCells(terms.height, SPECK);
+    const cols = sceneCells(terms.width, SPECK * terms.reach);
+    const rows = sceneCells(terms.height, SPECK * terms.reach);
     const gx = terms.width > 0 ? (x * cols) / terms.width : 0;
     const gy = terms.height > 0 ? (y * rows) / terms.height : 0;
     const ix = Math.round(gx);

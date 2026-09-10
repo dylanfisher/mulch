@@ -13,9 +13,13 @@ import { DURABLE_TEXT_MAX } from "./guards.ts";
 import {
   type SceneLight,
   type SceneName,
+  type SceneReach,
+  type SceneStand,
   type SceneWind,
   SCENE_LIGHTS,
   SCENE_NAMES,
+  SCENE_REACHES,
+  SCENE_STANDS,
   SCENE_WINDS,
 } from "./moireScene.ts";
 
@@ -71,41 +75,47 @@ export const YARD_PLANTS = banked(SCENE_NAMES.map((scene) => YARD_PLANTS_BY_SCEN
  * arrived at from more than one side, and every word here has to read against every noun below it:
  * a word that reads with half of them, like "over the Stairs", is not in the bank (0324). The word
  * opens lowercase, so the reading is a sentence with one capitalised name in it rather than a
- * shouted label (0059).
+ * shouted label (0059). Grouped **under the reach it reads as** (0335) for the reason the
+ * adjectives are grouped under their wind: a word exists in exactly one place.
  */
-export const YARD_PLACE_WORDS = words("by beside near past behind beyond");
+export const YARD_PLACE_WORDS_BY_REACH: Readonly<Record<SceneReach, readonly string[]>> = {
+  close: words("by beside"),
+  middle: words("near past"),
+  far: words("behind beyond"),
+};
+
+export const YARD_PLACE_WORDS = banked(
+  SCENE_REACHES.map((reach) => YARD_PLACE_WORDS_BY_REACH[reach]),
+);
 
 /**
  * What it is drawn against: something in a garden solid enough to stand on one side of. Nothing
  * long and thin — a path is walked along, not stood behind — because the bank is what every word
- * above must read against, not a list of things a yard has.
+ * above must read against, not a list of things a yard has. Grouped **under the shape of the shade
+ * it casts** (0335): four shadows and not twenty-four things, because a fence, a hedge and a low
+ * bridge are one band of shade across a field and the picture draws the shade.
  */
-export const YARD_PLACE_NOUNS: readonly [string, ...string[]] = [
-  "the Old Wall",
-  "the Stairs",
-  "the Shed",
-  "the Gate",
-  "the Fence",
-  "the Greenhouse",
-  "the Hedge",
-  "the Water Butt",
-  "the Apple Tree",
-  "the Cold Frame",
-  "the Compost Heap",
-  "the Rain Barrel",
-  "the Coal Bunker",
-  "the Garden Seat",
-  "the Ivy Arch",
-  "the Back Door",
-  "the Low Bridge",
-  "the Woodpile",
-  "the Potting Bench",
-  "the Log Store",
-  "the Stone Trough",
-  "the Beehive",
-  "the Chicken Run",
-  "the Old Pump",
-];
+export const YARD_PLACE_NOUNS_BY_STAND: Readonly<Record<SceneStand, readonly string[]>> = {
+  wall: ["the Old Wall", "the Fence", "the Hedge", "the Low Bridge", "the Garden Seat"],
+  steps: ["the Stairs", "the Cold Frame", "the Potting Bench", "the Log Store", "the Woodpile"],
+  grille: ["the Greenhouse", "the Gate", "the Chicken Run", "the Ivy Arch"],
+  mass: [
+    "the Shed",
+    "the Water Butt",
+    "the Rain Barrel",
+    "the Old Pump",
+    "the Stone Trough",
+    "the Beehive",
+    "the Coal Bunker",
+    "the Compost Heap",
+    "the Back Door",
+    "the Apple Tree",
+  ],
+};
+
+export const YARD_PLACE_NOUNS = banked(
+  SCENE_STANDS.map((stand) => YARD_PLACE_NOUNS_BY_STAND[stand]),
+);
 
 /**
  * The first of the two optional banks, and the second that is joined: when it is, what the weather

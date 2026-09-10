@@ -655,4 +655,40 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
       },
     ],
   },
+  {
+    title: "Stand",
+    hint: "The one large thing a yard's place noun names, drawn as the shade it casts on whichever field it stands in: a wall is a band of shade, steps cut the tile into terraces, a grille is a coarse open lattice and a mass is a column of shade to one side.",
+    entries: [
+      {
+        id: "stand.shade",
+        wild: "max",
+        label: "Shade",
+        hint: "How far the deepest shade pulls the field toward its own darkest ink.",
+      },
+      {
+        id: "stand.wall",
+        wild: "max",
+        label: "Wall",
+        hint: "How deep a wall's band of shade lies across the tile, as a share of the tile.",
+      },
+      {
+        id: "stand.steps",
+        wild: "max",
+        label: "Steps",
+        hint: "How many terraces a flight of steps cuts the tile into.",
+      },
+      {
+        id: "stand.grille",
+        wild: "max",
+        label: "Grille",
+        hint: "How far apart a grille's bars stand, in device pixels — snapped, like every mark, to a whole number across the tile, so what a drag moves through is that handful of spacings.",
+      },
+      {
+        id: "stand.mass",
+        wild: "max",
+        label: "Mass",
+        hint: "And how wide a mass's column stands, as a share of the tile's width.",
+      },
+    ],
+  },
 ];

@@ -385,8 +385,9 @@ function useRecurrence(recurrence: RecurrenceLength): string {
  */
 /**
  * The field this yard's picture is of, read off its own name. A name never changes, so this reads
- * once a yard: the scene its plant stands in, the light its air puts that scene under, and the wind
- * its adjective sets (`yardScene`, src/lib/yardScene.ts, 0329).
+ * once a yard: the scene its plant stands in, the light its air puts that scene under, the wind its
+ * adjective sets, and how close its place word stands to the one thing its place noun names
+ * (`yardScene`, src/lib/yardScene.ts, 0329, 0335).
  */
 function useYardScene(name: string): YardScene {
   return useMemo(() => yardScene(name), [name]);

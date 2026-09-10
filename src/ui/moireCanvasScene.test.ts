@@ -1,7 +1,8 @@
 /**
  * @role Tests that the picture is the field its yard's name says: that two yards named for
- *   different plants lay down different tiles, that every row still cuts a grating whatever the
- *   scene, and that a scene's ground is written on a rebuild and never on a frame (0329).
+ *   different plants lay down different tiles, that two differing only in the thing they stand by
+ *   do too (0335), that every row still cuts a grating whatever the scene, and that a scene's
+ *   ground is written on a rebuild and never on a frame (0329).
  * @instead Every other case the painter has → src/ui/moireCanvas.test.ts, which this stands beside
  *   rather than inside because that file is within forty lines of the 800-line hard cap (0045).
  *   The reading these paint through → src/lib/yardScene.ts. The grounds themselves →
@@ -9,12 +10,12 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SCENE_NAMES } from "@/lib/moireScene";
+import { SCENE_NAMES, SCENE_REACHES, SCENE_STANDS } from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
-import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx, SCREEN_FLOOR } from "@/ui/moireScreenTile";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -66,6 +67,43 @@ describe("the picture is the field its name says", () => {
     const tiles = named.map((yard) => tileOf(paintingOf(yard)));
     for (const [at, tile] of tiles.entries()) {
       for (const other of tiles.slice(at + 1)) expect(tile).not.toEqual(other);
+    }
+  });
+
+  it("lays a different tile for every thing a yard could stand by, and for every reach", () => {
+    // The place reads (0335): the noun is one large thing drawn as the shade it casts on whichever
+    // field the plant named, and the joining word is how close the frame stands to it. Two yards
+    // differing only in their noun are two pictures, so both halves are part of what a tile is
+    // *of* — a key that carried neither would hand the second yard the first one's tile
+    // (`screenOf`, src/ui/moireScreen.ts). Written here rather than beside the screen's own cases
+    // because that file stands at the 800-line hard cap, which is what this file is for (0045).
+    const stood = SCENE_STANDS.map((stand) => tileOf(paintingOf({ ...YARD_SCENE_REST, stand })));
+    for (const [at, tile] of stood.entries()) {
+      for (const other of stood.slice(at + 1)) expect(tile).not.toEqual(other);
+    }
+    // Through a picture no other case here paints, because the painter holds its tiles by what
+    // they are of: a reading already drawn is answered out of that cache and writes no tile at all.
+    const reached = SCENE_REACHES.map((reach) =>
+      tileOf(paintingOf({ ...YARD_SCENE_REST, scene: "bloom", stand: "steps", reach })),
+    );
+    for (const [at, tile] of reached.entries()) {
+      for (const other of reached.slice(at + 1)) expect(tile).not.toEqual(other);
+    }
+    // And the shade is spent on the ramp and never on the alpha, like everything else a name says
+    // (0332): a yard standing by a wall keeps exactly the ink a yard standing by a grille does.
+    const keeps = stood.map((pixels) => {
+      let total = 0;
+      for (let at = 3; at < pixels.length; at += 4) total += (pixels[at] ?? 0) / 255;
+      return total / (pixels.length / 4);
+    });
+    for (const [at, keep] of keeps.entries()) {
+      expect(keep, `${SCENE_STANDS[at]} spends the film's own alpha`).toBeCloseTo(
+        keeps[0] ?? 0,
+        12,
+      );
+      expect(keep, `${SCENE_STANDS[at]} takes the picture under the floor`).toBeGreaterThan(
+        SCREEN_FLOOR,
+      );
     }
   });
 

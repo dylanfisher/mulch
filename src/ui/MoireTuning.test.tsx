@@ -143,6 +143,20 @@ describe("DriftTuning", () => {
     expect(ripple?.value).not.toBe(beat?.value);
   });
 
+  it("holds the shade a stand casts under the Stand group", () => {
+    // The one group that is not a scene's (0335): the thing a yard's place noun names is one
+    // shadow over all four fields, so its numbers are a group of their own rather than four
+    // copies — how deep the shade goes, and the size of each of the four shapes it takes.
+    const stand = grouped(tunings()).find(({ group }) => group.title === "Stand");
+    expect(stand?.rows.map((row) => row.handle.id)).toEqual([
+      "stand.shade",
+      "stand.wall",
+      "stand.steps",
+      "stand.grille",
+      "stand.mass",
+    ]);
+  });
+
   it("refuses a tunable with no words and words with no tunable", () => {
     const wordless = { id: "nobody.saysThis", rest: 0, min: 0, max: 1, step: 0.1, value: 0 };
     expect(() => grouped([...tunings(), wordless])).toThrow(

@@ -17,6 +17,8 @@ import {
   SCENE_LIGHTS,
   SCENE_LIGHT_TERMS,
   SCENE_RAMP_STOPS,
+  SCENE_REACHES,
+  SCENE_REACH_TERMS,
 } from "@/lib/moireScene";
 import { SCENES, refuseScene, sceneOf } from "@/ui/scene/scenes";
 
@@ -24,7 +26,28 @@ import { SCENES, refuseScene, sceneOf } from "@/ui/scene/scenes";
 const TOKENS = readFileSync("src/ui/tokens.css", "utf8");
 
 /** The terms a ground is read against here: one tile of the film at two device pixels to the CSS one. */
-const TERMS: SceneTerms = { width: 110, height: 210, lean: 0.5 };
+const TERMS: SceneTerms = {
+  width: 110,
+  height: 210,
+  // The whole tile shown, which is the yard's own drift window rather than the rack strip: a
+  // stand's field is the tile when the surface is as tall as one (`standDown`, 0335).
+  seen: 210,
+  lean: 0.5,
+  // The reach that scales nothing and a stand no ground reads: a shadow is spent over a scene
+  // rather than inside one (`standShade`, src/lib/moireStand.ts), so every case here reads the
+  // ground the yard's plant names and nothing its place does (0335).
+  reach: SCENE_REACH_TERMS.middle,
+  stand: "wall",
+};
+
+/**
+ * Every lean this file reads a ground at, against every reach a place word says (0335): a ground
+ * has to hold on nought to one and come round at the tile's edges at all of them, the reach being
+ * one multiply on the period each of them snaps.
+ */
+const LEANS_AND_REACHES: readonly (readonly [number, number])[] = [0, 0.25, 0.5, 0.75, 1].flatMap(
+  (lean) => SCENE_REACHES.map((reach) => [lean, SCENE_REACH_TERMS[reach]] as const),
+);
 
 // One flat list of the registry's cases, all read off the one set of terms above (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -88,15 +111,17 @@ describe("the scene registry", () => {
     }
   });
 
-  it("answers on nought to one everywhere, at every lean", () => {
+  it("answers on nought to one everywhere, at every lean and every reach", () => {
     // A ground that reached past one would multiply the tile's alpha up rather than down, and one
-    // that went under nought would take more ink than there is.
+    // that went under nought would take more ink than there is. At every reach as well as every
+    // lean since 0335: a reading that only ever holds at the middle is two thirds untested, and
+    // the reach multiplies a mark's period inside all four of these.
     for (const name of SCENE_NAMES) {
       const { ground } = SCENES[name];
-      for (const lean of [0, 0.5, 1]) {
+      for (const [lean, reach] of LEANS_AND_REACHES) {
         for (let y = 0; y < TERMS.height; y += 7) {
           for (let x = 0; x < TERMS.width; x += 3) {
-            const at = ground(x, y, { ...TERMS, lean });
+            const at = ground(x, y, { ...TERMS, lean, reach });
             expect(at, `${name} at ${x},${y}`).toBeGreaterThanOrEqual(0);
             expect(at, `${name} at ${x},${y}`).toBeLessThanOrEqual(1);
           }
@@ -109,20 +134,31 @@ describe("the scene registry", () => {
     // The whole of 0333 read off the ground: black water is where the picture rests, and a glint is
     // lit or it is not — a crest allowed to fade through the ramp would spend the middle stops on
     // its own edge, and the middle of this ramp is a reed (src/ui/scene/water.ts).
+    // At every reach, because a far water's two pitches are its tightest: the ripple rests at 2.7
+    // device pixels and a far reading takes it under two, which is the one place a mark can stop
+    // being a mark at all — so the picture is asserted where it is thinnest and not only at rest.
     const stop = 1 / (SCENE_RAMP_STOPS - 1);
-    let below = 0;
-    let read = 0;
-    let top = 0;
-    for (let y = 0; y < TERMS.height; y += 1) {
-      for (let x = 0; x < TERMS.width; x += 1) {
-        const at = SCENES.water.ground(x, y, TERMS);
-        read += 1;
-        if (at < stop) below += 1;
-        if (at > top) top = at;
+    for (const reach of SCENE_REACHES) {
+      const terms = { ...TERMS, reach: SCENE_REACH_TERMS[reach] };
+      let below = 0;
+      let read = 0;
+      let top = 0;
+      for (let y = 0; y < TERMS.height; y += 1) {
+        for (let x = 0; x < TERMS.width; x += 1) {
+          const at = SCENES.water.ground(x, y, terms);
+          read += 1;
+          if (at < stop) below += 1;
+          if (at > top) top = at;
+        }
       }
+      expect(
+        below / read,
+        `the water is not black over most of the tile at ${reach}`,
+      ).toBeGreaterThan(0.5);
+      expect(top, `no glint reaches the water's own top stop at ${reach}`).toBeGreaterThan(
+        1 - stop / 2,
+      );
     }
-    expect(below / read, "the water is not black over most of the tile").toBeGreaterThan(0.5);
-    expect(top, "no glint reaches the water's own top stop").toBeGreaterThan(1 - stop / 2);
   });
 
   /** Every read of one scene's whole tile, sorted, so a case can ask for its median. */
@@ -200,8 +236,8 @@ describe("the scene registry", () => {
     // onto the tile's own size instead (`sceneRepeat`, `sceneSlope`), and this is what says so.
     for (const name of SCENE_NAMES) {
       const { ground } = SCENES[name];
-      for (const lean of [0, 0.25, 0.5, 0.75, 1]) {
-        const terms = { ...TERMS, lean };
+      for (const [lean, reach] of LEANS_AND_REACHES) {
+        const terms = { ...TERMS, lean, reach };
         for (const [x = 0, y = 0] of [
           [0, 0],
           [3, 5],

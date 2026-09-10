@@ -1,7 +1,8 @@
 /**
  * @role Tests the reading of a yard's name into the picture it stands in: that every plant names a
  *   scene, every air a light and every adjective a wind, that the same name reads the same way
- *   twice, and that a name with no air reads as day (0329).
+ *   twice, that a name with no air reads as day (0329), and that every place word reads a reach
+ *   and every place noun the shape of the shade it casts (0335).
  */
 import { describe, expect, it } from "vitest";
 
@@ -13,10 +14,20 @@ import {
   YARD_AIR_NOUNS,
   YARD_AIR_NOUNS_BY_LIGHT,
   YARD_AIR_WORDS,
+  YARD_PLACE_NOUNS,
+  YARD_PLACE_NOUNS_BY_STAND,
+  YARD_PLACE_WORDS,
+  YARD_PLACE_WORDS_BY_REACH,
   YARD_PLANTS,
   YARD_PLANTS_BY_SCENE,
 } from "@/lib/copyYard";
-import { SCENE_LIGHTS, SCENE_NAMES, SCENE_WINDS } from "@/lib/moireScene";
+import {
+  SCENE_LIGHTS,
+  SCENE_NAMES,
+  SCENE_REACHES,
+  SCENE_STANDS,
+  SCENE_WINDS,
+} from "@/lib/moireScene";
 import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 
 describe("yardScene reads the whole of every bank it keys on", () => {
@@ -36,6 +47,49 @@ describe("yardScene reads the whole of every bank it keys on", () => {
       const { light } = yardScene(`Quiet Fern by the Shed in ${noun}`);
       expect(YARD_AIR_NOUNS_BY_LIGHT[light], noun).toContain(noun);
     }
+  });
+
+  it("reads every place word back to its reach and every place noun back to its stand", () => {
+    // The place is the third bank to read (0335), and both halves of it read: the joining word
+    // says how close the frame stands and the noun what stands in the field. Every entry of both,
+    // through the public reading, for the reason the three above are walked that way.
+    for (const word of YARD_PLACE_WORDS) {
+      const { reach } = yardScene(`Quiet Fern ${word} the Shed`);
+      expect(YARD_PLACE_WORDS_BY_REACH[reach], word).toContain(word);
+    }
+    for (const noun of YARD_PLACE_NOUNS) {
+      const { stand } = yardScene(`Quiet Fern by ${noun}`);
+      expect(YARD_PLACE_NOUNS_BY_STAND[stand], noun).toContain(noun);
+    }
+    // And every reading is reached: a reach or a stand no noun names is a picture nobody can be
+    // given, and a shadow shape with no words behind it is a shape nothing ever draws.
+    expect(
+      new Set(YARD_PLACE_WORDS.map((word) => yardScene(`Quiet Fern ${word} the Shed`).reach)),
+    ).toEqual(new Set(SCENE_REACHES));
+    expect(
+      new Set(YARD_PLACE_NOUNS.map((noun) => yardScene(`Quiet Fern by ${noun}`).stand)),
+    ).toEqual(new Set(SCENE_STANDS));
+  });
+
+  it("reads a noun's own adjective as part of the noun and never as the wind", () => {
+    // "beside the Old Wall" carries an adjective and "by the Ivy Arch" a plant (`yardScene`), so
+    // the first match is the mint's own order rather than a preference: the wind is the word the
+    // name opens with, whatever the place says after it.
+    expect(yardScene("Quiet Fern beside the Old Wall")).toMatchObject({
+      wind: "quiet",
+      reach: "close",
+      stand: "wall",
+    });
+    expect(yardScene("Windy Fern by the Ivy Arch")).toMatchObject({
+      scene: "meadow",
+      wind: "windy",
+      stand: "grille",
+    });
+    // The step's own reading, whole: an apple tree is a mass and past it is the middle distance.
+    expect(yardScene("Quiet Fern past the Apple Tree")).toMatchObject({
+      reach: "middle",
+      stand: "mass",
+    });
   });
 
   it("uses every scene, every wind and every light but the one no air names", () => {
@@ -59,7 +113,13 @@ describe("yardScene reads one name one way", () => {
     // draw the same scene because they read the same string (0145).
     const name = "Windy Reed past the Water Butt in Falling Dusk";
     expect(yardScene(name)).toEqual(yardScene(name));
-    expect(yardScene(name)).toEqual({ scene: "water", light: "dusk", wind: "windy" });
+    expect(yardScene(name)).toEqual({
+      scene: "water",
+      light: "dusk",
+      wind: "windy",
+      reach: "middle",
+      stand: "mass",
+    });
   });
 
   it("reads a name with no air as the day, and one the banks do not know as the rest", () => {

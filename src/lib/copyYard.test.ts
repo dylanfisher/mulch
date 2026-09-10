@@ -4,6 +4,8 @@ import { DURABLE_TEXT_MAX } from "./guards.ts";
 import {
   mintYardName,
   YARD_ADJECTIVES,
+  YARD_PLACE_NOUNS_BY_STAND,
+  YARD_PLACE_WORDS_BY_REACH,
   YARD_AIR_NOUNS,
   YARD_AIR_WORDS,
   YARD_DETAILS,
@@ -11,6 +13,7 @@ import {
   YARD_PLACE_WORDS,
   YARD_PLANTS,
 } from "./copyYard.ts";
+import { SCENE_REACHES, SCENE_STANDS } from "./moireScene.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -50,6 +53,24 @@ describe("the banks a yard is named from", () => {
     expect(longest.reduce((total, at) => total + at, ALWAYS.length - 1)).toBeLessThanOrEqual(
       DURABLE_TEXT_MAX,
     );
+  });
+
+  it("groups every place word under a reach and every place noun under a stand", () => {
+    // The grouping *is* the bank (0329, 0335): a word exists in exactly one place, so the flattened
+    // bank has to be the grouped one entry for entry and in its order — a second list would be a
+    // word that can be drawn without a reach, or a reach naming a word nobody draws (principle 1).
+    expect(YARD_PLACE_WORDS).toEqual(
+      SCENE_REACHES.flatMap((reach) => YARD_PLACE_WORDS_BY_REACH[reach]),
+    );
+    expect(YARD_PLACE_NOUNS).toEqual(
+      SCENE_STANDS.flatMap((stand) => YARD_PLACE_NOUNS_BY_STAND[stand]),
+    );
+    // And every group speaks: a reach with no word and a stand with no noun are both a reading the
+    // mint can never draw.
+    for (const reach of SCENE_REACHES)
+      expect(YARD_PLACE_WORDS_BY_REACH[reach], reach).not.toEqual([]);
+    for (const stand of SCENE_STANDS)
+      expect(YARD_PLACE_NOUNS_BY_STAND[stand], stand).not.toEqual([]);
   });
 
   it("writes no entry of any bank twice", () => {
