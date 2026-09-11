@@ -639,7 +639,7 @@ export function paintMoire(
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
   // to travel across: a lean that varies with x cannot be one affine transform, so it is one fill
   // per strip of it (`inkThrough`, src/ui/moireScreen.ts).
-  inkThrough(canvas, context, rows, color, tint, wind.drift, yard);
+  inkThrough(canvas, context, rows, color, tint, wind.drift, yard, looks);
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the
   // structure off the plane the picture already stands on and never off a second one (0296).

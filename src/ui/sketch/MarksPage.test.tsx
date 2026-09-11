@@ -43,11 +43,18 @@ describe("the marks route", () => {
 });
 
 describe("MarksPage mounts the bench", () => {
-  /** What is left of the eight the bench was asked for, and every one off the list (0254): one
-   * entry goes as its argument lands in the tile, the ground's with 0348. */
+  /** What is left of the eight the bench was asked for, and every one off the list (0254): an
+   * entry goes as its argument lands in the tile — the ground's with 0348, the echoes' and the
+   * bloom's with 0349. */
   it("mounts every entry, with one id apiece", () => {
-    expect(SKETCH_MARKS.length).toBe(7);
-    expect(SKETCH_MARKS.map((entry) => entry.id)).not.toContain("ground");
+    expect(SKETCH_MARKS.length).toBe(5);
+    const landed = ["ground", "echoes", "bloom"];
+    for (const gone of landed) {
+      expect(
+        SKETCH_MARKS.map((entry) => entry.id),
+        `${gone} has landed`,
+      ).not.toContain(gone);
+    }
     for (const entry of SKETCH_MARKS) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
       expect(markup, `${entry.id} has an entry and no nav link`).toContain(

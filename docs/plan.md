@@ -50,12 +50,12 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0349; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0350; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
-in the order that builds the machine before what rides it. Step 1 landed as 0348.
+in the order that builds the machine before what rides it. Steps 1 and 2 landed as 0348 and 0349.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -93,7 +93,18 @@ with a click train and one effect. **Tests that must fail first:** a tile baked 
 pass at spacing s has, on every row, no cell lighter than the cell s to its left less one; a bloom
 pass at reach r lightens no cell and raises the cells within r of the heaviest; a pass declared by
 no standing effect runs nothing and the key is unchanged. **Refused:** a pass that reads the
-frame; a pass whose terms are not the look's own.
+frame; a pass whose terms are not the look's own. _Landed_ 2026-09-10 as
+[0349](decisions/0349-a-look-may-act-on-the-cells.md): `CellPass`, `CELL_TERMS` and
+`runCellPasses` in src/lib/moireCells.ts, `cellEchoes` and `cellBloom` in files of their own,
+declared as `cells` on the bloom's entry and — through `withCells`, because a look in a file of its
+own cannot import its own cell pass back — on the echoes'. `rackCells` and `cellsKey`
+(src/ui/moireCells.ts) read the standing looks once a painting and step presence and terms onto the
+ink's own ladder, so a rack declaring no pass leaves the key and the tile exactly as they were.
+A pass's reach is whole cells — the echoes' read off `echoSpacing` across the grid, the bloom's on a
+band of its own — bounded by the row the tile actually is, and presence is in the count of rungs
+rather than in an alpha; §4 holds what that cost. The grid the passes run
+over is `cellGrid` in a new src/ui/moireScreenCells.ts: src/ui/moireScreenTile.ts stood at the cap,
+so the box read and the cut moved with them (0045). The bench's entries 03 and 04 go with it.
 
 **Step 3 — the marks are stamped on a frame (bench-30).** _Durable shape moved:_ none. The
 frame-side machine the next steps ride: `stampMarks` reads the boxed field — one pixel per cell,
@@ -339,6 +350,50 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The bloom's reach in cells is a second number about one knob (0349).** The step stood both
+passes on the looks' own bands. The echoes do: `echoCells` reads `echoSpacing` across the grid's
+`cols`, so the Time knob moves the ladder in the cut and the ladder in the marks by one
+declaration. The bloom does not: `bloomScale` is the working size the blur is _drawn_ at, and
+reading it as a reach in cells needs the cell's own size in device pixels, which a cell pass is not
+given — a halo that changed with the display is what 0346 took out of this picture. So
+`BLOOM_CELLS` states the reach beside the pass, and turning a reverb's Decay moves the halo and the
+blur on two numbers that can drift apart. The day a cell pass is handed the cell's pixel size, or
+the bloom's band is restated as a reach rather than a scale, the halo should be read off the one
+declaration.
+
+**The `look()` test factory is a fourth copy (0349).** `{ key, look, presence, at, terms, held }`
+now stands in four test files — moireCanvasField, moireCanvasChain, moireCanvasMarks and the new
+moireCells — where principle 3 says the third folds. Its one home is
+src/ui/moireCanvasPainted.ts, which holds the painter's other test-only helpers and which stands
+three lines under the 400-line soft cap: moving it there prints a new lint warning, which is the
+same reason 0348's §4 left the tile reader in three copies. Step 3 writes the rest of
+src/ui/moireCanvasMarks.test.ts and is where the split and this factoring can be done together.
+
+**A standing cell pass multiplies the tile cache's keys (0349).** Presence and three terms step
+onto `DRIFT_STEPS` stops apiece, so a delay arriving walks eight keys and a Time sweep walks eight
+more per stop, against a `TILE_CACHE` of 48 that evicts by insertion and not by use. The cap's own
+note already says it was never enough to hold a whole travel; this adds a dimension to the same
+key. Left as it is, because what a miss costs is one bake on a later paint and raising the cap is a
+number nobody has measured — the measurement, and the LRU the note describes, are their own step.
+
+**The ladder's whole-row property is proved on the grid, not on the baked tile (0349).** The step
+asked that a tile baked with an echoes pass at spacing s have, on every row, no cell lighter than
+the cell s to its left less one. That holds of the ladder the pass writes and of any row whose
+ladder runs out inside the reach, but not of every baked row: the rungs are capped at `ECHO_CAP`,
+so a mark of nine three rungs behind a cell of nought leaves that cell lighter than the capped
+ladder above it. What is asserted instead is the pass's own claim, exactly — in
+src/lib/moireCells.test.ts on a grid where the ladder completes, and in
+src/ui/moireCanvasMarks.test.ts on the painter's own tile, where every cell of a delayed picture
+stands at or above the plain picture's and none of its ink moves. Lifting the cap so the claim
+holds everywhere would be a ladder of nine rungs a cell, which is a different picture.
+
+**The zoomed drift was not shot for this step (0349).** The outcome wanted names a ladder and a
+halo read off the zoomed drift with a click train and one effect. The gate's drift smoke already
+stands a full-wet reverb in a real rack and reads the strip's picture through it, and the tile
+cases read the marks themselves cell by cell, so what is unproved is only how the two read to the
+eye at 1:1. Step 3 puts marks on the frame through the same picture and is where a shot pays for
+itself.
 
 **The push at nought is proved as an identity, not as a byte comparison (0348).** The step asked
 that at nought the tile be the one 0346 shipped, and there is no pre-0348 tile to compare bytes

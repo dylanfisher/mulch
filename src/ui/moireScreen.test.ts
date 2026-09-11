@@ -39,10 +39,10 @@ import {
   rowKeep,
   rowPitchPx,
   scanKeep,
-  sceneHue,
   tilePx,
   SCREEN_FLOOR,
 } from "@/ui/moireScreenTile";
+import { sceneHue } from "@/ui/moireScreenCells";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 import { tintRest } from "@/ui/moireTint";

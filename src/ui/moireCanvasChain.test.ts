@@ -71,6 +71,21 @@ const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireL
   held: 0,
 });
 
+/**
+ * One painting of the standard field whose screen tile is already in hand: the first painting is
+ * what bakes it and the second is what the case reads. **A look that declares a pass over the cells
+ * is part of what a tile is *of*** (0349), so a rack holding a delay or a reverb bakes a tile of its
+ * own — and a case that counts the canvases a chain makes cannot be handed a painting that is also
+ * building one. Every other case here stands a look that declares no such pass and needs none of
+ * this.
+ */
+const settled = (options: Parameters<typeof paintedOn>[5] = {}): Painted => {
+  vi.stubGlobal("devicePixelRatio", 2);
+  paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, options);
+  vi.stubGlobal("devicePixelRatio", 2);
+  return paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, options);
+};
+
 /** What a painting laid down that was not the rows' own product: the screen's own fills, in order. */
 const fills = (painted: Painted): string[] =>
   painted.laid.filter((each) => each.ink !== PRODUCT).map((each) => each.over);
@@ -127,12 +142,8 @@ describe("the chain of passes", () => {
 
   // P280: reverb's bloom, and the first look whose pass the chain actually runs.
   it("blooms the field by drawing it, small and back up and under, and never by filling over it", () => {
-    vi.stubGlobal("devicePixelRatio", 2);
-    const plain = paintedOn(128, 64, [row({ period: 4 })]);
-    vi.stubGlobal("devicePixelRatio", 2);
-    const bloomed = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
-      looks: [look("bloom", { amount: 1, radius: 1 })],
-    });
+    const plain = settled();
+    const bloomed = settled({ looks: [look("bloom", { amount: 1, radius: 1 })] });
     // A pass takes the chain's own pair of surfaces, which a rack with no pass in it never makes,
     // and writes into the first of them.
     expect(bloomed.elements.length).toBe(plain.elements.length + 2);
@@ -157,8 +168,7 @@ describe("the chain of passes", () => {
     expect(pass?.drew[1]?.alpha).toBeCloseTo(BLOOM_CEILING.value, 10);
     expect(pass?.drew[2]?.alpha).toBe(1);
     // A room at no wet at all draws the field once and leaves the picture exactly where it was.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const dry = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const dry = settled({
       looks: [look("bloom", { amount: 0, radius: 1 })],
     });
     expect(dry.surfaces[at]?.drew).toHaveLength(1);
@@ -213,11 +223,9 @@ describe("the chain of passes", () => {
 
   // P282: delay's echoes, and the first pass that displaces the field rather than resizing it.
   it("repeats the field by drawing it along the wind, and never by filling over it", () => {
-    vi.stubGlobal("devicePixelRatio", 2);
-    const plain = paintedOn(128, 64, [row({ period: 4 })]);
+    const plain = settled();
     const at = plain.elements.length;
-    vi.stubGlobal("devicePixelRatio", 2);
-    const echoed = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const echoed = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
       wind: { drift: 0, veer: 1 },
     });
@@ -250,23 +258,20 @@ describe("the chain of passes", () => {
     }
     // The wind blowing the other way walks the same ladder the other way, which is one picture
     // turning round rather than two pictures.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const back = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const back = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
       wind: { drift: 0, veer: -1 },
     });
     expect(back.surfaces[at]?.drew[1]?.box).toEqual([-step, 0]);
     // A delay the picture has not travelled to draws the field once and leaves it where it was.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const absent = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const absent = settled({
       looks: [{ ...look("echoes", { spacing: 1, count: 1, fade: 1 }), at: 0 }],
       wind: { drift: 0, veer: 1 },
     });
     expect(absent.surfaces[at]?.drew).toHaveLength(1);
     expect(fills(absent)).toEqual(fills(plain));
     // And a delay at its own knobs' bottom is still a repeat, at the count and fade they state.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const one = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const one = settled({
       looks: [look("echoes", { spacing: 0, count: 0, fade: 0 })],
       wind: { drift: 0, veer: 1 },
     });
@@ -278,8 +283,7 @@ describe("the chain of passes", () => {
     // over each other are the picture composed with itself — every window in it hazed evenly, which
     // is the one thing a pass may not do (0269). So the ladder fades by the same number that
     // gathers it, and this is the frame where that number is nought.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const still = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const still = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
       wind: { drift: 0, veer: 0 },
     });
@@ -288,8 +292,7 @@ describe("the chain of passes", () => {
     expect(fills(still)).toEqual(fills(plain));
     // And a wind halfway round is a ladder halfway out: the repeats stand closer to the field and
     // are fainter for it, rather than gathering onto it at the whole of their own alpha.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const turning = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const turning = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
       wind: { drift: 0, veer: 0.5 },
     });
@@ -300,8 +303,7 @@ describe("the chain of passes", () => {
     // the thing — but each first rung stands at the share that leaves the same picture untouched
     // once both of them have been laid over it, so a second delay is more repeats and never a
     // paler strip.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const two = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
+    const two = settled({
       looks: [
         look("echoes", { spacing: 1, count: 1, fade: 1 }, "one"),
         look("echoes", { spacing: 1, count: 1, fade: 1 }, "two"),

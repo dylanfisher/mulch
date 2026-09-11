@@ -25,6 +25,9 @@
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { bandLook } from "@/lib/moireBand";
+import { cellBloom } from "@/lib/moireCellBloom";
+import { cellEchoes } from "@/lib/moireCellEchoes";
+import type { CellPass } from "@/lib/moireCells";
 import { doubleLook } from "@/lib/moireDouble";
 import { staggerLook } from "@/lib/moirePanner";
 import { echoesLook } from "@/lib/moireEchoes";
@@ -148,8 +151,22 @@ export type LookPass = (
  * the one draw it is (0280).
  */
 export type Look =
-  | { at: Exclude<LookAt, "pass">; terms: Readonly<Partial<Record<LookTerm, LookRead>>> }
-  | { at: "pass"; terms: Readonly<Partial<Record<LookTerm, LookRead>>>; pass: LookPass };
+  | { at: Exclude<LookAt, "pass">; terms: LookReads; cells?: CellPass }
+  | { at: "pass"; terms: LookReads; pass: LookPass; cells?: CellPass };
+
+/** How each of a look's terms is read, which both kinds of look declare the same way. */
+type LookReads = Readonly<Partial<Record<LookTerm, LookRead>>>;
+
+/**
+ * The same look with a pass over the cells declared on it — for a look whose terms and draw are
+ * declared in a file of its own, which cannot import its own cell pass back without the two files
+ * importing each other (0349). Spelled out rather than spread, because a look is a union of two
+ * shapes and a spread of one is not the other.
+ */
+const withCells = (look: Look, cells: CellPass): Look =>
+  look.at === "pass"
+    ? { at: look.at, terms: look.terms, pass: look.pass, cells }
+    : { at: look.at, terms: look.terms, cells };
 
 /**
  * The field taken down to a working size and put straight back up over the whole surface — the blur
@@ -544,8 +561,17 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * over itself, so the picture keeps every row it had and gains a halo around each of them. How
    * much is laid back is the wet, on its own range; how wide the halo is, is the decay, on its —
    * a longer tail is a bigger room, and a bigger room is a softer edge (0280).
+   *
+   * **And the same room said in marks** (0349): the cell pass spreads each cell's mark into its
+   * neighbours one lighter per cell of distance, so the bake shows the room where this pass shows
+   * it in the cut. One declaration, two draws (`cellBloom`, src/lib/moireCellBloom.ts).
    */
-  bloom: { at: "pass", terms: { amount: "turn", radius: "turn" }, pass: bloomPass },
+  bloom: {
+    at: "pass",
+    terms: { amount: "turn", radius: "turn" },
+    pass: bloomPass,
+    cells: cellBloom,
+  },
   /**
    * Crush's: the field on a grid of flat cells, hardened as the depth falls, so the picture keeps
    * where its rows are and loses how finely they are drawn. How wide a cell is, is the Rate, on its
@@ -558,8 +584,13 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * repeats stand is the Time, on its own range; how many there are and how slowly they fade are
    * both the Feedback, on its — which is the one look whose two terms come off one knob, because a
    * feedback delay's count and its fade are one number in the sound as well.
+   *
+   * **And the same ladder said in marks** (0349): the cell pass repeats each cell's mark along its
+   * own row once per repeat, one mark lighter a rung, so the bake shows the ghosts where this pass
+   * shows them in the cut. Declared here rather than beside the look it belongs to, because a look
+   * in a file of its own cannot import its own cell pass back (`withCells`).
    */
-  echoes: echoesLook,
+  echoes: withCells(echoesLook, cellEchoes),
   /**
    * Pop's: the field with its own blurred copy taken out of it and the mask that leaves added back
    * on, so every row keeps where it is and gains what of it stands above its neighbours. How hard the mask

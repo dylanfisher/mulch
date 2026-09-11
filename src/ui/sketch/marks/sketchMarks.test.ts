@@ -12,19 +12,12 @@ import { SKETCH_STANDING, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
 import {
   BEAT_DIAL,
   beatField,
-  BLOOM_DIAL,
-  bloomedMark,
-  bloomField,
   CELL,
   CHARACTER_ALPHABET,
   COLS,
   DECAY_DIAL,
   decayedMark,
   decayField,
-  echoCells,
-  ECHOES_DIAL,
-  echoedMark,
-  echoesField,
   landingRow,
   PART_DIAL,
   partAlphabet,
@@ -44,8 +37,6 @@ import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 /** Every field on the bench with the dial it is drawn under, so one cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
   { name: "beat", field: beatField, dial: BEAT_DIAL },
-  { name: "echoes", field: echoesField, dial: ECHOES_DIAL },
-  { name: "bloom", field: bloomField, dial: BLOOM_DIAL },
   { name: "decay", field: decayField, dial: DECAY_DIAL },
   { name: "part", field: partField, dial: PART_DIAL },
   { name: "scatter", field: scatterField, dial: SCATTER_DIAL },
@@ -71,15 +62,6 @@ function differ(a: (x: number, y: number) => number, b: (x: number, y: number) =
   for (const [x, y] of GRID) if (a(x, y) !== b(x, y)) count += 1;
   return count;
 }
-
-/** The mark of every cell of the lattice, under one reading of a cell. */
-const everyCell = (markOf: (col: number, row: number) => number): number[] => {
-  const marks: number[] = [];
-  for (let row = 0; row < ROWS; row += 1) {
-    for (let col = 0; col < COLS; col += 1) marks.push(markOf(col, row));
-  }
-  return marks;
-};
 
 describe("every field on the marks bench", () => {
   it("writes nought or one at every point, at every end of its dial and at its rest", () => {
@@ -119,59 +101,6 @@ describe("the beat", () => {
   it("never takes ink away from the first lattice", () => {
     for (const [x, y] of GRID) {
       expect(beatField(x, y, BEAT_DIAL.rest)).toBeGreaterThanOrEqual(plainField(x, y));
-    }
-  });
-});
-
-describe("the echoes", () => {
-  it("stand at least one cell apart, and further as the spacing opens", () => {
-    expect(echoCells(0)).toBe(1);
-    expect(echoCells(1)).toBeGreaterThan(echoCells(0));
-  });
-
-  it("never write a cell lighter than the field did, and write some heavier at the rest", () => {
-    const plain = everyCell(plainMark);
-    const echoed = everyCell((col, row) => echoedMark(col, row, ECHOES_DIAL.rest));
-    let heavier = 0;
-    for (const [at, mark] of echoed.entries()) {
-      expect(mark).toBeGreaterThanOrEqual(plain[at] ?? Infinity);
-      if (mark > (plain[at] ?? 0)) heavier += 1;
-    }
-    expect(heavier).toBeGreaterThan(0);
-    expect(differ(plainField, (x, y) => echoesField(x, y, ECHOES_DIAL.rest))).toBeGreaterThan(0);
-  });
-
-  it("write a repeat one mark lighter than what it repeats", () => {
-    const apart = echoCells(ECHOES_DIAL.rest);
-    for (let row = 0; row < ROWS; row += 1) {
-      for (let col = apart; col < COLS; col += 1) {
-        expect(echoedMark(col, row, ECHOES_DIAL.rest)).toBeGreaterThanOrEqual(
-          plainMark(col - apart, row) - 1,
-        );
-      }
-    }
-  });
-});
-
-describe("the bloom", () => {
-  it("is the plain lattice at no reach", () => {
-    expect(differ(plainField, (x, y) => bloomField(x, y, 0))).toBe(0);
-  });
-
-  it("spreads a mark into its neighbours one lighter per cell, and never lightens one", () => {
-    const plain = everyCell(plainMark);
-    const bloomed = everyCell((col, row) => bloomedMark(col, row, BLOOM_DIAL.rest));
-    let grown = 0;
-    for (const [at, mark] of bloomed.entries()) {
-      expect(mark).toBeGreaterThanOrEqual(plain[at] ?? Infinity);
-      if (mark > (plain[at] ?? 0)) grown += 1;
-    }
-    expect(grown).toBeGreaterThan(0);
-    for (let row = 1; row < ROWS; row += 1) {
-      for (let col = 1; col < COLS; col += 1) {
-        expect(bloomedMark(col, row, 1)).toBeGreaterThanOrEqual(plainMark(col - 1, row) - 1);
-        expect(bloomedMark(col, row, 1)).toBeGreaterThanOrEqual(plainMark(col, row - 1) - 1);
-      }
     }
   });
 });

@@ -1,9 +1,9 @@
 /**
  * @role The marks bench at #/marks — the nav and the one list it mounts: the ways the lattice of
- *   marks could still be pushed past where 0346 left it — a second lattice, the delay's echoes and
- *   the reverb's bloom in marks, a landing's push decaying, an alphabet per part, a scatter of big
- *   marks and the sound's rows as marks. The read pushed to its ramp's ends has landed and its
- *   entry has gone with it (0348). Every entry carries
+ *   marks could still be pushed past where 0346 left it — a second lattice, a landing's push
+ *   decaying, an alphabet per part, a scatter of big marks and the sound's rows as marks. The read
+ *   pushed to its ramp's ends has landed (0348), and the delay's echoes and the reverb's bloom in
+ *   marks have landed with it (0349); their entries have gone with them. Every entry carries
  *   the one sentence it makes, the thing it gives up to make it and where in the real tile it
  *   would land, and every picture is the real marks over the shipped bloom under the shipped film
  *   in one ink, under the one dial that move turns. Its own route beside the structure bench for
@@ -28,9 +28,7 @@ import { MARKS_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchMarksBeat } from "@/ui/sketch/marks/SketchMarksBeat";
-import { SketchMarksBloom } from "@/ui/sketch/marks/SketchMarksBloom";
 import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
-import { SketchMarksEchoes } from "@/ui/sketch/marks/SketchMarksEchoes";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
 import { SketchMarksRows } from "@/ui/sketch/marks/SketchMarksRows";
 import { SketchMarksScatter } from "@/ui/sketch/marks/SketchMarksScatter";
@@ -55,7 +53,7 @@ export type MarksEntry = {
 
 /**
  * The ways left to push the lattice of marks, none exclusive of another: an entry goes as its
- * argument lands in the tile (0348). The picture today is a
+ * argument lands in the tile (0348, 0349). The picture today is a
  * still lattice of the screen's own cells, each cell one of ten marks off a wrapped ramp, in one
  * ink, with the sound's cut read a cell at a time (0345, 0346). Each of these is one move, drawn
  * with the real marks over the shipped bloom under the shipped film, under the one dial that move
@@ -72,28 +70,6 @@ export const SKETCH_MARKS: readonly MarksEntry[] = [
     built:
       "in build at src/ui/moireScreenTile.ts as a second pass of cells at another pitch over the same baked body, unioned into the tile's alpha. Bake-side; a tile a whole number of both cells wide, so the tile grows to their common multiple.",
     Content: SketchMarksBeat,
-  },
-  {
-    id: "echoes",
-    label: "The Echoes",
-    thesis:
-      "The delay's echoes written in marks: a cell's mark repeated along its row the cap's worth of times, each copy one mark lighter than the last, and the delay's own spacing as the dial. The echoes look draws the field again behind itself, and behind a lattice of marks is between them; a repeat that is a mark stands in the lattice instead.",
-    trades:
-      "the ladder's alpha. The painter's repeats fade by a share and carry the effect's arrival in that share; a repeat that is a whole mark is one of ten steps and cannot fade by a tenth, so a delay coming in pops a copy of the lattice in rather than fading one up.",
-    built:
-      "in src/lib/moireEchoes.ts as a pass on the cell grid rather than on the field: the mark of a cell is the heaviest of its own and its repeats' less their count, before the coverage is written. Bake-side, on the key the look's terms already step.",
-    Content: SketchMarksEchoes,
-  },
-  {
-    id: "bloom",
-    label: "The Bloom",
-    thesis:
-      "The reverb's bloom written in marks: a cell's mark spread into its neighbours, one mark lighter per cell of distance, so a dense mark grows a halo of lighter ones. The bloom look blurs the field and lays it back, and a blur of a lattice is a smear between marks; a halo that is marks stands in the lattice.",
-    trades:
-      "the halo's softness, and most of the field. A smooth field's neighbours differ by a mark at most, so a spread of one per cell moves the picture only where it climbs — the halo is round the ribbons and nowhere else, and a wet room with nothing sounding is a lattice that does not move.",
-    built:
-      "in src/lib/moireLook.ts beside bloomPass, as a spread on the cell grid before the marks are cut rather than a blurred drawImage after. Bake-side, and one pass over the cells per reach; the frame stops paying a blur.",
-    Content: SketchMarksBloom,
   },
   {
     id: "decay",

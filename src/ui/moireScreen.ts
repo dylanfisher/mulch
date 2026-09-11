@@ -30,9 +30,12 @@ import {
   type ScreenInk,
   type MoireRow,
 } from "@/lib/moire";
+import type { MoireCells } from "@/lib/moireCells";
 import { SCENE_WIND_TERMS } from "@/lib/moireScene";
 import { tunable } from "@/lib/moireTuning";
 import type { YardScene } from "@/lib/yardScene";
+import { cellsKey, rackCells } from "@/ui/moireCells";
+import type { MoireLook } from "@/ui/moireLooks";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
 import {
   beatPx,
@@ -175,6 +178,7 @@ function screenOf(
   rowPitch: number,
   tint: ScreenInk,
   yard: Readonly<YardScene>,
+  cells: readonly MoireCells[],
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
   // And the cell the marks are written in: the screen's own column pitch, so a bit of a mark is a
@@ -193,7 +197,8 @@ function screenOf(
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${tuneStamp()}`;
+  // And the passes the rack declares over the cells, stepped; none adds nothing (`cellsKey`, 0349).
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${tuneStamp()}${cellsKey(cells)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(
@@ -207,6 +212,7 @@ function screenOf(
     tint,
     yard,
     cell,
+    cells,
   );
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
@@ -242,6 +248,7 @@ export function inkThrough(
   ink: Readonly<ScreenInk>,
   wind: number,
   yard: Readonly<YardScene>,
+  looks: readonly MoireLook[],
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -256,7 +263,8 @@ export function inkThrough(
   tinted.disperse = stepped(ink.disperse, DRIFT_DISPERSE_REACH);
   tinted.hue = steppedHue(ink.hue);
   tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
-  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted, yard);
+  // And what the rack does to the marks, stepped onto the same ladders (`rackCells`, 0349).
+  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted, yard, rackCells(looks));
   // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
   // picture that engine draws is the one this file's caller drew before there was a screen behind
   // it, and it is one fill whatever the wind says.

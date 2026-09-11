@@ -1,10 +1,10 @@
 /**
  * @role The fields the marks bench still draws — one per direction the lattice of marks could be
- *   pushed in past 0346: a second lattice at a
- *   held ratio, the delay's echoes and the reverb's bloom written in marks rather than in the
- *   field, a landing's push decaying down the loop, an alphabet per character, a scatter of big
- *   marks over the fine ones, and the sound's rows as a lattice of their own — and the one dial
- *   each is drawn under. Every field answers whether a point of the picture is inked, nought or
+ *   pushed in past 0346: a second lattice at a held ratio, a landing's push decaying down the
+ *   loop, an alphabet per character, a scatter of big marks over the fine ones, and the sound's
+ *   rows as a lattice of their own — and the one dial each is drawn under. A field goes as its
+ *   argument lands in the tile: the ground's with 0348, the delay's echoes and the reverb's bloom
+ *   with 0349. Every field answers whether a point of the picture is inked, nought or
  *   one, in one ink on the page (0346): the real marks over the shipped bloom under the shipped
  *   film, no canvas, no clock, no context, so each is provable here and painted there.
  * @instead The marks and the wrap onto them, which these read and never restate →
@@ -21,7 +21,6 @@ import {
   markCoverage,
   pushRead,
 } from "@/lib/moireGlyph";
-import { ECHO_CAP, echoSpacing } from "@/lib/moireEchoes";
 import { sceneCells } from "@/lib/moireScene";
 import type { PlayerCharacter } from "@/lib/playerCast";
 import { FILM_SHARE, filmStand, gridPitchPx } from "@/ui/moireScreenTile";
@@ -155,67 +154,6 @@ export const beatField: SketchDriftField = (x, y, ratio) => {
     latticeInk(x, y, cell, (col, row) => plainMark(col, row, cell)),
   );
 };
-
-/**
- * How many cells apart the delay's repeats stand: the look's own spacing, a share of the field
- * (`echoSpacing`), in cells across it — and at least one, because half a ghost is not a draw.
- */
-export const echoCells = (spacing: number): number =>
-  Math.max(1, Math.round(echoSpacing(spacing) * COLS));
-
-/**
- * 03 — the delay's echoes written in marks: a cell's mark repeated along its row, the cap's worth
- * of times, each copy one mark lighter than the last, and a cell written in the heaviest of what
- * stands on it. The dial is the look's own spacing term. Never absent — a delay with nothing fed
- * back still repeats once (`echoCount`, src/lib/moireEchoes.ts) — so at nought the repeats stand
- * one cell apart rather than not at all.
- */
-export const ECHOES_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.4 };
-const echoedCells = new Map<number, Map<number, number>>();
-export function echoedMark(col: number, row: number, spacing: number): number {
-  return held(echoedCells, spacing, col, row, () => {
-    const apart = echoCells(spacing);
-    let mark = plainMark(col, row);
-    for (let copy = 1; copy <= ECHO_CAP.value; copy += 1) {
-      const from = col - copy * apart;
-      if (from < 0) break;
-      mark = Math.max(mark, plainMark(from, row) - copy);
-    }
-    return mark;
-  });
-}
-export const echoesField: SketchDriftField = (x, y, spacing) =>
-  latticeInk(x, y, CELL, (col, row) => echoedMark(col, row, spacing));
-
-/**
- * 04 — the reverb's bloom written in marks: every cell's mark spread into the cells around it,
- * one mark lighter for every cell of distance, and a cell written in the heaviest of what reaches
- * it — a dense mark grows a halo of lighter ones, and a field that is smooth already is moved only
- * where it climbs. The dial is the reach, in cells; at nought nothing reaches and the picture is
- * the plain lattice.
- */
-export const BLOOM_DIAL: SketchDial = { min: 0, max: 4, step: 0.5, rest: 2 };
-const bloomedCells = new Map<number, Map<number, number>>();
-export function bloomedMark(col: number, row: number, reach: number): number {
-  return held(bloomedCells, reach, col, row, () => {
-    let mark = plainMark(col, row);
-    const span = Math.ceil(reach);
-    for (let dr = -span; dr <= span; dr += 1) {
-      for (let dc = -span; dc <= span; dc += 1) {
-        if (dr === 0 && dc === 0) continue;
-        const distance = Math.hypot(dc, dr);
-        if (distance > reach) continue;
-        const near = col + dc;
-        const far = row + dr;
-        if (near < 0 || near >= COLS || far < 0 || far >= ROWS) continue;
-        mark = Math.max(mark, plainMark(near, far) - Math.round(distance));
-      }
-    }
-    return mark;
-  });
-}
-export const bloomField: SketchDriftField = (x, y, reach) =>
-  latticeInk(x, y, CELL, (col, row) => bloomedMark(col, row, reach));
 
 /** How many marks denser a landing at full level pushes its row the moment it lands. */
 export const DECAY_STEPS = 4;
