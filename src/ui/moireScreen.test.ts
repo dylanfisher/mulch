@@ -21,6 +21,7 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
+import { GLYPH_COUNT } from "@/lib/moireGlyph";
 import { SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
@@ -382,7 +383,9 @@ describe("moireScreen", () => {
     // The screen goes down once, under everything, and the rows' whole product is taken back out
     // of it in one stroke — so the screen is what the picture is *made of* rather than a wash over
     // it, and it is laid down exactly once however many rows there are.
-    expect(inks).toEqual([screen, PRODUCT]);
+    // And then the marks: since 0350 the same product is laid back over the picture as a lattice
+    // of marks, one draw a mark, after the cut and before anything is washed over it.
+    expect(inks).toEqual([screen, ...Array.from({ length: 1 + GLYPH_COUNT }, () => PRODUCT)]);
     // To within a cell of the marks, on whole cells (0346).
     const rolled = bandTurns(rows) * (tile?.height ?? 0);
     expect(Math.abs((moves[0]?.f ?? 0) - rolled)).toBeLessThanOrEqual(pitch / 2);

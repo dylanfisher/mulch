@@ -50,12 +50,12 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0350; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0351; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
-in the order that builds the machine before what rides it. Steps 1 and 2 landed as 0348 and 0349.
+in the order that builds the machine before what rides it. Steps 1, 2 and 3 landed as 0348, 0349 and 0350.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -106,7 +106,7 @@ rather than in an alpha; §4 holds what that cost. The grid the passes run
 over is `cellGrid` in a new src/ui/moireScreenCells.ts: src/ui/moireScreenTile.ts stood at the cap,
 so the box read and the cut moved with them (0045). The bench's entries 03 and 04 go with it.
 
-**Step 3 — the marks are stamped on a frame (bench-30).** _Durable shape moved:_ none. The
+**Step 3 — the marks are stamped on a frame (bench-30, 0350).** _Durable shape moved:_ none. The
 frame-side machine the next steps ride: `stampMarks` reads the boxed field — one pixel per cell,
 the mean the gratings leave (0346) — through ten threshold passes and fills each with one mark's
 pattern, so the sound's cut becomes a second lattice of marks in the same alphabet, read without
@@ -119,7 +119,16 @@ and what the stamp adds is the rows _as marks_ where the product is strong. **St
 a row going by on the strip is a run of marks going by, not holes. **Tests that must fail first:**
 the recorder counts ten fills a frame whatever the cell count; at depth nought no fill is drawn;
 a frame whose boxed field is all nought stamps nothing. **Refused:** a `drawImage` per cell; a
-per-frame `getImageData`.
+per-frame `getImageData`. _Landed_ 2026-09-10 as
+[0350](decisions/0350-the-marks-are-stamped-on-a-frame.md): `readMarks` and `stampMarks` in a new
+src/ui/moireCanvasMarks.ts, read beside `boxField` and stamped after `cutField`, at `cells.rows`
+resting at a half. Ten passes a frame whatever the cell count — each band the boxed read taken down
+to its own floor, amplified sixteen-fold, folded twice into a step and cut out of the bands above
+it, blown back up on whole cells and filled through one mark's pattern — so the bands are disjoint
+and a cell carries one mark. The read is unwrapped, so the first band's mark is the empty one and a
+quiet cell writes nothing. Two calls and not one, because the surfaces a painting mints must be the
+same whatever the rack is doing and the patterns must be asked for after the picture's own two; §4
+holds what that cost and what the rest was chosen on. The bench's entry 08 goes with it.
 
 **Step 4 — the second lattice is the rack's (bench-31).** _Durable shape moved:_ none. The
 bench's **beat**: a second lattice of marks at a held ratio, unioned into the tile's alpha — and
@@ -148,7 +157,7 @@ marks off the ground channel; a scatter that moves per frame.
 `player.step`) lifts the threshold passes one mark for the cell rows the sounding row's `centre`
 stands in, at the landing's level, decaying on the deck clock over `cells.decay` of a loop — so a
 row flares when its landing sounds and settles after, and the lattice stands still between.
-**Stands on:** `joltWalked`, `meterPulse`; `stampMarks` from step 3; entry 05. **Outcome
+**Stands on:** `joltWalked`, `meterPulse`; `stampMarks` from step 3 (0350); entry 05. **Outcome
 wanted:** on the zoomed drift a walk is rows flaring in turn. **Tests that must fail first:** a
 frame at a landing's edge stamps one mark heavier in that row's cells than the frame before; a
 quarter of a loop later it stamps lighter than at the edge; no cell outside the row moves.
@@ -362,13 +371,48 @@ blur on two numbers that can drift apart. The day a cell pass is handed the cell
 the bloom's band is restated as a reach rather than a scale, the halo should be read off the one
 declaration.
 
-**The `look()` test factory is a fourth copy (0349).** `{ key, look, presence, at, terms, held }`
+**The band a mark was stamped in is not read back off the painting (0350).** The step's third case
+— a frame whose boxed field is all nought stamps nothing — is proved in two halves: the bands are
+the unwrapped ramp `markAt` cuts, so a quiet cell falls in the first, and the painting mints that
+first band's mark as a tile that inks no bit at all. What is not asserted is the wiring between
+them: that pass _m_ fills through mark _m_'s pattern and not its neighbour's. The recorder files a
+fill as its composite and its alpha and never as what it was made through, and teaching it that
+pushes src/ui/moireCanvasPainted.ts past its 400-line soft cap — the same split the two paragraphs
+below already leave to a step of its own. The wiring is one loop index today, and the case that
+would catch a transposition arrives with that split.
+
+**The rest of `cells.rows` was chosen on arithmetic, not on the zoomed drift (0350).** The step
+says the depth rests where the zoomed drift keeps the page between marks. It rests at a half, and
+the half is argued rather than seen: a cell carries at most one mark, a mark inks about a third of
+its square, and a half of that is under a sixth of the picture's ink added over a lattice whose own
+ground is sparse — with every quiet cell, which is most of a resting field, writing nothing at all.
+What the gate saw is the smoke's own zoomed drift still drawing a picture of a hundred-odd shades
+with the stamp in it, which says the page did not close; it does not say a half is the best half.
+The hand that next opens the zoomed drift on a busy rack should move the dial and write down what
+it sees.
+
+**The stamp asks for its patterns after the picture's own, and is two calls for it (0350).** A
+painting now asks the engine for ten more patterns than it used to, and the recorder that stands in
+for the engine hands back a fixed number. Asked for first, a stamp would starve the rows' grating or
+the screen — a degraded engine would lose the picture to keep the marks. The band the tint washes
+over the picture is asked for after the stamp and can still be starved by it, which is why the
+tint's own case now paints on a budget of three plus a mark.
+So `readMarks` mints the surfaces beside `boxField` and `stampMarks` asks for the patterns after
+the cut — after the grating's and the screen's, though still before the band's, which it must be,
+the stamp being laid under that band — which is also what keeps every painting minting the same surfaces in the same order for
+the chain's cases to find. The cost is a two-call machine where the plan named one, and a stamp
+that mints its surfaces on a frame it then declines to draw.
+
+**The `look()` test factory is a fourth copy (0349, 0350).** `{ key, look, presence, at, terms, held }`
 now stands in four test files — moireCanvasField, moireCanvasChain, moireCanvasMarks and the new
 moireCells — where principle 3 says the third folds. Its one home is
 src/ui/moireCanvasPainted.ts, which holds the painter's other test-only helpers and which stands
 three lines under the 400-line soft cap: moving it there prints a new lint warning, which is the
-same reason 0348's §4 left the tile reader in three copies. Step 3 writes the rest of
-src/ui/moireCanvasMarks.test.ts and is where the split and this factoring can be done together.
+same reason 0348's §4 left the tile reader in three copies. Step 3 wrote the rest of
+src/ui/moireCanvasMarks.test.ts and did not do the factoring: it is a split of the recorder every
+painter case in the repo is written against, which is a step of its own and not a drive-by of one
+whose own text says nothing about it. The copies stand at four, and the split is still what unlocks
+them.
 
 **A standing cell pass multiplies the tile cache's keys (0349).** Presence and three terms step
 onto `DRIFT_STEPS` stops apiece, so a delay arriving walks eight keys and a Time sweep walks eight
@@ -421,5 +465,6 @@ stand character-identical in src/ui/moireCanvasFilm.test.ts, src/ui/moireCanvasS
 new src/ui/moireCanvasMarks.test.ts, which is the third occurrence principle 3 names. The one home
 for them is src/ui/moireCanvasPainted.ts, which already exports the painter's other test-only
 helpers and which stands three lines under its 400-line soft cap: moving fourteen lines into it
-prints a new lint warning, which a step owns. Left as three copies here; step 3 writes the rest of
-src/ui/moireCanvasMarks.test.ts and is where the split and the factoring can be done together.
+prints a new lint warning, which a step owns. Left as three copies here; step 3 wrote the rest of
+src/ui/moireCanvasMarks.test.ts and left them, for the reason the `look()` factory's own paragraph
+gives — the split is the step, and it is not this one.

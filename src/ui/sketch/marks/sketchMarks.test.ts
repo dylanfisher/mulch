@@ -25,8 +25,6 @@ import {
   plainField,
   plainMark,
   ROWS,
-  ROWS_DIAL,
-  rowsField,
   SCATTER_DIAL,
   scatterField,
   stood,
@@ -40,7 +38,6 @@ const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial
   { name: "decay", field: decayField, dial: DECAY_DIAL },
   { name: "part", field: partField, dial: PART_DIAL },
   { name: "scatter", field: scatterField, dial: SCATTER_DIAL },
-  { name: "rows", field: rowsField, dial: ROWS_DIAL },
 ];
 
 /**
@@ -186,16 +183,6 @@ describe("the scatter", () => {
     expect(differ(plainField, (x, y) => scatterField(x, y, SCATTER_DIAL.rest))).toBeGreaterThan(0);
     for (const [x, y] of GRID) {
       expect(scatterField(x, y, SCATTER_DIAL.rest)).toBeGreaterThanOrEqual(plainField(x, y));
-    }
-  });
-});
-
-describe("the rows", () => {
-  it("write nothing at no depth, and a second lattice at the rest that takes none away", () => {
-    expect(differ(plainField, (x, y) => rowsField(x, y, 0))).toBe(0);
-    expect(differ(plainField, (x, y) => rowsField(x, y, ROWS_DIAL.rest))).toBeGreaterThan(0);
-    for (const [x, y] of GRID) {
-      expect(rowsField(x, y, ROWS_DIAL.rest)).toBeGreaterThanOrEqual(plainField(x, y));
     }
   });
 });

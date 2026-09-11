@@ -8,6 +8,7 @@ import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
+import { GLYPH_COUNT } from "@/lib/moireGlyph";
 import { moireRow as row } from "@/lib/moireRow";
 import { painterOn } from "@/ui/moireCanvasPainted";
 import { DRIFT_INK_SECS, screenInkRest } from "@/ui/moireScreenInk";
@@ -206,8 +207,9 @@ describe("the band washed across the picture", () => {
   });
 
   it("is laid by the painter after the cut, so it colours the picture and not the ground", () => {
-    // Three patterns: the grating, the screen, and the band.
-    const tinted = paintedOn(200, 64, [row({ period: 3 })], 3, undefined, {
+    // Three patterns: the grating, the screen, and the band — and one per mark the stamp fills
+    // the sound's own rows through on its way past (0350), which are asked for before the band's.
+    const tinted = paintedOn(200, 64, [row({ period: 3 })], 3 + GLYPH_COUNT, undefined, {
       tinting: { strength: 0.4, spread: 0.6, phase: 0 },
     });
     // The screen, the product cut back out, and then the band atop what is left — in that order.

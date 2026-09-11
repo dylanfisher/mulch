@@ -1,10 +1,9 @@
 /**
  * @role The fields the marks bench still draws — one per direction the lattice of marks could be
  *   pushed in past 0346: a second lattice at a held ratio, a landing's push decaying down the
- *   loop, an alphabet per character, a scatter of big marks over the fine ones, and the sound's
- *   rows as a lattice of their own — and the one dial each is drawn under. A field goes as its
- *   argument lands in the tile: the ground's with 0348, the delay's echoes and the reverb's bloom
- *   with 0349. Every field answers whether a point of the picture is inked, nought or
+ *   loop, an alphabet per character, and a scatter of big marks over the fine ones — and the one dial
+ *   each is drawn under. A field goes as its argument lands in the tile: the ground's with 0348,
+ *   the delay's echoes and the reverb's bloom with 0349, the sound's own rows with 0350. Every field answers whether a point of the picture is inked, nought or
  *   one, in one ink on the page (0346): the real marks over the shipped bloom under the shipped
  *   film, no canvas, no clock, no context, so each is provable here and painted there.
  * @instead The marks and the wrap onto them, which these read and never restate →
@@ -38,7 +37,7 @@ import {
   alphabetCoverage,
   type AlphabetName,
 } from "@/ui/sketch/marks/sketchMarksAlphabet";
-import { FIELD_ASPECT, lit, weave } from "@/ui/sketch/sketchField";
+import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 import {
   fixtureAt,
   SKETCH_STANDING,
@@ -290,25 +289,3 @@ export const scatterField: SketchDriftField = (x, y, threshold) => {
   const mark = markAt(above, GLYPH_COUNT, 0);
   return Math.max(fine, markCoverage(mark, x / big - col, y / big - row, 0));
 };
-
-/**
- * What the sound's rows leave of the light at one cell, read at the cell's centre and not its
- * mean: the stand-in weave stands two cycles to a cell, so a cell's mean is the same everywhere
- * and its centre aliases the rows into the slow beat a lattice makes of a grating it cannot
- * resolve — which is the picture of a row a lattice of marks can give.
- */
-export const rowsRead = (col: number, row: number): number =>
-  lit(weave((col + 0.5) * CELL, (row + 0.5) * CELL));
-
-/**
- * 08 — the sound's rows written as their own lattice of marks instead of cut out of the field:
- * a second lattice on the same cells, read off the rows alone and without the wrap so a quiet
- * row writes nothing, laid over the field's lattice in the one ink. The dial is the rows' depth;
- * at nought the rows write nothing and the picture is the plain lattice.
- */
-export const ROWS_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.6 };
-export const rowsField: SketchDriftField = (x, y, depth) =>
-  Math.max(
-    plainField(x, y),
-    latticeInk(x, y, CELL, (col, row) => markAt(depth * rowsRead(col, row), GLYPH_COUNT, 0)),
-  );

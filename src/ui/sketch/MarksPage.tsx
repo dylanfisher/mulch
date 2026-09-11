@@ -1,9 +1,10 @@
 /**
  * @role The marks bench at #/marks — the nav and the one list it mounts: the ways the lattice of
  *   marks could still be pushed past where 0346 left it — a second lattice, a landing's push
- *   decaying, an alphabet per part, a scatter of big marks and the sound's rows as marks. The read
- *   pushed to its ramp's ends has landed (0348), and the delay's echoes and the reverb's bloom in
- *   marks have landed with it (0349); their entries have gone with them. Every entry carries
+ *   decaying, an alphabet per part and a scatter of big marks. The read pushed to its ramp's ends has
+ *   landed (0348), the delay's echoes and the reverb's bloom in marks with it (0349), and the
+ *   sound's own rows stamped over the picture with those (0350); their entries have gone with
+ *   them. Every entry carries
  *   the one sentence it makes, the thing it gives up to make it and where in the real tile it
  *   would land, and every picture is the real marks over the shipped bloom under the shipped film
  *   in one ink, under the one dial that move turns. Its own route beside the structure bench for
@@ -30,7 +31,6 @@ import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchMarksBeat } from "@/ui/sketch/marks/SketchMarksBeat";
 import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
-import { SketchMarksRows } from "@/ui/sketch/marks/SketchMarksRows";
 import { SketchMarksScatter } from "@/ui/sketch/marks/SketchMarksScatter";
 import { COLS, ROWS } from "@/ui/sketch/marks/sketchMarks";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -103,17 +103,6 @@ export const SKETCH_MARKS: readonly MarksEntry[] = [
     built:
       "in build at src/ui/moireScreenTile.ts as a second pass over three-by-three cells after the first, its read the mean of theirs and its mark cut without the wrap. Bake-side; the tile is already a whole number of cells wide and would be held to a multiple of three.",
     Content: SketchMarksScatter,
-  },
-  {
-    id: "rows",
-    label: "The Rows",
-    thesis:
-      "The sound's rows written as their own lattice of marks instead of cut out of the field: a second lattice on the same cells, read off the rows alone and without the wrap so a quiet row writes nothing, laid over the field's lattice in the one ink. The cut is holes in a lattice of whole marks today; a row that is marks instead is written in the same alphabet as the field it sounds over.",
-    trades:
-      "the product. A row today takes ink away and the picture is what every row leaves, which is what makes it a moiré; a row that adds marks is a sum, and a sum of many rows is a page filled — the depth is spent keeping the rows readable, and the beat between rows is read a cell at a time, which is an alias of it.",
-    built:
-      "beside cutGratings in src/ui/moireCanvas.ts, as a lattice of marks laid over the field rather than a destination-out cut. Frame-side today, where the cut is; bake-side as a second cell pass if the rows' read is put on the key.",
-    Content: SketchMarksRows,
   },
 ];
 

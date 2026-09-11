@@ -710,6 +710,18 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
     ],
   },
   {
+    title: "Cells",
+    hint: "What moves the marks after the lattice is baked: the sound's own rows stamped back over the picture in the marks' own alphabet, where the cut has only holes.",
+    entries: [
+      {
+        id: "cells.rows",
+        wild: "max",
+        label: "Rows",
+        hint: "How deep the sound's rows are stamped over the picture as marks; at nothing the rows are holes in the lattice and at everything every strong cell carries a whole mark.",
+      },
+    ],
+  },
+  {
     title: "Glyph",
     hint: "The lattice of marks the picture is written in — a cell is the screen's own column pitch — where along the ten marks the ramp starts before it wraps, how hard a cell's read is pushed toward that ramp's ends, and how far every mark is pulled toward one ink.",
     entries: [

@@ -9,17 +9,24 @@
  *   its own test. Everything else a scene reads through the painter →
  *   src/ui/moireCanvasScene.test.ts.
  */
+// One dependency over the cap, and it is the file this one is the painter's cases for: the stamp
+// declares its own dial and its own bands, and a case that restated either would be asserting a
+// second copy of them rather than the shipped one (principle 1).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GLYPH_PUSH, markWeight } from "@/lib/moireGlyph";
+import { GLYPH_COUNT, GLYPH_GRID, GLYPH_PUSH, markAt, markWeight } from "@/lib/moireGlyph";
 import { type SceneName, sceneRepeat } from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
 import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
+import { bandFloor, boxCells, CELL_ROWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
+// oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -121,6 +128,57 @@ function heavyShare(scene: SceneName, push: number): number {
   }
   return heavy / Math.max(1, cells);
 }
+
+/**
+ * How many patterns one painting of the stamp asks the engine for: the picture's own two — the
+ * rows' grating and the screen — and then one per mark it fills the sound's rows through.
+ */
+const STAMP_PATTERNS = 2 + GLYPH_COUNT;
+
+/** One painting at `dpr` device pixels to the CSS one, with every pattern the stamp asks for. */
+function stampedOn(dpr: number, frames = 1): Painted {
+  vi.stubGlobal("devicePixelRatio", dpr);
+  return paintedOn(200, 128, ROWS, STAMP_PATTERNS, 20, { frames });
+}
+
+/**
+ * Every fill one painting made through a mark's own pattern, which is the stamp's and nothing
+ * else's: `source-in` on a surface the size of the picture (`stampMarks`). Counted off the
+ * recorder rather than off the pixels, because what the step promises is the *cost* — one fill a
+ * mark however many cells the picture is cut into (0129).
+ */
+function stampFills(painted: Painted, span: number): number {
+  return painted.surfaces.reduce(
+    (count, surface, at) =>
+      painted.elements[at]?.width === span
+        ? count + surface.fills.filter((fill) => fill.over === "source-in").length
+        : count,
+    0,
+  );
+}
+
+/**
+ * How many bits each of the marks' own tiles inks, in the order the stamp minted them: a tile is a
+ * cell square and every inked bit of it is one fill (`markTile`), so the fills it made are the
+ * mark. Nothing else the painter makes is a cell square.
+ */
+function markTiles(painted: Painted, cell: number): number[] {
+  return painted.surfaces.flatMap((surface, at) => {
+    const element = painted.elements[at];
+    return element?.width === cell && element.height === cell ? [surface.fills.length] : [];
+  });
+}
+
+/**
+ * Which surface the stamp fills its bands through: the one the size of the picture that fills
+ * `source-in`, which is the mask and nothing else the painter makes.
+ */
+const maskAt = (painted: Painted, span: number): number =>
+  painted.surfaces.findIndex(
+    (surface, at) =>
+      painted.elements[at]?.width === span &&
+      surface.fills.some((fill) => fill.over === "source-in"),
+  );
 
 // One flat list of the marks' cases, all painted through the one stand-in canvas (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -225,5 +283,94 @@ describe("the marks the painter puts down", () => {
         expect(pushed[at + channel], `pixel ${at} changed ink`).toBe(flat[at + channel]);
       }
     }
+  });
+  it("stamps the sound's rows over the picture in one fill a mark, whatever the cell count", () => {
+    // The third step of the block (0350): the boxed field — the mean the rows' gratings leave over
+    // each cell (0346) — read through one threshold pass per mark and filled with that mark's own
+    // pattern, so the sound's cut is a second lattice of marks and a frame pays ten fills however
+    // many cells the picture holds. A draw per cell is what this refuses.
+    const dense = stampedOn(2);
+    const coarse = stampedOn(1);
+    expect(boxCells(200, gridPitchPx(2)), "both displays read the same cell count").not.toBe(
+      boxCells(200, gridPitchPx(1)),
+    );
+    expect(stampFills(dense, 200)).toBe(GLYPH_COUNT);
+    expect(stampFills(coarse, 200)).toBe(GLYPH_COUNT);
+    // A fill a mark a *frame*, and the second frame pays exactly what the first did: the surfaces
+    // and the marks' own tiles are minted once a canvas and never once a painting.
+    expect(stampFills(stampedOn(2, 2), 200)).toBe(2 * GLYPH_COUNT);
+    // And every one of them is laid over the picture after the product is cut back out of it: the
+    // cut stays, and the marks are what the product adds where it is strong (0131).
+    const overs = dense.laid.map((fill) => fill.over);
+    expect(overs.lastIndexOf("destination-out")).toBeLessThan(overs.length - GLYPH_COUNT);
+    expect(overs.slice(-GLYPH_COUNT)).toEqual(
+      Array.from({ length: GLYPH_COUNT }, () => "source-over"),
+    );
+  });
+
+  it("stamps nothing at all at no depth", () => {
+    // The step's own case: the dial at nothing is the picture 0346 shipped, holes and all — no
+    // pass runs, no fill is made, and nothing is laid over the cut.
+    setTuning("cells.rows", 0);
+    const none = stampedOn(2);
+    expect(stampFills(none, 200)).toBe(0);
+    expect(none.laid.at(-1)?.over).toBe("destination-out");
+    setTuning("cells.rows", CELL_ROWS.rest);
+    expect(stampFills(stampedOn(2), 200)).toBe(GLYPH_COUNT);
+  });
+
+  it("writes nothing for a cell the rows leave quiet, the read being unwrapped", () => {
+    // The step's other case: a frame whose boxed field is all nought stamps nothing. The bands are
+    // the ramp cut straight — `markAt` at no phase — so a quiet cell falls in the first band, and
+    // the first mark is the one that carries no ink at all. The lattice under it wraps (0345); this
+    // one must not, or silence would be written as the sparse mark the ground is written in.
+    expect(bandFloor(0)).toBe(0);
+    expect(markWeight(0)).toBe(0);
+    for (let mark = 1; mark < GLYPH_COUNT; mark++) {
+      expect(bandFloor(mark), `band ${mark} starts at nought`).toBeGreaterThan(0);
+      expect(markWeight(mark), `mark ${mark} carries no ink`).toBeGreaterThan(0);
+    }
+    // And a band is where the unwrapped ramp says it is, all the way up: the heaviest band a read
+    // stands above is the mark `markAt` writes that read in.
+    for (const read of [0, 0.01, 0.1, 0.35, 0.5, 0.9, 0.99, 1]) {
+      let stood = 0;
+      for (let mark = 0; mark < GLYPH_COUNT; mark++) if (read >= bandFloor(mark)) stood = mark;
+      expect(stood, `a read of ${read}`).toBe(markAt(read, GLYPH_COUNT, 0));
+    }
+    // And the painting carries the whole alphabet as tiles, one square of the cell per mark, each
+    // inked bit a fill of its own: the first inks nothing at all — which is what the quiet band is
+    // filled through — and the last inks every bit of its grid.
+    const inked = markTiles(stampedOn(2), gridPitchPx(2));
+    expect(inked).toHaveLength(GLYPH_COUNT);
+    expect(inked[0], "the mark a quiet cell is written in inks something").toBe(0);
+    expect(inked.at(-1), "the heaviest mark is not the block").toBe(GLYPH_GRID * GLYPH_GRID);
+  });
+
+  it("reads the boxed field on the very grid it stamps the marks back onto", () => {
+    // The box wrote the product's mean on whole cells and laid it back out to `wide * cell`, which
+    // overhangs a picture whose width is not a whole number of them (`boxField`). Read over the
+    // field's own width instead and every cell after the first is sampled a little to the left of
+    // where it stands — the stamp drifts off the lattice it is a picture of, a cell out by the far
+    // edge. The two draws carry the same span, which is what says they are on one grid.
+    const cell = gridPitchPx(2);
+    const painted = stampedOn(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    // The stamp's own draws and never the box's, which reads the same picture on the same counts:
+    // the read is a draw onto a surface one pixel a cell, and a blow-up is a draw onto the mask.
+    const down = painted.surfaces
+      .flatMap((surface, at) => {
+        const element = painted.elements[at];
+        return element?.width === wide && element.height === deep ? surface.drew : [];
+      })
+      .filter((each) => each.box.length === 8)
+      .map((each) => each.box);
+    const up = (painted.surfaces[maskAt(painted, 200)]?.drew ?? [])
+      .filter((each) => each.box.length === 8)
+      .map((each) => each.box);
+    expect(down, "the field is read at the cell grid once a frame").toHaveLength(1);
+    expect(up, "a band is blown back up once a pass").toHaveLength(GLYPH_COUNT);
+    expect(down[0]?.slice(0, 4)).toEqual([0, 0, wide * cell, deep * cell]);
+    for (const box of up) expect(box.slice(4)).toEqual([0, 0, wide * cell, deep * cell]);
   });
 });

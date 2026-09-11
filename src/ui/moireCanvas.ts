@@ -87,6 +87,7 @@ import { viewOf } from "@/ui/canvasSurface";
 import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/driftTiles";
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
+import { boxCells, readMarks, stampMarks } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
@@ -225,8 +226,8 @@ const BOX_HARDENINGS = 3;
  * lands on the lattice `inkThrough` lays on whole cells of it.
  */
 function boxField(field: HTMLCanvasElement, ink: CanvasRenderingContext2D, cell: number): void {
-  const wide = Math.max(1, Math.ceil(field.width / cell));
-  const deep = Math.max(1, Math.ceil(field.height / cell));
+  const wide = boxCells(field.width, cell);
+  const deep = boxCells(field.height, cell);
   const over = ink.globalCompositeOperation;
   ink.globalCompositeOperation = "copy";
   ink.imageSmoothingEnabled = true;
@@ -633,7 +634,11 @@ export function paintMoire(
     return;
   }
   feedFrame(canvas, field, ink, rows);
-  boxField(field, ink, gridPitchPx(dpr));
+  const cell = gridPitchPx(dpr);
+  boxField(field, ink, cell);
+  // And that same reading taken into the stamp's own grid, beside the box that made it: what it
+  // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
+  const marks = readMarks(canvas, field, cell, color);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
@@ -645,6 +650,10 @@ export function paintMoire(
   // structure off the plane the picture already stands on and never off a second one (0296).
   cutField(context, field, rows, looks, shape, wind.veer, sounding, roamed);
   context.globalCompositeOperation = "source-over";
+  // And the same product laid back over the picture as marks: the cut is holes in a lattice, and
+  // this is the rows written in that lattice's own alphabet where they are strong, so a row going
+  // by is a run of marks rather than a run of holes.
+  if (marks !== null) stampMarks(context, marks, cell);
   // And the band of the ramp washed over what is left, through the ink and never over the window
   // the gratings agree on: after the cut, so the colour lies on the picture and not on the ground
   // the cut takes back out (`tintThrough`, src/ui/moireTint.ts, 0302).
