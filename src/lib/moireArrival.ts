@@ -9,7 +9,7 @@
  *   in src/ui/moireCanvas.ts. Keeping a share across a rebuilt set, and holding a row that has left
  *   in the picture until it has finished leaving → src/ui/moireCarry.ts.
  */
-import { easedToward } from "./moire.ts";
+import { easedToward, type MoireRow } from "./moire.ts";
 import { tunable } from "./moireTuning.ts";
 
 /**
@@ -54,9 +54,19 @@ export const arrivedInto = (
 ): number => easedToward(share, leaving ? 0 : 1, elapsed, over, ARRIVAL_REACH);
 
 /**
- * And whether a row is in the picture at all. **The one test three readers share** — what the
+ * And whether a row is in the picture at all. **The one test its readers share** — what the
  * picture weighs, how deep the row cuts and which row's claim carries the ink — because a row that
  * has wholly left may not weigh, cut or vote, and three spellings of "wholly left" could disagree
- * (principle 1).
+ * (principle 1). A reader that also wants the row drawn asks `standing` below.
  */
 export const arrived = (share: number): boolean => share > 0;
+
+/**
+ * And whether a row is in the picture to be read at all: drawn, and not wholly left. The pair every
+ * reader of a row's claim opens with — what the picture weighs (`drawnGratings`, src/ui/moireCanvas.ts),
+ * which row's claim carries the ink (`boldestRow`, src/ui/moireScreenInk.ts) and which rows wash a
+ * band of their own (`litInto`, src/ui/moireTint.ts) — written once now that there are three of them
+ * (principle 3). A reader with a guard of its own keeps it beside this rather than inside it.
+ */
+export const standing = (row: Pick<MoireRow, "period" | "arrival">): boolean =>
+  row.period > 0 && arrived(row.arrival);

@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0368; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0369; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -738,7 +738,7 @@ saturation that chose it, so a pop easing in rebakes once and not eight times. T
 one way and are in §4: the two subpixel cases the split's removal took with it, the ghost's own
 compositing, and the two lattices the split does not reach.
 
-**Step 17 — a coloured row washes where it stands (bench-44).** _Durable shape moved:_ none. A
+**Step 17 — a coloured row washes where it stands (bench-44, 0368).** _Durable shape moved:_ none. A
 hue claim — the tape's tone, the reverb's tone, the shift's detune, the pop's sheen, the voice
 from step 12 — reaches the tile today only as the boldest row's hue, one stop of five. The tint
 (src/ui/moireTint.ts, frame-side, one band) becomes one band per coloured row at that row's
@@ -748,6 +748,29 @@ wanted:** a tape's warmth is a warm band on the strip where the tape's row is. *
 fail first:** two rows claiming two hues draw two bands at two centres; a row with no claim draws
 none; the fill count is the coloured-row count. **Refused:** a hue in the bake key; a band per
 uncoloured row.
+
+**It landed as [0368](decisions/0368-a-coloured-row-washes-where-it-stands.md)**, and the outcome is
+met: a tape's warmth is a warm band on the strip where the tape's row is. `MoireTint`
+(src/ui/moireTint.ts) carries a fixed array of `MoireTintBand` and a count of how many are lit, and
+`tintTravelInto` refills it from the rows every frame — a row drawn, wholly arrived and claiming a
+hue other than `DRIFT_REST.hue`, taking its `centre`, its `pulse` and its hue, up to `TINT_BANDS`
+and allocating nothing (0070). `tintThrough` then lays one fill per lit band, at that row's centre
+through `centreAcross` (the same mapping the picture anchors its rows by) and `colour.band` of the
+picture wide, at the field's travelled strength brought down by `colour.pulse` where the row is
+resting. The hue is spent by translating the pattern so the hue's own place in the ramp lands on
+that centre, so no hue reaches the tile's key and the tile is still written once a colour. A picture
+no row has claimed a colour in is now washed not at all, which is the old whole-canvas band going,
+and 0302's sweep went with it: a phase sliding a row's own claim around the ramp every twelve
+seconds says a colour nobody turned a knob for, so `phase`, `colour.sweepSecs` and their case are
+gone and `colour.band` and `colour.pulse` are what the step mints. The review caught three: the
+sweep above; that the bands compose, so eight laid whole would wash the screen away at a knob
+nowhere near its end (each now lays the share that composites back to `colour.wash`, and one band
+alone lays it whole); and that a band ignored its row's arrival, so a colour joined six seconds
+before the grating it names and vanished a frame after it. Beside them a third reader of the "drawn
+and not wholly left" pair made it principle 3's, so `standing` (src/lib/moireArrival.ts) is written
+once and `boldestRow` and `drawnGratings` spend it. Three things went one way and are in §4: the
+band's hard edge, the whole-picture wash and the sweep the step removed, and the eight bands being
+the picture's first eight rather than its boldest.
 
 **Step 18 — the profile, and the block's last checkpoint (bench-45).** _Durable shape moved:_
 none. The block's end, in two halves. _The profile:_ `./scripts/profile` on the zoomed drift with a
@@ -832,6 +855,28 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**A band has an edge, the whole-picture wash is gone, and eight bands are the first eight (0368).**
+A row's band is a rect `colour.band` of the picture wide and is not faded out at its two ends: a
+feather wants a `CanvasGradient` whose stops are that row's own hue, which is an object built per
+band per frame (0070), or a second fill per band — and the fill count is the one thing this step is
+bounded by, so the edge stands and it is a step between two stops of the ramp at the wash's alpha
+rather than between colour and none. Beside it, the band 0302 laid over the whole canvas is gone
+outright: a picture no row has claimed a colour in is not washed, because the tile below is already
+in the ink the yard asked for and a wash of the middle of the ramp over it says a colour nobody
+turned a knob for — the cost is that a sounding yard with a bare rack now shows the ramp only
+through its tile. And the eight bands `TINT_BANDS` allows are the picture's first eight coloured
+rows and not its boldest eight: sorting a row list on the frame path is the allocation the read
+exists not to make, and a rack past eight coloured rows is past what the strip can tell apart
+anyway. With the whole-picture band went its sweep — `colour.sweepSecs` and the phase, gone rather
+than left pointing at nothing — and with the sweep went the one motion a picture with no coloured
+row had: such a picture is now still in its own ink until an effect claims a hue. And because the
+bands compose, each lays only the share that composites back to `colour.wash`, so eight coloured
+rows standing apart each wash fainter than one standing alone; bounding the union was worth more
+than holding one band's strength constant, because the union is what 0130 is about. Under all three, the split that paid for the two new dials: `src/lib/copyDriftGroups.ts`
+crossed the 800-line hard cap on two rows of copy, and the five scenes' groups went to
+`src/lib/copyDriftScenes.ts` spliced back in where they stood (0045) — the seam is a list splice and
+not an abstraction, which is what a table of copy at the cap gets.
 
 **Checkpoint C could not time a bake at the budget's own setting, because nothing rebakes there
 (0365).** With the walk really playing, a full rack on two yards and the picture popped out, the

@@ -78,7 +78,7 @@ import {
   type FractalStops,
 } from "@/lib/moireFractal";
 import { agedOpening } from "@/lib/moireAge";
-import { arrived } from "@/lib/moireArrival";
+import { standing } from "@/lib/moireArrival";
 import { clamp } from "@/lib/range";
 import { profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -309,9 +309,8 @@ function aim(
  */
 export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
   rows.reduce((count, row) => {
-    if (row.period <= 0) return count;
+    if (!standing(row)) return count;
     if (row.depth <= 0 && isFieldGeometry(row.geometry)) return count;
-    if (!arrived(row.arrival)) return count;
     const scales =
       row.geometry === LINEAR_GEOMETRY ? octaveShare(octavesOf(row)) : DRIFT_REST.octaves;
     const reading = Math.max(clamp(wash, 0, 1), clamp(row.pulse, 0, 1));

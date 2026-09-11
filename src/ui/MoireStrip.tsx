@@ -375,13 +375,15 @@ function useMoireRows(
     // src/ui/moireCrawl.ts). After the read and never before it, because what it measures is the
     // travel the read just took a step of.
     set.crawl = crawlCells(set.rows, set.reads, loop, state.duration);
-    // And one step of the band washed over the whole of it, after the read because two of the
+    // And one step of the bands washed over it, one per coloured row, after the read because two of the
     // three things it spends — the ink's saturation and its dispersion — are what the read just
     // travelled; the third is the output's own level (`tintTravelInto`, 0302). On the ink's own
     // rate, and arriving outright at nothing on a yard that is not sounding, for the ink's reason.
     tintTravelInto(
       set.tint,
       set.ink,
+      // And the rows themselves, for the band each coloured one washes where it stands (0229).
+      set.rows,
       master.level,
       peek.sounding,
       elapsed,

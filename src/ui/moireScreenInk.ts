@@ -20,7 +20,7 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { agedHue } from "@/lib/moireAge";
-import { arrived } from "@/lib/moireArrival";
+import { standing } from "@/lib/moireArrival";
 import { orbitHue } from "@/lib/moireColour";
 import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
@@ -42,11 +42,10 @@ export function boldestRow(
 ): MoireRow | null {
   let bold: MoireRow | null = null;
   for (const row of rows) {
-    if (row.period <= 0) continue;
-    // Nor does a row that has wholly left, which is the third reader of the one test: what it
-    // claimed about the ink or the lens would otherwise hold the whole picture there for as long
-    // as the yard stood unrebuilt (`arrived`, src/lib/moireArrival.ts).
-    if (!arrived(row.arrival)) continue;
+    // Nor does a row that has wholly left, which is the pair every reader of a claim opens with:
+    // what it claimed about the ink or the lens would otherwise hold the whole picture there for as
+    // long as the yard stood unrebuilt (`standing`, src/lib/moireArrival.ts).
+    if (!standing(row)) continue;
     if (Math.abs(pick(row) - rest) > Math.abs((bold === null ? rest : pick(bold)) - rest)) {
       bold = row;
     }

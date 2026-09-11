@@ -1,10 +1,11 @@
 /**
- * @role The band of the ramp washed across the finished picture once a frame: how strong it lies
+ * @role The bands of the ramp washed across the finished picture once a frame: how strong they lie
  *   over the screen's own ink, how many picture widths one pass of the ramp spans, and where along
  *   the picture it has swept to — three readings of the field travelled on the set beside the ink
- *   (0302) — and the one fill that lays it, through the ink the cut left and never over the ground.
- *   No bake a frame: the band is one tile written once a colour and moved on its own transform,
- *   exactly as the screen is (0129, 0070).
+ *   (0302) — and **one band per coloured row**, standing where its own row stands (0229), each one
+ *   fill through the ink the cut left and never over the ground. No bake a frame: the band is one
+ *   tile written once a colour and moved on its own transform, exactly as the screen is (0129,
+ *   0070), and no row's hue reaches that tile's key.
  * @instead The ramp itself, and the orbit the whole picture's ink runs on → src/lib/moireColour.ts
  *   and `sceneStops` in src/ui/moireScreenStops.ts, which this reads and never restates — the band is
  *   the yard's own scene's ramp, so the wash and the tile under it cannot disagree about what the
@@ -12,21 +13,70 @@
  *   screen the band lies over → src/ui/moireScreen.ts. Where the reading rests → `MoireRowSet` in
  *   src/ui/moireRowsField.ts; keeping it across a rebuilt set → src/ui/moireCarry.ts.
  */
-import { DRIFT_DISPERSE_REACH, easedToward, type ScreenInk, wrap } from "@/lib/moire";
+import {
+  DRIFT_DISPERSE_REACH,
+  DRIFT_REST,
+  easedToward,
+  type MoireRow,
+  type ScreenInk,
+} from "@/lib/moire";
+import { standing } from "@/lib/moireArrival";
 import { type Ink, ramp } from "@/lib/moireColour";
+import { centreAcross } from "@/lib/moireGeometry";
 import { heardLevel } from "@/lib/moireSound";
 import { tunable } from "@/lib/moireTuning";
-import { denormalize } from "@/lib/range";
+import { clamp, denormalize } from "@/lib/range";
 import { sceneStops } from "@/ui/moireScreenStops";
 import { sceneOf } from "@/lib/scene/scenes";
 import type { YardScene } from "@/lib/yardScene";
 
 /**
- * The band as the field reads it: how strongly it lies over the ink on 0..1, how many picture
- * widths one pass of the ramp there and back spans, and where along the picture it has swept to in
- * turns of one span. One screen is one band, so this is the field's and no row's.
+ * One coloured row's band: where on the picture its own row stands, how hard that row is working
+ * right now, which ink it claims, and how much of the row is in the picture at all. All four are
+ * the row's own per-frame reading and none of them is durable — `centre` already carries the throw
+ * its pulse gives the row's anchor (0229, `driftedCentre`), so the band stands where the row does
+ * rather than where its knob was set, and `share` is the row's arrival, so a colour joins and
+ * leaves with the grating it names rather than six seconds ahead of it and a frame after it.
  */
-export type MoireTint = { strength: number; spread: number; phase: number };
+export type MoireTintBand = { centre: number; pulse: number; hue: number; share: number };
+
+/**
+ * The bands as the field reads them: how strongly they lie over the ink on 0..1 and how many
+ * picture widths one pass of the ramp there and back spans — those two being one screen's and no
+ * row's — and **the row-side half**: one entry per coloured row standing, and how many of them are
+ * lit this frame. The entries are a fixed array refilled in place and read up to `lit`, because the
+ * read is per frame and allocates nothing (0070).
+ */
+export type MoireTint = {
+  strength: number;
+  spread: number;
+  bands: MoireTintBand[];
+  lit: number;
+};
+
+/**
+ * How many coloured rows wash at once. A ceiling and not a target: a picture's rows are taken in
+ * the order it holds them and the rest are dropped, because each band is a fill of its own and a
+ * rack that grew a run of thirty would otherwise buy thirty (0070 bounds what a frame costs, and
+ * this is the number that bounds it here). Eight is a full rack's instances and then some.
+ */
+export const TINT_BANDS = 8;
+
+/**
+ * How wide one row's band stands, as a share of the picture's width. Wide enough that a band reads
+ * as a region of the picture being warm rather than as a stripe drawn on it, and narrow enough that
+ * two rows a picture apart are two colours and not one mixture — the centres themselves only ever
+ * land in the middle half of the picture (`CENTRE_INSET`, src/lib/moireGeometry.ts).
+ */
+export const TINT_BAND = tunable("colour.band", 0.4, { min: 0.05, max: 2, step: 0.05 });
+
+/**
+ * How far a row at rest brings its own band down from the strength the field travelled to, as a
+ * share — the same shape `TINT_LEVEL` has, one step further in: at nothing every coloured row
+ * washes alike however hard it is working, and at one only a row at full pulse washes at all. Half,
+ * so a coloured row standing quiet still carries its colour and a row surging brings it up.
+ */
+export const TINT_PULSE = tunable("colour.pulse", 0.5, { min: 0, max: 1, step: 0.05 });
 
 /**
  * How much of the band lies over the screen's own ink, at the loudest the output gets. Under one
@@ -43,9 +93,6 @@ export const TINT_STRENGTH = tunable("colour.wash", 0.45, { min: 0, max: 1, step
  */
 export const TINT_LEVEL = tunable("colour.level", 0.5, { min: 0, max: 1, step: 0.05 });
 
-/** How many seconds of sounding one sweep of the band across its own span takes. */
-export const TINT_SWEEP_SECS = tunable("colour.sweepSecs", 12, { min: 1, max: 120, step: 1 });
-
 /**
  * How many picture widths one pass of the ramp there and back spans on a yard whose channels have
  * not dispersed. Under one, so the strip — thousands wide — holds more than one whole ramp at once
@@ -57,16 +104,28 @@ export const TINT_SPREAD = tunable("colour.spread", 0.6, { min: 0.1, max: 3, ste
 /** How far the band's strength has to travel: one, a share having no further to go. */
 const TINT_REACH = 1;
 
-/** Where the band stands before the yard has sounded: nowhere, at nothing, one resting span wide. */
-export const tintRest = (): MoireTint => ({ strength: 0, spread: TINT_SPREAD.value, phase: 0 });
+/**
+ * Where the bands stand before the yard has sounded: at nothing, one resting span wide, and none of
+ * them lit. The entries are built here once and refilled every frame after (0070).
+ */
+export const tintRest = (): MoireTint => ({
+  strength: 0,
+  spread: TINT_SPREAD.value,
+  bands: Array.from({ length: TINT_BANDS }, () => ({
+    centre: DRIFT_REST.centre,
+    pulse: 0,
+    hue: DRIFT_REST.hue,
+    share: 0,
+  })),
+  lit: 0,
+});
 
 /**
  * One step of the band's travel. The strength is what the output's own level and the standing
  * rack's saturation ask for, on the ink's own rate (`DRIFT_INK_SECS`), so a loud transient swells
  * the colour rather than flashing it; the spread is the ink's travelled dispersion read straight,
- * that term having already walked its ladder (`inkTravelInto`); and the phase is the deck's own
- * seconds of sounding over the sweep, wrapped, so a halted yard's band stands where it stopped
- * (0126). **And nothing at all on a yard that is not sounding**: the strength's target is nought
+ * that term having already walked its ladder (`inkTravelInto`); and which rows wash is read off the
+ * rows themselves. **And nothing at all on a yard that is not sounding**: the strength's target is nought
  * and `over` is nought, so it arrives there outright and a halted picture is painted on a commit
  * in the screen's own ink (0144, 0266).
  *
@@ -75,6 +134,7 @@ export const tintRest = (): MoireTint => ({ strength: 0, spread: TINT_SPREAD.val
 export function tintTravelInto(
   tint: MoireTint,
   ink: Readonly<ScreenInk>,
+  rows: readonly MoireRow[],
   level: number,
   sounding: number,
   elapsed: number,
@@ -87,7 +147,35 @@ export function tintTravelInto(
       : 0;
   tint.strength = easedToward(tint.strength, asked, elapsed, over, TINT_REACH);
   tint.spread = TINT_SPREAD.value * (1 + ink.disperse / DRIFT_DISPERSE_REACH);
-  tint.phase = sounding > 0 ? wrap(sounding / TINT_SWEEP_SECS.value, 1) : tint.phase;
+  tint.lit = litInto(tint.bands, rows);
+}
+
+/**
+ * Which rows wash, refilled in place: a row standing in the picture and claiming a hue of its own,
+ * and no other. Standing is the one test every reader of a row's claim opens with — a row not drawn
+ * or wholly left would otherwise hold its colour on the picture for as long as the yard stood
+ * unrebuilt (`standing`, src/lib/moireArrival.ts). The second guard is this step's own: a row
+ * resting at `DRIFT_REST.hue` is in the picture's own ink and has claimed nothing, so it washes
+ * nothing rather than laying the middle of the ramp over itself.
+ *
+ * Returns how many entries were filled. No allocation and no sort: the picture's own order, up to
+ * `TINT_BANDS`.
+ */
+function litInto(bands: MoireTintBand[], rows: readonly MoireRow[]): number {
+  let lit = 0;
+  for (const row of rows) {
+    if (lit >= bands.length) break;
+    if (!standing(row)) continue;
+    if (row.hue === DRIFT_REST.hue) continue;
+    const band = bands[lit];
+    if (band === undefined) break;
+    band.centre = row.centre;
+    band.pulse = row.pulse;
+    band.hue = row.hue;
+    band.share = clamp(row.arrival, 0, 1);
+    lit++;
+  }
+  return lit;
 }
 
 /**
@@ -114,6 +202,16 @@ const washes = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: str
 
 /** The band's transform, one object refilled: a per-frame paint allocates nothing (0070). */
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+
+/**
+ * Which stop of the ramp is written at a share `along` the tile, and where a stop is written in it —
+ * one fact and its inverse, stated together because the band's own translation is that inverse: a
+ * band slides the pattern so that `tileAlong(hue)` lands on its row's centre, and it would land on
+ * the wrong ink if either were changed alone. Forward over the first half and back over the second,
+ * so the two ends of the tile are the same stop.
+ */
+const rampAt = (along: number): number => (along < 0.5 ? 2 * along : 2 - 2 * along);
+const tileAlong = (hue: number): number => hue / 2;
 
 /**
  * One span of the band, a pixel wide a stop: the ramp read forward over the first half and back
@@ -146,7 +244,7 @@ function bandFor(
   const read: Ink = [0, 0, 0, 0];
   for (let x = 0; x < TINT_TILE_PX; x++) {
     const along = x / TINT_TILE_PX;
-    ramp(stops, along < 0.5 ? 2 * along : 2 - 2 * along, read);
+    ramp(stops, rampAt(along), read);
     const at = x * 4;
     pixels[at] = read[0];
     pixels[at + 1] = read[1];
@@ -189,11 +287,30 @@ function washOf(
 }
 
 /**
- * Lay the band over the finished picture: `source-atop`, so it lands only where the cut left ink
- * and the ground stays the ground, at the strength the field has travelled to, one span scaled to
- * `spread` picture widths and slid along by the phase. One `fillStyle` and one fill (0070), and
- * the context handed back exactly as it was found. A band at no strength lays nothing and builds
- * nothing, which is every halted yard.
+ * What one of `lit` bands lays, so that the wash over a pixel every one of them covers is the
+ * strength the field travelled to and no more. **The bands compose**: each is its own `source-atop`
+ * fill, they are wider than a third of the picture and their centres are confined to the middle
+ * half of it (`CENTRE_INSET`, src/lib/moireGeometry.ts), so three coloured rows already put two
+ * bands over one pixel and eight put eight. Laid at the whole strength each, the screen's own ink
+ * under them survives at `(1 - strength)` to the eighth — which is the band replacing the screen
+ * and washing away the three channel lattices, the one thing `TINT_STRENGTH` is held under one to
+ * prevent (0130). So each lays the share that composites back to it, and one band lays it whole.
+ */
+const bandStrength = (strength: number, lit: number): number =>
+  lit <= 1 ? strength : 1 - (1 - strength) ** (1 / lit);
+
+/**
+ * Lay one band per coloured row over the finished picture: `source-atop`, so each lands only where
+ * the cut left ink and the ground stays the ground, at the strength the field has travelled to
+ * brought down by how hard that row is working, one span scaled to `spread` picture widths and slid
+ * so that the row's own hue lands where the row stands (0229) — `hue / 2` being where a hue sits in
+ * the tile, the ramp being read forward over its first half.
+ *
+ * One fill each, which is the count the picture's coloured rows
+ * set and nothing else (0070). The context is handed back exactly as it was found. A band at no
+ * strength lays nothing and builds nothing, which is every halted yard, and **so does a picture no
+ * row has claimed a colour in** — the tile below is already in the ink the yard asked for, and a
+ * wash of the middle of the ramp over it would say a colour nobody turned a knob for.
  */
 export function tintThrough(
   canvas: HTMLCanvasElement,
@@ -202,18 +319,28 @@ export function tintThrough(
   tint: Readonly<MoireTint>,
   yard: Readonly<YardScene>,
 ): void {
-  if (tint.strength <= 0) return;
+  if (tint.strength <= 0 || tint.lit <= 0) return;
   const pattern = washOf(canvas, context, color, yard);
   if (pattern === null) return;
   const { width, height } = canvas;
   const span = tint.spread * width;
+  const reach = TINT_BAND.value * width;
+  const each = bandStrength(tint.strength, tint.lit);
   rolled.a = span / TINT_TILE_PX;
-  rolled.e = -tint.phase * span;
-  pattern.setTransform(rolled);
   context.globalCompositeOperation = "source-atop";
-  context.globalAlpha = tint.strength;
-  context.fillStyle = pattern;
-  context.fillRect(0, 0, width, height);
+  for (let at = 0; at < tint.lit; at++) {
+    const band = tint.bands[at];
+    if (band === undefined) break;
+    const centre = centreAcross(band.centre, width);
+    rolled.e = centre - tileAlong(band.hue) * span;
+    pattern.setTransform(rolled);
+    // The style is set after the transform and once a band, not once for all of them: one pattern
+    // object is moved between the fills, and the paint that reads it is the assignment's.
+    context.fillStyle = pattern;
+    context.globalAlpha =
+      each * denormalize(band.pulse, 1 - TINT_PULSE.value, 1) * clamp(band.share, 0, 1);
+    context.fillRect(centre - reach / 2, 0, reach, height);
+  }
   context.globalAlpha = 1;
   context.globalCompositeOperation = "source-over";
 }

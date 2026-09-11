@@ -1,25 +1,32 @@
 /**
- * @role Tests the band of the ramp washed across the picture: that it travels up with the output
- *   and the standing rack's saturation and never past its own strength, that it sweeps on the deck's
- *   seconds and stands still with them, that a halted yard washes nothing, and that the one fill it
- *   costs lands through the ink the cut left and hands the context back as it found it (0302).
+ * @role Tests the bands of the ramp washed across the picture: that they travel up with the output
+ *   and the standing rack's saturation and never past their own strength however many of them
+ *   compose, that a halted yard washes nothing, that one band is lit per coloured row standing and
+ *   none for a row claiming nothing, and that the fill each costs lands where its row stands, in
+ *   that row's own ink, through the ink the cut left, handing the context back as it was found
+ *   (0302, 0229, 0368).
  */
 import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
+import { DRIFT_DISPERSE_REACH, type MoireRow } from "@/lib/moire";
 import { GLYPH_COUNT } from "@/lib/moireAlphabets";
+import { centreAcross } from "@/lib/moireGeometry";
 import { moireRow as row } from "@/lib/moireRow";
 import { painterOn } from "@/ui/moireCanvasPainted";
 import { DRIFT_INK_SECS, screenInkRest } from "@/ui/moireScreenInk";
 import {
+  TINT_BAND,
+  TINT_BANDS,
   TINT_LEVEL,
+  TINT_PULSE,
   TINT_SPREAD,
   TINT_STRENGTH,
-  TINT_SWEEP_SECS,
   tintRest,
   tintThrough,
   tintTravelInto,
+  type MoireTint,
+  type MoireTintBand,
 } from "@/ui/moireTint";
 
 const paintedOn = painterOn((name, value) => {
@@ -30,6 +37,81 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** A picture whose rows claim nothing — every travel case but the one about the bands. */
+const NO_ROWS: readonly MoireRow[] = [];
+
+/** The colour the wash is asked in, which no case here varies. */
+const WASH_TOKEN = "the token the wash was asked in";
+
+/** A field washing at a third of the way, with half a picture to one span of the ramp. */
+const washing = (...bands: MoireTintBand[]): MoireTint => ({
+  strength: 0.3,
+  spread: 0.5,
+  bands,
+  lit: bands.length,
+});
+
+/** One band of a picture, wholly arrived and standing where it is told. */
+const banded = (centre: number, hue: number, pulse: number, share = 1): MoireTintBand => ({
+  centre,
+  pulse,
+  hue,
+  share,
+});
+
+/**
+ * The stubbed page a band is laid on: what was filled and where, how the pattern was moved, and how
+ * many tiles were written. One rig rather than a stub per case, the two that assert on a fill
+ * needing the same one (principle 3).
+ */
+function washRig() {
+  const fills: { over: string; alpha: number; style: unknown; x: number; width: number }[] = [];
+  const moves: { a: number; e: number }[] = [];
+  const pattern = { setTransform: (m: { a: number; e: number }) => moves.push({ ...m }) };
+  const wrote: number[] = [];
+  vi.stubGlobal("document", {
+    createElement: () => ({
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        fillStyle: "",
+        clearRect: () => {},
+        fillRect: () => {},
+        getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
+        createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+        putImageData: (field: { data: Uint8ClampedArray }) => wrote.push(field.data.length),
+      }),
+    }),
+  });
+  vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: (token: string) => token }));
+  const context = {
+    fillStyle: "" as unknown,
+    globalAlpha: 1,
+    globalCompositeOperation: "source-over",
+    createPattern: () => pattern,
+    fillRect(x: number, _y: number, width: number): void {
+      fills.push({
+        over: this.globalCompositeOperation,
+        alpha: this.globalAlpha,
+        style: this.fillStyle,
+        x,
+        width,
+      });
+    },
+  };
+  return {
+    fills,
+    moves,
+    wrote,
+    pattern,
+    context,
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    canvas: { width: 400, height: 32 } as unknown as HTMLCanvasElement,
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    ink: context as unknown as CanvasRenderingContext2D,
+  };
+}
+
 // One flat list of what the band is and how it moves (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("the band washed across the picture", () => {
@@ -38,34 +120,32 @@ describe("the band washed across the picture", () => {
     expect(tint.strength).toBe(0);
     const ink = screenInkRest();
     // A quiet, sounding yard is washed at the floor the level leaves — and it travels there.
-    tintTravelInto(tint, ink, 0, 10, 1 / 60, DRIFT_INK_SECS.value);
+    tintTravelInto(tint, ink, NO_ROWS, 0, 10, 1 / 60, DRIFT_INK_SECS.value);
     expect(tint.strength).toBeCloseTo(1 / (60 * DRIFT_INK_SECS.value), 10);
-    tintTravelInto(tint, ink, 0, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    tintTravelInto(tint, ink, NO_ROWS, 0, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     const quiet = tint.strength;
     expect(quiet).toBeCloseTo(TINT_STRENGTH.value * (1 - TINT_LEVEL.value), 10);
     // A loud one brings it up to the strength, and no louder than that.
-    tintTravelInto(tint, ink, 1, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    tintTravelInto(tint, ink, NO_ROWS, 1, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(tint.strength).toBeCloseTo(TINT_STRENGTH.value, 10);
-    tintTravelInto(tint, ink, 4, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    tintTravelInto(tint, ink, NO_ROWS, 4, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(tint.strength).toBeCloseTo(TINT_STRENGTH.value, 10);
     // And a standing rack's saturation brings a quiet yard up the same way (0283).
     const saturated = { ...screenInkRest(), saturate: 1 };
-    tintTravelInto(tint, saturated, 0, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    tintTravelInto(tint, saturated, NO_ROWS, 0, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(tint.strength).toBeCloseTo(TINT_STRENGTH.value, 10);
   });
 
-  it("sweeps on the deck's seconds of sounding, and comes round once a sweep", () => {
+  it("widens one span of the ramp on a yard whose channels have dispersed", () => {
     const tint = tintRest();
     const ink = screenInkRest();
-    tintTravelInto(tint, ink, 1, TINT_SWEEP_SECS.value / 4, 1, DRIFT_INK_SECS.value);
-    expect(tint.phase).toBeCloseTo(0.25, 10);
-    tintTravelInto(tint, ink, 1, TINT_SWEEP_SECS.value * 2.25, 1, DRIFT_INK_SECS.value);
-    expect(tint.phase).toBeCloseTo(0.25, 10);
+    tintTravelInto(tint, ink, NO_ROWS, 1, 3, 1, DRIFT_INK_SECS.value);
     // Wider on a dispersed yard, so a washed picture holds more of one stop at once.
     expect(tint.spread).toBeCloseTo(TINT_SPREAD.value, 10);
     tintTravelInto(
       tint,
       { ...screenInkRest(), disperse: DRIFT_DISPERSE_REACH },
+      NO_ROWS,
       1,
       1,
       1,
@@ -74,89 +154,95 @@ describe("the band washed across the picture", () => {
     expect(tint.spread).toBeCloseTo(2 * TINT_SPREAD.value, 10);
   });
 
-  it("washes nothing over a halted yard, and stands the band where it stopped", () => {
+  it("washes nothing over a halted yard", () => {
     const tint = tintRest();
     const ink = screenInkRest();
-    tintTravelInto(
-      tint,
-      ink,
-      1,
-      TINT_SWEEP_SECS.value / 2,
-      DRIFT_INK_SECS.value,
-      DRIFT_INK_SECS.value,
-    );
+    tintTravelInto(tint, ink, NO_ROWS, 1, 6, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
     expect(tint.strength).toBeGreaterThan(0);
-    const phase = tint.phase;
     // The deck stops: no clock to travel against, so the strength arrives at nothing outright and
-    // the phase is left exactly where the last frame put it (0144, 0266).
-    tintTravelInto(tint, ink, 1, 0, 1 / 60, 0);
+    // a halted picture is painted on a commit in the screen's own ink (0144, 0266).
+    tintTravelInto(tint, ink, NO_ROWS, 1, 0, 1 / 60, 0);
     expect(tint.strength).toBe(0);
-    expect(tint.phase).toBe(phase);
   });
 
-  it("lays one fill through the ink the cut left, and hands the context back as it found it", () => {
-    const fills: { over: string; alpha: number; style: unknown }[] = [];
-    const moves: { a: number; e: number }[] = [];
-    const pattern = { setTransform: (m: { a: number; e: number }) => moves.push({ ...m }) };
-    const wrote: number[] = [];
-    vi.stubGlobal("document", {
-      createElement: () => ({
-        width: 0,
-        height: 0,
-        getContext: () => ({
-          fillStyle: "",
-          clearRect: () => {},
-          fillRect: () => {},
-          getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
-          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-          putImageData: (field: { data: Uint8ClampedArray }) => wrote.push(field.data.length),
-        }),
-      }),
-    });
-    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: (token: string) => token }));
-    const context = {
-      fillStyle: "" as unknown,
-      globalAlpha: 1,
-      globalCompositeOperation: "source-over",
-      createPattern: () => pattern,
-      fillRect(): void {
-        fills.push({
-          over: this.globalCompositeOperation,
-          alpha: this.globalAlpha,
-          style: this.fillStyle,
-        });
-      },
-    };
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const canvas = { width: 400, height: 32 } as unknown as HTMLCanvasElement;
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const ink = context as unknown as CanvasRenderingContext2D;
-    // A band at nothing lays nothing and builds nothing, which is every halted yard.
-    tintThrough(canvas, ink, "the token the wash was asked in", tintRest(), YARD_SCENE_REST);
-    expect(fills).toEqual([]);
-    expect(wrote).toEqual([]);
-    // One fill, atop the ink, at the band's strength, and the context handed back.
-    const tint = { strength: 0.3, spread: 0.5, phase: 0.25 };
-    tintThrough(canvas, ink, "the token the wash was asked in", tint, YARD_SCENE_REST);
-    expect(fills).toEqual([{ over: "source-atop", alpha: 0.3, style: pattern }]);
-    expect(context.globalCompositeOperation).toBe("source-over");
-    expect(context.globalAlpha).toBe(1);
-    // The band is one tile written once a colour, scaled onto the spread and slid by the phase —
-    // and a second frame moves the pattern and writes no tile (0129).
-    expect(wrote.length).toBe(1);
-    const [first] = moves;
-    expect(first?.a).toBeCloseTo(((0.5 * 400) / (wrote[0] ?? 0)) * 4, 10);
-    expect(first?.e).toBeCloseTo(-0.25 * 0.5 * 400, 10);
+  it("lays one fill per coloured row through the ink the cut left, and hands the context back", () => {
+    const rig = washRig();
+    // A band at nothing lays nothing and builds nothing, which is every halted yard — and so does a
+    // picture no row has claimed a colour in, which is a rested rack at any strength.
+    tintThrough(rig.canvas, rig.ink, WASH_TOKEN, tintRest(), YARD_SCENE_REST);
+    expect(rig.fills).toEqual([]);
+    expect(rig.wrote).toEqual([]);
+    tintThrough(rig.canvas, rig.ink, WASH_TOKEN, washing(), YARD_SCENE_REST);
+    expect(rig.fills, "a picture nobody coloured is washed anyway").toEqual([]);
+    // One fill per coloured row, atop the ink, and the context handed back.
+    const warm = banded(0.25, 0.8, 1);
+    const cool = banded(0.75, 0.2, 0);
+    tintThrough(rig.canvas, rig.ink, WASH_TOKEN, washing(warm, cool), YARD_SCENE_REST);
+    expect(rig.fills.map((fill) => fill.over)).toEqual(["source-atop", "source-atop"]);
+    expect(rig.fills.every((fill) => fill.style === rig.pattern)).toBe(true);
+    expect(rig.context.globalCompositeOperation).toBe("source-over");
+    expect(rig.context.globalAlpha).toBe(1);
+    // Each stands where its own row stands, a band wide (0229).
+    for (const [at, band] of [warm, cool].entries()) {
+      const centre = centreAcross(band.centre, 400);
+      expect(rig.fills[at]?.x).toBeCloseTo(centre - (TINT_BAND.value * 400) / 2, 10);
+      expect(rig.fills[at]?.width).toBeCloseTo(TINT_BAND.value * 400, 10);
+      // And the row's own hue lands on that centre — `hue / 2` into the tile, the ramp being read
+      // forward over its first half.
+      expect(rig.moves[at]?.e).toBeCloseTo(centre - (band.hue / 2) * 0.5 * 400, 10);
+      expect(rig.moves[at]?.a).toBeCloseTo(((0.5 * 400) / (rig.wrote[0] ?? 0)) * 4, 10);
+    }
+    // A row working brings its own band up from the floor a resting one washes at — and two bands
+    // each lay the share that composites back to the one strength, never twice it (0130).
+    const two = 1 - (1 - 0.3) ** (1 / 2);
+    expect(rig.fills[0]?.alpha).toBeCloseTo(two, 10);
+    expect(rig.fills[1]?.alpha).toBeCloseTo(two * (1 - TINT_PULSE.value), 10);
+    expect(1 - (1 - two) ** 2).toBeCloseTo(0.3, 10);
+    // And the tile is written once a colour however many bands are laid through it (0129).
+    expect(rig.wrote.length).toBe(1);
+    tintThrough(rig.canvas, rig.ink, WASH_TOKEN, washing(warm), YARD_SCENE_REST);
+    expect(rig.wrote.length).toBe(1);
+    expect(rig.fills.length).toBe(3);
+    // One band alone lays the whole strength, and a row half arrived lays half of what it will.
+    expect(rig.fills[2]?.alpha).toBeCloseTo(0.3, 10);
     tintThrough(
-      canvas,
-      ink,
-      "the token the wash was asked in",
-      { ...tint, phase: 0.5 },
+      rig.canvas,
+      rig.ink,
+      WASH_TOKEN,
+      washing(banded(0.25, 0.8, 1, 0.5)),
       YARD_SCENE_REST,
     );
-    expect(wrote.length).toBe(1);
-    expect(moves.length).toBe(2);
-    expect(moves[1]?.e).toBeCloseTo(-0.5 * 0.5 * 400, 10);
+    expect(rig.fills[3]?.alpha).toBeCloseTo(0.15, 10);
+  });
+
+  it("lights a band for every coloured row standing, and none for a row that claims nothing", () => {
+    const tint = tintRest();
+    const ink = screenInkRest();
+    const coloured = [
+      row({ period: 2, hue: 0.9, centre: 0.2, pulse: 0.4 }),
+      // A row in the picture's own ink claims nothing, so it washes nothing.
+      row({ period: 2 }),
+      // Half arrived, so its colour joins the picture with the grating it names and leaves with it.
+      row({ period: 3, hue: 0.1, centre: 0.8, arrival: 0.5 }),
+      // Not drawn, and wholly left: neither is in the picture, so neither votes.
+      row({ period: 0, hue: 0.9 }),
+      row({ period: 2, hue: 0.9, arrival: 0 }),
+    ];
+    tintTravelInto(tint, ink, coloured, 1, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    expect(tint.lit).toBe(2);
+    expect(tint.bands.slice(0, 2)).toEqual([
+      { centre: 0.2, pulse: 0.4, hue: 0.9, share: 1 },
+      { centre: 0.8, pulse: 0, hue: 0.1, share: 0.5 },
+    ]);
+    // And no more of them than the picture may pay fills for, refilled in place (0070).
+    const many = Array.from({ length: TINT_BANDS + 3 }, () => row({ period: 2, hue: 0.9 }));
+    const held = tint.bands;
+    tintTravelInto(tint, ink, many, 1, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    expect(tint.lit).toBe(TINT_BANDS);
+    expect(tint.bands).toBe(held);
+    // A rack going back to rest takes its bands with it.
+    tintTravelInto(tint, ink, NO_ROWS, 1, 10, DRIFT_INK_SECS.value, DRIFT_INK_SECS.value);
+    expect(tint.lit).toBe(0);
   });
 
   it("builds its own band for a light that falls through the field and one that washes it", () => {
@@ -191,7 +277,7 @@ describe("the band washed across the picture", () => {
     };
     // oxlint-disable-next-line no-unsafe-type-assertion
     const ink = context as unknown as CanvasRenderingContext2D;
-    const tint = { strength: 0.3, spread: 0.5, phase: 0.25 };
+    const tint = washing(banded(0.5, 0.9, 1));
     const moon = { ...YARD_SCENE_REST, light: "moon" } as const;
     for (const spread of ["wash", "fall"] as const) {
       // oxlint-disable-next-line no-unsafe-type-assertion
@@ -210,7 +296,7 @@ describe("the band washed across the picture", () => {
     // Three patterns: the grating, the screen, and the band — and one per mark the stamp fills
     // the sound's own rows through on its way past (0350), which are asked for before the band's.
     const tinted = paintedOn(200, 64, [row({ period: 3 })], 3 + GLYPH_COUNT, undefined, {
-      tinting: { strength: 0.4, spread: 0.6, phase: 0 },
+      tinting: { ...washing(banded(0.5, 0.9, 1)), strength: 0.4, spread: 0.6 },
     });
     // The screen, the product cut back out, and then the band atop what is left — in that order.
     const overs = tinted.laid.map((fill) => fill.over);
