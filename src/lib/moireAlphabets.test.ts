@@ -26,15 +26,19 @@ const WIDE = 120;
 const DEEP = 120;
 
 /** One order, in `alphabet` — the one term every case about the bake below moves. */
-const orderIn = (alphabet: keyof typeof ALPHABETS): ScreenBake => ({
-  key: `tile|${alphabet}`,
+const orderIn = (
+  alphabet: keyof typeof ALPHABETS,
+  armed: keyof typeof ALPHABETS | null = null,
+  beat = 0,
+): ScreenBake => ({
+  key: `tile|${alphabet}|${armed}|${beat}`,
   width: WIDE,
   height: DEEP,
   seen: DEEP,
   pitch: 10,
   rowPitch: 14,
   cell: 10,
-  beat: 0,
+  beat,
   own: [200, 120, 40, 255],
   lift: [
     [10, 10, 10, 255],
@@ -52,15 +56,20 @@ const orderIn = (alphabet: keyof typeof ALPHABETS): ScreenBake => ({
   yard: { ...YARD_SCENE_REST },
   cells: [],
   alphabet,
+  armed,
 });
 
 /** How much ink one bake laid altogether, over every pixel's alpha. */
 const inked = (alpha: readonly number[]): number => alpha.reduce((sum, at) => sum + at, 0);
 
 /** The alpha of every pixel of one bake, which is what a mark covers of its cell (0345). */
-function alphaOf(alphabet: keyof typeof ALPHABETS): number[] {
+function alphaOf(
+  alphabet: keyof typeof ALPHABETS,
+  armed: keyof typeof ALPHABETS | null = null,
+  beat = 0,
+): number[] {
   const pixels = new Uint8ClampedArray(WIDE * DEEP * 4);
-  screenField(orderIn(alphabet), pixels);
+  screenField(orderIn(alphabet, armed, beat), pixels);
   const alpha: number[] = [];
   for (let at = 3; at < pixels.length; at += 4) alpha.push(pixels[at] ?? 0);
   return alpha;
@@ -158,5 +167,51 @@ describe("the tile the part picks the alphabet for", () => {
     expect(strokes).toHaveLength(marks.length);
     expect(inked(strokes)).toBeGreaterThan(inked(marks) * 0.5);
     expect(inked(strokes)).toBeLessThan(inked(marks) * 2);
+  });
+
+  it("bakes its last cell column in the hand of the part a grid has armed, and no other", () => {
+    // The thirteenth step of the block: what is next is on the page before the boundary — the
+    // picture's rightmost cell column is written in the coming part's alphabet from the moment it
+    // is armed, and one column, a queued part being what is next and not what is standing.
+    const plain = alphaOf("marks");
+    const queued = alphaOf("marks", "strokes");
+    expect(queued).not.toEqual(plain);
+    // The cells of that one column, which is the last of them across the tile: every pixel outside
+    // it reads exactly as it did with nothing queued.
+    const cell = orderIn("marks").cell;
+    const last = Math.floor((WIDE - 1) / cell) * cell;
+    let moved = 0;
+    for (let at = 0; at < plain.length; at += 1) {
+      if (at % WIDE >= last) {
+        if (plain[at] !== queued[at]) moved += 1;
+        continue;
+      }
+      expect(queued[at], `the pixel at ${at % WIDE}, ${Math.floor(at / WIDE)}`).toBe(plain[at]);
+    }
+    expect(moved, "the armed column is written in another hand").toBeGreaterThan(0);
+    // And a part queued into the hand already standing bakes the tile it was already holding: the
+    // read that arrives is the hand or nothing, and a column that changed nothing is a rebake
+    // nobody would see (`armedAlphabet`, src/ui/moireRows.ts).
+    expect(alphaOf("marks", "marks")).toEqual(plain);
+    expect(alphaOf("marks", null)).toEqual(plain);
+  });
+
+  it("leaves the rack's own lattice in the standing hand inside that column", () => {
+    // One cell column of *this* lattice and never a slice of another's. The rack's second lattice
+    // stands on the row pitch and the scatter's block on `SCATTER_SPAN` of these cells (0351, 0352),
+    // so a mark of either straddles the armed column — read in the armed hand it would come out
+    // sliced down the middle rather than written in another hand.
+    const whole = alphaOf("strokes", null, 1);
+    const queued = alphaOf("marks", "strokes", 1);
+    const cell = orderIn("marks").cell;
+    const last = Math.floor((WIDE - 1) / cell) * cell;
+    let moved = 0;
+    for (let at = 0; at < whole.length; at += 1) {
+      if (at % WIDE >= last && whole[at] !== queued[at]) moved += 1;
+    }
+    // The column is not the whole tile's hand: where the second lattice inks it, it inks in the
+    // hand standing. Read against the tile baked wholly in the queued hand, because that is exactly
+    // what the column comes out as when every lattice in it is swapped at once.
+    expect(moved, "the second lattice keeps the standing hand").toBeGreaterThan(0);
   });
 });

@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0363; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0364; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -542,7 +542,7 @@ are in §4: the two refused claims and their prices, how the hue's claim is fold
 own test file cost, the fixture the new rest write broke, and the one input at which the reversed
 crawl is a cell short of its mirror. The gate's `drive` step was green on this run.
 
-**Step 13 — sparks and the armed part (bench-40).** _Durable shape moved:_ none.
+**Step 13 — sparks and the armed part (bench-40, 0363).** _Durable shape moved:_ none.
 `player.sparkPositions` reaches only the waveform and `player.armed` only the grid. A spark is a
 peak event: it stamps one big mark (step 5's span) at its column for one landing's decay, through
 the stamp. The armed part announces itself: the picture's rightmost cell column is written in the
@@ -552,6 +552,32 @@ the zoomed drift a spark is a flash of one big mark, and a queued part is a diff
 **Tests that must fail first:** a frame with a spark stamps a big mark at its column and the next
 loop does not; a yard with an armed part bakes its last column in the armed alphabet. **Refused:**
 a spark that rebakes; more than one column for the armed part.
+
+**It landed as [0363](decisions/0363-a-spark-flashes-a-big-mark-and-an-armed-part-writes-one-column.md)**,
+and the outcome is met on both halves. A spark lifts a `SPARK_CELLS` square of the boxed read at the
+column it reads, by the whole ramp at its own level — `SPARK_CELLS` is step 5's `SCATTER_SPAN` and
+not a second choice of it — so the square goes to the heaviest mark outright and walks back down the
+ramp as the flash falls over the same share of the loop the landing's own flare falls over. It rides
+`MoireJolt.sparks` beside the pushes, carried by the one `carryJolt` and stepped in `refillRows` off
+one `falling`, and the lift is `liftSparks` in src/ui/moireCanvasMarks.ts on the same read
+`liftPushes` and `liftSides` write: no pass added, nothing picture-sized drawn, no tile keyed by any
+of it, and `STAMP_PICTURE_DRAWS` untouched (0353, 0354, 0355, 0361). A spark is an event and its
+position is not — `MoireCellSpark.lit` is whether the peek was reading that slot on the frame before,
+so a spark whose read walks the file flashes once and falls rather than standing at full for as long
+as it sounds. The armed part is `ScreenBake.armed`, an alphabet name or null on the tile's key: the
+last cell column is baked in the queued part's hand and every other in the standing one, one compare
+a pixel, and the bake is the shop's off the frame. A part queued into the hand already standing
+arrives null (`armedAlphabet`, src/ui/moireRows.ts), so a queue that changes no hand changes no key.
+The review caught two failures a green gate had crossed. A spark is lit by the landing's own ordinal
+and not by a slot going quiet — `PlayerPeek.sparkPositions` is a prefix of whatever landing is
+standing and two sparking landings butt up with no empty frame at the rest delay, so a flag alone
+dropped every flash after the first and left the fallen one at a column that had stopped sounding.
+And the armed hand reaches the fine lattice's own column alone: handed to the rack's second lattice
+and the specks' scatter as well, it sliced their marks down the middle — those stand on cells of
+their own — and a bake of a rack standing came out bit for bit the tile baked wholly in the queued
+hand. Two things went one way and are in §4: the column the armed hand actually writes is the tile's
+and so recurs across the picture, and a spark is placed on its landing's own ground rather than
+given a row of its own.
 
 **Step 14 — the ground and the crawl are one (bench-41).** _Durable shape moved:_ none. The walk's
 ground moves (`bedGround`, travelled by `easedCentre`) and the screen's crawl (`inkThrough`, off
@@ -698,6 +724,23 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The armed hand writes the _tile's_ last cell column, so it recurs across the picture (0363).**
+The step's words are "the picture's rightmost cell column", and the tile is laid as a repeating
+pattern: the rightmost column of the picture is that column, and so is every one a tile width to the
+left of it. A queued part therefore reads as a rule of other marks recurring across the picture
+rather than as one edge at the far side. What the alternative costs is exactly what checkpoint A
+refused — a draw the size of the picture for one column of it (`STAMP_PICTURE_DRAWS`, 0353) — or a
+second surface and a second pattern on the frame path. Whether the recurrence reads as an
+announcement or as noise is a judgement for the first run on a machine with audio; the step's own
+test pins the column and not where it lands on the page.
+
+**A spark's big mark stands on its landing's ground and is given no row of its own (0363).** The
+step names a column and says nothing about where down the picture the mark goes. It is centred on
+the same `groundCentre` the landing's flare is banded around, through the same `centreAcross` map —
+so a spark is a bright block inside its own landing's flaring band rather than a mark floating
+somewhere else on the page. The alternative reads the spark's own position twice, once across and
+once down, which is one number answering two questions.
 
 **The louder half is lifted by the whole gap rather than each half by its own level over the mean
 (0361).** The step's words are symmetric — ±(L−R)/2 — and a `lighter` fill cannot subtract, so the

@@ -329,6 +329,14 @@ export type MoireRowSet = {
    */
   alphabet: AlphabetName;
   /**
+   * And the hand a part queued behind that one would be written in, or null where nothing is queued
+   * and where what is queued reads the hand already standing (`armedAlphabet`, src/ui/moireRows.ts).
+   * The field's and no row's, like the hand above it, and a per-frame read for its reason: what
+   * moves it is a press on a launch grid, which nothing durable in this picture has changed. Null
+   * until a read has filled it, which is the picture drawn before a part could be queued.
+   */
+  armed: AlphabetName | null;
+  /**
    * And which way the picture's lattice crawls across it: forwards, or backwards where the landing
    * sounding reads its slot that way (`PlayerStep.reversed`, 0362). The field's and no row's, like
    * the alphabet above it — there is one lattice and it crawls one way — and a per-frame read for
@@ -461,6 +469,7 @@ export function macroInto(
   | "shaping"
   | "tint"
   | "alphabet"
+  | "armed"
   | "reversed"
 > {
   const periods = rows.map(({ period }) => period);

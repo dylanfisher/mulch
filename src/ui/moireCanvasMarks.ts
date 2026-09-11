@@ -25,6 +25,7 @@ import {
 } from "@/lib/moireAlphabets";
 import { tunable } from "@/lib/moireTuning";
 import { type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
+import { type MoireCellSpark, sparkCells } from "@/ui/moireCellSpark";
 
 /**
  * How deep the sound's rows are stamped over the picture, as the share of the ink a whole mark is
@@ -300,6 +301,38 @@ function liftSides(ink: CanvasRenderingContext2D, sides: number, wide: number, d
 }
 
 /**
+ * Flash one big mark where each spark of the landing sounding reads, on the boxed read and before a
+ * band is cut out of it — the third lift on that one surface, beside the landings' and the output's
+ * two sides (`liftPushes`, `liftSides`).
+ *
+ * **The whole ramp and not one mark of it.** A landing lifts its rows a step and a pan lifts a half
+ * a step, because both are the picture standing denser; a spark is a peak event, and what a peak is
+ * written as wherever this picture writes one is a big mark (`SCATTER_SPAN`, 0352). So the fill is
+ * the spark's own level over the full ramp, which takes the `SPARK_CELLS` square at its column to
+ * the heaviest mark outright and walks it back down the ramp as the flash falls.
+ *
+ * **On the read and never on the picture**, exactly as the two lifts above it are: one fillRect over
+ * a surface one pixel a cell, no pass added, nothing picture-sized drawn and no tile rebaked (plan
+ * §1, checkpoint A; 0353, 0354).
+ */
+function liftSparks(
+  ink: CanvasRenderingContext2D,
+  sparks: readonly MoireCellSpark[],
+  wide: number,
+  deep: number,
+): void {
+  ink.globalCompositeOperation = "lighter";
+  for (const spark of sparks) {
+    if (spark.at <= 0) continue;
+    const { across, down, left, top } = sparkCells(spark, wide, deep);
+    ink.globalAlpha = spark.at;
+    ink.fillRect(left, top, across, down);
+  }
+  ink.globalAlpha = 1;
+  ink.globalCompositeOperation = "copy";
+}
+
+/**
  * Cut `mark`'s own band out of the boxed read: the read taken down to the band's floor and back up
  * `STAMP_SLOPE` doublings, folded into a step, and then the bands already stamped taken out of it —
  * so the ten bands are disjoint and a cell is written in the heaviest mark it stands above. The
@@ -351,6 +384,9 @@ function cutBand(
  * the rack is doing, which is what keeps a pass's own surface where its case looks for it.
  * Nothing at all at no depth: a stamp nobody asked for mints no surface and reads no field.
  *
+ * And `sparks` is the sparks of that landing still flashing (`cellSparkInto`,
+ * src/ui/moireCellSpark.ts), lifted into the same read once more and as one big mark apiece.
+ *
  * And `pushes` is the landings still falling (`cellPushInto`, src/ui/moireCellPush.ts), lifted into
  * the read here rather than into any pass below it: one reading thresholded ten times, so a row
  * lifted is lifted for every mark at once and the ten bands stay disjoint. `sides` is where the
@@ -364,6 +400,7 @@ export function readMarks(
   color: string,
   pushes: readonly MoireCellPush[],
   sides: number,
+  sparks: readonly MoireCellSpark[],
   alphabet: AlphabetName,
 ): Stamp | null {
   if (CELL_ROWS.value <= 0) return null;
@@ -401,6 +438,10 @@ export function readMarks(
   // And the louder half of the output lifted on that same read, beside them: a landing is a band of
   // rows going denser and this is a side of the picture doing it (`liftSides`).
   liftSides(read, sides, wide, deep);
+  // And one big mark flashed where each spark of that landing reads, on the same read again: a
+  // landing is a band of rows going denser, a pan is a side of the picture doing it, and this is a
+  // peak written the way this picture writes a peak (`liftSparks`).
+  liftSparks(read, sparks, wide, deep);
   return stamp;
 }
 

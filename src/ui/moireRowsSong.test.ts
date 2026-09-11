@@ -69,6 +69,7 @@ import {
   moireRows as builtRows,
   NO_MASTER,
   refillRows as filledRows,
+  armedAlphabet,
   standingAlphabet,
   type MoireLane,
 } from "@/ui/moireRows";
@@ -300,6 +301,29 @@ describe("the jumps module's row", () => {
     expect(standingAlphabet(peek.player)).toBe("strokes");
     peek.player.step = standingStep(song, riff);
     expect(standingAlphabet(peek.player)).toBe("marks");
+  });
+
+  /**
+   * The thirteenth step of the block that plays the lattice: what is next is on the page before the
+   * boundary, so the picture's rightmost cell column is baked in the coming part's own hand from
+   * the moment a launch grid arms it.
+   */
+  it("names the queued part's hand, and none where it is the hand already standing", () => {
+    const stutter = songPart("d", 2);
+    const riff = songPart("chorus", 2);
+    const song = [stutter, riff];
+    const peek = emptyDeckPeek();
+    peek.player.step = standingStep(song, riff);
+    // Nothing queued is no column of its own: the picture as it stood before a hand touched a grid.
+    expect(armedAlphabet(peek.player)).toBe(null);
+    // A part queued into another hand is that hand, which is the different edge the step wants.
+    peek.player.armed = stutter.id;
+    expect(armedAlphabet(peek.player)).toBe("strokes");
+    expect(armedAlphabet(peek.player)).not.toBe(standingAlphabet(peek.player));
+    // And one queued into the hand already standing is nothing at all — a column baked in the hand
+    // it was already in is a rebake that moves no pixel and an edge nobody could read.
+    peek.player.armed = riff.id;
+    expect(armedAlphabet(peek.player)).toBe(null);
   });
 
   it("lays one broader row over the part's for the song it is in", () => {

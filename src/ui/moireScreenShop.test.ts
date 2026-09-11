@@ -44,6 +44,7 @@ const orderAt = (hue: number, wide = WIDE): ScreenBake => ({
   yard: { ...YARD_SCENE_REST },
   cells: [],
   alphabet: "marks",
+  armed: null,
 });
 
 /** The worker, standing in: every bake asked for is kept, and answered only when a case says so. */

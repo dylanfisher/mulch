@@ -93,6 +93,7 @@ export function screenTile(
   cells: readonly MoireCells[],
   beat: number,
   alphabet: AlphabetName,
+  armed: AlphabetName | null,
 ): ScreenStanding | null {
   const slot = canvasSlot(canvas);
   const held = screenStanding(key, slot);
@@ -126,8 +127,10 @@ export function screenTile(
     // Deep to the terms: `rackCells` hands back slots it refills every painting (0349, 0070).
     cells: cells.map((pass) => ({ ...pass, terms: { ...pass.terms } })),
     // One name, which is what crosses a `postMessage`: the table it stands for is the worker's own
-    // constant (`ALPHABETS`, src/lib/moireAlphabets.ts).
+    // constant (`ALPHABETS`, src/lib/moireAlphabets.ts). And the queued part's name beside it, or
+    // null where none is queued — the last cell column's own hand.
     alphabet,
+    armed,
   };
   return screenTileFor(order, slot);
 }

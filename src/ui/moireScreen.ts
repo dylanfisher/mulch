@@ -200,6 +200,7 @@ function screenOf(
   cells: readonly MoireCells[],
   beat: number,
   alphabet: AlphabetName,
+  armed: AlphabetName | null,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
   const cell = pitch;
@@ -216,11 +217,14 @@ function screenOf(
   // move the key exactly once, when its picture is first drawn (0329, 0335).
   // And which alphabet the marks are written in, which is the standing part of the song folded onto
   // the cast's own names (`partAlphabet`, src/lib/moireAlphabets.ts): a section changing is one
-  // rebake of the tile and never a cell moved.
+  // rebake of the tile and never a cell moved. And the hand a *queued* part would be written in
+  // beside it, which the tile's last cell column is baked in: arming a part is one rebake and
+  // letting it go is another, and a part queued into the hand already standing arrives null, so a
+  // queue that changes no hand changes no key either (`armedAlphabet`, src/ui/moireRows.ts).
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${tuneStamp()}${cellsKey(cells)}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${armed}|${tuneStamp()}${cellsKey(cells)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(
@@ -237,6 +241,7 @@ function screenOf(
     cells,
     beat,
     alphabet,
+    armed,
   );
   return cutThrough(canvas, context, made, held?.key);
 }
@@ -287,6 +292,11 @@ function cutThrough(
  * the grid (0267). The one term here that does not come back: every other motion of the screen is a
  * cycle of a row's own phase, and this is a reading of the population running one way.
  *
+ * `armed` is the hand the part a launch grid has queued would be written in, or null where nothing
+ * is queued — and null too where the queued part reads the hand already standing, a column that
+ * changed nothing being a rebake nobody would see. It reaches the tile's key and nothing else: the
+ * tile's last cell column is baked in it, so what is coming is on the page before the boundary.
+ *
  * `reversed` is whether the landing sounding reads its slot backwards (`PlayerStep.reversed`,
  * 0362): the crawl is the one travel the lattice makes across the picture, so a landing read
  * backwards draws it walking back the way it came. It turns the crawl alone and neither the wind
@@ -305,6 +315,7 @@ export function inkThrough(
   looks: readonly MoireLook[],
   fold: number,
   alphabet: AlphabetName,
+  armed: AlphabetName | null,
   reversed: boolean,
 ): void {
   context.fillStyle = color;
@@ -335,6 +346,7 @@ export function inkThrough(
     rackCells(looks),
     beat,
     alphabet,
+    armed,
   );
   // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
   // picture that engine draws is the one this file's caller drew before there was a screen behind

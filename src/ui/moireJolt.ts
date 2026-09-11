@@ -20,6 +20,7 @@ import { clamp, normalize } from "@/lib/range";
 import type { PlayerPeek } from "@/audio/deckPeek";
 import { tunable } from "@/lib/moireTuning";
 import { cellPushRest, type MoireCellPush } from "@/ui/moireCellPush";
+import { cellSparkRest, type MoireCellSpark } from "@/ui/moireCellSpark";
 
 /**
  * How hard the picture is jolting and what it last jolted for. Two numbers, because a jolt is an
@@ -45,6 +46,14 @@ export type MoireJolt = {
    */
   pushes: MoireCellPush[];
   /**
+   * And which sparks of that landing are still flashing, and where each of them reads
+   * (`cellSparkInto`, src/ui/moireCellSpark.ts). Beside the pushes and for their reason: a spark is
+   * a peak of the landing this jolt is struck by, so it is one event and one reading of it
+   * (principle 1), and a rebuilt set carries the flashes with the flares it is already carrying
+   * (`carryJolt`, src/ui/moireCarry.ts).
+   */
+  sparks: MoireCellSpark[];
+  /**
    * And which slot that landing read from, which is the only thing the strike is measured against:
    * how far the walk jumped is a distance on the grid, and an ordinal is a count of steps rather
    * than a place on it. Null for the same frames the ordinal is.
@@ -58,6 +67,7 @@ export const joltRest = (): MoireJolt => ({
   landing: null,
   slot: null,
   pushes: cellPushRest(),
+  sparks: cellSparkRest(),
 });
 
 /**

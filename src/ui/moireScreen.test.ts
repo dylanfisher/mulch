@@ -199,7 +199,9 @@ function paintedOn(
     // the five (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
     yard,
     [],
+    [],
     "marks",
+    null,
     false,
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to

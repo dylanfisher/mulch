@@ -16,6 +16,7 @@ import { ALPHABET_REST, type AlphabetName } from "@/lib/moireAlphabets";
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import { cellPushRest, type MoireCellPush } from "@/ui/moireCellPush";
+import { cellSparkRest, type MoireCellSpark } from "@/ui/moireCellSpark";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
@@ -196,10 +197,15 @@ export function painterOn(stubGlobal: StubGlobal) {
       // otherwise, which is the picture before anything has landed and the still lattice 0346
       // shipped (`cellPushRest`, src/ui/moireCellPush.ts).
       pushes = cellPushRest(),
+      // And which sparks of that landing are still flashing: none unless a case says otherwise
+      // (`cellSparkRest`, src/ui/moireCellSpark.ts).
+      sparks = cellSparkRest(),
       // And the hand the picture is written in: at its own rest unless a case says otherwise,
       // which is the picture drawn before there was a song behind it (`ALPHABET_REST`,
       // src/lib/moireAlphabets.ts, 0356).
       alphabet = ALPHABET_REST,
+      // And the hand a queued part would be written in: none queued unless a case says otherwise.
+      armed = null,
       reversed = false,
     }: {
       frames?: number;
@@ -216,7 +222,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       tinting?: MoireTint;
       yard?: YardScene;
       pushes?: readonly MoireCellPush[];
+      sparks?: readonly MoireCellSpark[];
       alphabet?: AlphabetName;
+      /** The hand the tile's last cell column is baked in, where a part is queued (0363). */
+      armed?: AlphabetName | null;
       /** Whether the landing sounding reads its slot backwards, which reverses the crawl (0362). */
       reversed?: boolean;
     } = {},
@@ -395,7 +404,9 @@ export function painterOn(stubGlobal: StubGlobal) {
         tinting,
         yard,
         pushes,
+        sparks,
         alphabet,
+        armed,
         reversed,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows

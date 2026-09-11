@@ -46,6 +46,7 @@ import {
   type MoireJolt,
 } from "@/ui/moireJolt";
 import { CELL_DECAY, cellPushInto } from "@/ui/moireCellPush";
+import { cellSparkInto } from "@/ui/moireCellSpark";
 import { loopPeriodSecs } from "@/lib/recurrence";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
@@ -209,6 +210,21 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
  */
 export const standingAlphabet = (player: Readonly<PlayerPeek>): AlphabetName =>
   partAlphabet(player.step?.part ?? null);
+
+/**
+ * And which hand the part a launch grid has *queued* would be written in — the coming part's own id
+ * folded the same way (`partAlphabet`, 0356, 0363) — or null where nothing is queued, and **null too
+ * where what is queued reads the hand already standing**: three alphabets over six names, so about
+ * a third of the queues would otherwise bake a column in the hand it was already in, which is a
+ * rebake that moves no pixel and an edge nobody could read. Compared here beside the standing hand
+ * rather than at the tile, because the one fact the bake is asked for is whether what is coming is
+ * a *different* hand (principle 1).
+ */
+export const armedAlphabet = (player: Readonly<PlayerPeek>): AlphabetName | null => {
+  if (player.armed === null) return null;
+  const coming = partAlphabet(player.armed);
+  return coming === standingAlphabet(player) ? null : coming;
+};
 
 /**
  * And which way the picture's lattice crawls while it stands: backwards under a landing that reads
@@ -428,6 +444,8 @@ export function moireRows(
     shape: shapeRest(),
     // And the hand it is written in, at its own rest until the read says which part stands.
     alphabet: ALPHABET_REST,
+    // And no part queued behind it, which is the picture drawn before a hand had armed one.
+    armed: null,
     // And which way the lattice crawls, forwards until the read says a landing reads its slot
     // backwards (0362).
     reversed: false,
@@ -583,13 +601,17 @@ export function refillRows(
   // flare is over before the walk comes round again, and outright where there is no loop to measure
   // it against (0144). Beside the jolt and never inside the walk below: it is the field's, like the
   // jolt, and no row's (0213).
-  cellPushInto(
-    jolt.pushes,
-    walked,
-    groundCentre,
-    elapsed,
-    peek.sounding > 0 ? CELL_DECAY.value * loopPeriodSecs(loop, rate) : 0,
-  );
+  // And the same fall for the sparks of that landing, resolved once and spent on both: a flare and
+  // a flash are one landing read twice, so the share of the loop they fall over is one number
+  // (principle 1).
+  const falling = peek.sounding > 0 ? CELL_DECAY.value * loopPeriodSecs(loop, rate) : 0;
+  cellPushInto(jolt.pushes, walked, groundCentre, elapsed, falling);
+  // And one step of the sparks that landing threw: each lit outright on the frame the peek begins
+  // reading it and fallen after, at the column it reads and on the ground its landing stands on
+  // (`cellSparkInto`, src/ui/moireCellSpark.ts). Beside the push and never inside the walk, for the
+  // push's reason: a peak of the output belongs to the field and to no row (0213).
+  const spark = peek.player.sparkPositions;
+  cellSparkInto(jolt.sparks, spark, peek.player.at, duration, groundCentre, elapsed, falling);
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay

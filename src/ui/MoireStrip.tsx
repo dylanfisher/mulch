@@ -73,6 +73,7 @@ import {
   moireRows,
   paintsPerFrame,
   refillRows,
+  armedAlphabet,
   standingAlphabet,
   standingReversed,
 } from "@/ui/moireRows";
@@ -301,6 +302,10 @@ function useMoireRows(
     // it, and a read rather than a rebuild: what moves it is the walk arriving at the next section,
     // which nothing durable has changed.
     set.alphabet = standingAlphabet(peek.player);
+    // And the hand a part queued behind it would be written in, which the tile's last cell column
+    // is baked in: what is coming is on the page from the moment it is armed (`armedAlphabet`,
+    // src/ui/moireRows.ts). Beside the hand standing and read the same way.
+    set.armed = armedAlphabet(peek.player);
     // And which way the lattice crawls, off the landing sounding: a step that reads its slot
     // backwards crawls the screen backwards, so a reversed landing is visibly not a plain one
     // (`PlayerStep.reversed`, `inkThrough`, src/ui/moireScreen.ts, 0362). Beside the hand above it
@@ -446,7 +451,9 @@ function useMoirePicture(
         set.tint,
         yard,
         set.jolt.pushes,
+        set.jolt.sparks,
         set.alphabet,
+        set.armed,
         set.reversed,
       );
     },

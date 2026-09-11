@@ -40,6 +40,7 @@ import { shapeRest } from "@/ui/moireShape";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 import { CELL_DECAY, CELL_PUSHES, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
+import { type MoireCellSpark, SPARK_CELLS, sparkCells } from "@/ui/moireCellSpark";
 // oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -151,6 +152,12 @@ function stampedOn(dpr: number, frames = 1): Painted {
 function landedOn(pushes: readonly MoireCellPush[], frames = 1): Painted {
   vi.stubGlobal("devicePixelRatio", 2);
   return paintedOn(200, 128, ROWS, 2, 20, { frames, pushes });
+}
+
+/** One painting of the same picture with `sparks` of its landing still flashing on it. */
+function sparkedOn(sparks: readonly MoireCellSpark[]): Painted {
+  vi.stubGlobal("devicePixelRatio", 2);
+  return paintedOn(200, 128, ROWS, 2, 20, { sparks });
 }
 
 /** One painting of it with the output's weight `sides` of the way toward one of its two sides. */
@@ -561,6 +568,45 @@ describe("the marks the painter puts down", () => {
     expect(stampPasses(panned, 200, 128)).toBe(GLYPH_COUNT);
     expect(stampDraws(panned)).toBe(stampDraws(stampedOn(2)));
     expect(stampDraws(panned)).toBe(STAMP_PICTURE_DRAWS);
+  });
+
+  it("flashes one big mark where a spark reads, and nothing there once it has fallen", () => {
+    // The thirteenth step of the block: a spark is a peak event, so it stamps one big mark at its
+    // own column for one landing's decay — the whole ramp at its level, which takes the square to
+    // the heaviest mark outright and walks it back down as the flash falls.
+    const cell = gridPitchPx(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    // The frame before the spark lights flashes nothing at all.
+    expect(liftsOn(sparkedOn([]), wide, deep)).toEqual([]);
+    const lit = { at: 1, across: 0.25, centre: 0.5, lit: true, landing: 0 };
+    const box = sparkCells(lit, wide, deep);
+    const flash = liftsOn(sparkedOn([lit]), wide, deep);
+    expect(flash).toHaveLength(1);
+    expect(flash[0]?.box).toEqual([box.left, box.top, box.across, box.down]);
+    // A square of the span step 5 writes its big marks at, and no band of rows: a landing lifts the
+    // whole width of the read and this lifts one column's worth of it (`liftPushes`).
+    expect(box.across).toBe(SPARK_CELLS);
+    expect(box.across).toBeLessThan(wide);
+    // The whole ramp and not one mark of it, which is what makes it a big mark and not a row going
+    // denser: at full the square stands at the top of the read whatever it read before.
+    expect(flash[0]?.alpha).toBe(1);
+    expect(flash[0]?.alpha).toBeGreaterThan(bandFloor(1));
+    // Half fallen it flashes half as much, and fallen away it flashes nothing — which is the
+    // picture the next loop draws, the lattice under it having stood still throughout.
+    expect(liftsOn(sparkedOn([{ ...lit, at: 0.5 }]), wide, deep)[0]?.alpha).toBeCloseTo(0.5, 12);
+    expect(liftsOn(sparkedOn([{ ...lit, at: 0 }]), wide, deep)).toEqual([]);
+    // Two sparks of one landing are two big marks at their own columns.
+    const two = liftsOn(sparkedOn([lit, { ...lit, across: 0.75 }]), wide, deep);
+    expect(two).toHaveLength(2);
+    expect(two[0]?.box[0]).toBeLessThan(two[1]?.box[0] ?? 0);
+    // And none of it costs the picture a thing: the flash is one fill on the read, one pixel a
+    // cell, so the frame pays the same ten passes and the one picture-sized draw checkpoint A
+    // pinned — a spark that rebaked is what the step refused.
+    const sparked = sparkedOn([lit]);
+    expect(stampPasses(sparked, 200, 128)).toBe(GLYPH_COUNT);
+    expect(stampDraws(sparked)).toBe(stampDraws(stampedOn(2)));
+    expect(stampDraws(sparked)).toBe(STAMP_PICTURE_DRAWS);
   });
 
   it("reads the boxed field on the very grid it stamps the marks back onto", () => {

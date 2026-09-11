@@ -94,6 +94,15 @@ export type ScreenBake = {
    * key, so a section changing is one rebake and never a cell moved.
    */
   alphabet: AlphabetName;
+  /**
+   * And the hand the part a launch grid has queued would be written in, or null where nothing is
+   * queued and where what is queued reads the hand already standing (`armedAlphabet`,
+   * src/ui/moireRows.ts). **One cell column and never the tile**: the last column of the tile is
+   * baked in this hand and every other column in the one above, so what is coming announces itself
+   * as a different edge without becoming a different picture. On the key beside the hand it stands
+   * against, so arming a part is one rebake and letting it go is another.
+   */
+  armed: AlphabetName | null;
 };
 
 /**
@@ -357,6 +366,11 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
   // The one alphabet every lattice of this tile is written in, looked up once a bake: the fine
   // lattice, the rack's second one and the specks' scatter are one picture in one hand (0351, 0352).
   const alphabet = ALPHABETS[order.alphabet];
+  // And the hand the tile's last cell column is written in, where a part is queued: one column of
+  // the picture's rightmost cells announcing what is coming, in the alphabet it would be written in
+  // (0356, 0363). One column and no more — a queued part is what is next and not what is standing.
+  const armed = order.armed === null ? null : ALPHABETS[order.armed];
+  const armedCol = armed === null ? -1 : cols - 1;
   const flat = GLYPH_FLAT.value;
   const lift = order.lift;
   const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
@@ -416,11 +430,19 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
         // four terms still reach none of it: what they spend, they spend as darkness up on the
         // read (0340).
         const mark = grid.marks[cellRow * cols + col] ?? 0;
-        let cover = markCoverage(alphabet, mark, uAt[x] ?? 0, v, blur);
+        // The queued hand on the last column and the standing one everywhere else — one compare a
+        // pixel, no second loop and no second pass over the tile.
+        const hand = col === armedCol && armed !== null ? armed : alphabet;
+        let cover = markCoverage(hand, mark, uAt[x] ?? 0, v, blur);
         // Unioned with the second lattice's, where the rack stands one, and with the scatter's,
         // where the yard's detail stands one: the solidest of the marks and never their sum,
         // because every lattice here is one picture in one ink and a cell under two of them is no
         // more solid than the solider (0345).
+        // In the standing hand and never the armed one: those two lattices stand on cells of their
+        // own — the rack's second is the row pitch and the scatter's block is `SCATTER_SPAN` of
+        // these cells — so a column of *this* lattice swapped inside one of their marks would slice
+        // that mark rather than write it in another hand. One cell column is a column of the
+        // lattice the column belongs to.
         if (second !== null) cover = Math.max(cover, beatInk(second, x, y, alphabet));
         if (scatter !== null) cover = Math.max(cover, scatterInk(scatter, x, y, alphabet));
         pixels[at + 3] = alpha * cover;

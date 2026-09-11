@@ -90,6 +90,7 @@ import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
 import { boxCells, readMarks, stampMarks } from "@/ui/moireCanvasMarks";
 import type { MoireCellPush } from "@/ui/moireCellPush";
+import type { MoireCellSpark } from "@/ui/moireCellSpark";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
@@ -592,6 +593,16 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * reaches both lattices of marks, the tile's baked one through the key and the stamp's frame-side
  * one through the tiles it mints, because they are one picture in one hand.
  *
+ * And `sparks`, the sparks of that same landing still flashing: where each reads across the file
+ * and how hard, fallen on the same clock and over the same share of the loop the pushes are
+ * (`cellSparkInto`, src/ui/moireCellSpark.ts). Lifted onto the same boxed read they are, as one big
+ * mark apiece — so a peak is a flash in the lattice and costs the frame no draw of its own.
+ *
+ * And `armed`, the hand the part a launch grid has queued would be written in, or null where none
+ * is queued and where the queued one is already the hand standing (`armedAlphabet`,
+ * src/ui/moireRows.ts). It reaches the tile's key alone: the picture's rightmost cell column is
+ * baked in it, so what is coming is on the page before the boundary.
+ *
  * And `reversed`, whether the landing sounding reads its slot backwards (`PlayerStep.reversed`,
  * 0362): the crawl is the one travel the lattice makes across the picture and this is which way it
  * runs, so a reversed landing draws the lattice walking back the way it came.
@@ -615,7 +626,9 @@ export function paintMoire(
   tinting: Readonly<MoireTint>,
   yard: Readonly<YardScene>,
   pushes: readonly MoireCellPush[],
+  sparks: readonly MoireCellSpark[],
   alphabet: AlphabetName,
+  armed: AlphabetName | null,
   reversed: boolean,
 ): void {
   const context = canvas.getContext("2d");
@@ -658,7 +671,7 @@ export function paintMoire(
   boxField(field, ink, cell);
   // And that same reading taken into the stamp's own grid, beside the box that made it: what it
   // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
-  const marks = readMarks(canvas, field, cell, color, pushes, shape.sides, alphabet);
+  const marks = readMarks(canvas, field, cell, color, pushes, shape.sides, sparks, alphabet);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
@@ -678,6 +691,7 @@ export function paintMoire(
     looks,
     latticeFold(shape.cells),
     alphabet,
+    armed,
     reversed,
   );
   context.globalCompositeOperation = "destination-out";
