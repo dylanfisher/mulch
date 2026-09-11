@@ -13,9 +13,11 @@ import { DRIFT_DISPERSE_REACH, type MoireRow } from "@/lib/moire";
 import { GLYPH_COUNT } from "@/lib/moireAlphabets";
 import { centreAcross } from "@/lib/moireGeometry";
 import { moireRow as row } from "@/lib/moireRow";
+import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { painterOn } from "@/ui/moireCanvasPainted";
 import { DRIFT_INK_SECS, screenInkRest } from "@/ui/moireScreenInk";
 import {
+  PICTURE_FILL_COVER,
   TINT_BAND,
   TINT_BANDS,
   TINT_LEVEL,
@@ -35,6 +37,7 @@ const paintedOn = painterOn((name, value) => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetTuning();
 });
 
 /** A picture whose rows claim nothing — every travel case but the one about the bands. */
@@ -50,6 +53,21 @@ const washing = (...bands: MoireTintBand[]): MoireTint => ({
   bands,
   lit: bands.length,
 });
+
+/**
+ * How much of a picture of `wide` × `deep` one painting filled, counted in pictures: every fill the
+ * recorder kept on the canvas itself, by the box it covered. What the frame's own budget is read
+ * off (`PICTURE_FILL_COVER`).
+ */
+const cover = (painted: ReturnType<typeof paintedOn>, wide: number, deep: number): number =>
+  painted.laid.reduce((sum, fill) => {
+    // Clipped to the picture, because what a fill costs is the pixels it composites: a band twice
+    // the picture wide hangs half of itself off the canvas and the rasteriser pays for none of it.
+    const [left = 0, top = 0, across = 0, down = 0] = fill.box ?? [];
+    const over = Math.max(0, Math.min(left + across, wide) - Math.max(left, 0));
+    const under = Math.max(0, Math.min(top + down, deep) - Math.max(top, 0));
+    return sum + (over * under) / (wide * deep);
+  }, 0);
 
 /** One band of a picture, wholly arrived and standing where it is told. */
 const banded = (centre: number, hue: number, pulse: number, share = 1): MoireTintBand => ({
@@ -306,5 +324,42 @@ describe("the band washed across the picture", () => {
     // And none of it on a yard whose band stands at nothing.
     const plain = paintedOn(200, 64, [row({ period: 3 })]);
     expect(plain.laid.some((fill) => fill.over === "source-atop")).toBe(false);
+  });
+
+  it("fills no more of the picture a frame than the budget, however many rows are coloured", () => {
+    // The block's last checkpoint (docs/plan.md §1). Every checkpoint in the block leaves one
+    // stable boolean behind, and this is the last one's: how much of the picture one frame fills,
+    // counted off the recorder, against one declared ceiling. Checkpoint A bounded the stamp's own
+    // picture-sized draws at one (0353) after thirty of them stopped the frame loop of a window
+    // 2560 × 1440 at two device pixels; 0368 then put one fill per coloured row on the frame, and
+    // `colour.band` reaches twice the picture's width, so eight coloured rows are the one place
+    // left where what a frame fills grows with what a rack holds.
+    const lit = Array.from({ length: TINT_BANDS }, (_, at) => banded(at / TINT_BANDS, 0.5, 1));
+    const tinting = { ...washing(...lit), strength: 0.4, spread: 0.6 };
+    // At or under the budget, never past it, and the budget pinned in one place: a step that fills
+    // another picture a frame — or widens the dial that says how much of one a band is — has to
+    // raise the constant where it is argued, and the pin is what makes that a decision rather than
+    // an edit. What the budget is worth is asserted here and never restated: an expectation
+    // spelling `1 + TINT_BANDS * TINT_BAND.max` out again would pass whatever the constant said.
+    // The same shape checkpoint A's own count is asserted in (src/ui/moireCanvasMarks.test.ts).
+    expect(PICTURE_FILL_COVER, "raising the budget is a decision, not an edit").toBe(9);
+    setTuning("colour.band", TINT_BAND.max);
+    const widest = paintedOn(200, 64, [row({ period: 3 })], 3 + GLYPH_COUNT, undefined, {
+      tinting,
+    });
+    expect(cover(widest, 200, 64)).toBeLessThanOrEqual(PICTURE_FILL_COVER);
+    expect(cover(widest, 200, 64), "and every band does reach the picture").toBeGreaterThan(1);
+    // At the rest the same eight rows fill under half of that, the screen's own ink included, and
+    // every band lies wholly on the picture there so nothing is clipped away.
+    resetTuning();
+    const resting = paintedOn(200, 64, [row({ period: 3 })], 3 + GLYPH_COUNT, undefined, {
+      tinting,
+    });
+    expect(cover(resting, 200, 64)).toBeCloseTo(1 + TINT_BANDS * TINT_BAND.value, 10);
+    expect(cover(resting, 200, 64)).toBeLessThan(cover(widest, 200, 64));
+    // And a picture no row has claimed a colour in fills the screen's own ink and nothing else, at
+    // any setting of the dial: the band is what the rack buys, not what the picture costs.
+    setTuning("colour.band", TINT_BAND.max);
+    expect(cover(paintedOn(200, 64, [row({ period: 3 })]), 200, 64)).toBeCloseTo(1, 10);
   });
 });

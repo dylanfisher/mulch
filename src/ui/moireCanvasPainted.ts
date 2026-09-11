@@ -355,8 +355,12 @@ export function painterOn(stubGlobal: StubGlobal) {
       };
     };
     // What went onto the canvas itself: the screen, and then the product taken back out of it —
-    // whole, or in the slices a lens bends it through.
-    const laid: { ink: unknown; over: string }[] = [];
+    // whole, or in the slices a lens bends it through. A fill carries the box it covered, the way
+    // a surface's own fills do, so a case can ask how much of the picture one of them was: that is
+    // what the frame's picture-sized budget is counted off (`PICTURE_FILL_COVER`, src/ui/moireTint.ts).
+    // A draw of the product carries none: it is the picture's size by construction, and the slices
+    // a lens bends it through are `slices` below rather than a box here.
+    const laid: { ink: unknown; over: string; box?: number[] }[] = [];
     /** And where the screen was placed for each of them: one matrix per strip it was filled in. */
     const screened: Aim[] = [];
     // What each band of the finished field was cut with: where it was taken from, how deep, how far
@@ -391,8 +395,12 @@ export function painterOn(stubGlobal: StubGlobal) {
           slices.push({ top, deep, slid, down: down ?? top, alpha: this.globalAlpha });
         }
       },
-      fillRect(): void {
-        laid.push({ ink: this.fillStyle, over: this.globalCompositeOperation });
+      fillRect(left = 0, top = 0, wide = width, deep = height): void {
+        laid.push({
+          ink: this.fillStyle,
+          over: this.globalCompositeOperation,
+          box: [left, top, wide, deep],
+        });
       },
     };
     // oxlint-disable-next-line no-unsafe-type-assertion

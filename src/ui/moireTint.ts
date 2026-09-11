@@ -5,7 +5,9 @@
  *   (0302) — and **one band per coloured row**, standing where its own row stands (0229), each one
  *   fill through the ink the cut left and never over the ground. No bake a frame: the band is one
  *   tile written once a colour and moved on its own transform, exactly as the screen is (0129,
- *   0070), and no row's hue reaches that tile's key.
+ *   0070), and no row's hue reaches that tile's key. And, because the bands are the one place left
+ *   where what a frame fills grows with what a rack holds, **the whole frame's ceiling on that**:
+ *   `PICTURE_FILL_COVER`, the screen's own ink and every band it may lay over it (0369).
  * @instead The ramp itself, and the orbit the whole picture's ink runs on → src/lib/moireColour.ts
  *   and `sceneStops` in src/ui/moireScreenStops.ts, which this reads and never restates — the band is
  *   the yard's own scene's ramp, so the wash and the tile under it cannot disagree about what the
@@ -69,6 +71,25 @@ export const TINT_BANDS = 8;
  * land in the middle half of the picture (`CENTRE_INSET`, src/lib/moireGeometry.ts).
  */
 export const TINT_BAND = tunable("colour.band", 0.4, { min: 0.05, max: 2, step: 0.05 });
+
+/**
+ * How much of the picture a frame may fill in all, counted in pictures and clipped to the picture:
+ * the screen's own ink is one — laid in the strips the gust leans apart, which sum to the picture
+ * (`inkThrough`, src/ui/moireScreen.ts) — and every lit band is at most one more, `colour.band` of
+ * the picture wide and the whole of it deep, of which only the part over the canvas is filled. So
+ * a full eight coloured rows is nine pictures of fill on one frame, and that is the ceiling.
+ *
+ * A reading of what a frame lays over the picture, against one declared budget, is what every
+ * checkpoint in this block leaves behind (docs/plan.md §1); this is the last one's. It is a
+ * **cover** and not a count, because what a band costs is the pixels it composites and not the call
+ * that asks for them — the count of the bands themselves is `TINT_BANDS`, and that a row claiming
+ * no colour lights none of them is asserted where 0368 put it. Checkpoint A bounded the stamp's own
+ * picture-sized draws at one (`STAMP_PICTURE_DRAWS`, src/ui/moireCanvasMarks.ts, 0353) after thirty
+ * picture-sized passes stopped the frame loop of a window 2560 × 1440 at two device pixels
+ * outright; 0368 then put a fill per coloured row on the frame, which is the one place left where
+ * what a frame fills grows with what a rack holds (0369).
+ */
+export const PICTURE_FILL_COVER = 1 + TINT_BANDS;
 
 /**
  * How far a row at rest brings its own band down from the strength the field travelled to, as a

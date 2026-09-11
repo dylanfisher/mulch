@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0369; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0370; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -89,8 +89,9 @@ the levers that hold, records what stands over it with its cause, and the next c
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
 0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, step
 6 after that as 0355, step 7 as 0356 and step 8 as 0357, which closed the bench; checkpoint B
-landed after it as 0358, steps 9 to 14 as 0359, 0360, 0361, 0362, 0363 and 0364, and checkpoint C
-after them as 0365.
+landed after it as 0358, steps 9 to 14 as 0359, 0360, 0361, 0362, 0363 and 0364, checkpoint C
+after them as 0365, steps 15, 16 and 17 as 0366, 0367 and 0368, and step 18 — the profile and the
+block's last checkpoint — as 0369, which closed the block.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -772,7 +773,7 @@ once and `boldestRow` and `drawnGratings` spend it. Three things went one way an
 band's hard edge, the whole-picture wash and the sweep the step removed, and the eight bands being
 the picture's first eight rather than its boldest.
 
-**Step 18 — the profile, and the block's last checkpoint (bench-45).** _Durable shape moved:_
+**Step 18 — the profile, and the block's last checkpoint (bench-45, 0369).** _Durable shape moved:_
 none. The block's end, in two halves. _The profile:_ `./scripts/profile` on the zoomed drift with a
 full rack and a walk, the tile-bake time and the frame's draw count read against the block's first
 step, and any rest this block chose on the bench read once more on the strip at its own size
@@ -792,6 +793,42 @@ block's last commit holds the budget, and the page under it is the page it was b
 **Tests that must fail first:** none; what fails is 0012's line and the budget's booleans.
 **Refused:** a rest moved without a shot; a regression recorded and not attributed; a WASM block
 opened on a headless number.
+
+**It landed as [0369](decisions/0369-the-block-closes-on-the-budget-and-no-kernel-qualifies.md)**,
+and the outcome is met on three of the budget's four numbers. Three trees were stood up the same
+way and measured interleaved, three rounds each: the commit that opened the block (`2f18077`),
+checkpoint C's (`143086c`) and head. At the budget's own setting — the picture popped out at
+5120 × 2880, a full rack on two yards, a walk really playing — all three hold **60 frames a second,
+p95 18.1–18.4 ms, no gap over 50 ms, no long task and no bake at all**, and a 480-move drag lands
+every move it dispatches and bakes nothing — at about twenty-eight moves a second rather than the
+budget's sixty, which the decision records as the deviation it is. Two costs stand over the budget
+and both are in 0369's ledger. The **bake** is 40–72 ms mean and 107–168 ms worst at head, 45–66 and
+120–170 at checkpoint C, 51–58 and 133–154 at the block's opening — the same term, unmoved by the
+block, and what the block bought is where it runs: driven at three rungs a second the opening
+commit falls to **33–37 frames a second with 23–24 long tasks and a painting of 17–20 ms**, where
+head and checkpoint C stay at 60 with none. And **one dropped frame of about 34 ms**, once or twice a
+window at head and at checkpoint C and never at the block's opening. Its cause is **not
+established**: the painting is 1.53 ms at head against 0.63, but its worst frame is 3.1 ms against
+2.4, nowhere near the 17 ms a 34 ms gap overruns by, and one head window with nothing touched at all
+carries the same gap — so the painting and the pointer are both ruled out, and it arrived somewhere
+in steps 1 to 14 rather than in 15 to 17. The frame's draw count is 128 `drawImage` a painting at the opening commit against
+129 now, with one to two fills covering half the picture there against two to three now.
+
+**No WASM block is opened, and 0369 is the record in 0058's shape.** The bake's own loop is priced
+per 0116 at **8.7 to 24 times its memory floor** — 40–72 ms against 3.0–4.6 ms to write the same
+9.06 MB, and 0.2 ms for the strided touch — so the headroom is real and the kernel is bound by
+instruction throughput. It is not 0354's 24× restated: that divided by a floor of the tile's bytes
+plus the body's, and under that denominator this bake prices at 8 to 15 times its floor. It is rejected on 0058's actual bar: absolute milliseconds on a path
+someone waits on. The bake is in a worker, ran **zero** times in every one of nine budget windows
+and nine drags, and when driven faster than any hand moves a knob it costs the frame loop nothing.
+What a port would buy is staleness — a stale tile of 40–72 ms instead of 10–18 — against a crate, a
+build step and a toolchain, and 0211 rejects the SIMD port for the picture besides. The profile
+reads **🟢 good — nothing regressed against the last 10 runs**, six numbers steady. Every rest the
+block chose was shot again on the strip at its own size and none is moved; the crops are what
+decided, because a playing strip's mean moves further in 400 ms than any of the six dials moves it.
+The step leaves one boolean: `PICTURE_FILL_COVER` (src/ui/moireTint.ts), nine pictures of fill a
+frame — the screen's ink once and at most one more per coloured row — read off the painter's own
+recorder, clipped to the picture, in src/ui/moireTint.test.ts.
 
 ---
 
@@ -939,6 +976,62 @@ runs show head clean in every still window. The machine's display also changed b
 60 Hz across the session, which is why the frame rates come in two families. Both are recorded here
 rather than attributed to this group: an unreproduced window taken out of alternation is not a
 finding, and pretending it is would have spent the checkpoint chasing the machine.
+
+**One dropped frame is recorded with its cause unestablished (0369).** The block's last checkpoint
+measured head, checkpoint C's commit and the commit that opened the block at the budget's own
+setting, interleaved three rounds each. Three of the budget's four numbers hold everywhere; the
+fourth does not: a drag window carries one or two gaps of about 34 ms at head and at checkpoint C
+where the opening commit carries none. The step's own text refuses a regression recorded and not
+attributed, so the attribution was tried and failed: the painting's worst frame is 3.1 ms at head
+against 2.4 at the opening commit, and a 34 ms gap is 17 ms of overrun, so 0.7 ms of painting cannot
+be it; and one head window with **nothing touched** carries the same single gap, so the pointer
+cannot be it either. What it tracks is the tree — it is in both instrumented trees and neither of
+the opening commit's budget windows, so it arrived in steps 1 to 14 — and settling it needs a
+profile of the frame the gap lands on, which the CDP Profiler cannot take at this setting. The two
+levers to hand, a mark pass held back under a drag and fewer passes while a hand is down, are the
+governor the budget's own paragraph refuses to call a fix, so neither landed.
+
+**The drag ran at about twenty-eight moves a second and its landings were never read back (0369).**
+The budget's fourth number is 480 moves at sixty a second (0307's proof). The measuring script
+awaits each `mouse.move` over the wire and then sleeps a sixtieth, so 480 moves span 16.2–17.0 s
+rather than 8 — the same rate in all three trees, so the comparison holds, but not the budget's own
+gesture. And nothing counted what the app received: the script dispatches 480 and reads back no
+landings, where 0307's proof counted painted positions. A drag at the budget's real rate, with its
+landings counted, is work this checkpoint did not do, and both earlier checkpoints' drags were the
+same script.
+
+**The bake's loop was priced in the page and not on a `./scripts/bench` row (0369).** 0116 says a
+kernel the bench does not carry is a kernel nobody has measured. This one is measured in the popped
+window instead, because the bench is a plain-Node kernel bench and the loop wants a resolved theme,
+a tunings snapshot and the worker it runs in — and 0116's own scope is the per-sample loops of
+`src/lib` and the worklets, which the screen tile is neither. The divergence is named rather than
+glossed; a bench row for the picture's second kernel is work left undone.
+
+**Head was measured on a worktree of its own commit and not on the human's working tree (0369).**
+The step's own note puts head in the working tree on the human's dev server; this run stood all
+three commits up the same way instead — a `git worktree` with `node_modules` symlinked and a Vite
+dev server on a port and a cache dir it started and stopped — so that no tree is compared against
+another across two kinds of server, and so that no instrumentation was ever written into the tree
+the human is working in. The trees are byte-identical to their commits but for the accumulators,
+which were compiled into each and removed with the worktree. What that gives up: nothing this
+checkpoint could measure, since the working tree was clean at head's own commit.
+
+**The bake still has no sample at the budget's setting, in any of the three trees (0369).** Nothing
+rebakes there — zero bakes in all nine eight-second windows and all nine drags — so the bake times
+in 0369 come from the same driver checkpoint A2 and B used, one tunable on the stamp's key walked
+three times a second, which is not the budget's setting and is faster than a hand. What that leaves
+unmeasured is the same thing it left unmeasured then: what a bake costs when the thing asking for it
+is a person rather than a loop. The alternative was to report no bake number, which the checkpoint
+would not be without.
+
+**A rest is read on the strip by its crop and never by its mean (0369).** The six rests this block
+chose were shot again at the strip's own size, each at its rest, its minimum and its maximum on a
+playing yard. The mean could not be used: a 32-pixel strip's block mean moves from 0.115 to 0.185
+within 400 ms on a playing yard whatever any of the six dials is set to, which is 0342's own finding
+that a playing strip is never the same picture twice. So the six readings are the crops, read side
+by side, and the numbers beside them say only that the canvas was alive. A rest moved on that
+evidence would need a fixture that stops the travel outright, which this step did not mint — and
+none was moved.
 
 **The wind's one-way drift is gone, and its dial with it (0364).** The screen's crawl was the
 wind's: `MoireWind.drift` integrated the tail into turns of the tile, and the `wind.turns` dial set
