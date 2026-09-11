@@ -37,7 +37,7 @@ export const GLYPH_PHASE = tunable("glyph.phase", 0.2, { min: 0, max: 0.9, step:
  * step the ramp goes down.
  */
 const GRID = 5;
-const MARKS: readonly (readonly string[])[] = [
+export const MARKS: readonly (readonly string[])[] = [
   [".....", ".....", ".....", ".....", "....."],
   [".....", ".....", "..#..", ".....", "....."],
   [".....", "..#..", ".....", "..#..", "....."],

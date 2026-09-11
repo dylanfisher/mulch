@@ -1126,6 +1126,12 @@ the reference's sparse ground with dense ribbons through it. **Tests that must f
 rest, fewer than a third of a bloom tile's cells are marks heavier than the plus. **Refused:**
 touching a scene's ground; a second wrap.
 
+**The bench past step 5 (bench-28, 0347).** Landed 2026-09-10 as
+[0347](decisions/0347-the-marks-bench-is-its-own-route.md): eight directions for the lattice at
+`#/marks`, step 5's push among them as its first entry, each the real marks over the shipped bloom
+under one dial in one ink, driven by the sketch bench's walk. Nothing durable moved; what wins
+there is the next step here.
+
 ## 4. Not taken
 
 **The film's share does not rest at one (bench-19, 0339).** The step wrote the dial as

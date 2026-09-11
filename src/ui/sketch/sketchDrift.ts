@@ -191,7 +191,7 @@ export const bandsField: SketchDriftField = (x, y, amount) => {
  * them at one ratio and a hand that judged them at another would argue about a picture nobody
  * sees.
  */
-const BENCH_DPR = 2;
+export const BENCH_DPR = 2;
 
 /**
  * How tall one scene's ground is drawn on this bench, in those pixels. The bench's picture is one
