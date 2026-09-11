@@ -50,13 +50,13 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0352; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0353; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
-in the order that builds the machine before what rides it. Steps 1, 2, 3 and 4 landed as 0348, 0349,
-0350 and 0351.
+in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
+0349, 0350, 0351 and 0352.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -155,7 +155,7 @@ the shipped bake at two device pixels to the CSS one the share of a tile's pixel
 from 0.71 to 0.83 when the rack fills. §4 holds what the wider tile costs. The bench's entry 02
 goes with it.
 
-**Step 5 — the flock is a scatter of big marks (bench-32).** _Durable shape moved:_ none. The
+**Step 5 — the flock is a scatter of big marks (bench-32, 0352).** _Durable shape moved:_ none. The
 bench's **scatter** as the specks' own layer: a speck is a point smaller than a mark, which 0345
 found turns a flock into a blanket or loses it; instead the body's third channel (the specks) is
 read per three-by-three cells and written as one big mark without the wrap, over the fine
@@ -164,7 +164,13 @@ lattice, in the scene's own ink. The threshold is the scene's `specks` reach, no
 a canopy's flock and a water's glints read as a scatter of big marks over the ground. **Tests that
 must fail first:** a tile with specks has big marks where the specks' channel peaks and none
 where it is nought; a big mark covers exactly nine cells' worth of coverage. **Refused:** big
-marks off the ground channel; a scatter that moves per frame.
+marks off the ground channel; a scatter that moves per frame. _Landed_ 2026-09-10 as
+[0352](decisions/0352-the-flock-is-a-scatter-of-big-marks.md): `SCATTER_SPAN`, `scatterLattice` and
+`scatterInk` in a new src/ui/moireScreenScatter.ts, read in `build` beside the other two lattices
+and unioned into the same alpha, and skipped outright where the yard is read for a scene's own
+specks. The threshold is the channel's own spread over the tile — between what it means and what it
+reaches — and no dial was minted; §4 holds what reading it that way gives up. The bench's entry 07
+goes with it.
 
 **Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
@@ -373,6 +379,22 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The scatter is read against the tile it is on, so a flock's own picture depends on where the tile
+comes round (0352).** The threshold is the specks channel's own mean and own most over the one tile,
+which is what lets the layer stand without a dial — but it is a reading of that tile and not of the
+field: the same flock baked at another width has another mean and another most, so which blocks
+carry a big mark can move when the tile grows for the second lattice (0351). A fixed threshold on
+the ramp draws nothing at all, because nine cells full of specks stand a hundredth of the way up it,
+and a threshold that was a dial is the one the marks bench spent twice over — once on keeping the
+scatter sparse and once on keeping it from being seen. A flock spread evenly over a tile has no most
+to stand against and draws no scatter at all, which is the same reading and is meant: a scatter is
+where a flock is thicker than the flock. And **"nine cells' worth" is nine where the span divides
+the tile's cell count and the snapped block's own square where it does not**: a tile is a pitch plus
+one cells across, so a 1x display's six cells are two blocks of three exactly and a 2x display's
+eleven are four blocks of two and three quarters. The alternative — growing the tile to a multiple
+of three cells as 0351 grew it to the coarse cell — is the 7x bake below paid a second time, for a
+layer only a flock or a kept thing draws.
 
 **The wider tile is paid at every step of the fold, and it is seven times and not seven fifths
 (0351).** The second lattice's cell has to come round at the tile's edge, so the tile grows to the

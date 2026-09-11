@@ -1,9 +1,9 @@
 /**
  * @role The fields the marks bench still draws — one per direction the lattice of marks could be
- *   pushed in past 0346: a second lattice at a held ratio, a landing's push decaying down the
- *   loop, an alphabet per character, and a scatter of big marks over the fine ones — and the one dial
- *   each is drawn under. A field goes as its argument lands in the tile: the ground's with 0348,
- *   the delay's echoes and the reverb's bloom with 0349, the sound's own rows with 0350. Every field answers whether a point of the picture is inked, nought or
+ *   pushed in past 0346: a landing's push decaying down the loop and an alphabet per character —
+ *   and the one dial each is drawn under. A field goes as its argument lands in the tile: the ground's with 0348,
+ *   the delay's echoes and the reverb's bloom with 0349, the sound's own rows with 0350, the
+ *   rack's own second lattice with 0351 and the scatter of big marks with 0352. Every field answers whether a point of the picture is inked, nought or
  *   one, in one ink on the page (0346): the real marks over the shipped bloom under the shipped
  *   film, no canvas, no clock, no context, so each is provable here and painted there.
  * @instead The marks and the wrap onto them, which these read and never restate →
@@ -211,65 +211,4 @@ export const partField: SketchDriftField = (x, y, landing) => {
   const col = Math.floor(x / CELL);
   const row = Math.floor(y / CELL);
   return alphabetCoverage(alphabet, plainMark(col, row), x / CELL - col, y / CELL - row);
-};
-
-/** How many cells a side one big mark of the scatter spans. */
-export const SCATTER_SPAN = 3;
-
-/** Where one big cell stands: the mean of the fine cells it covers, inside the picture. */
-const scatterCells = new Map<number, Map<number, number>>();
-export function scatterStood(col: number, row: number): number {
-  return held(scatterCells, SCATTER_SPAN, col, row, () => {
-    let sum = 0;
-    let count = 0;
-    for (let dr = 0; dr < SCATTER_SPAN; dr += 1) {
-      for (let dc = 0; dc < SCATTER_SPAN; dc += 1) {
-        const fine = col * SCATTER_SPAN + dc;
-        const down = row * SCATTER_SPAN + dr;
-        if (fine >= COLS || down >= ROWS) continue;
-        sum += stood(fine, down);
-        count += 1;
-      }
-    }
-    return count === 0 ? 0 : sum / count;
-  });
-}
-
-/**
- * The least and the most a big cell stands at over the whole picture, read once: the scatter's
- * threshold is said across the field's own range, because a bloom under its film stands in the
- * lower half of its ramp and a threshold said on the ramp would find no peak to draw.
- */
-export const SCATTER_RANGE: readonly [number, number] = ((): [number, number] => {
-  let least = Infinity;
-  let most = -Infinity;
-  for (let row = 0; row * SCATTER_SPAN < ROWS; row += 1) {
-    for (let col = 0; col * SCATTER_SPAN < COLS; col += 1) {
-      const value = scatterStood(col, row);
-      least = Math.min(least, value);
-      most = Math.max(most, value);
-    }
-  }
-  return [least, most];
-})();
-
-/**
- * 07 — a layer above the marks: one big mark per three-by-three cells wherever the field stands
- * above a threshold of its own range, read off how far above without the wrap — so the peak is a
- * block and a shoulder a dot — over the fine lattice, in the one ink. The dial is the threshold;
- * at one nothing stands above it and the picture is the plain lattice.
- */
-export const SCATTER_DIAL: SketchDial = { min: 0, max: 1, step: 0.05, rest: 0.6 };
-export const scatterField: SketchDriftField = (x, y, threshold) => {
-  const fine = plainField(x, y);
-  if (threshold >= 1) return fine;
-  const big = CELL * SCATTER_SPAN;
-  const col = Math.floor(x / big);
-  const row = Math.floor(y / big);
-  const [least, most] = SCATTER_RANGE;
-  const floor = least + threshold * (most - least);
-  const above = (scatterStood(col, row) - floor) / (most - floor);
-  if (above <= 0) return fine;
-  const mark = markAt(above, GLYPH_COUNT, 0);
-  return Math.max(fine, markCoverage(mark, x / big - col, y / big - row, 0));
 };

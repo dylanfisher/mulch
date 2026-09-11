@@ -1,10 +1,10 @@
 /**
  * @role The marks bench at #/marks — the nav and the one list it mounts: the ways the lattice of
- *   marks could still be pushed past where 0346 left it — a second lattice, a landing's push
- *   decaying, an alphabet per part and a scatter of big marks. The read pushed to its ramp's ends has
- *   landed (0348), the delay's echoes and the reverb's bloom in marks with it (0349), and the
- *   sound's own rows stamped over the picture with those (0350); their entries have gone with
- *   them. Every entry carries
+ *   marks could still be pushed past where 0346 left it — a landing's push decaying and an
+ *   alphabet per part. The read pushed to its ramp's ends has landed (0348), the delay's echoes
+ *   and the reverb's bloom in marks with it (0349), the sound's own rows stamped over the picture
+ *   with those (0350), the rack's own second lattice (0351) and the scatter of big marks over the
+ *   fine ones (0352); their entries have gone with them. Every entry carries
  *   the one sentence it makes, the thing it gives up to make it and where in the real tile it
  *   would land, and every picture is the real marks over the shipped bloom under the shipped film
  *   in one ink, under the one dial that move turns. Its own route beside the structure bench for
@@ -30,7 +30,6 @@ import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
-import { SketchMarksScatter } from "@/ui/sketch/marks/SketchMarksScatter";
 import { COLS, ROWS } from "@/ui/sketch/marks/sketchMarks";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
@@ -80,17 +79,6 @@ export const SKETCH_MARKS: readonly MarksEntry[] = [
     built:
       "in src/lib/moireGlyph.ts as three tables in the marks' own shape, chosen off the player's part in the bake key in build at src/ui/moireScreenTile.ts. Bake-side, and a new tile at every part change; no dearer per tile.",
     Content: SketchMarksPart,
-  },
-  {
-    id: "scatter",
-    label: "The Scatter",
-    thesis:
-      "A layer above the marks: one big mark per three-by-three cells wherever the field stands above a threshold of its own range, read without the wrap so the peak is a block and a shoulder a dot, over the fine lattice. The wrap makes a peak a sparse mark, so the field's peaks are the one thing the lattice cannot say; a second, coarser lattice can.",
-    trades:
-      "the page between marks, where the big marks stand. A block three cells wide is a solid the reference never has, and the mean alpha the strip is judged by climbs with every peak — the threshold is spent keeping the scatter sparse, which is the same number keeping it from being seen.",
-    built:
-      "in build at src/ui/moireScreenTile.ts as a second pass over three-by-three cells after the first, its read the mean of theirs and its mark cut without the wrap. Bake-side; the tile is already a whole number of cells wide and would be held to a multiple of three.",
-    Content: SketchMarksScatter,
   },
 ];
 

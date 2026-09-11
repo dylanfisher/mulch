@@ -13,7 +13,7 @@
  *   src/lib/moireLattice.ts.
  */
 import { type MoireCells } from "@/lib/moireCells";
-import { markCoverage } from "@/lib/moireGlyph";
+import { markBlur, markCoverage } from "@/lib/moireGlyph";
 import { sceneCells } from "@/lib/moireScene";
 import { cellGrid } from "@/ui/moireScreenCells";
 
@@ -70,7 +70,7 @@ export function beatLattice(
   const cols = sceneCells(width, cell);
   const rows = sceneCells(height, cell);
   const grid = cellGrid(body, width, height, cell, cell, cols, rows, hue, falling, cells);
-  return { at, cell, cols, marks: grid.marks, blur: 0.25 / cell };
+  return { at, cell, cols, marks: grid.marks, blur: markBlur(cell) };
 }
 
 /**

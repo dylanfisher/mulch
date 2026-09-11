@@ -102,6 +102,14 @@ const bitAt = (mark: Uint8Array, u: number, v: number): number => {
  * the lattice moves; read a quarter of a pixel either way it is the same mark, soft. `blur` is the caller's, in cell units, because only the caller knows how many device
  * pixels its cell is. At nought it is one read, which is what the tests read.
  */
+/**
+ * That quarter-pixel, in the cell units the read above takes it in: a lattice whose cell is `cell`
+ * device pixels reads its marks this soft. Here rather than at each lattice, because a quarter of a
+ * device pixel is one fact and the picture now carries three lattices that have to agree on it —
+ * the tile's own, the rack's second one and the specks' scatter (0345, 0351, 0352).
+ */
+export const markBlur = (cell: number): number => (cell > 0 ? 0.25 / cell : 0);
+
 export function markCoverage(index: number, u: number, v: number, blur: number): number {
   const mark = bits[index];
   if (mark === undefined) throw new Error(`There is no mark ${index}.`);

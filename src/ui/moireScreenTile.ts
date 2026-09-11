@@ -34,7 +34,7 @@
 import { DRIFT_REST, TAU, wrap } from "@/lib/moire";
 import type { MoireCells } from "@/lib/moireCells";
 import { type Ink, ramp } from "@/lib/moireColour";
-import { markCoverage } from "@/lib/moireGlyph";
+import { markBlur, markCoverage } from "@/lib/moireGlyph";
 import { gratingKeep } from "@/lib/moireGrating";
 import {
   type Scene,
@@ -55,6 +55,7 @@ import type { YardScene } from "@/lib/yardScene";
 import { hold } from "@/ui/driftTiles";
 import { beatInk, beatLattice, beatTilePx } from "@/ui/moireScreenBeat";
 import { cellGrid, PER_PIXEL } from "@/ui/moireScreenCells";
+import { scatterInk, scatterLattice } from "@/ui/moireScreenScatter";
 import { inkOf, sceneStops } from "@/ui/moireScreenStops";
 import { sceneOf } from "@/ui/scene/scenes";
 
@@ -691,7 +692,13 @@ function build(
   // nought, which is the tile 0350 shipped (`beatLattice`, src/ui/moireScreenBeat.ts).
   const second =
     beat > 0 ? beatLattice(body, width, height, rowPitch, tint.hue, falling, cells, beat) : null;
-  const blur = 0.25 / across;
+  // And the scatter: the body's own bright points, read three cells at a time and laid as one big
+  // mark over both (`scatterLattice`, src/ui/moireScreenScatter.ts). Only where the yard's detail
+  // put points there at all — a scene read for its own specks stands them at nought in the body,
+  // so the grid would be a grid of the blank mark and a bake nobody sees.
+  const scatter =
+    yard.specks === "own" ? null : scatterLattice(body, width, height, across, downCell);
+  const blur = markBlur(across);
   const flat = GLYPH_FLAT.value;
   const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
   const colOf = Int32Array.from({ length: width }, (_, x) =>
@@ -744,11 +751,14 @@ function build(
       // is the page, which is the ground this lattice is written on. The screen's own four terms
       // still reach none of it: what they spend, they spend as darkness up on the read (0340).
       const mark = grid.marks[cellRow * cols + col] ?? 0;
-      const cover = markCoverage(mark, uAt[x] ?? 0, v, blur);
-      // Unioned with the second lattice's, where the rack stands one: the solider of the two marks
-      // and never their sum, because two lattices in one ink are one picture and a cell under both
-      // of them is no more solid than the solider (0345).
-      pixels[at + 3] = own[3] * (second === null ? cover : Math.max(cover, beatInk(second, x, y)));
+      let cover = markCoverage(mark, uAt[x] ?? 0, v, blur);
+      // Unioned with the second lattice's, where the rack stands one, and with the scatter's, where
+      // the yard's detail stands one: the solidest of the marks and never their sum, because every
+      // lattice here is one picture in one ink and a cell under two of them is no more solid than
+      // the solider (0345).
+      if (second !== null) cover = Math.max(cover, beatInk(second, x, y));
+      if (scatter !== null) cover = Math.max(cover, scatterInk(scatter, x, y));
+      pixels[at + 3] = own[3] * cover;
     }
   }
   ink.putImageData(field, 0, 0);

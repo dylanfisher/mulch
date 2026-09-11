@@ -23,8 +23,6 @@ import {
   plainField,
   plainMark,
   ROWS,
-  SCATTER_DIAL,
-  scatterField,
   stood,
 } from "@/ui/sketch/marks/sketchMarks";
 import { ALPHABETS, alphabetOf, alphabetWeight } from "@/ui/sketch/marks/sketchMarksAlphabet";
@@ -34,7 +32,6 @@ import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
   { name: "decay", field: decayField, dial: DECAY_DIAL },
   { name: "part", field: partField, dial: PART_DIAL },
-  { name: "scatter", field: scatterField, dial: SCATTER_DIAL },
 ];
 
 /**
@@ -154,19 +151,6 @@ describe("the part", () => {
   it("names an alphabet for every character the walk draws", () => {
     for (const landing of SKETCH_WALK) {
       expect(ALPHABETS[CHARACTER_ALPHABET[landing.character]]).toBeDefined();
-    }
-  });
-});
-
-describe("the scatter", () => {
-  it("is the plain lattice when nothing stands above the threshold", () => {
-    expect(differ(plainField, (x, y) => scatterField(x, y, 1))).toBe(0);
-  });
-
-  it("lays big marks over the fine ones at its rest, and takes none away", () => {
-    expect(differ(plainField, (x, y) => scatterField(x, y, SCATTER_DIAL.rest))).toBeGreaterThan(0);
-    for (const [x, y] of GRID) {
-      expect(scatterField(x, y, SCATTER_DIAL.rest)).toBeGreaterThanOrEqual(plainField(x, y));
     }
   });
 });
