@@ -45,6 +45,7 @@ import type { MoireLook } from "@/ui/moireLooks";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
 import { beatPx, gridPitchPx, rowPitchPx, screenTilePx, tilePx } from "@/lib/moireScreenFilm";
 import { type ScreenStanding } from "@/ui/moireScreenShop";
+import type { AlphabetName } from "@/lib/moireAlphabets";
 import { screenTile, tuneStamp } from "@/ui/moireScreenTile";
 import { viewOf } from "@/ui/canvasSurface";
 
@@ -198,6 +199,7 @@ function screenOf(
   yard: Readonly<YardScene>,
   cells: readonly MoireCells[],
   beat: number,
+  alphabet: AlphabetName,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
   const cell = pitch;
@@ -212,10 +214,13 @@ function screenOf(
   // The yard's own reading is part of what a tile is *of*, so two yards in different fields hold
   // two tiles rather than one they fight over — and a name never changes, so a yard's five terms
   // move the key exactly once, when its picture is first drawn (0329, 0335).
+  // And which alphabet the marks are written in, which is the standing part of the song folded onto
+  // the cast's own names (`partAlphabet`, src/lib/moireAlphabets.ts): a section changing is one
+  // rebake of the tile and never a cell moved.
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${tuneStamp()}${cellsKey(cells)}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${tuneStamp()}${cellsKey(cells)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(
@@ -231,6 +236,7 @@ function screenOf(
     cell,
     cells,
     beat,
+    alphabet,
   );
   return cutThrough(canvas, context, made, held?.key);
 }
@@ -286,6 +292,7 @@ export function inkThrough(
   yard: Readonly<YardScene>,
   looks: readonly MoireLook[],
   fold: number,
+  alphabet: AlphabetName,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -314,6 +321,7 @@ export function inkThrough(
     yard,
     rackCells(looks),
     beat,
+    alphabet,
   );
   // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
   // picture that engine draws is the one this file's caller drew before there was a screen behind

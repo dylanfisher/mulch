@@ -23,6 +23,7 @@
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
+import { ALPHABET_REST } from "@/lib/moireAlphabets";
 import { fold } from "@/lib/copy";
 import { fractalStopsRest } from "@/lib/moireFractal";
 import {
@@ -65,6 +66,7 @@ import {
   moireRows as builtRows,
   NO_MASTER,
   refillRows as filledRows,
+  standingAlphabet,
   type MoireLane,
 } from "@/ui/moireRows";
 import { NO_GROWN } from "@/ui/moireGrown";
@@ -279,6 +281,24 @@ describe("the jumps module's row", () => {
    * tier's boundary, off the place the step already carries (0221). One coarse layer and not two,
    * because there is one tier over the part (P170).
    */
+  it("writes the picture in the hand the standing part names, and in the rest with none", () => {
+    // The alphabet the whole tile is baked in is the one fact about a section the picture reads
+    // besides the row's own three (0356). With nothing standing there is no section to read, so the
+    // picture is written in the marks the instrument ships.
+    expect(standingAlphabet(emptyDeckPeek().player)).toBe(ALPHABET_REST);
+    // And with a part standing, the alphabet its own badge folds to: `d` reads as a stutter, which
+    // the picture writes in strokes, and `chorus` as a riff, which it writes in the shipped marks.
+    // The badge and not the name a hand typed — a part carries no character at all since 0176.
+    const stutter = songPart("d", 2);
+    const riff = songPart("chorus", 2);
+    const song = [stutter, riff];
+    const peek = emptyDeckPeek();
+    peek.player.step = standingStep(song, stutter);
+    expect(standingAlphabet(peek.player)).toBe("strokes");
+    peek.player.step = standingStep(song, riff);
+    expect(standingAlphabet(peek.player)).toBe("marks");
+  });
+
   it("lays one broader row over the part's for the song it is in", () => {
     const one = songPart("verse", 2);
     const two = songPart("chorus", 32);

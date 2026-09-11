@@ -1,65 +1,14 @@
 /**
- * @role Tests the marks the drift is written in: that each carries strictly more ink than the one
- *   before, that a mark's coverage is its own bit read hard and its four corners read soft, that
- *   nothing is covered outside a cell, that the ramp onto them starts at the phase mark and
- *   comes round beneath it at its top (0344), and that the push toward that ramp's ends is the
- *   read itself at nought and a push toward both ends at the rest (0348).
+ * @role Tests the ramp onto the marks: that it starts at the phase mark and comes round beneath it
+ *   at its top (0344), and that the push toward its ends is the read itself at nought and a push
+ *   toward both ends at the rest (0348). The alphabets the ramp lands on, and how a mark of one is
+ *   read → src/lib/moireAlphabets.test.ts.
  */
 import { describe, expect, it } from "vitest";
 
 import { clamp } from "./range.ts";
-import {
-  GLYPH_COUNT,
-  GLYPH_PHASE,
-  GLYPH_PUSH,
-  markAt,
-  markCoverage,
-  markWeight,
-  pushRead,
-} from "./moireGlyph.ts";
-
-describe("the marks", () => {
-  it("carry strictly more ink each than the one before, from nothing to a block", () => {
-    const weights = Array.from({ length: GLYPH_COUNT }, (_, at) => markWeight(at));
-    expect(weights[0]).toBe(0);
-    expect(weights[GLYPH_COUNT - 1]).toBe(1);
-    for (let at = 1; at < GLYPH_COUNT; at += 1) {
-      expect(weights[at], `mark ${at} is no heavier than mark ${at - 1}`).toBeGreaterThan(
-        weights[at - 1] ?? 1,
-      );
-    }
-  });
-
-  it("cover a pixel wholly or not at all read hard, and by quarters read soft", () => {
-    const dot = 1;
-    expect(markCoverage(dot, 0.5, 0.5, 0)).toBe(1);
-    expect(markCoverage(dot, 0.1, 0.1, 0)).toBe(0);
-    // Read a twentieth of a cell either way just outside the dot's own edge, half the corners
-    // land in it.
-    const soft = markCoverage(dot, 0.38, 0.5, 0.05);
-    expect(soft).toBeGreaterThan(0);
-    expect(soft).toBeLessThan(1);
-  });
-
-  it("cover nothing outside the cell, and everything of a block inside it", () => {
-    const block = GLYPH_COUNT - 1;
-    expect(markCoverage(block, -0.01, 0.5, 0)).toBe(0);
-    expect(markCoverage(block, 0.5, 1, 0)).toBe(0);
-    for (let u = 0; u < 1; u += 0.05) {
-      for (let v = 0; v < 1; v += 0.05) {
-        expect(markCoverage(block, u, v, 0)).toBe(1);
-        const cover = markCoverage(4, u, v, 0.03);
-        expect(cover).toBeGreaterThanOrEqual(0);
-        expect(cover).toBeLessThanOrEqual(1);
-      }
-    }
-  });
-
-  it("refuses a mark there is not", () => {
-    expect(() => markCoverage(GLYPH_COUNT, 0.5, 0.5, 0)).toThrow(/no mark/u);
-    expect(() => markWeight(-1)).toThrow(/no mark/u);
-  });
-});
+import { GLYPH_COUNT } from "./moireAlphabets.ts";
+import { GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "./moireGlyph.ts";
 
 describe("the ramp onto them", () => {
   it("starts at the phase mark and comes round beneath it at its top", () => {

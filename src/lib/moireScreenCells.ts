@@ -13,7 +13,8 @@
  */
 import { DRIFT_REST } from "@/lib/moire";
 
-import { GLYPH_COUNT, GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
+import { GLYPH_COUNT } from "@/lib/moireAlphabets";
+import { GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
 import { sceneAxis } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
 

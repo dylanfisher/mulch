@@ -26,7 +26,8 @@ import { type Ink, ramp } from "@/lib/moireColour";
 import type { MoireCells } from "@/lib/moireCells";
 import { runCellPasses, type RunningCells } from "@/lib/moireCells";
 import { LOOKS } from "@/lib/moireLook";
-import { markBlur, markCoverage } from "@/lib/moireGlyph";
+import { ALPHABETS, type AlphabetName, markCoverage } from "@/lib/moireAlphabets";
+import { markBlur } from "@/lib/moireGlyph";
 import type { ScreenInk } from "@/lib/moire";
 import {
   type Scene,
@@ -86,6 +87,13 @@ export type ScreenBake = {
   tint: ScreenInk;
   yard: YardScene;
   cells: readonly MoireCells[];
+  /**
+   * Which of the three alphabets this tile's marks are written in, as the name and never the table:
+   * a bake crosses to a worker by `postMessage`, so what names an alphabet here has to be plain data
+   * (0354). Off the standing part of the song (`partAlphabet`, src/lib/moireAlphabets.ts), and on the
+   * key, so a section changing is one rebake and never a cell moved.
+   */
+  alphabet: AlphabetName;
 };
 
 /**
@@ -346,6 +354,9 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
     scatterCut(scatter);
   }
   const blur = markBlur(across);
+  // The one alphabet every lattice of this tile is written in, looked up once a bake: the fine
+  // lattice, the rack's second one and the specks' scatter are one picture in one hand (0351, 0352).
+  const alphabet = ALPHABETS[order.alphabet];
   const flat = GLYPH_FLAT.value;
   const lift = order.lift;
   const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
@@ -405,13 +416,13 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
         // four terms still reach none of it: what they spend, they spend as darkness up on the
         // read (0340).
         const mark = grid.marks[cellRow * cols + col] ?? 0;
-        let cover = markCoverage(mark, uAt[x] ?? 0, v, blur);
+        let cover = markCoverage(alphabet, mark, uAt[x] ?? 0, v, blur);
         // Unioned with the second lattice's, where the rack stands one, and with the scatter's,
         // where the yard's detail stands one: the solidest of the marks and never their sum,
         // because every lattice here is one picture in one ink and a cell under two of them is no
         // more solid than the solider (0345).
-        if (second !== null) cover = Math.max(cover, beatInk(second, x, y));
-        if (scatter !== null) cover = Math.max(cover, scatterInk(scatter, x, y));
+        if (second !== null) cover = Math.max(cover, beatInk(second, x, y, alphabet));
+        if (scatter !== null) cover = Math.max(cover, scatterInk(scatter, x, y, alphabet));
         pixels[at + 3] = alpha * cover;
       }
     }

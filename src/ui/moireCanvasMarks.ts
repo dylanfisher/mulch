@@ -14,7 +14,15 @@
  *   src/lib/moireScreenField.ts. The whole-field lattice that is nothing but a pattern →
  *   src/ui/moireCanvasPattern.ts.
  */
-import { GLYPH_COUNT, GLYPH_GRID, markCoverage } from "@/lib/moireGlyph";
+import {
+  type Alphabet,
+  ALPHABET_REST,
+  ALPHABETS,
+  type AlphabetName,
+  GLYPH_COUNT,
+  GLYPH_GRID,
+  markCoverage,
+} from "@/lib/moireAlphabets";
 import { tunable } from "@/lib/moireTuning";
 import { type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
 
@@ -77,9 +85,10 @@ export type Stamp = {
   layer: HTMLCanvasElement;
   /** The marks' own tiles, one per mark, minted with the surfaces and never on a later frame. */
   tiles: (HTMLCanvasElement | null)[];
-  /** The bit grid's cell and the ink they were minted in: a frame that moved either mints them
-   *  again. */
-  minted: { bit: number; color: string };
+  /** The bit grid's cell, the ink and the alphabet they were minted in: a frame that moved any of
+   *  the three mints them again. The alphabet, because the stamp writes the picture in the same
+   *  hand the lattice under it is baked in, and the standing part of the song moves both (0356). */
+  minted: { bit: number; color: string; alphabet: AlphabetName };
 };
 const stamps = new WeakMap<HTMLCanvasElement, Stamp>();
 
@@ -121,7 +130,7 @@ function stampFor(canvas: HTMLCanvasElement, wide: number, deep: number, bit: nu
     mask: document.createElement("canvas"),
     layer: document.createElement("canvas"),
     tiles: [],
-    minted: { bit: 0, color: "" },
+    minted: { bit: 0, color: "", alphabet: ALPHABET_REST },
   };
   stamps.set(canvas, held);
   sized(held.read, wide, deep);
@@ -146,7 +155,12 @@ function stampFor(canvas: HTMLCanvasElement, wide: number, deep: number, bit: nu
  * wide and the same rounding this tile always did below that. Minted with the surfaces and never on
  * a frame, ink and all: a mark recoloured once a frame would be a surface minted on the frame.
  */
-function markTile(mark: number, bit: number, color: string): HTMLCanvasElement | null {
+function markTile(
+  alphabet: Alphabet,
+  mark: number,
+  bit: number,
+  color: string,
+): HTMLCanvasElement | null {
   const made = document.createElement("canvas");
   made.width = bit;
   made.height = bit;
@@ -156,7 +170,13 @@ function markTile(mark: number, bit: number, color: string): HTMLCanvasElement |
   ink.fillStyle = color;
   for (let down = 0; down < GLYPH_GRID; down++) {
     for (let across = 0; across < GLYPH_GRID; across++) {
-      const inked = markCoverage(mark, (across + 0.5) / GLYPH_GRID, (down + 0.5) / GLYPH_GRID, 0);
+      const inked = markCoverage(
+        alphabet,
+        mark,
+        (across + 0.5) / GLYPH_GRID,
+        (down + 0.5) / GLYPH_GRID,
+        0,
+      );
       if (inked > 0) {
         ink.fillRect(
           edge(across),
@@ -303,6 +323,7 @@ export function readMarks(
   cell: number,
   color: string,
   pushes: readonly MoireCellPush[],
+  alphabet: AlphabetName,
 ): Stamp | null {
   if (CELL_ROWS.value <= 0) return null;
   const wide = boxCells(field.width, cell);
@@ -311,10 +332,18 @@ export function readMarks(
   const stamp = stampFor(canvas, wide, deep, bit);
   const read = stamp.read.getContext("2d");
   if (read === null) return null;
-  if (stamp.minted.bit !== bit || stamp.minted.color !== color) {
+  if (
+    stamp.minted.bit !== bit ||
+    stamp.minted.color !== color ||
+    stamp.minted.alphabet !== alphabet
+  ) {
     stamp.minted.bit = bit;
     stamp.minted.color = color;
-    for (let mark = 0; mark < GLYPH_COUNT; mark++) stamp.tiles[mark] = markTile(mark, bit, color);
+    stamp.minted.alphabet = alphabet;
+    const letters = ALPHABETS[alphabet];
+    for (let mark = 0; mark < GLYPH_COUNT; mark++) {
+      stamp.tiles[mark] = markTile(letters, mark, bit, color);
+    }
   }
   // **Over the boxed span and never the field's own.** The box wrote its blocks on whole cells and
   // laid them back out to `wide * cell`, which overhangs the field by up to a cell (`boxField`);

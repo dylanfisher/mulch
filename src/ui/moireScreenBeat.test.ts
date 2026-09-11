@@ -7,14 +7,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_REST } from "@/lib/moire";
-import {
-  GLYPH_COUNT,
-  GLYPH_PHASE,
-  GLYPH_PUSH,
-  markAt,
-  markCoverage,
-  pushRead,
-} from "@/lib/moireGlyph";
+import { ALPHABETS, GLYPH_COUNT, markCoverage } from "@/lib/moireAlphabets";
+import { GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
 import { LATTICE_CELLS, latticeCells, latticeFold, LATTICE_REACH } from "@/lib/moireLattice";
 import { shapeRest } from "@/ui/moireShape";
 import { beatInk, beatLattice, beatTilePx } from "@/lib/moireScreenBeat";
@@ -138,7 +132,10 @@ describe("moireScreenBeat", () => {
     }
     // What it lays at a pixel is that cell's mark, at where in the cell the pixel falls.
     const mark = beat.marks[0] ?? 0;
-    expect(beatInk(beat, 2, 3)).toBeCloseTo(markCoverage(mark, 2 / cell, 3 / cell, beat.blur), 10);
+    expect(beatInk(beat, 2, 3, ALPHABETS.marks)).toBeCloseTo(
+      markCoverage(ALPHABETS.marks, mark, 2 / cell, 3 / cell, beat.blur),
+      10,
+    );
   });
 
   it("brings the second lattice in as the rack fills, and not for one effect", () => {
@@ -158,7 +155,10 @@ describe("moireScreenBeat", () => {
     const full = beatLattice(body, width, cell, cell, DRIFT_REST.hue, 0, [], 1);
     const half = beatLattice(body, width, cell, cell, DRIFT_REST.hue, 0, [], 0.5);
     for (let x = 0; x < width; x++)
-      expect(beatInk(half, x, 0)).toBeCloseTo(beatInk(full, x, 0) / 2, 10);
+      expect(beatInk(half, x, 0, ALPHABETS.marks)).toBeCloseTo(
+        beatInk(full, x, 0, ALPHABETS.marks) / 2,
+        10,
+      );
   });
 
   it("grows the tile to both cells as the rack fills, and draws one lattice while it does not", () => {

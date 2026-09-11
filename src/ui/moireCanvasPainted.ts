@@ -12,6 +12,7 @@
 // anything against the painting this file makes. Under the 800-line hard cap and over the warn.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+import { ALPHABET_REST, type AlphabetName } from "@/lib/moireAlphabets";
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import { cellPushRest, type MoireCellPush } from "@/ui/moireCellPush";
@@ -195,6 +196,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // otherwise, which is the picture before anything has landed and the still lattice 0346
       // shipped (`cellPushRest`, src/ui/moireCellPush.ts).
       pushes = cellPushRest(),
+      // And the hand the picture is written in: at its own rest unless a case says otherwise,
+      // which is the picture drawn before there was a song behind it (`ALPHABET_REST`,
+      // src/lib/moireAlphabets.ts, 0356).
+      alphabet = ALPHABET_REST,
     }: {
       frames?: number;
       advance?: number;
@@ -210,6 +215,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       tinting?: MoireTint;
       yard?: YardScene;
       pushes?: readonly MoireCellPush[];
+      alphabet?: AlphabetName;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -386,6 +392,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         tinting,
         yard,
         pushes,
+        alphabet,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

@@ -16,6 +16,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { fold } from "@/lib/copy";
+import type { AlphabetName } from "@/lib/moireAlphabets";
 import {
   FRACTAL_BEAT,
   FRACTAL_GEOMETRIES,
@@ -318,6 +319,15 @@ export type MoireRowSet = {
    */
   shape: MoireShape;
   shaping: MoireShaping;
+  /**
+   * And which of the three hands the whole picture is written in: the standing part of the song
+   * folded onto the cast's own names (`partAlphabet`, src/lib/moireAlphabets.ts, 0356). The field's
+   * and no row's, like the wash above it — a picture is one lattice in one alphabet — and a
+   * per-frame read rather than a fact about what the rack is set to, because what moves it is the
+   * walk arriving at the next section. The shipped marks until a read has filled it, which is the
+   * picture drawn before there was a song behind it.
+   */
+  alphabet: AlphabetName;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -441,6 +451,7 @@ export function macroInto(
   | "shape"
   | "shaping"
   | "tint"
+  | "alphabet"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);

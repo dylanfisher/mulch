@@ -68,7 +68,7 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
-import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
+import { deckLanes, moireRows, paintsPerFrame, refillRows, standingAlphabet } from "@/ui/moireRows";
 import {
   carryArrivals,
   carryFractal,
@@ -289,6 +289,11 @@ function useMoireRows(
     // Resolved here because the read and the paint both spend it (principle 1).
     set.sounding = peek.sounding;
     set.age = driftAge(set.sounding);
+    // And which of the three hands the picture is written in, off the part the walk is standing in
+    // (`standingAlphabet`, src/ui/moireRows.ts, 0356). The field's and no row's, like the two above
+    // it, and a read rather than a rebuild: what moves it is the walk arriving at the next section,
+    // which nothing durable has changed.
+    set.alphabet = standingAlphabet(peek.player);
     // And one step of the wind the standing rack blows the whole field with: how long that rack
     // takes to fall silent came back with the set, and this is where it has actually blown to
     // (`rackWind`, `windTravelInto`, src/ui/moireWind.ts, 0267). Here beside the age rather than
@@ -429,6 +434,7 @@ function useMoirePicture(
         set.tint,
         yard,
         set.jolt.pushes,
+        set.alphabet,
       );
     },
     [refill, yard],

@@ -13,7 +13,9 @@
  *   src/lib/moireLattice.ts.
  */
 import { type RunningCells, runCellPasses } from "@/lib/moireCells";
-import { markBlur, markCoverage } from "@/lib/moireGlyph";
+import type { Alphabet } from "@/lib/moireAlphabets";
+import { markCoverage } from "@/lib/moireAlphabets";
+import { markBlur } from "@/lib/moireGlyph";
 import { sceneCells } from "@/lib/moireScene";
 import { cellBlocks, type CellGrid, cellRead } from "@/lib/moireScreenCells";
 
@@ -95,9 +97,11 @@ export function beatBlocks(width: number, height: number, cell: number, at: numb
  * it — two lattices are one picture in one ink, and a cell under both of them is as solid as the
  * solider of the two and no solider (0345).
  */
-export function beatInk(beat: BeatLattice, x: number, y: number): number {
+export function beatInk(beat: BeatLattice, x: number, y: number, alphabet: Alphabet): number {
   const col = Math.floor(x / beat.cell);
   const row = Math.floor(y / beat.cell);
   const mark = beat.marks[row * beat.cols + col] ?? 0;
-  return beat.at * markCoverage(mark, x / beat.cell - col, y / beat.cell - row, beat.blur);
+  return (
+    beat.at * markCoverage(alphabet, mark, x / beat.cell - col, y / beat.cell - row, beat.blur)
+  );
 }

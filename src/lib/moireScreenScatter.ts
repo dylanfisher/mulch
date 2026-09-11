@@ -23,7 +23,9 @@
  *   and the wrapped ramp the other two lattices are cut by → src/lib/moireGlyph.ts. What a scene's
  *   bright points are and what a name's detail makes of them → src/lib/moireScene.ts.
  */
-import { GLYPH_COUNT, markAt, markBlur, markCoverage } from "@/lib/moireGlyph";
+import type { Alphabet } from "@/lib/moireAlphabets";
+import { GLYPH_COUNT, markCoverage } from "@/lib/moireAlphabets";
+import { markAt, markBlur } from "@/lib/moireGlyph";
 import { sceneCells, sceneRepeat } from "@/lib/moireScene";
 import { PER_PIXEL } from "@/lib/moireScreenCells";
 
@@ -168,12 +170,23 @@ export function scatterCut(read: ScatterRead): void {
  * picture in one ink, and a cell under two of them is as solid as the solider and no solider
  * (0345).
  */
-export function scatterInk(scatter: ScatterLattice, x: number, y: number): number {
+export function scatterInk(
+  scatter: ScatterLattice,
+  x: number,
+  y: number,
+  alphabet: Alphabet,
+): number {
   // Held to the grid on both axes the way the fine lattice's column is (`colOf`,
   // src/lib/moireScreenField.ts): a column past the last one would land on the next row's first
   // block rather than off the end, which no `?? 0` can catch.
   const col = Math.min(scatter.cols - 1, Math.floor(x / scatter.across));
   const row = Math.floor(y / scatter.down);
   const mark = scatter.marks[row * scatter.cols + col] ?? 0;
-  return markCoverage(mark, x / scatter.across - col, y / scatter.down - row, scatter.blur);
+  return markCoverage(
+    alphabet,
+    mark,
+    x / scatter.across - col,
+    y / scatter.down - row,
+    scatter.blur,
+  );
 }

@@ -1,27 +1,22 @@
 /**
- * @role The fields the marks bench still draws — one per direction the lattice of marks could be
- *   pushed in past 0346: a landing's push decaying down the loop and an alphabet per character —
- *   and the one dial each is drawn under. A field goes as its argument lands in the tile: the ground's with 0348,
- *   the delay's echoes and the reverb's bloom with 0349, the sound's own rows with 0350, the
- *   rack's own second lattice with 0351 and the scatter of big marks with 0352. Every field answers whether a point of the picture is inked, nought or
- *   one, in one ink on the page (0346): the real marks over the shipped bloom under the shipped
- *   film, no canvas, no clock, no context, so each is provable here and painted there.
+ * @role The plain field the marks bench measured every entry against, and the lattice it is read
+ *   through — all that is left of the bench now that every entry has landed: the ground's push with
+ *   0348, the delay's echoes and the reverb's bloom with 0349, the sound's own rows with 0350, the
+ *   rack's own second lattice with 0351, the scatter of big marks with 0352, the landing's push
+ *   with 0355 and the part's own alphabet with 0356. The file goes with the bench itself, which is
+ *   the step after that one. It answers whether a point of the picture is inked, nought or one, in
+ *   one ink on the page (0346): the real marks over the shipped bloom under the shipped film, no
+ *   canvas, no clock, no context, so it is provable here and painted there.
  * @instead The marks and the wrap onto them, which these read and never restate →
- *   src/lib/moireGlyph.ts. The three alphabets the part swaps between → src/ui/sketch/marks/sketchMarksAlphabet.ts. The scene, the film and the bench's own display → src/ui/sketch/sketchDrift.ts.
+ *   src/lib/moireGlyph.ts, and the alphabets they are written in → src/lib/moireAlphabets.ts. The
+ *   scene, the film and the bench's own display → src/ui/sketch/sketchDrift.ts.
  *   The walk that is the clock and the song here → src/ui/sketch/sketchWalk.ts. The page these
  *   are mounted on → src/ui/sketch/MarksPage.tsx. The tile these argue about →
  *   src/lib/moireScreenField.ts, which this never reads.
  */
-import {
-  GLYPH_COUNT,
-  GLYPH_PHASE,
-  GLYPH_PUSH,
-  markAt,
-  markCoverage,
-  pushRead,
-} from "@/lib/moireGlyph";
+import { ALPHABETS, GLYPH_COUNT, markCoverage } from "@/lib/moireAlphabets";
+import { GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
 import { sceneCells } from "@/lib/moireScene";
-import type { PlayerCharacter } from "@/lib/playerCast";
 import { FILM_SHARE, filmStand, gridPitchPx } from "@/lib/moireScreenFilm";
 import {
   BENCH_DPR,
@@ -29,16 +24,8 @@ import {
   SCENE_BENCH_PX,
   SCENE_DIAL,
   sceneField,
-  type SketchDial,
-  type SketchDriftField,
 } from "@/ui/sketch/sketchDrift";
-import {
-  ALPHABETS,
-  alphabetCoverage,
-  type AlphabetName,
-} from "@/ui/sketch/marks/sketchMarksAlphabet";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
-import { fixtureAt, SKETCH_STANDING, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
 
 /**
  * How many cells stand in the picture's height: the screen's own column pitch at the bench's
@@ -126,43 +113,9 @@ export function latticeInk(
 ): number {
   const col = Math.floor(x / cell);
   const row = Math.floor(y / cell);
-  return markCoverage(markOf(col, row), x / cell - col, y / cell - row, 0);
+  return markCoverage(ALPHABETS.marks, markOf(col, row), x / cell - col, y / cell - row, 0);
 }
 
 /** The picture with no entry's move on it: entry 11 of the drift bench, on the bloom, in one ink,
  * cut the way the tile cuts it (0348). */
 export const plainField = (x: number, y: number): number => latticeInk(x, y, CELL, plainMark);
-
-/**
- * Which alphabet each character is written in: the plain and the riff in the marks the picture
- * ships, the stutter and the scatter in strokes, the breathe and the slide in rings — a part's
- * character being the one fact about a section of the song the walk carries.
- */
-export const CHARACTER_ALPHABET: Record<PlayerCharacter, AlphabetName> = {
-  plain: "marks",
-  riff: "marks",
-  stutter: "strokes",
-  scatter: "strokes",
-  breathe: "rings",
-  slide: "rings",
-};
-
-/**
- * 06 — the alphabet swapped whole with the part: every cell keeps the mark the field chose for
- * it and is written in the alphabet its landing's character names. The dial is which landing of
- * the walk is standing; at the one the bench opens on the alphabet is the shipped marks.
- */
-export const PART_DIAL: SketchDial = {
-  min: 0,
-  max: SKETCH_WALK.length - 1,
-  step: 1,
-  rest: SKETCH_STANDING,
-};
-export const partAlphabet = (landing: number): AlphabetName =>
-  CHARACTER_ALPHABET[fixtureAt(SKETCH_WALK, Math.round(landing), "landing").character];
-export const partField: SketchDriftField = (x, y, landing) => {
-  const alphabet = ALPHABETS[partAlphabet(landing)];
-  const col = Math.floor(x / CELL);
-  const row = Math.floor(y / CELL);
-  return alphabetCoverage(alphabet, plainMark(col, row), x / CELL - col, y / CELL - row);
-};

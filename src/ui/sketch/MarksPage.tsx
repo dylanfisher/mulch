@@ -1,17 +1,19 @@
 /**
- * @role The marks bench at #/marks — the nav and the one list it mounts: the ways the lattice of
- *   marks could still be pushed past where 0346 left it — a landing's push decaying and an
- *   alphabet per part. The read pushed to its ramp's ends has landed (0348), the delay's echoes
- *   and the reverb's bloom in marks with it (0349), the sound's own rows stamped over the picture
- *   with those (0350), the rack's own second lattice (0351) and the scatter of big marks over the
- *   fine ones (0352); their entries have gone with them. Every entry carries
+ * @role The marks bench at #/marks — the nav and the one list it mounts, which is now **empty**:
+ *   every way the lattice of marks could be pushed past where 0346 left it has landed, and an
+ *   entry goes as its argument does — the read pushed to its ramp's ends (0348), the delay's echoes
+ *   and the reverb's bloom in marks (0349), the sound's own rows stamped over the picture (0350),
+ *   the rack's own second lattice (0351), the scatter of big marks over the fine ones (0352), a
+ *   landing's push down its loop (0355) and the part's own alphabet (0356). The page, the route and
+ *   this file go in the one step that takes the bench (0247). Every entry carried
  *   the one sentence it makes, the thing it gives up to make it and where in the real tile it
  *   would land, and every picture is the real marks over the shipped bloom under the shipped film
  *   in one ink, under the one dial that move turns. Its own route beside the structure bench for
  *   the structure bench's reason: every picture here reads a scene a cell at a time and writes a
  *   lattice a pixel at a time, and a page that mounts every other bench to show these is a
  *   page nobody opens (0295, 0347).
- * @instead The picture these argue with → src/ui/moireScreenTile.ts and src/lib/moireGlyph.ts.
+ * @instead The picture these argued with → src/ui/moireScreenTile.ts, src/lib/moireGlyph.ts and
+ *   src/lib/moireAlphabets.ts.
  *   The bench beside this one, and the frame and stage this borrows → src/ui/sketch/StructurePage.tsx,
  *   src/ui/sketch/SketchFrame.tsx and src/ui/sketch/SketchDriftStage.tsx.
  */
@@ -28,7 +30,6 @@ import { Wordmark } from "@/ui/Logo";
 import { MARKS_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
-import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
 import { COLS, ROWS } from "@/ui/sketch/marks/sketchMarks";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
@@ -49,26 +50,14 @@ export type MarksEntry = {
 };
 
 /**
- * The ways left to push the lattice of marks, none exclusive of another: an entry goes as its
- * argument lands in the tile (0348, 0349). The picture today is a
- * still lattice of the screen's own cells, each cell one of ten marks off a wrapped ramp, in one
- * ink, with the sound's cut read a cell at a time (0345, 0346). Each of these is one move, drawn
- * with the real marks over the shipped bloom under the shipped film, under the one dial that move
- * turns.
+ * The ways left to push the lattice of marks: **none**. Every entry the bench opened with has
+ * landed in the tile — the ground's push (0348), the delay's echoes and the reverb's bloom (0349),
+ * the sound's own rows (0350), the rack's own second lattice (0351), the scatter of big marks
+ * (0352), the landing's push down its loop (0355) and the part's own alphabet (0356) — and an
+ * entry goes as its argument lands. The list stands empty for the one step that takes the bench,
+ * its route and this page with it (0247).
  */
-export const SKETCH_MARKS: readonly MarksEntry[] = [
-  {
-    id: "part",
-    label: "The Part",
-    thesis:
-      "The alphabet swapped whole with the part: every cell keeps the mark the field chose for it and is written in the alphabet its landing's character names — the shipped marks, rings, or strokes. The song's sections are the one structure a picture could read as a different picture, and an alphabet is the one thing that can change without moving a cell.",
-    trades:
-      "one alphabet. The marks were drawn against a reference in one alphabet and one ink, and three alphabets is three references; a ring and a slash that carry the same ink read as different weights to an eye, so the ramp that reads density is read three ways.",
-    built:
-      "in src/lib/moireGlyph.ts as three tables in the marks' own shape, chosen off the player's part in the bake key in build at src/ui/moireScreenTile.ts. Bake-side, and a new tile at every part change; no dearer per tile.",
-    Content: SketchMarksPart,
-  },
-];
+export const SKETCH_MARKS: readonly MarksEntry[] = [];
 
 /**
  * The nav scrolls rather than linking, for the sketch bench's reason: the route is the whole hash,

@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0356; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0357; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -87,8 +87,8 @@ the levers that hold, records what stands over it with its cause, and the next c
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
-0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, and
-step 6 after that as 0355.
+0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, step
+6 after that as 0355 and step 7 as 0356.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -325,10 +325,25 @@ key, so a part change is one rebake. **Stands on:** `MARKS`, `alphabetOf` from t
 `standingPart`. **Outcome wanted:** a song's sections read as different pictures without a cell
 moving. **Tests that must fail first:** every alphabet is ten marks strictly rising in ink; a
 yard with no player writes marks; a stutter part writes strokes and the key differs. **Refused:**
-an alphabet per effect; a fourth alphabet without a character that needs it.
+an alphabet per effect; a fourth alphabet without a character that needs it. _Landed_ 2026-09-11 as
+[0356](decisions/0356-the-part-picks-the-alphabet.md): `ALPHABETS`, `alphabetOf`, `markCoverage`,
+`markWeight`, `CHARACTER_ALPHABET` and `partAlphabet` in a new src/lib/moireAlphabets.ts, the
+shipped `MARKS` moved there with the rings and the strokes beside it and refused at load unless
+each is ten marks of strictly rising ink; src/lib/moireGlyph.ts keeps the ramp and holds no table.
+The alphabet is one of three names on `ScreenBake` and on the key `screenOf` writes, so a section
+changing is one rebake, it crosses to the worker as plain data, and every lattice of a tile reads
+it — the fine one, the rack's second and the scatter — as does the frame-side stamp, whose mark
+tiles are now minted on the alphabet beside the bit and the ink. **The part's character is not the
+thing that picks it**, because a part has carried a spec and no character since 0176 and a label
+read back off the numbers is refused by 0174: what picks the alphabet is the part's own durable id,
+folded onto the same `PLAYER_CHARACTERS` a drawn part takes its name from, read off `step.part` so
+no moiré file walks the song for it. §4 holds what that gives up. The bench's entry 06 goes with
+it, and with it the last of the eight: `SKETCH_MARKS` now lists nothing and step 8 takes the shell.
 
 **Step 8 — the bench is deleted (bench-35).** _Durable shape moved:_ none. Entries 01–08 have
-landed or been refused in §4; `src/ui/sketch/marks/`, `MARKS_ROUTE`, the `"marks"` member, the
+landed or been refused in §4 — the last of them with 0356, which left `SKETCH_MARKS` empty and
+src/ui/sketch/marks/sketchMarks.ts holding nothing but the plain field the entries were measured
+against; `src/ui/sketch/marks/`, `MARKS_ROUTE`, the `"marks"` member, the
 App branch and the menu item go, and entries 10 and 11 of the drift bench with them, their
 arguments having landed (0339, 0345). **Stands on:** 0247. **Tests that must fail first:**
 SketchPage.test's cleared-id list names the bench's entries and MarksPage.test is gone. **Refused:** keeping
@@ -561,6 +576,41 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**A part's character does not pick the alphabet, because a part has no character (0356).** Step 7
+was written against "the standing part's character", and a part has carried a spec and no character
+since 0176: the character a drawn part takes is spent on drawing its voice and is never stored.
+Reading one back off the voice is refused outright by 0174 and by `partSignature` — a list of names
+has no nearest, so a label derived from the numbers would be an invention — and minting a durable
+character field on a part would have moved a durable shape the step said it moved none of. So the
+picture folds the part's own durable id onto `PLAYER_CHARACTERS` instead, which is a fact about
+_which_ section stands rather than a guess at how it sounds. What that gives up is the thing the
+bench drew: the stutter part does not necessarily read as strokes because it stutters — it reads as
+strokes because its id folds there. `standingAlphabet` sits beside `standingPart` in
+src/ui/moireRows.ts, which is where the step put the read, but it reads the step's own `part` id
+rather than the part `standingPart` walks the song for: the fold wants the id and the read has it. Three alphabets over six names means a third of the section
+changes leave the hand where it was, and a person cannot predict which hand a section will take
+until it plays. The honest fix is a durable character on a part, which is 0176's ground and a
+decision of its own; nothing here is in its way.
+
+**The marks bench's shell stands empty until step 8 (0356).** Entry 06 was the last of the eight,
+and the block's layout paragraph takes the whole directory, the route, the member, the branch and
+the menu item with the last entry. Step 8 is that step and this is not it, so what landed here is
+the entry alone: `src/ui/sketch/marks/SketchMarksPart.tsx` and `sketchMarksAlphabet.ts` are gone,
+`SKETCH_MARKS` is empty, and `sketchMarks.ts` holds nothing but the plain field the eight were
+measured against. One assertion moved with it — MarksPage's nav case asserted the bench listed at
+least one entry and now asserts it lists exactly what `SKETCH_MARKS` holds, which is nothing —
+because a page with no entries has no nav links, not because the claim was inconvenient. The claim
+it was there for, that no link the page mints leaves `#/marks`, still stands.
+
+**src/ui/moireScreen.test.ts was split rather than shaved (0356).** It stood at exactly the
+800-line cap, and the alphabet the painter now takes is one more argument in its recorder. Its own
+header waives the split on the grounds that every case stands on one screen, and arch does not
+honour that waiver. The three cases that paint nothing at all — the ink the four gratings and the
+band keep, the band rolling on the picture's own motion, and the lattice coming round at the tile's
+edge — moved whole to a new src/ui/moireScreenTerms.test.ts, which is a subject and not a slice:
+they read `moireScreenFilm`'s arithmetic and never the painter. Nothing was trimmed and no
+assertion changed.
 
 **A landing that jumps nowhere flares nothing, and the flare itself was never seen (0355).** The
 level a landing pushes at is `joltWalked`, the distance the walk jumped as a share of the furthest

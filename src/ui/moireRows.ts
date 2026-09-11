@@ -25,6 +25,7 @@
 // oxlint-disable import/max-dependencies
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
 import { effectById } from "@/audio/effects/registry";
+import { ALPHABET_REST, type AlphabetName, partAlphabet } from "@/lib/moireAlphabets";
 import { driftCut, grownInto, type GrownRun } from "@/ui/moireGrown";
 import { instanceInto, masterInto } from "@/ui/moireRack";
 // Re-exported beside the function that takes it: a caller building a picture needs the builder and
@@ -197,6 +198,16 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
   for (const each of song) if (each.id === part) return each;
   return null;
 }
+
+/**
+ * Which of the three hands the picture is written in while this peek stands: the standing part's
+ * own durable id folded onto the cast's names (`partAlphabet`, src/lib/moireAlphabets.ts, 0356),
+ * and the rest where nothing is standing. **Off the step's `part` and never off `standingPart`
+ * above**: the fold reads the id, which the step already carries, so the song is not walked a
+ * second time a painting for a part the read has in hand (principle 1).
+ */
+export const standingAlphabet = (player: Readonly<PlayerPeek>): AlphabetName =>
+  partAlphabet(player.step?.part ?? null);
 
 /**
  * How long this picture takes to travel a whole ground move, in real seconds — and nought on a
@@ -403,6 +414,8 @@ export function moireRows(
     // its own: a third fact about the same population (`rackShape`, src/ui/moireShape.ts).
     shaping: rackShape(standing),
     shape: shapeRest(),
+    // And the hand it is written in, at its own rest until the read says which part stands.
+    alphabet: ALPHABET_REST,
     ...macro,
   };
 }

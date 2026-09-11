@@ -1,16 +1,17 @@
 /**
- * @role The marks the drift picture is written in, and which of them a cell of the field gets: ten
- *   bit-grids ordered by how much ink each carries — nothing, a dot, a colon, a dash, a plus, a
- *   percent, an at, a hash, a star and a block — read at a cell's own normalised coordinates, and
- *   the wrapped ramp that turns where a cell stands on its scene's ramp into one of them. **The
- *   ramp wraps**: it starts partway along the marks and comes round, so the field's empty ground
- *   and its peaks both read as sparse marks and only the band between them reads dense, which is
- *   what makes a lattice of marks read as a picture and not as a halftone (0345).
- * @instead Where a mark is written into a tile, a cell at a time → src/lib/moireScreenField.ts, and
- *   the cell's own size, which is the screen's column pitch (`gridPitchPx`) there too.
- *   Where on its ramp a cell stands → the scene's own ground, src/lib/scene/. The ramp a value is
- *   read through for its colour → src/lib/moireColour.ts. The repeat a cell snaps to across a
- *   tile → `sceneRepeat`, src/lib/moireScene.ts.
+ * @role The ramp onto the marks: how hard a cell's read is pushed toward the ends of its scene's
+ *   ramp before it is cut, which of an alphabet's ten marks the pushed read lands on, and how soft
+ *   a mark is read at the size the cell actually is. **The ramp wraps**: it starts partway along
+ *   the marks and comes round, so the field's empty ground and its peaks both read as sparse marks
+ *   and only the band between them reads dense, which is what makes a lattice of marks read as a
+ *   picture and not as a halftone (0345). Arithmetic and no table — the marks themselves are one
+ *   alphabet of three and live beside the others.
+ * @instead The alphabets themselves, how a mark of one is read, and which of them the standing part
+ *   of a song picks → src/lib/moireAlphabets.ts. Where a mark is written into a tile, a cell at a
+ *   time → src/lib/moireScreenField.ts, and the cell's own size, which is the screen's column pitch
+ *   (`gridPitchPx`) there too. Where on its ramp a cell stands → the scene's own ground,
+ *   src/lib/scene/. The ramp a value is read through for its colour → src/lib/moireColour.ts. The
+ *   repeat a cell snaps to across a tile → `sceneRepeat`, src/lib/moireScene.ts.
  */
 import { wrap } from "./moire.ts";
 import { tunable } from "./moireTuning.ts";
@@ -44,84 +45,13 @@ export const pushRead = (value: number, push: number): number =>
   clamp(value + (value - 0.5) * push, 0, 1);
 
 /**
- * The ten marks, lightest first, each a square of `GLYPH_GRID` rows: nothing, a dot, a colon, a dash, a
- * plus, a percent, an at, a hash, a star and a block. **Bit-grids in the source and not a font**: a
- * mark rasterised from a face would be a different mark on every machine and none at all on the
- * recorder canvas the painter is tested against, and a picture that is gestural and digital is
- * written in marks nobody had to load (docs/plan.md, the scene block). **Five bits a side, because
- * the cell is the screen's own column pitch** — five CSS pixels, `gridPitchPx` — and a bit that is
- * a whole device pixel on every display is what keeps a stroke crisp under a pattern laid on whole
- * pixels (0346). The order is the one invariant: each carries strictly more ink than the one
- * before, asserted in its test, because the ramp below reads density and a mark out of order is a
- * step the ramp goes down.
- */
-/** How many bits a mark is across and down — the count anything drawing one bit at a time reads. */
-export const GLYPH_GRID = 5;
-
-export const MARKS: readonly (readonly string[])[] = [
-  [".....", ".....", ".....", ".....", "....."],
-  [".....", ".....", "..#..", ".....", "....."],
-  [".....", "..#..", ".....", "..#..", "....."],
-  [".....", ".....", ".###.", ".....", "....."],
-  [".....", "..#..", ".###.", "..#..", "....."],
-  ["#...#", "...#.", "..#..", ".#...", "#...#"],
-  [".###.", "#.#.#", "#.###", "#....", ".###."],
-  [".#.#.", "#####", ".#.#.", "#####", ".#.#."],
-  ["#.#.#", ".###.", "#####", ".###.", "#.#.#"],
-  ["#####", "#####", "#####", "#####", "#####"],
-];
-
-/** How many marks there are to write a cell in. */
-export const GLYPH_COUNT = MARKS.length;
-
-/** The grids as bits, one byte a cell, read a few hundred thousand times a build. */
-const bits: readonly Uint8Array[] = MARKS.map((rows) => {
-  if (rows.length !== GLYPH_GRID || rows.some((row) => row.length !== GLYPH_GRID)) {
-    throw new Error(`A mark is ${GLYPH_GRID} rows of ${GLYPH_GRID}, and one is not.`);
-  }
-  return Uint8Array.from(rows.join(""), (cell) => (cell === "#" ? 1 : 0));
-});
-
-/** How much of its square a mark inks, nought to one. */
-export const markWeight = (index: number): number => {
-  const mark = bits[index];
-  if (mark === undefined) throw new Error(`There is no mark ${index}.`);
-  return mark.reduce((sum, bit) => sum + bit, 0) / (GLYPH_GRID * GLYPH_GRID);
-};
-
-/** The bit of `index` under `(u, v)`, each on nought to one across the cell; outside it, nothing. */
-const bitAt = (mark: Uint8Array, u: number, v: number): number => {
-  if (u < 0 || u >= 1 || v < 0 || v >= 1) return 0;
-  return mark[Math.floor(v * GLYPH_GRID) * GLYPH_GRID + Math.floor(u * GLYPH_GRID)] ?? 0;
-};
-
-/**
- * How much of the pixel at `(u, v)` of a cell the mark `index` covers, nought to one: the bit under
- * it, read at the four corners of a square `blur` either side and averaged. **Four reads and not
- * one**, because a bit is a device pixel or two and a bit read once is a hard edge that crawls when
- * the lattice moves; read a quarter of a pixel either way it is the same mark, soft. `blur` is the caller's, in cell units, because only the caller knows how many device
- * pixels its cell is. At nought it is one read, which is what the tests read.
- */
-/**
- * That quarter-pixel, in the cell units the read above takes it in: a lattice whose cell is `cell`
- * device pixels reads its marks this soft. Here rather than at each lattice, because a quarter of a
+ * How soft a mark is read, in the cell units `markCoverage` takes it in (src/lib/moireAlphabets.ts):
+ * a quarter of a device pixel either way, which is what keeps a bit from crawling when the lattice
+ * moves. Here rather than at each lattice, because a quarter of a
  * device pixel is one fact and the picture now carries three lattices that have to agree on it —
  * the tile's own, the rack's second one and the specks' scatter (0345, 0351, 0352).
  */
 export const markBlur = (cell: number): number => (cell > 0 ? 0.25 / cell : 0);
-
-export function markCoverage(index: number, u: number, v: number, blur: number): number {
-  const mark = bits[index];
-  if (mark === undefined) throw new Error(`There is no mark ${index}.`);
-  if (blur <= 0) return bitAt(mark, u, v);
-  return (
-    (bitAt(mark, u - blur, v - blur) +
-      bitAt(mark, u + blur, v - blur) +
-      bitAt(mark, u - blur, v + blur) +
-      bitAt(mark, u + blur, v + blur)) /
-    4
-  );
-}
 
 /**
  * Which of `count` marks a cell standing at `value` on its ramp is written in: the ramp cut into

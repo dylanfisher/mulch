@@ -8,7 +8,7 @@ import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
-import { GLYPH_COUNT } from "@/lib/moireGlyph";
+import { GLYPH_COUNT } from "@/lib/moireAlphabets";
 import { moireRow as row } from "@/lib/moireRow";
 import { painterOn } from "@/ui/moireCanvasPainted";
 import { DRIFT_INK_SECS, screenInkRest } from "@/ui/moireScreenInk";

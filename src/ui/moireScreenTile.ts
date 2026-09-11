@@ -13,6 +13,7 @@
  *   src/ui/moireScreenStops.ts. The grounds the scenes lay down → src/lib/scene/.
  */
 import type { ScreenInk } from "@/lib/moire";
+import type { AlphabetName } from "@/lib/moireAlphabets";
 import type { MoireCells } from "@/lib/moireCells";
 import type { Ink } from "@/lib/moireColour";
 import type { ScreenBake } from "@/lib/moireScreenField";
@@ -91,6 +92,7 @@ export function screenTile(
   cell: number,
   cells: readonly MoireCells[],
   beat: number,
+  alphabet: AlphabetName,
 ): ScreenStanding | null {
   const slot = canvasSlot(canvas);
   const held = screenStanding(key, slot);
@@ -123,6 +125,9 @@ export function screenTile(
     yard: { ...yard },
     // Deep to the terms: `rackCells` hands back slots it refills every painting (0349, 0070).
     cells: cells.map((pass) => ({ ...pass, terms: { ...pass.terms } })),
+    // One name, which is what crosses a `postMessage`: the table it stands for is the worker's own
+    // constant (`ALPHABETS`, src/lib/moireAlphabets.ts).
+    alphabet,
   };
   return screenTileFor(order, slot);
 }

@@ -32,12 +32,16 @@ describe("the marks route", () => {
     expect(routeOf("")).toBe("instrument");
   });
 
-  /** A bare `#beat` is a route change: it leaves `#/marks` and the bench unmounts (0054). */
+  /**
+   * A bare `#beat` is a route change: it leaves `#/marks` and the bench unmounts (0054). Every
+   * entry has now landed, so the nav has nothing to list — and what is left to hold is that the
+   * page never mints a link off the route, whatever it lists (0247).
+   */
   it("keeps every nav link on the marks route and the wordmark on the way home", () => {
     const hrefs = [...markup.matchAll(/href="([^"]*)"/gu)].map(([, href]) => href);
     expect(hrefs).toContain(INSTRUMENT_ROUTE);
     const nav = hrefs.filter((candidate) => candidate !== INSTRUMENT_ROUTE);
-    expect(nav).not.toHaveLength(0);
+    expect(nav).toHaveLength(SKETCH_MARKS.length);
     for (const href of nav) expect(href).toBe(MARKS_ROUTE);
   });
 });
@@ -46,9 +50,9 @@ describe("MarksPage mounts the bench", () => {
   /** What is left of the eight the bench was asked for, and every one off the list (0254): an
    * entry goes as its argument lands in the tile — the ground's with 0348, the echoes' and the
    * bloom's with 0349, the rows' with 0350, the beat's with 0351, the scatter's with 0352, the
-   * decay's with 0355. */
+   * decay's with 0355 and the part's own alphabet with 0356 — which was the last of them. */
   it("mounts every entry, with one id apiece", () => {
-    expect(SKETCH_MARKS.length).toBe(1);
+    expect(SKETCH_MARKS.length).toBe(0);
     const landed = ["ground", "echoes", "bloom", "rows", "beat", "scatter", "decay"];
     for (const gone of landed) {
       expect(

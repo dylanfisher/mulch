@@ -6,7 +6,8 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GLYPH_COUNT, markAt, markWeight } from "@/lib/moireGlyph";
+import { ALPHABETS, GLYPH_COUNT, markWeight } from "@/lib/moireAlphabets";
+import { markAt } from "@/lib/moireGlyph";
 import { moireRow as row } from "@/lib/moireRow";
 import type { SceneSpecks } from "@/lib/moireScene";
 import { YARD_SCENE_REST } from "@/lib/yardScene";
@@ -92,9 +93,9 @@ describe("moireScreenScatter", () => {
     expect(scatter.marks[2]).toBeLessThan(GLYPH_COUNT - 1);
     for (let y = 0; y < BLOCK; y++) {
       for (let x = 0; x < BLOCK; x++) {
-        expect(scatterInk(scatter, x, y)).toBeGreaterThan(0);
-        expect(scatterInk(scatter, BLOCK + x, y)).toBe(0);
-        expect(scatterInk(scatter, 3 * BLOCK + x, y)).toBe(0);
+        expect(scatterInk(scatter, x, y, ALPHABETS.marks)).toBeGreaterThan(0);
+        expect(scatterInk(scatter, BLOCK + x, y, ALPHABETS.marks)).toBe(0);
+        expect(scatterInk(scatter, 3 * BLOCK + x, y, ALPHABETS.marks)).toBe(0);
       }
     }
   });
@@ -111,11 +112,15 @@ describe("moireScreenScatter", () => {
     // square, in pixels, is the area the picture spends on one big mark.
     let laid = 0;
     for (let y = 0; y < BLOCK; y++) {
-      for (let x = 0; x < BLOCK; x++) laid += scatterInk(scatter, x + 0.5, y + 0.5);
+      for (let x = 0; x < BLOCK; x++)
+        laid += scatterInk(scatter, x + 0.5, y + 0.5, ALPHABETS.marks);
     }
     // And what it inks is that mark's own share of the square — the same mark the fine lattice
     // writes, at nine cells' size and not at a cell's, which is the whole of what the layer is.
-    expect(laid).toBeCloseTo(markWeight(mark) * SCATTER_SPAN * SCATTER_SPAN * CELL * CELL, 10);
+    expect(laid).toBeCloseTo(
+      markWeight(ALPHABETS.marks, mark) * SCATTER_SPAN * SCATTER_SPAN * CELL * CELL,
+      10,
+    );
   });
 
   it("comes round on the tile it is laid across, whatever the cell count", () => {

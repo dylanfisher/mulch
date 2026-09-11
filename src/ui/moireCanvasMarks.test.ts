@@ -20,7 +20,8 @@
 // oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GLYPH_COUNT, GLYPH_GRID, GLYPH_PUSH, markAt, markWeight } from "@/lib/moireGlyph";
+import { ALPHABETS, GLYPH_COUNT, GLYPH_GRID, markWeight } from "@/lib/moireAlphabets";
+import { GLYPH_PUSH, markAt } from "@/lib/moireGlyph";
 import { type SceneName, sceneRepeat } from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
@@ -100,7 +101,7 @@ function coverOf(pixels: Uint8ClampedArray): number[] {
  * one whose mean stands above the plus's own weight.
  */
 function heavyShare(scene: SceneName, push: number): number {
-  const plus = markWeight(4);
+  const plus = markWeight(ALPHABETS.marks, 4);
   setTuning("glyph.push", push);
   const pixels = tileOf(paintingOf({ ...YARD_SCENE_REST, scene }));
   const pitch = gridPitchPx(2);
@@ -389,10 +390,10 @@ describe("the marks the painter puts down", () => {
     // the first mark is the one that carries no ink at all. The lattice under it wraps (0345); this
     // one must not, or silence would be written as the sparse mark the ground is written in.
     expect(bandFloor(0)).toBe(0);
-    expect(markWeight(0)).toBe(0);
+    expect(markWeight(ALPHABETS.marks, 0)).toBe(0);
     for (let mark = 1; mark < GLYPH_COUNT; mark++) {
       expect(bandFloor(mark), `band ${mark} starts at nought`).toBeGreaterThan(0);
-      expect(markWeight(mark), `mark ${mark} carries no ink`).toBeGreaterThan(0);
+      expect(markWeight(ALPHABETS.marks, mark), `mark ${mark} carries no ink`).toBeGreaterThan(0);
     }
     // And a band is where the unwrapped ramp says it is, all the way up: the heaviest band a read
     // stands above is the mark `markAt` writes that read in.

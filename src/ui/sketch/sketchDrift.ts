@@ -10,14 +10,8 @@
  *   real picture these argue about → src/lib/moireFractal.ts, src/ui/moireCanvas.ts and
  *   src/ui/moireScreen.ts, none of which this reads.
  */
-import {
-  GLYPH_COUNT,
-  GLYPH_PHASE,
-  GLYPH_PUSH,
-  markAt,
-  markCoverage,
-  pushRead,
-} from "@/lib/moireGlyph";
+import { ALPHABETS, GLYPH_COUNT, markCoverage } from "@/lib/moireAlphabets";
+import { GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
 import { type SceneName, SCENE_REACH_TERMS, sceneCells, sceneRepeat } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
@@ -374,6 +368,6 @@ export const glyphField: SketchDriftField = (x, y, flat) => {
   const mark = markAt(pushRead(stood, GLYPH_PUSH.rest), GLYPH_COUNT, GLYPH_PHASE.rest);
   const u = (px - Math.floor(px / GLYPH_ACROSS) * GLYPH_ACROSS) / GLYPH_ACROSS;
   const v = (py - row * GLYPH_DOWN) / GLYPH_DOWN;
-  if (markCoverage(mark, u, v, 0) < 0.5) return 0;
+  if (markCoverage(ALPHABETS.marks, mark, u, v, 0) < 0.5) return 0;
   return FILM_GROUND_STOP + (1 - FILM_GROUND_STOP) * (stood + (0.5 - stood) * flat);
 };

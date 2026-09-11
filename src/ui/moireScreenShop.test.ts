@@ -43,6 +43,7 @@ const orderAt = (hue: number, wide = WIDE): ScreenBake => ({
   tint: { fringe: 0, disperse: 0, hue, saturate: 0 },
   yard: { ...YARD_SCENE_REST },
   cells: [],
+  alphabet: "marks",
 });
 
 /** The worker, standing in: every bake asked for is kept, and answered only when a case says so. */

@@ -60,6 +60,7 @@ import {
   type MoireWind,
   type ScreenInk,
 } from "@/lib/moire";
+import type { AlphabetName } from "@/lib/moireAlphabets";
 import { octaveAlpha, octaveShare, octavesOf } from "@/lib/moireOctaves";
 import {
   gratingFloor,
@@ -585,6 +586,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * name belongs to the surface and a painter that read the store would be a second reader of it —
  * and nothing about it is stored, because a reading of a name that is already durable is not a
  * second fact that can disagree with the first (0145).
+ *
+ * And `alphabet`, which of the three hands the whole picture is written in — the standing part of
+ * the song folded onto the cast's own names (`partAlphabet`, src/lib/moireAlphabets.ts, 0356). It
+ * reaches both lattices of marks, the tile's baked one through the key and the stamp's frame-side
+ * one through the tiles it mints, because they are one picture in one hand.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -605,6 +611,7 @@ export function paintMoire(
   tinting: Readonly<MoireTint>,
   yard: Readonly<YardScene>,
   pushes: readonly MoireCellPush[],
+  alphabet: AlphabetName,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -646,7 +653,7 @@ export function paintMoire(
   boxField(field, ink, cell);
   // And that same reading taken into the stamp's own grid, beside the box that made it: what it
   // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
-  const marks = readMarks(canvas, field, cell, color, pushes);
+  const marks = readMarks(canvas, field, cell, color, pushes, alphabet);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
@@ -654,7 +661,18 @@ export function paintMoire(
   // per strip of it (`inkThrough`, src/ui/moireScreen.ts).
   // The last term is how full the rack is, read off the lattice cell the shape has already
   // travelled to: what brings the second lattice of marks into the tile as the rack fills (0278).
-  inkThrough(canvas, context, rows, color, tint, wind.drift, yard, looks, latticeFold(shape.cells));
+  inkThrough(
+    canvas,
+    context,
+    rows,
+    color,
+    tint,
+    wind.drift,
+    yard,
+    looks,
+    latticeFold(shape.cells),
+    alphabet,
+  );
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the
   // structure off the plane the picture already stands on and never off a second one (0296).
