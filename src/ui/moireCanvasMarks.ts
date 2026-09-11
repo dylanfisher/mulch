@@ -262,6 +262,44 @@ function liftPushes(
 }
 
 /**
+ * How many cells of a read `wide` across stand on one side of the picture: half of them, rounded
+ * **down**, so the two sides are the same size and an odd middle column stands on neither. A cell
+ * the two halves shared would be lifted whichever way the output leans, which is a column that
+ * never answers the pan — and a picture one cell wide has no sides at all and lifts nothing.
+ */
+export const sideCells = (wide: number): number => Math.floor(wide / 2);
+
+/**
+ * Lift the half of the picture the output is louder on, on the boxed read and before a band is cut
+ * out of it — the same read the landings are lifted into and in the same one arithmetic. One mark's
+ * worth of the ramp (`bandFloor(1)`) at the whole gap between the two sides (`heardSides`,
+ * src/lib/moireSound.ts), so a hard pan writes that half one mark denser and the other exactly as it
+ * read: the lattice's weight sweeps with the panner.
+ *
+ * **The louder half and never both.** The read is taken for its alpha and a `lighter` fill only
+ * adds, so the quieter side is the picture as it stood — each side's level over the mean is the same
+ * fact signed two ways, and lifting the louder one by the whole gap says it once (principle 1).
+ *
+ * The reading arrives bounded to a whole one either way and finite, because that is what
+ * `heardSides` answers with; it is not bounded a second time here, nor where the crawl spends it
+ * (`inkThrough`, src/ui/moireScreen.ts) — a bound written at three sites is three places to disagree
+ * about what the reading is (principle 1).
+ *
+ * **On the read and never on the picture**, exactly as `liftPushes` is: one fillRect over a surface
+ * one pixel a cell, no pass added, nothing picture-sized drawn and no tile rebaked (plan §1,
+ * checkpoint A; 0353, 0354).
+ */
+function liftSides(ink: CanvasRenderingContext2D, sides: number, wide: number, deep: number): void {
+  const half = sideCells(wide);
+  if (half <= 0 || sides === 0) return;
+  ink.globalCompositeOperation = "lighter";
+  ink.globalAlpha = bandFloor(1) * Math.abs(sides);
+  ink.fillRect(sides > 0 ? 0 : wide - half, 0, half, deep);
+  ink.globalAlpha = 1;
+  ink.globalCompositeOperation = "copy";
+}
+
+/**
  * Cut `mark`'s own band out of the boxed read: the read taken down to the band's floor and back up
  * `STAMP_SLOPE` doublings, folded into a step, and then the bands already stamped taken out of it —
  * so the ten bands are disjoint and a cell is written in the heaviest mark it stands above. The
@@ -315,7 +353,9 @@ function cutBand(
  *
  * And `pushes` is the landings still falling (`cellPushInto`, src/ui/moireCellPush.ts), lifted into
  * the read here rather than into any pass below it: one reading thresholded ten times, so a row
- * lifted is lifted for every mark at once and the ten bands stay disjoint.
+ * lifted is lifted for every mark at once and the ten bands stay disjoint. `sides` is where the
+ * output's weight is between its two channels (`shape.sides`, src/ui/moireShape.ts), lifted into the
+ * same read the same way and for the same reason.
  */
 export function readMarks(
   canvas: HTMLCanvasElement,
@@ -323,6 +363,7 @@ export function readMarks(
   cell: number,
   color: string,
   pushes: readonly MoireCellPush[],
+  sides: number,
   alphabet: AlphabetName,
 ): Stamp | null {
   if (CELL_ROWS.value <= 0) return null;
@@ -357,6 +398,9 @@ export function readMarks(
   // And the landings still falling lifted into that same read, before any band is cut out of it:
   // the rows a landing stands in go one mark denser at its level and settle as it falls.
   liftPushes(read, pushes, wide, deep);
+  // And the louder half of the output lifted on that same read, beside them: a landing is a band of
+  // rows going denser and this is a side of the picture doing it (`liftSides`).
+  liftSides(read, sides, wide, deep);
   return stamp;
 }
 

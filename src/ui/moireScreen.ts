@@ -278,6 +278,11 @@ function cutThrough(
  * `fillStyle` set to the screen, or to the flat colour where the engine would not build one, which
  * is the picture its caller drew before there was a screen behind it.
  *
+ * `sides` is how many whole cells of the marks the output's weight leans the crawl by, toward the
+ * louder of its two channels (`shape.sidesCells`, src/ui/moireShape.ts). Whole cells already, and
+ * rounded there rather than here, because the reading behind them is not monotone: rounded at the
+ * spend, a mix sitting near a cell's edge would hop the lattice a cell and back between frames.
+ *
  * `wind` is how far the standing rack's own tail has blown the whole field, in turns of one cell of
  * the grid (0267). The one term here that does not come back: every other motion of the screen is a
  * cycle of a row's own phase, and this is a reading of the population running one way.
@@ -289,6 +294,7 @@ export function inkThrough(
   color: string,
   ink: Readonly<ScreenInk>,
   wind: number,
+  sides: number,
   yard: Readonly<YardScene>,
   looks: readonly MoireLook[],
   fold: number,
@@ -352,7 +358,15 @@ export function inkThrough(
   // beat cell**: a translation of exactly one tile is the identity for a repeating pattern and a
   // translation of anything else is not, so a crawl sweeping a seventh of a tile standing the
   // second lattice would snap the whole picture back once a cycle (`screenTilePx`, 0351).
-  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * drawn.width) / pitch) * pitch;
+  // And the output's own two sides leaning that same axis: the crawl is the one travel the lattice
+  // makes across the picture, and this is which way it is pulled — toward the louder side, so a
+  // panner sweeping sweeps the lattice with it. In whole cells and not in turns of the tile, because
+  // it is a lean of a few marks and not a sweep of the whole period, and taken off the rounding
+  // rather than through it: the cells are already whole, so the lattice still lands where 0346 says
+  // and the step is the reading's own (`leanCells`). Like the wind it is a term on the transform and
+  // touches no key, so a mix panned all day bakes nothing (0129).
+  rolled.e =
+    (Math.round(((termTurns(rows, "crawl") + wind) * drawn.width) / pitch) - sides) * pitch;
   turnedScale(
     rolled,
     1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

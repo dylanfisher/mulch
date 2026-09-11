@@ -188,6 +188,21 @@ export const heardLevel = (level: number): number =>
   Number.isFinite(level) ? clamp(level, 0, 1) : 0;
 
 /**
+ * And what the same output's two sides say about where its weight is: the gap between them, signed
+ * toward the left and bounded to a whole one either way. The difference and never a ratio of the
+ * two: a ratio is the same number for a whisper panned hard and a mix panned hard, and it is
+ * undefined for silence — the gap says *how much* weight is on one side, so a quiet pan moves the
+ * picture a little and a loud one moves it all the way. Twice each side's own level over the mean
+ * of the pair, which is the one arithmetic there is between two channels.
+ *
+ * A peek reading hotter than one on either side is a peak measured where the decks land rather than
+ * after the ceiling (`MasterPeek`, src/audio/context.ts), so the gap is clamped here rather than
+ * trusted, and a bus reporting nothing at all is a picture with no side to lean to.
+ */
+export const heardSides = (left: number, right: number): number =>
+  Number.isFinite(left) && Number.isFinite(right) ? clamp(left - right, -1, 1) : 0;
+
+/**
  * What the brightness of the session's own output is as a spacing: the same band, read the same
  * way, as the onset density of a source and an effect's own `pitch` claim — a dark mix draws the
  * row of the whole session at the coarse end and a bright one at the fine end. A tilt already

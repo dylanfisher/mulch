@@ -16,7 +16,7 @@ import { effectById } from "@/audio/effects/registry";
 import { effectHeard } from "@/audio/params";
 import { easedToward, wrap } from "@/lib/moire";
 import { LATTICE_CELLS, LATTICE_LEAN, latticeCells, latticeLean } from "@/lib/moireLattice";
-import { heardLevel } from "@/lib/moireSound";
+import { heardLevel, heardSides } from "@/lib/moireSound";
 import { DRIFT_WIND_SECS } from "@/ui/moireWind";
 import type { MasterPeek } from "@/app/facade";
 import type { DeckState } from "@/state/store";
@@ -47,6 +47,53 @@ export type MoireShape = {
   sway: number;
   lean: number;
   loud: number;
+  /**
+   * And where the output's weight is between its two sides, signed toward the left on -1..1
+   * (`heardSides`, src/lib/moireSound.ts): what the marks are lifted by on the louder half of the
+   * picture and which way the screen's crawl leans (`readMarks`, src/ui/moireCanvasMarks.ts;
+   * `inkThrough`, src/ui/moireScreen.ts). Here beside the lean and the loudness because it is the
+   * third reading of the same output and it moves nothing durable — and travelled on the same short
+   * window they are, a pan being a reading of this moment.
+   */
+  sides: number;
+  /**
+   * And that same weight as the whole cells of the marks the screen's crawl is leaning by
+   * (`inkThrough`, src/ui/moireScreen.ts). A field of its own and not a rounding done at the spend,
+   * because a rounding is where a reading that is not monotone flickers: the two sides are
+   * unsmoothed peaks, so a mix sitting near a cell's edge would hop the whole lattice a cell and
+   * back on alternate frames, which is the still lattice moving (0346). It steps only once the
+   * weight has carried past the cell it is leaning at by `SIDES_HOLD`.
+   */
+  sidesCells: number;
+};
+
+/**
+ * How far the louder side pulls the lattice along the crawl's own axis, in whole cells of the marks
+ * at a whole side's worth of weight. Three, because the lattice is read as a standing grid: one cell
+ * is inside the swing the crawl already has and would not read as a side at all, and a lean the eye
+ * can follow across a sweeping pan has to be a few marks — far enough to see, near enough that a
+ * hard pan is the same picture leaning rather than a second picture.
+ */
+export const SIDES_CELLS = 3;
+
+/**
+ * And how far past the cell it is leaning at the weight must carry before the lattice steps: more
+ * than half a cell, so a mix dithering about a cell's own edge cannot hop the picture back and
+ * forth, and less than a whole one, so a pan sweeping still steps at every cell it passes. Three
+ * fifths, which is over twice the furthest one painting's travel can carry the reading at the rate
+ * above.
+ */
+const SIDES_HOLD = 0.6;
+
+/**
+ * Which whole cell the lattice leans at, given where the weight stands and where it is leaning now:
+ * the cell the weight names, but only once it stands more than `SIDES_HOLD` from the one already
+ * held. The one place the reading is rounded, so the picture steps when the pan moves and never
+ * when the peaks wobble.
+ */
+export const leanCells = (sides: number, held: number): number => {
+  const want = sides * SIDES_CELLS;
+  return Math.abs(want - held) >= SIDES_HOLD ? Math.round(want) : held;
 };
 
 /** What a rack nobody has added to asks for: nothing standing, and so the loosest lattice. */
@@ -58,6 +105,8 @@ export const shapeRest = (): MoireShape => ({
   sway: 0,
   lean: 0,
   loud: 0,
+  sides: 0,
+  sidesCells: 0,
 });
 
 /**
@@ -139,6 +188,11 @@ export function shapeTravelInto(
     LATTICE_LEAN.value,
   );
   shape.loud = easedToward(shape.loud, heardLevel(master.level), elapsed, heard, 1);
+  // The whole span of the pair and not a half: the reading runs from a whole one left to a whole
+  // one right, so a hard pan crossing to the other side travels the same distance in the same time
+  // a hit takes to thicken the gutter (`SHAPE_HEARD_SECS`).
+  shape.sides = easedToward(shape.sides, heardSides(master.left, master.right), elapsed, heard, 2);
+  shape.sidesCells = leanCells(shape.sides, shape.sidesCells);
   if (!running) return;
   shape.sway = wrap(shape.sway + wander * Math.max(elapsed, 0), 1);
 }

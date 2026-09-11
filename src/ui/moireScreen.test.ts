@@ -42,7 +42,7 @@ import {
 } from "@/lib/moireScreenFilm";
 import { sceneHue } from "@/lib/moireScreenCells";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
-import { shapeRest } from "@/ui/moireShape";
+import { leanCells, type MoireShape, shapeRest } from "@/ui/moireShape";
 import { tintRest } from "@/ui/moireTint";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -58,6 +58,9 @@ const claiming = (term: (typeof SCREEN_TERMS)[number], over: Partial<MoireRow> =
 
 /** Where the painter put the screen for one fill: the whole matrix, not just how far it rolled. */
 type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
+
+/** How far along the crawl's own axis one painting placed the screen. */
+const crawledTo = (painting: { moves: Move[] }): number => painting.moves[0]?.e ?? 0;
 
 /**
  * A colour no other painting in this file asked for. The painter holds its tiles by what they are
@@ -140,6 +143,7 @@ function paintedOn(
   wind = 0,
   color = nextColor(),
   yard: Readonly<YardScene> = YARD_SCENE_REST,
+  shape: Readonly<MoireShape> = shapeRest(),
 ) {
   const { create, taken, tile } = tileStub();
   const made: { moves: Move[]; pattern: unknown }[] = [];
@@ -188,7 +192,7 @@ function paintedOn(
     ink ?? arrivedInk(rows),
     { drift: wind, veer: 1 },
     [],
-    shapeRest(),
+    shape,
     tintRest(),
     // Every case but the scene's own paints the meadow, which is seed heads since 0334: a ramp of
     // the leaf dark, the hot ink, its own tan, the lit leaf and a pale sky, warm for four stops of
@@ -446,6 +450,48 @@ describe("moireScreen", () => {
     // is a term on the transform and touches nothing the tile is keyed by.
     expect(still.tile).toBeDefined();
     expect(blown.tile).toBeNull();
+  });
+
+  it("leans the crawl toward the louder of the output's two sides, and bakes nothing to do it", () => {
+    // The eleventh step of the block: the output's two sides reach the picture, and the crawl is
+    // the one travel the lattice makes across it — so the lattice is pulled toward the side the
+    // sound is louder on, in whole cells of the marks and on no other cell of the matrix.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const pitch = gridPitchPx(2);
+    const rows = [claiming("crawl"), row({ period: 4, phase: 1, reference: true })];
+    const colour = nextColor();
+    const panned = (sides: number) => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      return paintedOn(200, 64, rows, undefined, 0, colour, YARD_SCENE_REST, {
+        ...shapeRest(),
+        sidesCells: leanCells(sides, 0),
+      });
+    };
+    const even = panned(0);
+    const left = panned(1);
+    const right = panned(-1);
+    // Toward the louder side: the left pulls the lattice back along the axis and the right pushes
+    // it on, by the same distance either way.
+    expect(crawledTo(left)).toBeLessThan(crawledTo(even));
+    expect(crawledTo(right)).toBeGreaterThan(crawledTo(even));
+    expect(crawledTo(even) - crawledTo(left)).toBeCloseTo(crawledTo(right) - crawledTo(even), 10);
+    // By whole cells of the marks, like every other motion of the lattice since 0346.
+    expect((crawledTo(even) - crawledTo(left)) % pitch).toBeCloseTo(0, 10);
+    // And by more than one of them: a lean of a single cell is inside the swing the crawl already
+    // has and would not read as a side at all.
+    expect(crawledTo(even) - crawledTo(left)).toBeGreaterThan(pitch);
+    // The cells are whole where they are read and not where they are spent, so what the crawl is
+    // handed is exactly what it leans by (`leanCells`, src/ui/moireShape.ts).
+    expect(crawledTo(even) - crawledTo(left)).toBe(leanCells(1, 0) * pitch);
+    // And on that one cell of the matrix and no other: a lean on any of the rest would be a second
+    // motion rather than the crawl's own.
+    for (const cell of ["a", "b", "c", "d", "f"] as const)
+      expect(left.moves[0]?.[cell]).toBeCloseTo(even.moves[0]?.[cell] ?? 0, 10);
+    // And no tile at all: the sides are a term on the transform and touch nothing the tile is keyed
+    // by, so a mix panned all day bakes nothing (0129).
+    expect(even.tile).not.toBeNull();
+    expect(left.tile).toBeNull();
+    expect(right.tile).toBeNull();
   });
 
   it("sweeps the lattice through square rather than around it", () => {

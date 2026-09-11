@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0361; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0362; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -475,7 +475,7 @@ reaches a tile key and the bake count is untouched (0353, 0354). The gate's `dri
 device and nothing else — the ring carries no `"t":"error"` and a headless `AudioContext` stands at
 0.0058 s after 800 ms.
 
-**Step 11 — the master's two sides (bench-38).** _Durable shape moved:_ none. `MasterPeek.left`
+**Step 11 — the master's two sides (bench-38, 0361).** _Durable shape moved:_ none. `MasterPeek.left`
 and `right` reach no moiré file. They reach the stamp: the threshold passes are lifted on the
 picture's left and right halves by each side's level over the mean, so a panner sweeping is the
 lattice's weight sweeping with it, and the screen's crawl runs toward the louder side. **Stands
@@ -483,6 +483,25 @@ on:** `stampMarks`; `inkThrough`'s crawl (rounded to whole cells, 0346). **Outco
 hard-left pan is a lattice heavy on the left. **Tests that must fail first:** a frame with
 `left > right` stamps heavier in the left half's cells than the right's, and the reverse; equal
 sides stamp the same. **Refused:** a per-side rebake; a stereo scene.
+
+**It landed as [0361](decisions/0361-the-masters-two-sides-lean-the-lattice.md)**, and the outcome is
+met: a hard-left pan is a lattice heavy on the left, and the picture leans that way as the panner
+sweeps. The pair is one signed reading — `heardSides` in src/lib/moireSound.ts, the gap between the
+two peaks and never a ratio of them — travelled on `MoireShape` beside the lean and the loudness the
+same output already gives it, so it reaches the painter through the `shape` the painting is handed
+and needs no second carry and no second parameter. It is spent twice: `liftSides` lifts the louder
+half of the boxed read by one mark's worth of the ramp, on the same surface and in the same
+`lighter` fill a landing's lift uses (0355), and the crawl leans three whole cells of the marks
+toward that side. The review moved one thing: the cell the crawl leans by is rounded where the
+reading is travelled and not where the crawl spends it, and it is held until the weight has carried
+three fifths of a cell past it — the two sides are unsmoothed peaks, and every other term in that
+translation is monotone, so a mix sitting near a cell's edge would have hopped the whole lattice a
+cell and back between frames. No frame cost either way: the lift is one
+fillRect on a surface one pixel a cell, the lean is a term on a transform, and the gate holds both —
+a panned frame pays the picture-sized draws of an even one (`STAMP_PICTURE_DRAWS`, 0353, 0358) and
+bakes no tile (0129, 0354). Two things the step's own words left open went one way and are in §4: an
+odd middle cell column stands on neither side, and no dial was minted for either the lift or the
+lean.
 
 **Every facet of playback reaches the lattice (steps 12–14).**
 
@@ -654,6 +673,52 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The louder half is lifted by the whole gap rather than each half by its own level over the mean
+(0361).** The step's words are symmetric — ±(L−R)/2 — and a `lighter` fill cannot subtract, so the
+quieter half would need the read to come down, which is a second pass on it. The difference _between_
+the two halves is the same either way, which is what the outcome and all three named tests turn on;
+what differs is the common mode, so a panned frame is now uniformly denser than a centred one by half
+the gap instead of standing at the same mean. Whether that reads as the picture getting louder as it
+pans is a judgement for the first run on a machine with audio.
+
+**An odd middle column of cells answers no pan, and no dial was minted for either half of the step
+(0361).** The two sides are `floor(wide / 2)` cells each, so a picture with an odd cell count leaves
+one column standing on neither side: a column the two halves shared would be lifted whichever way the
+output leaned, which is worse than one column that never moves. And neither the lift nor the crawl's
+three-cell lean has a knob — the block's **Cells** group gains nothing here — because one reading
+spent in two places with a knob on each is two knobs for one fact, and `copyDriftGroups.ts` is inside
+thirty lines of its cap either way (0360). A step that wants the pair louder or quieter turns
+`cells.rows`, which is what the whole stamp is laid at. The count the halves are cut from is the
+boxed one, which is ceiled (`boxCells`), so on a picture whose width is not a whole number of cells
+the right half carries the part cell at the far edge and covers marginally less of the picture than
+the left — the overhang reads as nothing either way, which is what a part cell is.
+
+**src/ui/moireScreen.test.ts stands at 788 of its 800 lines (0361).** This step put 34 of them there.
+The next step that adds a case to the screen's own file should split it first, the way 0360 left the
+same note against src/lib/copyDriftGroups.ts.
+
+**A pan is read from the two peaks, so it is the output's weight and not the panner's knob (0361).**
+`MasterPeek.left` and `right` are instantaneous peaks measured where the decks land, so what the
+picture leans to is what the bus is actually doing — a deck panned hard but silent leans nothing, and
+two decks panned apart lean by whatever their sum is. That is the reading the step asked for and it
+is not the same as any one `deck.pan`: no row claims the parameter, and a yard whose own panner is
+hard over still draws an even picture while it is quiet. The gap is also clamped to a whole one
+either way, so a bus running hotter than one on one side reads as a hard pan rather than past it.
+
+**The measurement of both is a count and never a shot (0361).** The machine's audio output device was
+gone for most of this step — the `drive` step was red for it, the clock stuck at 0.0058 s with no
+`"t":"error"` in the ring, and it came back before the last gate run, which is green whole — but no
+browser reading of a sweeping pan was taken either way. What is held instead is what the gate can
+hold: the lift's own fill on the boxed read,
+the crawl's placement in whole cells, and the picture-sized draw count and the bake count unchanged
+under a hard pan. Whether three cells is the right lean to the eye is a judgement the first run on a
+machine with audio should make.
+
+**A yard already sounding draws a slightly different picture than it did (0361).** Nothing durable
+moved, but a mix that is not perfectly centred now lifts half its marks and leans its lattice, so the
+block's own before-and-after shots of a playing yard are not comparable across this step — the same
+caveat 0360 left, for the same reason.
 
 **A yard already holding an automator draws a different tear than it did (0360).** The step's
 comments are exact that a term _absent_ is the tear 0296 and 0298 shipped, and a real automator

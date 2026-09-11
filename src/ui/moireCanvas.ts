@@ -653,7 +653,7 @@ export function paintMoire(
   boxField(field, ink, cell);
   // And that same reading taken into the stamp's own grid, beside the box that made it: what it
   // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
-  const marks = readMarks(canvas, field, cell, color, pushes, alphabet);
+  const marks = readMarks(canvas, field, cell, color, pushes, shape.sides, alphabet);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
@@ -668,6 +668,7 @@ export function paintMoire(
     color,
     tint,
     wind.drift,
+    shape.sidesCells,
     yard,
     looks,
     latticeFold(shape.cells),

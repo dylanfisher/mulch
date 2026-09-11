@@ -28,7 +28,15 @@ import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
 import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
-import { bandFloor, bitPx, boxCells, CELL_ROWS, STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
+import {
+  bandFloor,
+  bitPx,
+  boxCells,
+  CELL_ROWS,
+  sideCells,
+  STAMP_PICTURE_DRAWS,
+} from "@/ui/moireCanvasMarks";
+import { shapeRest } from "@/ui/moireShape";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 import { CELL_DECAY, CELL_PUSHES, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
@@ -143,6 +151,12 @@ function stampedOn(dpr: number, frames = 1): Painted {
 function landedOn(pushes: readonly MoireCellPush[], frames = 1): Painted {
   vi.stubGlobal("devicePixelRatio", 2);
   return paintedOn(200, 128, ROWS, 2, 20, { frames, pushes });
+}
+
+/** One painting of it with the output's weight `sides` of the way toward one of its two sides. */
+function pannedOn(sides: number): Painted {
+  vi.stubGlobal("devicePixelRatio", 2);
+  return paintedOn(200, 128, ROWS, 2, 20, { shape: { ...shapeRest(), sides } });
 }
 
 /**
@@ -505,6 +519,48 @@ describe("the marks the painter puts down", () => {
     expect(apart).toHaveLength(2);
     const [first, second] = apart;
     expect((first?.box[1] ?? 0) + (first?.box[3] ?? 0)).toBeLessThan(second?.box[1] ?? 0);
+  });
+
+  it("lifts the louder half of the picture and leaves the quieter one as it read", () => {
+    // The eleventh step of the block: the output's two sides reach the stamp, so the threshold
+    // passes stand one mark higher over the half the sound is louder on and a panner sweeping is
+    // the lattice's weight sweeping with it. On the same read a landing is lifted into and in the
+    // same one arithmetic (`liftSides`).
+    const cell = gridPitchPx(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    const half = sideCells(wide);
+    expect(half, "the picture has two sides to lean between").toBeGreaterThan(0);
+    // Equal sides stamp the same: nothing is lifted at all, which is the picture before the panner
+    // was touched — and the still lattice 0346 shipped.
+    expect(liftsOn(pannedOn(0), wide, deep)).toEqual([]);
+    // A hard left lifts the left half by a whole mark's worth of the ramp and the right half not at
+    // all, so the left half's cells are stamped one mark heavier than the right's.
+    const left = liftsOn(pannedOn(1), wide, deep);
+    expect(left).toHaveLength(1);
+    expect(left[0]?.box).toEqual([0, 0, half, deep]);
+    expect(left[0]?.alpha).toBeCloseTo(bandFloor(1), 12);
+    // And the reverse is the same picture the other way round: the same lift, on the other half.
+    const right = liftsOn(pannedOn(-1), wide, deep);
+    expect(right).toHaveLength(1);
+    expect(right[0]?.box).toEqual([wide - half, 0, half, deep]);
+    expect(right[0]?.alpha).toBeCloseTo(bandFloor(1), 12);
+    // The two halves do not touch: an odd middle column stands on neither side, so no cell answers
+    // a pan whichever way it leans. Read off the count itself, because a picture whose cells happen
+    // to be even has no middle column to leave standing.
+    expect(half).toBeLessThanOrEqual(wide - half);
+    expect(sideCells(21), "an odd count leaves one column over").toBe(10);
+    expect(21 - 2 * sideCells(21)).toBe(1);
+    expect(sideCells(20), "an even one leaves none").toBe(10);
+    expect(sideCells(1), "and a picture one cell wide has no sides at all").toBe(0);
+    // A pan half the way over lifts half as much, which is what makes a sweep a sweep.
+    expect(liftsOn(pannedOn(0.5), wide, deep)[0]?.alpha).toBeCloseTo(bandFloor(1) / 2, 12);
+    // And none of it costs the picture a thing: the lift is one fill on the read, one pixel a cell,
+    // so the frame pays the same ten passes and the one picture-sized draw checkpoint A pinned.
+    const panned = pannedOn(1);
+    expect(stampPasses(panned, 200, 128)).toBe(GLYPH_COUNT);
+    expect(stampDraws(panned)).toBe(stampDraws(stampedOn(2)));
+    expect(stampDraws(panned)).toBe(STAMP_PICTURE_DRAWS);
   });
 
   it("reads the boxed field on the very grid it stamps the marks back onto", () => {

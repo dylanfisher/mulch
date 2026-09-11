@@ -17,6 +17,7 @@ import {
   FRACTAL_BITE_CEILING,
   heardBite,
   heardLevel,
+  heardSides,
   heardBeat,
   rackScatter,
   RACK_SHATTER_BROKEN,
@@ -59,6 +60,29 @@ describe("what the session's own output is worth to a picture", () => {
     expect(row(1)).toBe(DRIFT_DEPTH_FLOOR);
     expect(row(0.5)).toBeCloseTo(DRIFT_DEPTH_FLOOR / 2, 9);
     expect(row(0.25)).toBeLessThan(row(0.75));
+  });
+
+  /**
+   * And what the same output's two sides say about where its weight is: the gap between them, which
+   * is what leans the lattice and lifts the louder half of the marks (0361).
+   */
+  it("reads the output's two sides as the gap between them, signed toward the left", () => {
+    // Silence and a centred mix both stand between the two sides, at whatever level.
+    expect(heardSides(0, 0)).toBe(0);
+    expect(heardSides(0.7, 0.7)).toBe(0);
+    // Signed toward the left, and the gap and never a ratio: a quiet pan says less than a loud one,
+    // where a ratio would say the same of both.
+    expect(heardSides(1, 0)).toBe(1);
+    expect(heardSides(0, 1)).toBe(-1);
+    expect(heardSides(0.2, 0)).toBeCloseTo(0.2, 12);
+    expect(heardSides(0.2, 0)).toBeLessThan(heardSides(1, 0));
+    // Bounded either way whatever the bus hands over, for `heardLevel`'s reason: these are peaks
+    // measured where the decks land and may read hotter than full scale.
+    expect(heardSides(4, 0)).toBe(1);
+    expect(heardSides(0, 4)).toBe(-1);
+    // And a reading that is no number at all is a picture with no side to lean to.
+    expect(heardSides(Number.NaN, 0)).toBe(0);
+    expect(heardSides(0, Number.POSITIVE_INFINITY)).toBe(0);
   });
 
   /**

@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults, PARAMS } from "@/audio/params";
+import { DRIFT_PAINT_HZ } from "@/lib/moire";
 import { emptyMasterPeek } from "@/audio/context";
 import { LATTICE_CELLS, LATTICE_LEAN, LATTICE_REACH } from "@/lib/moireLattice";
 import { PLAIN_CUT } from "@/lib/moireSound";
@@ -18,7 +19,9 @@ import { carryShape } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { moireRows, NO_MASTER } from "@/ui/moireRows";
 import {
+  leanCells,
   rackShape,
+  SIDES_CELLS,
   SHAPE_HEARD_SECS,
   SHAPE_SECS,
   shapeRest,
@@ -93,11 +96,63 @@ describe("how the standing rack shapes the picture", () => {
     );
     expect(heard.lean).toBeCloseTo(LATTICE_LEAN.value / 2);
     expect(heard.loud).toBe(1);
+    // And where its weight stands between the two sides travels on that same window, across the
+    // whole pair: a quarter of the window is a quarter of the pair's span, so the middle to a hard
+    // left takes half of it — a pan crossing from one side to the other takes the whole window.
+    const panned = shapeRest();
+    shapeTravelInto(
+      panned,
+      shapingRest(),
+      { ...quiet, left: 1, right: 0 },
+      SHAPE_HEARD_SECS.value / 4,
+      true,
+      0,
+    );
+    expect(panned.sides).toBeCloseTo(0.5);
+    shapeTravelInto(
+      panned,
+      shapingRest(),
+      { ...quiet, left: 1, right: 0 },
+      SHAPE_HEARD_SECS.value / 4,
+      true,
+      0,
+    );
+    expect(panned.sides).toBeCloseTo(1);
+    shapeTravelInto(panned, shapingRest(), { ...quiet, left: 0, right: 1 }, 0, false, 0);
+    expect(panned.sides, "a halted yard arrives outright").toBe(-1);
+    expect(shapeRest().sides, "and a picture with no output stands between them").toBe(0);
     // And a halted yard arrives outright, with the wander standing still (0144).
     const halted = shapeRest();
     shapeTravelInto(halted, toward, quiet, 0.001, false, 0.5);
     expect(halted.cells).toBe(LATTICE_CELLS[1]);
     expect(halted.sway).toBe(0);
+  });
+
+  it("steps the lattice's lean a cell at a time, and never back and forth on a wobble", () => {
+    // The two sides are unsmoothed peaks, so the weight they read wobbles frame to frame even on a
+    // steady mix. The crawl leans by whole cells, and a whole cell read off a wobbling number at a
+    // cell's own edge is the lattice hopping a cell and back on alternate frames — which is the
+    // still lattice moving (0346). So the cell is held until the weight has carried past it.
+    const edge = 0.5 / SIDES_CELLS;
+    expect(leanCells(edge, 0), "a weight half a cell over does not step").toBe(0);
+    expect(leanCells(1 / SIDES_CELLS + edge, 1), "nor half a cell over the one held").toBe(1);
+    // A wobble about a cell's edge steps nothing, however many frames it goes on for.
+    let held = 1;
+    for (const wobble of [0.34, 0.32, 0.35, 0.31, 0.33, 0.36, 0.3]) {
+      held = leanCells(wobble, held);
+      expect(held, `a weight of ${wobble}`).toBe(1);
+    }
+    // And a pan that really moves steps, cell by cell, and comes back the same way.
+    expect(leanCells(1, 1)).toBe(SIDES_CELLS);
+    expect(leanCells(-1, SIDES_CELLS)).toBe(-SIDES_CELLS);
+    expect(leanCells(0, SIDES_CELLS)).toBe(0);
+    // The whole travel of the reading in one painting cannot cross the hold, which is what makes
+    // the hold a hold: at the picture's own cadence the weight moves under half a cell a frame.
+    const frame = 1 / DRIFT_PAINT_HZ;
+    const moved = shapeRest();
+    shapeTravelInto(moved, shapingRest(), { ...quiet, left: 1, right: 0 }, frame, true, 0);
+    expect(moved.sides * SIDES_CELLS).toBeLessThan(1);
+    expect(moved.sidesCells, "one painting of a hard pan has not stepped yet").toBe(0);
   });
 
   it("carries where the shape had got to onto a rebuilt set, and never where it is going", () => {
