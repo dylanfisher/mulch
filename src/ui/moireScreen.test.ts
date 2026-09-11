@@ -21,12 +21,12 @@ import {
   type ScreenInk,
 } from "@/lib/moire";
 import { fractalStopsRest } from "@/lib/moireFractal";
-import { GLYPH_COUNT } from "@/lib/moireGlyph";
 import { SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { paintMoire } from "@/ui/moireCanvas";
 import { arrivedInk, PRODUCT, resolvedInk } from "@/ui/moireCanvasPainted";
+import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { bandTurns, termTurns, SCREEN_TERMS } from "@/ui/moireScreen";
 import {
   bandKeep,
@@ -384,8 +384,10 @@ describe("moireScreen", () => {
     // of it in one stroke — so the screen is what the picture is *made of* rather than a wash over
     // it, and it is laid down exactly once however many rows there are.
     // And then the marks: since 0350 the same product is laid back over the picture as a lattice
-    // of marks, one draw a mark, after the cut and before anything is washed over it.
-    expect(inks).toEqual([screen, ...Array.from({ length: 1 + GLYPH_COUNT }, () => PRODUCT)]);
+    // of marks, after the cut — in one draw, the ten passes running on the marks' own bit grid
+    // since checkpoint A (`STAMP_PICTURE_DRAWS`, 0353).
+    const marks = Array.from({ length: STAMP_PICTURE_DRAWS }, () => PRODUCT);
+    expect(inks).toEqual([screen, PRODUCT, ...marks]);
     // To within a cell of the marks, on whole cells (0346).
     const rolled = bandTurns(rows) * (tile?.height ?? 0);
     expect(Math.abs((moves[0]?.f ?? 0) - rolled)).toBeLessThanOrEqual(pitch / 2);

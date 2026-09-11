@@ -23,6 +23,7 @@ import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
+import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { termTurns } from "@/ui/moireScreen";
 import { beatPx, gridPitchPx, rowPitchPx } from "@/ui/moireScreenTile";
 
@@ -162,10 +163,11 @@ describe("the picture is the field its name says", () => {
     for (const scene of SCENE_NAMES) {
       const painted = paintingOf({ ...YARD_SCENE_REST, scene });
       expect(painted.aims, scene).toHaveLength(ROWS.length);
+      // The screen's own fill, and the stamp's one draw over it (`STAMP_PICTURE_DRAWS`, 0353).
       expect(
         painted.laid.filter((each) => each.over === "source-over"),
         scene,
-      ).toHaveLength(1);
+      ).toHaveLength(1 + STAMP_PICTURE_DRAWS);
     }
   });
 
@@ -177,9 +179,13 @@ describe("the picture is the field its name says", () => {
     setTuning("wind.strips", strips);
     setTuning("screen.shear", 0.03);
     const still = paintingOf({ ...YARD_SCENE_REST, wind: "still" });
-    expect(still.laid.filter((each) => each.over === "source-over")).toHaveLength(1);
+    expect(still.laid.filter((each) => each.over === "source-over")).toHaveLength(
+      1 + STAMP_PICTURE_DRAWS,
+    );
     const wild = paintingOf({ ...YARD_SCENE_REST, wind: "wild" });
-    expect(wild.laid.filter((each) => each.over === "source-over")).toHaveLength(strips);
+    expect(wild.laid.filter((each) => each.over === "source-over")).toHaveLength(
+      strips + STAMP_PICTURE_DRAWS,
+    );
     // And each strip is one strip of the wave further on than the one beside it, the wave coming
     // round exactly once across the picture: the shear the sway writes is what every strip stands
     // on, and the gust is what it is leaned by on top of that.

@@ -68,6 +68,7 @@ import type { PlayerSpec } from "@/lib/player";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
 import { painterOn, pitchOf, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
 import type { Aim } from "@/lib/moire";
 
@@ -298,8 +299,8 @@ describe("moireCanvas", () => {
     for (const cut of cuts) expect(cut.alpha).toBeCloseTo(gratingDepth(rows.length), 10);
     // And on the canvas itself: the screen laid down once, and the whole product taken back out of
     // it in one stroke — so the picture is ink everywhere the gratings block and a window wherever
-    // they agree, which is what a stack of gratings does to light.
-    expect(laid).toHaveLength(2);
+    // they agree — and then laid back over as marks, in the one draw 0353 holds the stamp to.
+    expect(laid).toHaveLength(2 + STAMP_PICTURE_DRAWS);
     expect(laid[0]?.over).toBe("source-over");
     expect(laid[1]).toEqual({ ink: PRODUCT, over: "destination-out" });
     expect(left).toBe("source-over");
@@ -332,9 +333,9 @@ describe("moireCanvas", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     expect(paintedOn(400, 128, [row({ period: 3 })], 0).laid).toHaveLength(0);
     // And with only one to hand, the screen is what goes without: the picture is still the rows,
-    // cut out of the flat ink the caller resolved.
+    // cut out of the flat ink the caller resolved; the stamp needs no pattern since 0353.
     const { laid, cuts } = paintedOn(400, 128, [row({ period: 3 })], 1);
-    expect(laid).toHaveLength(2);
+    expect(laid).toHaveLength(2 + STAMP_PICTURE_DRAWS);
     expect(cuts).toHaveLength(1);
   });
 

@@ -44,6 +44,7 @@ import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreenInk";
 import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { shapeRest } from "@/ui/moireShape";
 
 import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
@@ -719,6 +720,9 @@ describe("moireCanvas tiles", () => {
       shape: { ...shapeRest(), cells: 2 },
     });
     expect(worker.asked.filter((one) => one.geometry === LATTICE_GEOMETRY)).toHaveLength(1);
-    expect(twice.laid.filter((one) => one.ink === PRODUCT)).toHaveLength(2);
+    // Two frames: each takes the product back out and stamps it back on once (0353).
+    expect(twice.laid.filter((one) => one.ink === PRODUCT)).toHaveLength(
+      2 * (1 + STAMP_PICTURE_DRAWS),
+    );
   });
 });

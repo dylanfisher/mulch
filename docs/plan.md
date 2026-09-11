@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0353; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0354; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -87,7 +87,7 @@ the levers that hold, records what stands over it with its cause, and the next c
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
-0349, 0350, 0351 and 0352.
+0349, 0350, 0351 and 0352, and checkpoint A after them as 0353.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -203,7 +203,7 @@ specks. The threshold is the channel's own spread over the tile — between what
 reaches — and no dial was minted; §4 holds what reading it that way gives up. The bench's entry 07
 goes with it.
 
-**Checkpoint A — the frame at a window's size (bench-46).** _Durable shape moved:_ none. The
+**Checkpoint A — the frame at a window's size (bench-46, 0353).** _Durable shape moved:_ none. The
 first checkpoint, and the one the budget was written for: a picture popped out on a large screen
 is slow and the page under it janks. Measure it as the budget says, on the commit that landed
 step 5 against the commit that opened the block, and attribute every millisecond over the budget
@@ -224,7 +224,22 @@ first:** the recorder counts the picture-sized draws a frame pays and the count 
 declared budget constant, so a step that adds a full-canvas pass fails here before it fails a
 hand; a bake on an ink step touches only the tile the step moved. **Refused:** a fix judged on
 headless timings; a governor without its numbers; moving the frame loop into the popped window
-(one loop, src/ui/frame.ts).
+(one loop, src/ui/frame.ts). _Landed_ 2026-09-11 as
+[0353](decisions/0353-the-stamp-runs-on-the-marks-bit-grid.md): at the budget's own setting the
+head of the block did not paint the popped-out window **at all** — the one frame loop stopped on
+the frame the window opened and a knob drag landed 0 of 480 moves — where base held 120 frames a
+second, a rAF gap p95 of 9.8 ms, no long task and a drag that dropped no frame. The whole of it
+was `stampMarks`, and inside it the ten repeating-pattern fills and not the pass count or the
+pixel traffic: the passes now run on the marks' own bit grid, a mark is a sheet of its own tile
+doubled onto itself rather than a pattern fill, and the ten are laid together and reach the
+picture in one draw against a declared `STAMP_PICTURE_DRAWS`. Head paints again at 86–88 frames a
+second with every one of the drag's 480 moves landing, the stamp costing 1.2 ms mean a frame.
+**It does not reach the budget**, and what stands over it is the tile bake at 36–38 ms mean and
+83–98 ms worst against 4 ms and 8 ms — 0351's sevenfold tile with 0349's passes and 0352's
+scatter in one pixel loop — which is every long task, the rAF p95 of 25–33 ms and the 63–90 frames
+a drag still drops. §4 holds what that is qualified for; checkpoint B owns it. The second test the
+step named — a bake on an ink step touching only the tile the step moved — went with it, the
+numbers having put the bake's own shape past what this checkpoint may land.
 
 **Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
@@ -262,7 +277,9 @@ budget's setting again, head against checkpoint A's commit, with the walk landin
 rate and a song changing parts, and attribute what moved: a lift that re-cut every band when one
 row's cells moved, a part change that rebaked a tile a frame was waiting on, an alphabet whose ten
 tiles were minted on the frame that first needed them. Land what the numbers say. **Stands on:**
-checkpoint A's budget constant and its script; `joltWalked`, `standingPart`. **Outcome wanted:**
+checkpoint A's `STAMP_PICTURE_DRAWS` and its script (0353); `joltWalked`, `standingPart`. **And it
+owns what checkpoint A left over the budget:** the tile bake at 36–38 ms mean and 83–98 ms worst,
+which is the whole of the long tasks and of the frames a drag drops. **Outcome wanted:**
 a walk flaring its rows on the popped-out picture costs no more per frame than the still lattice
 did at checkpoint A, within the budget. **Tests that must fail first:** a frame at a landing's
 edge pays the same number of picture-sized draws as a frame with no landing; a part change
@@ -477,6 +494,26 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**Checkpoint A could not use the profiler the budget names, and could not reach the budget
+(0353).** The method says CDP `Profiler` self time by function and inclusive time by file. At the
+budget's own setting it cannot be run: with the 5120 × 2684 picture up, `Profiler.start` wedges the
+renderer and neither it nor `Profiler.stop` returns inside four minutes, headed or not, with a light
+rack or a full one — while an ordinary `evaluate` against the same page comes back in milliseconds.
+So the attribution is per-function accumulators compiled into both trees identically and taken out
+before the gate, beside the `longtask` observer and the rAF-gap histogram the budget also names, and
+the levers were isolated by switching one thing at a time in the source and re-measuring
+(`cells.rows` at nought; the pattern fill swapped for a flat colour; one pass instead of ten). Two
+further things the setting cost: a popped window put **fullscreen, or on the second display**, stops
+the opener's frame loop outright in Chromium, so both windows were kept on the one screen with the
+picture over the page — synthetic input reaches the knob underneath either way; and the window's own
+chrome leaves the canvas 2684 device pixels deep rather than 2880. What still stands over the budget
+is the tile bake, 36–38 ms mean against 4 ms: it is one JS loop over the tile's pixels (`build`,
+src/ui/moireScreenTile.ts) and 0351 made that tile seven of the cells it was, so the loop is not
+slow per pixel — there are seven times as many, with 0349's cell passes and 0352's scatter read over
+all of them. That is the shape the budget qualifies for a kernel off the main thread, and checkpoint
+B is where it is measured against 0058's bar; this checkpoint did not open a block for it, having
+only one instrument's word for where the time goes.
 
 **The scatter is read against the tile it is on, so a flock's own picture depends on where the tile
 comes round (0352).** The threshold is the specks channel's own mean and own most over the one tile,

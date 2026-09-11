@@ -14,6 +14,10 @@
 // second copy of them rather than the shipped one (principle 1).
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the warn on its own length, read and kept: the block's layout paragraph (docs/plan.md
+// §1) puts every painter case this block writes in this file, so it is meant to grow, and the hard
+// cap that would ask for a split is 800. Same decision.
+// oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GLYPH_COUNT, GLYPH_GRID, GLYPH_PUSH, markAt, markWeight } from "@/lib/moireGlyph";
@@ -22,8 +26,8 @@ import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
-import { painterOn, type Painted, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
-import { bandFloor, boxCells, CELL_ROWS } from "@/ui/moireCanvasMarks";
+import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
+import { bandFloor, bitPx, boxCells, CELL_ROWS, STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
 // oxlint-enable import/max-dependencies
@@ -123,55 +127,73 @@ function heavyShare(scene: SceneName, push: number): number {
 }
 
 /**
- * How many patterns one painting of the stamp asks the engine for: the picture's own two — the
- * rows' grating and the screen — and then one per mark it fills the sound's rows through.
+ * One painting at `dpr` device pixels to the CSS one, through the picture's own two patterns — the
+ * rows' grating and the screen — and not one more: since 0353 a mark is a sheet of its own tile
+ * and no pattern at all, a repeating fill being what a large window cannot pay for.
  */
-const STAMP_PATTERNS = 2 + GLYPH_COUNT;
-
-/** One painting at `dpr` device pixels to the CSS one, with every pattern the stamp asks for. */
 function stampedOn(dpr: number, frames = 1): Painted {
   vi.stubGlobal("devicePixelRatio", dpr);
-  return paintedOn(200, 128, ROWS, STAMP_PATTERNS, 20, { frames });
+  return paintedOn(200, 128, ROWS, 2, 20, { frames });
 }
 
 /**
- * Every fill one painting made through a mark's own pattern, which is the stamp's and nothing
- * else's: `source-in` on a surface the size of the picture (`stampMarks`). Counted off the
- * recorder rather than off the pixels, because what the step promises is the *cost* — one fill a
- * mark however many cells the picture is cut into (0129).
+ * Every draw the stamp laid on the picture itself: the product drawn back over the canvas
+ * `source-over`, which nothing else in a painting does — the cut draws it `destination-out` and the
+ * screen and the band are fills. Counted off the recorder rather than off the pixels, because what
+ * checkpoint A holds is the *cost*: a draw the picture's size is the thing a window 2560 × 1440
+ * cannot pay thirty of (0353).
  */
-function stampFills(painted: Painted, span: number): number {
-  return painted.surfaces.reduce(
-    (count, surface, at) =>
-      painted.elements[at]?.width === span
-        ? count + surface.fills.filter((fill) => fill.over === "source-in").length
-        : count,
-    0,
+const stampDraws = (painted: Painted): number =>
+  painted.laid.filter((each) => each.ink === PRODUCT && each.over === "source-over").length;
+
+/** How many passes the stamp ran: one blow-up of a band onto the bit grid apiece (`stampMarks`). */
+function stampPasses(painted: Painted, span: number, down: number): number {
+  const cell = gridPitchPx(2);
+  const at = bitGridAt(painted, boxCells(span, cell), boxCells(down, cell), cell);
+  return (painted.surfaces[at]?.frame ?? []).filter((each) => each.box.length === 8).length;
+}
+
+/**
+ * Which surface the stamp blows its bands up onto: the first one the bit grid's own size, which is
+ * the mask — the layer the passes are laid into is the second and is minted after it (`stampFor`).
+ * Pass `after` to reach that second one instead.
+ */
+const bitGridAt = (
+  painted: Painted,
+  wide: number,
+  deep: number,
+  cell: number,
+  after = -1,
+): number =>
+  painted.elements.findIndex(
+    (element, at) =>
+      at > after && element.width === wide * bitPx(cell) && element.height === deep * bitPx(cell),
   );
+
+/**
+ * What each of the ten passes was laid into the shared layer at. The depth belongs here and not on
+ * the one draw that follows: two bands share a shoulder (`STAMP_STEPS`), so a cell there carries a
+ * share of two marks, and folding them together at full ink before the one draw would lay less on
+ * the bits both marks ink than the ten draws 0350 made ever did.
+ */
+function layerDepths(painted: Painted, wide: number, deep: number, cell: number): number[] {
+  const mask = bitGridAt(painted, wide, deep, cell);
+  const at = bitGridAt(painted, wide, deep, cell, mask);
+  return (painted.surfaces[at]?.drew ?? []).map((each) => each.alpha);
 }
 
 /**
  * How many bits each of the marks' own tiles inks, in the order the stamp minted them: a tile is a
- * cell square and every inked bit of it is one fill (`markTile`), so the fills it made are the
- * mark. Nothing else the painter makes is a cell square.
+ * `bitPx` square, a pixel per bit at any cell the alphabet fits in, and every inked bit of it is one
+ * fill (`markTile`), so the fills it made are the mark. Nothing else the painter makes is that size.
  */
 function markTiles(painted: Painted, cell: number): number[] {
+  const bit = bitPx(cell);
   return painted.surfaces.flatMap((surface, at) => {
     const element = painted.elements[at];
-    return element?.width === cell && element.height === cell ? [surface.fills.length] : [];
+    return element?.width === bit && element.height === bit ? [surface.fills.length] : [];
   });
 }
-
-/**
- * Which surface the stamp fills its bands through: the one the size of the picture that fills
- * `source-in`, which is the mask and nothing else the painter makes.
- */
-const maskAt = (painted: Painted, span: number): number =>
-  painted.surfaces.findIndex(
-    (surface, at) =>
-      painted.elements[at]?.width === span &&
-      surface.fills.some((fill) => fill.over === "source-in"),
-  );
 
 // One flat list of the marks' cases, all painted through the one stand-in canvas (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -277,39 +299,62 @@ describe("the marks the painter puts down", () => {
       }
     }
   });
-  it("stamps the sound's rows over the picture in one fill a mark, whatever the cell count", () => {
+  it("stamps the sound's rows over the picture in one draw a frame, whatever the cell count", () => {
     // The third step of the block (0350): the boxed field — the mean the rows' gratings leave over
-    // each cell (0346) — read through one threshold pass per mark and filled with that mark's own
-    // pattern, so the sound's cut is a second lattice of marks and a frame pays ten fills however
-    // many cells the picture holds. A draw per cell is what this refuses.
+    // each cell (0346) — read through one threshold pass per mark and laid in that mark's own bits,
+    // so the sound's cut is a second lattice of marks and a frame pays ten passes however many
+    // cells the picture holds. A draw per cell is what this refuses.
+    //
+    // And checkpoint A's own boolean: those ten passes run on the marks' bit grid and reach the
+    // picture **once**. Thirty draws the picture's size stopped the frame loop of a window
+    // 2560 × 1440 at two device pixels outright, and a count is what a hand cannot feel until the
+    // window is that large (0353).
     const dense = stampedOn(2);
     const coarse = stampedOn(1);
     expect(boxCells(200, gridPitchPx(2)), "both displays read the same cell count").not.toBe(
       boxCells(200, gridPitchPx(1)),
     );
-    expect(stampFills(dense, 200)).toBe(GLYPH_COUNT);
-    expect(stampFills(coarse, 200)).toBe(GLYPH_COUNT);
-    // A fill a mark a *frame*, and the second frame pays exactly what the first did: the surfaces
-    // and the marks' own tiles are minted once a canvas and never once a painting.
-    expect(stampFills(stampedOn(2, 2), 200)).toBe(2 * GLYPH_COUNT);
-    // And every one of them is laid over the picture after the product is cut back out of it: the
-    // cut stays, and the marks are what the product adds where it is strong (0131).
+    expect(stampPasses(dense, 200, 128)).toBe(GLYPH_COUNT);
+    // **Under** the budget and not equal to it, and the budget pinned in one place: a step that
+    // adds a full-canvas pass has to raise the constant here, where it reads as the decision it
+    // is, rather than quietly satisfy an equality.
+    expect(STAMP_PICTURE_DRAWS, "raising the budget is a decision, not an edit").toBe(1);
+    expect(stampDraws(dense)).toBeLessThanOrEqual(STAMP_PICTURE_DRAWS);
+    expect(stampDraws(coarse)).toBeLessThanOrEqual(STAMP_PICTURE_DRAWS);
+    expect(stampDraws(dense), "and the stamp does reach the picture").toBeGreaterThan(0);
+    // A draw a *frame*, and the second frame pays exactly what the first did: the surfaces and the
+    // marks' own tiles are minted once a canvas and never once a painting.
+    expect(stampDraws(stampedOn(2, 2))).toBeLessThanOrEqual(2 * STAMP_PICTURE_DRAWS);
+    // Nothing the stamp works on is larger than the picture: the passes are on the bit grid, which
+    // is `bitPx` pixels a cell — a quarter of the picture's area at two device pixels, and its own
+    // size at one, where a cell is exactly the alphabet wide.
+    for (const dpr of [1, 2]) {
+      const wide = gridPitchPx(dpr);
+      expect(bitPx(wide), `the bit grid at ${dpr}`).toBeLessThanOrEqual(wide);
+    }
+    // And the depth is spent pass by pass on the way into the layer, never once on their union.
+    const cell = gridPitchPx(2);
+    const depths = layerDepths(dense, boxCells(200, cell), boxCells(128, cell), cell);
+    expect(depths).toHaveLength(GLYPH_COUNT);
+    for (const depth of depths) expect(depth).toBeCloseTo(CELL_ROWS.value, 10);
+    // And it is laid over the picture after the product is cut back out of it: the cut stays, and
+    // the marks are what the product adds where it is strong (0131).
     const overs = dense.laid.map((fill) => fill.over);
-    expect(overs.lastIndexOf("destination-out")).toBeLessThan(overs.length - GLYPH_COUNT);
-    expect(overs.slice(-GLYPH_COUNT)).toEqual(
-      Array.from({ length: GLYPH_COUNT }, () => "source-over"),
+    expect(overs.lastIndexOf("destination-out")).toBeLessThan(overs.length - STAMP_PICTURE_DRAWS);
+    expect(overs.slice(-STAMP_PICTURE_DRAWS)).toEqual(
+      Array.from({ length: STAMP_PICTURE_DRAWS }, () => "source-over"),
     );
   });
 
   it("stamps nothing at all at no depth", () => {
     // The step's own case: the dial at nothing is the picture 0346 shipped, holes and all — no
-    // pass runs, no fill is made, and nothing is laid over the cut.
+    // pass runs, no sheet is laid, and nothing is put over the cut.
     setTuning("cells.rows", 0);
     const none = stampedOn(2);
-    expect(stampFills(none, 200)).toBe(0);
+    expect(stampDraws(none)).toBe(0);
     expect(none.laid.at(-1)?.over).toBe("destination-out");
     setTuning("cells.rows", CELL_ROWS.rest);
-    expect(stampFills(stampedOn(2), 200)).toBe(GLYPH_COUNT);
+    expect(stampDraws(stampedOn(2))).toBe(STAMP_PICTURE_DRAWS);
   });
 
   it("writes nothing for a cell the rows leave quiet, the read being unwrapped", () => {
@@ -358,12 +403,19 @@ describe("the marks the painter puts down", () => {
       })
       .filter((each) => each.box.length === 8)
       .map((each) => each.box);
-    const up = (painted.surfaces[maskAt(painted, 200)]?.drew ?? [])
+    const up = (painted.surfaces[bitGridAt(painted, wide, deep, cell)]?.frame ?? [])
       .filter((each) => each.box.length === 8)
       .map((each) => each.box);
     expect(down, "the field is read at the cell grid once a frame").toHaveLength(1);
-    expect(up, "a band is blown back up once a pass").toHaveLength(GLYPH_COUNT);
+    expect(up, "a band is blown up once a pass").toHaveLength(GLYPH_COUNT);
     expect(down[0]?.slice(0, 4)).toEqual([0, 0, wide * cell, deep * cell]);
-    for (const box of up) expect(box.slice(4)).toEqual([0, 0, wide * cell, deep * cell]);
+    // Onto the bit grid and no longer onto the picture, and off the same cell counts the box wrote.
+    for (const box of up) {
+      expect(box.slice(0, 4)).toEqual([0, 0, wide, deep]);
+      expect(box.slice(4)).toEqual([0, 0, wide * bitPx(cell), deep * bitPx(cell)]);
+    }
+    // And the one picture-sized draw puts that same grid back at the cell's own size, whole and in
+    // no slices of its own: the slices the recorder keeps are the cut's (`cutField`).
+    expect(stampDraws(painted)).toBe(STAMP_PICTURE_DRAWS);
   });
 });
