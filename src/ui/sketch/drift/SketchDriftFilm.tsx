@@ -4,9 +4,9 @@
  *   the film is a shade over it, so what the four keep terms take is a share a hand has seen and
  *   chosen rather than the whole of the alpha (0339), and it is taken off the read and not out of
  *   the alpha at all (0340).
- * @instead The four terms themselves → src/ui/moireScreenTile.ts, which this reads and never
+ * @instead The four terms themselves → src/lib/moireScreenFilm.ts, which this reads and never
  *   restates. The field, its dial and the mean the readout says → src/ui/sketch/sketchDrift.ts.
- *   The scene under the film, drawn on its own → src/ui/scene/bloom.ts at entry 07.
+ *   The scene under the film, drawn on its own → src/lib/scene/bloom.ts at entry 07.
  */
 import { INKING_STOPS, type SketchStop, SketchDriftStage } from "@/ui/sketch/SketchDriftStage";
 import { stopsOf } from "@/ui/sketch/drift/SketchDriftScenes";

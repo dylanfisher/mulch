@@ -1,6 +1,6 @@
 /**
  * @role The scatter: the scene's bright points as a layer of big marks over the fine lattice. The
- *   body's third channel — a flock of the scene's own specks, or the one kept thing (`bodyOf`) —
+ *   body's third channel — a flock of the scene's own specks, or the one kept thing (`bodyRows`) —
  *   read a box at a time over three-by-three cells and cut into the same ten marks **without the
  *   wrap**, so a peak reads as a block and a shoulder as a dot rather than wrapping back round to
  *   the sparse mark the ground is written in (0345). Unioned into the tile's alpha the way the
@@ -16,16 +16,16 @@
  *   channel's own mean over the tile and its own most — because a speck is a tenth of its own cell
  *   wide and nine cells full of them still stand a hundredth of the way up the ramp, so a block is
  *   only a block where the flock is thicker than the flock.
- * @instead The tile this is unioned into and the body it is read out of → `bodyOf` and the one
- *   pixel loop, src/ui/moireScreenTile.ts, this file's only caller. The other lattice over the same
- *   body, on the rows' own pitch → src/ui/moireScreenBeat.ts. The fine lattice's own read, its cut
- *   and the rack's passes over it → `cellGrid`, src/ui/moireScreenCells.ts. The marks themselves
+ * @instead The tile this is unioned into and the body it is read out of → `bands` and the one
+ *   pixel loop, src/lib/moireScreenField.ts, this file's only caller. The other lattice over the
+ *   same body, on the rows' own pitch → src/lib/moireScreenBeat.ts. The fine lattice's own read, its
+ *   cut and the rack's passes over it → `cellRead`, src/lib/moireScreenCells.ts. The marks themselves
  *   and the wrapped ramp the other two lattices are cut by → src/lib/moireGlyph.ts. What a scene's
  *   bright points are and what a name's detail makes of them → src/lib/moireScene.ts.
  */
 import { GLYPH_COUNT, markAt, markBlur, markCoverage } from "@/lib/moireGlyph";
 import { sceneCells, sceneRepeat } from "@/lib/moireScene";
-import { PER_PIXEL } from "@/ui/moireScreenCells";
+import { PER_PIXEL } from "@/lib/moireScreenCells";
 
 /**
  * How many cells a side one big mark of the scatter spans. **Three**, which is the span the marks
@@ -51,6 +51,42 @@ export type ScatterLattice = {
 };
 
 /**
+ * The scatter mid-read: its own block means, and the two readings the cut below is taken against.
+ * A scatter read in bands under a per-frame budget is the same read as one taken in a single task
+ * (`scatterRead`, `scatterCut`, 0354), so the running totals live here rather than in a closure.
+ */
+export type ScatterRead = ScatterLattice & {
+  rows: number;
+  stood: Float32Array;
+  most: number;
+  whole: number;
+};
+
+/** The blocks a scatter of `width` by `height` on cells of `cellAcross` by `cellDown` is read in. */
+export function scatterBlocks(
+  width: number,
+  height: number,
+  cellAcross: number,
+  cellDown: number,
+): ScatterRead {
+  const across = sceneRepeat(width, cellAcross * SCATTER_SPAN);
+  const down = sceneRepeat(height, cellDown * SCATTER_SPAN);
+  const cols = sceneCells(width, cellAcross * SCATTER_SPAN);
+  const rows = sceneCells(height, cellDown * SCATTER_SPAN);
+  return {
+    across,
+    down,
+    cols,
+    rows,
+    marks: new Uint8Array(cols * rows),
+    blur: markBlur(across),
+    stood: new Float32Array(cols * rows),
+    most: 0,
+    whole: 0,
+  };
+}
+
+/**
  * That scatter, read off the same `body` the other two lattices are: the third channel's mean over
  * each block of `SCATTER_SPAN` cells, cut into the ten marks at no phase at all.
  *
@@ -66,14 +102,25 @@ export function scatterLattice(
   cellAcross: number,
   cellDown: number,
 ): ScatterLattice {
-  const across = sceneRepeat(width, cellAcross * SCATTER_SPAN);
-  const down = sceneRepeat(height, cellDown * SCATTER_SPAN);
-  const cols = sceneCells(width, cellAcross * SCATTER_SPAN);
-  const rows = sceneCells(height, cellDown * SCATTER_SPAN);
-  const stood = new Float32Array(cols * rows);
-  let most = 0;
-  let whole = 0;
-  for (let row = 0; row < rows; row++) {
+  const read = scatterBlocks(width, height, cellAcross, cellDown);
+  scatterRead(read, body, width, height, 0, read.rows);
+  scatterCut(read);
+  return read;
+}
+
+/** The block means for the block rows `from` up to `to`, into a read already begun. */
+export function scatterRead(
+  read: ScatterRead,
+  body: Float32Array,
+  width: number,
+  height: number,
+  from: number,
+  to: number,
+): void {
+  const { across, cols, down, stood } = read;
+  let most = read.most;
+  let whole = read.whole;
+  for (let row = from; row < to; row++) {
     const y0 = Math.floor(row * down);
     const y1 = Math.min(height, Math.ceil((row + 1) * down));
     for (let col = 0; col < cols; col++) {
@@ -89,7 +136,16 @@ export function scatterLattice(
       most = Math.max(most, mean);
     }
   }
-  const marks = new Uint8Array(cols * rows);
+  read.most = most;
+  read.whole = whole;
+}
+
+/**
+ * And the cut, once every block has been read: the threshold is the whole scatter's own spread, so
+ * it cannot be taken until the last band has landed.
+ */
+export function scatterCut(read: ScatterRead): void {
+  const { marks, most, stood, whole } = read;
   // Read between the channel's own mean and its own most, and cut **at no phase**: a speck is a
   // point a tenth of its own cell wide, so a block of nine cells holding a whole flock still stands
   // a hundredth of the way up the ramp, and a read taken against the ramp would be the blank mark
@@ -104,7 +160,6 @@ export function scatterLattice(
       marks[at] = markAt(((stood[at] ?? 0) - floor) / reach, GLYPH_COUNT, 0);
     }
   }
-  return { across, down, cols, marks, blur: markBlur(across) };
 }
 
 /**
@@ -115,7 +170,7 @@ export function scatterLattice(
  */
 export function scatterInk(scatter: ScatterLattice, x: number, y: number): number {
   // Held to the grid on both axes the way the fine lattice's column is (`colOf`,
-  // src/ui/moireScreenTile.ts): a column past the last one would land on the next row's first
+  // src/lib/moireScreenField.ts): a column past the last one would land on the next row's first
   // block rather than off the end, which no `?? 0` can catch.
   const col = Math.min(scatter.cols - 1, Math.floor(x / scatter.across));
   const row = Math.floor(y / scatter.down);

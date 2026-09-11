@@ -7,7 +7,7 @@
  *   tile pulls its ramp position toward the scene's own first stop by what this answers.
  * @instead What a stand *is*, and the reaches that size one → src/lib/moireScene.ts. Which nouns
  *   read as which stand → src/lib/copyYard.ts and the reading of them → src/lib/yardScene.ts. The
- *   grounds the shade falls on → src/ui/scene/. Where the shade is spent → src/ui/moireScreenTile.ts.
+ *   grounds the shade falls on → src/lib/scene/. Where the shade is spent → src/lib/moireScreenField.ts.
  */
 import { wrap } from "./moire.ts";
 import { type SceneTerms, sceneAxis, sceneNear, sceneRepeat } from "./moireScene.ts";
@@ -103,7 +103,7 @@ const KEPT_AT = 0.62;
 /**
  * How much of that one kept thing stands at (`x`, `y`), nought to one — read in place of a scene's
  * own specks when the yard's detail names an object rather than a creature, and lifted to the top
- * of the ramp by the tile (src/ui/moireScreenTile.ts).
+ * of the ramp by the tile (src/lib/moireScreenField.ts).
  *
  * **At the foot of the shade and not on the field**: the detail is the last thing a name says and
  * the place is what it is left by, so the thing stands where the shade the place casts ends. It
@@ -123,7 +123,7 @@ export function standSpeck(x: number, y: number, terms: SceneTerms): number {
 /**
  * Where the foot of the shade stands, refilled in place and handed back: this is read once per
  * device pixel of a bake, and a build allocates a ramp and no more (0129, 0070, and `nearestHead`
- * in src/ui/scene/bloom.ts, which is the same shape). A caller that keeps it copies it.
+ * in src/lib/scene/bloom.ts, which is the same shape). A caller that keeps it copies it.
  */
 const foot = { x: 0, y: 0 };
 
@@ -179,7 +179,7 @@ function shapeOf(
   down: number,
   reach: number,
   // Read as a plain string and not as the contract's own union, for the reason the scene registry
-  // is a `Map<string, Scene>` rather than its record (`held`, src/ui/scene/scenes.ts): a type that
+  // is a `Map<string, Scene>` rather than its record (`held`, src/lib/scene/scenes.ts): a type that
   // says the four are all there is makes the refusal below unreachable, and the refusal is the
   // whole point — a fifth stand, or a cast, is exactly what it catches.
   stand: string,

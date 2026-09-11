@@ -6,7 +6,7 @@
  * @instead Every other case the painter has → src/ui/moireCanvas.test.ts, which this stands beside
  *   rather than inside because that file is within forty lines of the 800-line hard cap (0045).
  *   The reading these paint through → src/lib/yardScene.ts. The grounds themselves →
- *   src/ui/scene/.
+ *   src/lib/scene/.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +25,7 @@ import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { termTurns } from "@/ui/moireScreen";
-import { beatPx, gridPitchPx, rowPitchPx } from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx, rowPitchPx } from "@/lib/moireScreenFilm";
 
 /**
  * How many islands of moved cells a tile holds: a flood fill eight ways over the marks, which is
@@ -241,7 +241,7 @@ describe("the picture is the field its name says", () => {
     setTuning("glyph.flat", 0);
     // The whole of 0332 through the painter: the bloom's ramp is read per pixel, so one tile holds
     // a scarlet head and a green stem at full strength — and not one ink the ground dimmed. The
-    // stops are src/ui/scene/bloom.ts's own, resolved by the recorder (`resolvedInk`).
+    // stops are src/lib/scene/bloom.ts's own, resolved by the recorder (`resolvedInk`).
     const pixels = tileOf(paintingOf(yardScene("Quiet Foxglove by the Shed")));
     let heads = 0;
     let stems = 0;

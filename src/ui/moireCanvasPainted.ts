@@ -20,6 +20,16 @@ import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { type MoireTint, tintRest } from "@/ui/moireTint";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
+import { forgetScreenTiles, installHereScreenPort } from "@/ui/moireScreenHere";
+
+// Re-exported so a painter case that hands the shop a port of its own reaches it through the same
+// harness its painting comes from, rather than naming a second module for one question.
+export { forgetScreenTiles, installHereScreenPort };
+
+// Installed once, where the shop's own module state is: a painter case that paints twice reads the
+// held tile on the second painting exactly as it did before the bake moved off this task, and the
+// cases about what is *not* rebaked are the ones that would notice a cache emptied per painting.
+installHereScreenPort();
 
 /**
  * The picture's ink where the travel has already finished — what these rows claim, arrived. A whole

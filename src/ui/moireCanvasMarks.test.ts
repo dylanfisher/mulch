@@ -29,7 +29,7 @@ import { type LookName, type LookTerms } from "@/lib/moireLook";
 import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
 import { bandFloor, bitPx, boxCells, CELL_ROWS, STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
-import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 // oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -286,7 +286,7 @@ describe("the marks the painter puts down", () => {
   it("spends the push on the mark alone and never on the scene's own ground", () => {
     // The step's own refusal: the push is a cut of the ramp, so it moves which mark a cell is
     // written in and not one stop of the ink underneath it — the ink is read at the cell's own
-    // stand, before the cut (`build`, src/ui/moireScreenTile.ts).
+    // stand, before the cut (`bands`, src/lib/moireScreenField.ts).
     const bloom = { ...YARD_SCENE_REST, scene: "bloom", stand: "steps" } as const;
     setTuning("glyph.push", 0);
     const flat = tileOf(paintingOf(bloom));

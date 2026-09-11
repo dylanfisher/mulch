@@ -11,9 +11,9 @@ import { moireRow as row } from "@/lib/moireRow";
 import type { SceneSpecks } from "@/lib/moireScene";
 import { YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted, tileOf } from "@/ui/moireCanvasPainted";
-import { PER_PIXEL } from "@/ui/moireScreenCells";
-import { SCATTER_SPAN, scatterInk, scatterLattice } from "@/ui/moireScreenScatter";
-import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
+import { PER_PIXEL } from "@/lib/moireScreenCells";
+import { SCATTER_SPAN, scatterInk, scatterLattice } from "@/lib/moireScreenScatter";
+import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {

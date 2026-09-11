@@ -7,7 +7,7 @@
  * @instead The marks themselves and the wrap onto them → src/lib/moireGlyph.ts, which this reads
  *   and never restates. The field, its dial and the cell it is read by → src/ui/sketch/sketchDrift.ts.
  *   The film the lattice stands under, on its own → entry 10, src/ui/sketch/drift/SketchDriftFilm.tsx.
- *   The water on its own → entry 08, src/ui/scene/water.ts.
+ *   The water on its own → entry 08, src/lib/scene/water.ts.
  */
 import { INKING_STOPS, type SketchStop, SketchDriftStage } from "@/ui/sketch/SketchDriftStage";
 import { stopsOf } from "@/ui/sketch/drift/SketchDriftScenes";

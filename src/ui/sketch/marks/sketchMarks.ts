@@ -10,7 +10,7 @@
  *   src/lib/moireGlyph.ts. The three alphabets the part swaps between → src/ui/sketch/marks/sketchMarksAlphabet.ts. The scene, the film and the bench's own display → src/ui/sketch/sketchDrift.ts.
  *   The walk that is the clock and the song here → src/ui/sketch/sketchWalk.ts. The page these
  *   are mounted on → src/ui/sketch/MarksPage.tsx. The tile these argue about →
- *   src/ui/moireScreenTile.ts, which this never reads.
+ *   src/lib/moireScreenField.ts, which this never reads.
  */
 import {
   GLYPH_COUNT,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/moireGlyph";
 import { sceneCells } from "@/lib/moireScene";
 import type { PlayerCharacter } from "@/lib/playerCast";
-import { FILM_SHARE, filmStand, gridPitchPx } from "@/ui/moireScreenTile";
+import { FILM_SHARE, filmStand, gridPitchPx } from "@/lib/moireScreenFilm";
 import {
   BENCH_DPR,
   filmKeep,

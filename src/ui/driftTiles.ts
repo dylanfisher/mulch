@@ -19,6 +19,8 @@ import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
 import { subscribeTuning } from "@/lib/moireTuning";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { driftOffThread, driftWorkerPort, type DriftPort } from "@/app/drift";
+import { hold } from "@/lib/hold";
+import { onScreenBaked } from "@/ui/moireScreenShop";
 
 /** What a curved row is drawn with: a canvas this thread baked, or a bitmap the worker sent back. */
 export type DriftTileImage = HTMLCanvasElement | ImageBitmap;
@@ -86,27 +88,6 @@ let owing = false;
 /** Told whenever a tile arrives, or a painting ends still owing one: the surfaces that draw them. */
 const listeners = new Set<() => void>();
 let telling = false;
-
-/**
- * The oldest goes once the cache is over its cap, unless it is one this painting is still drawing
- * with — a tile is cheap to rebuild and dear to hold, and a tile rebuilt every painting is neither.
- * `used` answers whether a key is this painting's; a cache without one evicts by age alone.
- */
-export function hold<Value>(
-  cache: Map<string, Value>,
-  key: string,
-  value: Value,
-  cap: number,
-  used?: (key: string) => boolean,
-): Value {
-  cache.set(key, value);
-  for (const oldest of cache.keys()) {
-    if (cache.size <= cap) break;
-    if (used?.(oldest) === true) continue;
-    cache.delete(oldest);
-  }
-  return value;
-}
 
 /**
  * Whether a key was wanted this painting or the one before it — which is what the caps must never
@@ -201,6 +182,9 @@ export function useDriftSurface(
   const surface = useCanvasSurface(paint, animate, everyMs);
   const { repaint } = surface;
   useEffect(() => onDriftBaked(repaint), [repaint]);
+  // And whenever a screen tile lands: the same picture holds two shops now, and a tile baked off
+  // the frame after the painting that wanted it would otherwise never be drawn (0354).
+  useEffect(() => onScreenBaked(repaint), [repaint]);
   // And whenever a tuning moves: a halted picture would otherwise hold the old number until
   // something else asked it to paint (src/lib/moireTuning.ts, 0299). The same ask as above, and
   // a no-op inside a budget already standing.

@@ -29,8 +29,8 @@ import {
   gridPitchPx,
   rowPitchPx,
   screenKeep,
-} from "@/ui/moireScreenTile";
-import { sceneOf } from "@/ui/scene/scenes";
+} from "@/lib/moireScreenFilm";
+import { sceneOf } from "@/lib/scene/scenes";
 import {
   FIELD_ASPECT,
   FIELD_DEPTH,

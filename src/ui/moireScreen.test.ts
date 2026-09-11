@@ -42,8 +42,8 @@ import {
   scanKeep,
   tilePx,
   SCREEN_FLOOR,
-} from "@/ui/moireScreenTile";
-import { sceneHue } from "@/ui/moireScreenCells";
+} from "@/lib/moireScreenFilm";
+import { sceneHue } from "@/lib/moireScreenCells";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
 import { tintRest } from "@/ui/moireTint";
@@ -607,7 +607,7 @@ describe("moireScreen", () => {
         // How much of this pixel stands on the channel its own third of the cell lights. The share
         // and not the plain spread between the three: since 0332 the ink under the fringe is the
         // scene's ramp read per pixel rather than one colour, so a pixel already sitting on a
-        // saturated stop has a wide spread the fringe did nothing to (`ramp`, src/ui/scene/).
+        // saturated stop has a wide spread the fringe did nothing to (`ramp`, src/lib/scene/).
         const own = [red, green, blue][channelAt((at / 4) % width, pitch)] ?? 0;
         purity += sum > 0 ? own / sum : 0;
         total += sum;

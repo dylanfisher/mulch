@@ -6,7 +6,7 @@
  *   No bake a frame: the band is one tile written once a colour and moved on its own transform,
  *   exactly as the screen is (0129, 0070).
  * @instead The ramp itself, and the orbit the whole picture's ink runs on → src/lib/moireColour.ts
- *   and `sceneStops` in src/ui/moireScreenTile.ts, which this reads and never restates — the band is
+ *   and `sceneStops` in src/ui/moireScreenStops.ts, which this reads and never restates — the band is
  *   the yard's own scene's ramp, so the wash and the tile under it cannot disagree about what the
  *   ramp is (0329). The
  *   screen the band lies over → src/ui/moireScreen.ts. Where the reading rests → `MoireRowSet` in
@@ -18,7 +18,7 @@ import { heardLevel } from "@/lib/moireSound";
 import { tunable } from "@/lib/moireTuning";
 import { denormalize } from "@/lib/range";
 import { sceneStops } from "@/ui/moireScreenStops";
-import { sceneOf } from "@/ui/scene/scenes";
+import { sceneOf } from "@/lib/scene/scenes";
 import type { YardScene } from "@/lib/yardScene";
 
 /**
@@ -135,7 +135,7 @@ function bandFor(
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
   // The yard's own scene's five stops, read here and never restated (`sceneStops`,
-  // src/ui/moireScreenTile.ts): the band and the tile under it cannot disagree about what the ramp is.
+  // src/ui/moireScreenStops.ts): the band and the tile under it cannot disagree about what the ramp is.
   // Local, because what comes back is that module's own buffer — held past this call it would name
   // whatever the next tile's ramp is (0070 keeps the buffer; this keeps it out of two files).
   const stops = sceneStops(sceneOf(yard.scene), yard, style);

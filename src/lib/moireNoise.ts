@@ -7,7 +7,7 @@
  * @instead The grain a look bakes over the whole picture, which is a tile and not a function →
  *   src/lib/moireGrain.ts. The cosine every mark with a pitch is cut with, and the two snaps this
  *   reads → `sceneAxis`, `sceneRepeat` and `sceneSlope` in src/lib/moireScene.ts. The fields these
- *   are read into → src/ui/scene/.
+ *   are read into → src/lib/scene/.
  */
 import { wrap } from "./moire.ts";
 import { clamp } from "./range.ts";
@@ -52,7 +52,7 @@ const seed = (ix: number, iy: number, cols: number, rows: number, twist: number)
  * **A hash does not repeat and the tile does.** The screen is laid down as a repeating pattern, so
  * a noise read on plain coordinates would meet a different value at each side of every join and run
  * a seam down the picture at full contrast, once a tile — which is the one artefact every term in
- * `src/ui/scene/` is snapped to avoid. Wrapping the cell indices is what a grating's `sceneRepeat`
+ * `src/lib/scene/` is snapped to avoid. Wrapping the cell indices is what a grating's `sceneRepeat`
  * is for a field with no pitch in it.
  *
  * **Two of the four scenes need this and no product of gratings can give it.** A mass of grass and

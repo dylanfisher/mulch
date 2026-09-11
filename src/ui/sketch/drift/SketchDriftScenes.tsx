@@ -4,11 +4,11 @@
  *   field, which field it is, is already written on the yard (0329), and where on the field's own
  *   ramp a pixel stands is what the field answers (0332).
  * @instead The other five directions → the files beside this one. The grounds these draw →
- *   src/ui/scene/, which this reads and never restates. Where they land → `build` in
+ *   src/lib/scene/, which this reads and never restates. Where they land → `build` in
  *   src/ui/moireScreenTile.ts.
  */
 import type { SceneName } from "@/lib/moireScene";
-import { sceneOf } from "@/ui/scene/scenes";
+import { sceneOf } from "@/lib/scene/scenes";
 import { type SketchStop, SketchDriftStage } from "@/ui/sketch/SketchDriftStage";
 import { SCENE_DIAL, sceneField } from "@/ui/sketch/sketchDrift";
 
@@ -38,7 +38,7 @@ const SCENE_CHIPS: Readonly<Record<string, string>> = {
 /**
  * One scene's own five stops, as the legend under its picture: read off the scene's `ramp` and
  * never restated beside it (principle 1), so entry 07 is the shipped bloom in the shipped colours
- * and a stop that moves in src/ui/scene/ moves here with it — which is the whole of what a bench
+ * and a stop that moves in src/lib/scene/ moves here with it — which is the whole of what a bench
  * picture is for (0247). The name under a chip is the token's own last word, because that is what
  * the theme already calls the colour and a second name for it is a second place to keep in step.
  * Exported because entry 10 draws one of these scenes under the film and reads its stops from

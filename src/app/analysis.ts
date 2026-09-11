@@ -10,6 +10,7 @@ import type { BeatAnalysis } from "@/lib/analysis";
 import { type DeckId, patchDeck, type SessionStore } from "@/state/store";
 import type { AnalysisMessage, AnalysisResult } from "@/workers/analysis";
 import type { EventBody } from "./events";
+import { workerPort } from "@/app/workerPort";
 
 /** The worker, as the three things this file needs from it — so a test can be the worker. */
 export type AnalysisPort = {
@@ -45,30 +46,14 @@ export type Analyzer = {
  * offline render host passes no analyzer at all, because a render measures nothing.
  */
 export function workerAnalysisPort(): AnalysisPort {
-  const worker = new Worker(new URL("../workers/analysis.ts", import.meta.url), {
-    type: "module",
-    name: "mulch-analysis",
-  });
-  return {
-    post: (message) => {
-      // A Worker handle's postMessage takes no targetOrigin; that is window's overload.
-      // oxlint-disable-next-line unicorn/require-post-message-target-origin
-      worker.postMessage(message);
-    },
-    listen: (onResult) => {
-      worker.addEventListener("message", (event: MessageEvent<AnalysisResult>) => {
-        onResult(event.data);
-      });
-    },
-    listenFailure: (onFailure) => {
-      worker.addEventListener("error", (event: ErrorEvent) => {
-        onFailure(event.message === "" ? "worker failed to start" : event.message);
-      });
-      worker.addEventListener("messageerror", () => {
-        onFailure("a reply could not be deserialised");
-      });
-    },
-  };
+  const port = workerPort<AnalysisMessage, AnalysisResult>(
+    // Inline, and it may not be lifted: a bundler rewrites this expression where it stands.
+    new Worker(new URL("../workers/analysis.ts", import.meta.url), {
+      type: "module",
+      name: "mulch-analysis",
+    }),
+  );
+  return { post: port.post, listen: port.listen, listenFailure: port.listenFailure };
 }
 
 // Over the line cap by design: this closure owns the two identity maps and every member that

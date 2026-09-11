@@ -10,9 +10,11 @@
  *   them (0126, 0128), and the gust rides the lean's own row rather than a sixth of anything, so a
  *   halted yard's screen stands exactly as still as its picture. All of them move the tile as a
  *   whole: the lean was once per row drawn, and no row is drawn on its own any more.
- * @instead The tile itself — the two gratings, the beat they make, the three channels, the band,
- *   the scene's own stops and the one pass that writes them into a pixel field →
- *   src/ui/moireScreenTile.ts, which this split out of at the 800-line hard cap (0045, 0332). The
+ * @instead The tile itself — the two gratings, the beat they make, the three channels and the band
+ *   → src/lib/moireScreenFilm.ts; the pass that writes them into a pixel field →
+ *   src/lib/moireScreenField.ts; the theme resolved and the order asked with →
+ *   src/ui/moireScreenTile.ts (0045, 0332); which tile is drawn meanwhile →
+ *   src/ui/moireScreenShop.ts. The
  *   ink a tile is keyed through — which row's claim about colour a whole picture takes, how
  *   saturated a standing rack asks it to be, and the ladder each is rounded onto →
  *   src/ui/moireScreenInk.ts. The picture this is the ink for — one grating per row, and the field
@@ -20,6 +22,10 @@
  *   every one of those gratings back out of what `inkThrough` lays down. What a row is, the fold it
  *   is drawn from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
+// Two dependencies over: since 0354 the screen tile's seam is two modules and not one — the film's
+// terms, which a worker spends without a document, and the theme side that resolves an order — and
+// routing either through the other would be a second name for it (0007, principle 1).
+// oxlint-disable import/max-dependencies
 import {
   DRIFT_DISPERSE_REACH,
   DRIFT_FRINGE_REACH,
@@ -37,15 +43,9 @@ import type { YardScene } from "@/lib/yardScene";
 import { cellsKey, rackCells } from "@/ui/moireCells";
 import type { MoireLook } from "@/ui/moireLooks";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
-import {
-  beatPx,
-  gridPitchPx,
-  rowPitchPx,
-  screenTile,
-  screenTilePx,
-  tilePx,
-  tuneStamp,
-} from "@/ui/moireScreenTile";
+import { beatPx, gridPitchPx, rowPitchPx, screenTilePx, tilePx } from "@/lib/moireScreenFilm";
+import { type ScreenStanding } from "@/ui/moireScreenShop";
+import { screenTile, tuneStamp } from "@/ui/moireScreenTile";
 import { viewOf } from "@/ui/canvasSurface";
 
 /**
@@ -167,6 +167,9 @@ const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: st
 /** The tile's transform, one object refilled: a per-frame paint allocates nothing (0070). */
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
+/** And the size of the tile it is spent on — the shop's answer, refilled for `rolled`'s reason. */
+const drawn = { width: 0, height: 0 };
+
 /**
  * The screen `canvas` is drawn through: the tile for what it is of, and this canvas's own pattern
  * over it. Nothing is built unless the colour, the height, the density or the tint has moved, so a
@@ -229,10 +232,28 @@ function screenOf(
     cells,
     beat,
   );
+  return cutThrough(canvas, context, made, held?.key);
+}
+
+/**
+ * The pattern this canvas fills through, for the tile the shop actually answered with — **which is
+ * not always the one asked for** (0354). The pattern is cut and cached against *that* key, so the
+ * next painting asks again and takes the new tile the moment it lands.
+ */
+function cutThrough(
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  made: ScreenStanding | null,
+  held: string | undefined,
+): CanvasPattern | null {
   if (made === null) return null;
-  const pattern = context.createPattern(made, "repeat");
+  drawn.width = made.width;
+  drawn.height = made.height;
+  const already = screens.get(canvas);
+  if (already !== undefined && held === made.key) return already.pattern;
+  const pattern = context.createPattern(made.tile, "repeat");
   if (pattern === null) return null;
-  screens.set(canvas, { pattern, key });
+  screens.set(canvas, { pattern, key: made.key });
   return pattern;
 }
 
@@ -283,8 +304,6 @@ export function inkThrough(
   // And how far the rack's own lattice fold has come, on the same ladder: what brings the second
   // lattice of marks in as the rack fills, and nothing at all for one effect (0278).
   const beat = stepped(fold, BEAT_REACH);
-  // And how wide one tile of it stands, which is what the crawl below sweeps and comes back across.
-  const wide = screenTilePx(pitch, rowPitch, beat);
   const pattern = screenOf(
     canvas,
     context,
@@ -314,7 +333,9 @@ export function inkThrough(
   // through it steps a cell at a time, which is what the reference's fixed glyph grid does with the
   // picture flowing under it; and a stroke a pixel wide laid at a fraction of a pixel is two pixels
   // at half strength. The cell is the column pitch, so a whole cell is a whole pixel too.
-  rolled.f = Math.round((bandTurns(rows) * tilePx(canvas.height, rowPitch)) / pitch) * pitch;
+  // **Over the tile being drawn and not the one asked for**: the shop's answer while a bake is out
+  // may be another size, and the fold that stands the second lattice is sevenfold (0351, 0354).
+  rolled.f = Math.round((bandTurns(rows) * drawn.height) / pitch) * pitch;
   // And the wind on that same axis, added to the crawl rather than given one of its own: the crawl
   // sweeps the tile's own period and comes back, and this is the same axis running one way — how
   // far the standing rack's own tail has blown the whole field (`windTravelInto`,
@@ -323,7 +344,7 @@ export function inkThrough(
   // beat cell**: a translation of exactly one tile is the identity for a repeating pattern and a
   // translation of anything else is not, so a crawl sweeping a seventh of a tile standing the
   // second lattice would snap the whole picture back once a cycle (`screenTilePx`, 0351).
-  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * wide) / pitch) * pitch;
+  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * drawn.width) / pitch) * pitch;
   turnedScale(
     rolled,
     1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

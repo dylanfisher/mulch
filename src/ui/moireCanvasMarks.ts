@@ -11,7 +11,7 @@
  *   `boxField`, src/ui/moireCanvas.ts, which reads this file's own cell count. The marks
  *   themselves and how much of a cell each covers → src/lib/moireGlyph.ts. The lattice the tile is
  *   baked in, a cell at a time, which is the lattice this one stands over →
- *   src/ui/moireScreenTile.ts. The whole-field lattice that is nothing but a pattern →
+ *   src/lib/moireScreenField.ts. The whole-field lattice that is nothing but a pattern →
  *   src/ui/moireCanvasPattern.ts.
  */
 import { GLYPH_COUNT, GLYPH_GRID, markCoverage } from "@/lib/moireGlyph";

@@ -3,10 +3,11 @@
  *   channels a pixel is written in, read back out of a pixel the engine painted rather than parsed
  *   (`inkOf`), and a scene's five stops resolved off the theme and mixed toward the light the
  *   yard's air puts them under (`sceneStops`). Split out of the tile at the 800-line cap (0345) —
- *   these are what a build resolves once before its loop, and nothing here runs in it.
- * @instead The tile those stops are read along, a mark at a time → src/ui/moireScreenTile.ts. The
+ *   these are what a bake resolves once before its loop, and nothing here runs in it.
+ * @instead The tile those stops are read along, a mark at a time → src/lib/moireScreenField.ts,
+ *   put together with them by src/ui/moireScreenTile.ts. The
  *   ramp a value is read through → src/lib/moireColour.ts. Which stops a scene names →
- *   src/ui/scene/, under src/lib/moireScene.ts.
+ *   src/lib/scene/, under src/lib/moireScene.ts.
  */
 import type { Ink } from "@/lib/moireColour";
 import { type Scene, SCENE_LIGHT_TERMS, SCENE_RAMP_STOPS } from "@/lib/moireScene";
@@ -49,7 +50,7 @@ const stops: Ink[] = Array.from({ length: SCENE_RAMP_STOPS }, (): Ink => [0, 0, 
  * **when the air is one the field is stood in**. A light that falls *through* the field mixes no
  * stop at all: it is spent on where the read stands rather than on what colour is there, down the
  * tile from its top edge, and a stop mixed here as well would be that light paid for twice
- * (`build` below, 0324's two air words).
+ * (`bodyRows`, src/lib/moireScreenField.ts, 0324's two air words).
  * Refilled in place and handed back, for the reason every other matrix in this file is: this runs
  * on a build, and a build allocates a ramp and no more.
  *

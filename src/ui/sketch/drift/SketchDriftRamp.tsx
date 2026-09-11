@@ -3,7 +3,7 @@
  *   green-yellow-red is one scalar through a palette, and this instrument's field is already one
  *   scalar. The argument: colour is the ramp's, and hue and disperse are where on it the rest sits.
  * @instead The other seven directions → the files beside this one. The field itself →
- *   src/ui/sketch/sketchDrift.ts. Where it would land → `build` in src/ui/moireScreenTile.ts, where every pixel
+ *   src/ui/sketch/sketchDrift.ts. Where it would land → `bands` in src/lib/moireScreenField.ts, where every pixel
  *   is multiplied by one row ink today.
  */
 import { SketchDriftStage } from "@/ui/sketch/SketchDriftStage";

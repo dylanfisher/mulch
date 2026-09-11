@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { SCENE_NAMES } from "@/lib/moireScene";
 import { tunings } from "@/lib/moireTuning";
-import { sceneOf } from "@/ui/scene/scenes";
+import { sceneOf } from "@/lib/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
 import { FILM_STOPS } from "@/ui/sketch/drift/SketchDriftFilm";
 import { GLYPH_STOPS } from "@/ui/sketch/drift/SketchDriftGlyph";

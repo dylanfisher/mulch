@@ -90,6 +90,34 @@ export function tuningChanges(): Record<string, number> {
   return changes;
 }
 
+/**
+ * A whole session's moves, applied at once: every handle back to its rest and then the ones named
+ * here set. **The one way a tuning crosses a thread** (0354) — a worker has its own registry and
+ * hears no slider, so the port that asks it for a bake carries `tuningChanges()` beside the order
+ * and this puts them on. An id the worker's own module graph never declared is skipped rather than
+ * thrown on: the page declares tunables this side of the seam has no loop to spend (`wind.strips`,
+ * a painter's), and a bake refused over a slider it does not read would be a picture lost to a
+ * number that could not have moved it.
+ */
+export function applyTunings(changes: Readonly<Record<string, number>>): void {
+  // **A snapshot already on is not a move.** Every bake carries one, and the reset below notifies
+  // whenever anything was off its rest — which is what the picture's caches are dropped on, so
+  // without this one slider moved once would throw the worker's body away before every tile it
+  // bakes for the rest of the session (0354).
+  const already = tuningChanges();
+  const ids = Object.keys(changes);
+  if (
+    ids.length === Object.keys(already).length &&
+    ids.every((id) => already[id] === changes[id])
+  ) {
+    return;
+  }
+  resetTuning();
+  for (const [id, value] of Object.entries(changes)) {
+    if (registry.has(id)) setTuning(id, value);
+  }
+}
+
 /** Hear every move and every reset, until the returned unsubscribe is called. */
 export function subscribeTuning(listener: () => void): () => void {
   listeners.add(listener);

@@ -5,7 +5,7 @@
  *   has no pitch in it, and everything with a pitch drew a comb, a beaded string or a herringbone
  *   (0331). The lean is the yard's own wind, standing rather than travelling.
  * @instead The other three grounds → the files beside this one, and the registry that refuses a
- *   name none of them holds → src/ui/scene/scenes.ts. What a scene is → src/lib/moireScene.ts. The
+ *   name none of them holds → src/lib/scene/scenes.ts. What a scene is → src/lib/moireScene.ts. The
  *   noise this is made of, and the wrapping that keeps it off a seam → src/lib/moireNoise.ts.
  *   Which names read as this one → src/lib/yardScene.ts. The tile this is written into, and the
  *   film of gratings, blobs and band over it → src/ui/moireScreenTile.ts.

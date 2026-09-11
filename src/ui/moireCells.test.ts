@@ -44,8 +44,9 @@ describe("the passes a standing rack runs over the cells", () => {
       look("bloom", { amount: 1, radius: 1 }),
     ]);
     expect(standing.map((cells) => cells.look)).toEqual(["echoes", "bloom"]);
-    expect(standing[0]?.pass).toBe(LOOKS.echoes.cells);
-    expect(standing[1]?.pass).toBe(LOOKS.bloom.cells);
+    // The set carries the name and never the function: the runner looks the pass up, because a
+    // standing set crosses to the worker as the order a bake is made of (0354).
+    for (const cells of standing) expect(LOOKS[cells.look].cells).toBeDefined();
     expect(cellsKey(standing)).not.toBe("");
   });
 

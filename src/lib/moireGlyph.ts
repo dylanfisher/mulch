@@ -6,9 +6,9 @@
  *   ramp wraps**: it starts partway along the marks and comes round, so the field's empty ground
  *   and its peaks both read as sparse marks and only the band between them reads dense, which is
  *   what makes a lattice of marks read as a picture and not as a halftone (0345).
- * @instead Where a mark is written into a tile, a cell at a time → src/ui/moireScreenTile.ts, and
+ * @instead Where a mark is written into a tile, a cell at a time → src/lib/moireScreenField.ts, and
  *   the cell's own size, which is the screen's column pitch (`gridPitchPx`) there too.
- *   Where on its ramp a cell stands → the scene's own ground, src/ui/scene/. The ramp a value is
+ *   Where on its ramp a cell stands → the scene's own ground, src/lib/scene/. The ramp a value is
  *   read through for its colour → src/lib/moireColour.ts. The repeat a cell snaps to across a
  *   tile → `sceneRepeat`, src/lib/moireScene.ts.
  */

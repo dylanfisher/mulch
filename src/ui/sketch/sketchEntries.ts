@@ -8,7 +8,7 @@
  *   src/ui/sketch/SketchPage.tsx, and the frame one entry is drawn in →
  *   src/ui/sketch/SketchFrame.tsx. The pictures themselves → src/ui/sketch/ground/ and
  *   src/ui/sketch/drift/, and the fields they draw → src/ui/sketch/sketchDrift.ts and the four
- *   grounds themselves under src/ui/scene/. None of them is wired to anything (0247).
+ *   grounds themselves under src/lib/scene/. None of them is wired to anything (0247).
  */
 
 // The dependency count is the sketch count, for the reason the gallery's is: this file exists to
@@ -223,7 +223,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the one picture every yard drew, and four hash reads a pixel. A rack of six is six fields rather than six settings of one, so nothing on the page reads as a family any more except by its ramp; and a hash does not repeat where a tile does, so every scale of the noise is sampled on cells wrapped onto the tile or a seam runs down the picture at full contrast, once a tile.",
     built:
-      "the ground in src/ui/scene/meadow.ts over streakTiled in src/lib/moireNoise.ts, read by build in src/ui/moireScreenTile.ts where the tile's every pixel is written: the film's gratings, blobs and band shade the read the ground gives (0340) and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle, which is the precedent grainTile in src/lib/moireGrain.ts set for reading a hash a pixel at a time.",
+      "the ground in src/lib/scene/meadow.ts over streakTiled in src/lib/moireNoise.ts, read by bands in src/lib/moireScreenField.ts where the tile's every pixel is written: the film's gratings, blobs and band shade the read the ground gives (0340) and the lean is baked with the tile. Bake-side entirely — the ground runs on the rebuild and a frame still costs one fillStyle, which is the precedent grainTile in src/lib/moireGrain.ts set for reading a hash a pixel at a time.",
     Content: SketchDriftMeadow,
   },
   {
@@ -234,7 +234,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the picture at rest being the caller's own resolved ink. A scene names all five of its own stops and is read along them per pixel, so a yard is coloured by its name before anything has claimed a hue — which is the point, and which is one more thing between the token a surface asked for and what it sees (0332).",
     built:
-      "the ground and the five stops in src/ui/scene/bloom.ts, resolved by sceneStops in src/ui/moireScreenStops.ts and read at sceneHue. Bake-side: the stops are read once a tile and the ramp is read at every pixel of it, which is what a poppy head standing scarlet over a green stem costs (0332).",
+      "the ground and the five stops in src/lib/scene/bloom.ts, resolved by sceneStops in src/ui/moireScreenStops.ts and read at sceneHue. Bake-side: the stops are read once a tile and the ramp is read at every pixel of it, which is what a poppy head standing scarlet over a green stem costs (0332).",
     Content: SketchDriftBloom,
   },
   {
@@ -245,7 +245,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "legibility on the strip at the finest ripple. A ripple near the film's own row pitch beats with it, which is the instrument's whole subject at the field's scale and a shimmer at this one — the dial for it is water.ripple and it is judged at the 1:1 crop.",
     built:
-      "the ground in src/ui/scene/water.ts, its four numbers declared as tunables under one group in src/lib/copyDriftGroups.ts. Bake-side, like every scene: src/ui/moireScreenTile.ts writes it a pixel at a time on the rebuild.",
+      "the ground in src/lib/scene/water.ts, its four numbers declared as tunables under one group in src/lib/copyDriftGroups.ts. Bake-side, like every scene: src/ui/moireScreenTile.ts writes it a pixel at a time on the rebuild.",
     Content: SketchDriftWater,
   },
   {
@@ -256,7 +256,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the dark, and one more token. A ground says where on its ramp a pixel is read and spends none of the tile's alpha (0332), so how dark a canopy goes is how dark its own stops are and nothing to do with SCREEN_FLOOR — and --scene-canopy-dark at a lightness of 0.38 turned out to be a lit leaf rather than the shade under one, so the ramp got --scene-canopy-shade under it.",
     built:
-      "the ground in src/ui/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/ui/scene/scenes.ts.",
+      "the ground in src/lib/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/lib/scene/scenes.ts.",
     Content: SketchDriftCanopy,
   },
   {
@@ -278,7 +278,7 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     trades:
       "the scene's colour for its density. At one ink every scene is told apart by its field's shape alone, which is what the reference does and what a picture in a monospace texture reads best as; at five stops a canopy is green and a bloom is scarlet over green, but a lattice of coloured marks reads busier than either. The channels' fringe is outside the dial: a chromatic lattice on a seven-pixel stroke is measured on the shots and not argued here.",
     built:
-      "the ten marks and the wrap in src/lib/moireGlyph.ts, read by build in src/ui/moireScreenTile.ts a cell at a time — the cell's mean over the body, its mark by markAt, its coverage the tile's alpha — with glyph.flat declared beside FILM_SHARE and its row in a Glyph group in src/lib/copyDriftGroups.ts. Bake-side: the marks are baked into the tile and a frame still costs one fillStyle (0345).",
+      "the ten marks and the wrap in src/lib/moireGlyph.ts, read by bands in src/lib/moireScreenField.ts a cell at a time — the cell's mean over the body, its mark by markAt, its coverage the tile's alpha — with glyph.flat declared beside FILM_SHARE and its row in a Glyph group in src/lib/copyDriftGroups.ts. Bake-side: the marks are baked into the tile and a frame still costs one fillStyle (0345).",
     Content: SketchDriftGlyph,
   },
 ];

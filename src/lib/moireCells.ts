@@ -10,7 +10,7 @@
  *   src/lib/moireCellBloom.ts, each declared as `cells` on its own look in src/lib/moireLook.ts.
  *   Which of them a standing rack runs, at what the picture has travelled to, and the key a tile is
  *   held under → `rackCells`, src/ui/moireCells.ts. Where the grid is baked, a cell's mark chosen
- *   and these run → `cellGrid`, src/ui/moireScreenCells.ts. The marks themselves and the wrapped
+ *   and these run → `cellRead`, src/lib/moireScreenCells.ts. The marks themselves and the wrapped
  *   ramp onto them → src/lib/moireGlyph.ts. What a look does to the *cut* rather than to the marks
  *   — the field passes the chain draws — → src/lib/moireLook.ts.
  */
@@ -45,13 +45,25 @@ export type CellPass = (
   terms: LookTerms,
 ) => void;
 
-/** One standing pass: which look declared it, where the picture has got to, and its terms. */
+/**
+ * One standing pass: which look declared it, where the picture has got to, and its terms. **Plain
+ * data, and the function is not on it** — the pass itself is looked up by name where the grid is
+ * run (`runCellPasses`), because since 0354 a standing rack crosses to a worker as the order a bake
+ * is made of, and a function is the one thing a `postMessage` cannot carry.
+ */
 export type MoireCells = {
   look: LookName;
   at: number;
   terms: LookTerms;
-  pass: CellPass;
 };
+
+/**
+ * The same stand with its pass looked up. Resolved where the bake is put together and never here
+ * (`cellPasses`, src/lib/moireScreenField.ts): a look's declaration reaches for this file's own
+ * `cellAt` and `cellRaise`, so a registry read from here would close a cycle and leave every
+ * `cells` entry undefined — which is what it did, once.
+ */
+export type RunningCells = MoireCells & { pass: CellPass };
 
 /**
  * Where cell (`x`, `y`) is in a grid `cols` by `rows` — **wrapped on both axes**, because the tile
@@ -79,7 +91,7 @@ export function runCellPasses(
   marks: Uint8Array,
   cols: number,
   rows: number,
-  cells: readonly MoireCells[],
+  cells: readonly RunningCells[],
 ): void {
   if (cells.length === 0) return;
   const into = new Uint8Array(marks.length);

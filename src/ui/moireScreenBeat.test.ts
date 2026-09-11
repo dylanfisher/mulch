@@ -17,20 +17,29 @@ import {
 } from "@/lib/moireGlyph";
 import { LATTICE_CELLS, latticeCells, latticeFold, LATTICE_REACH } from "@/lib/moireLattice";
 import { shapeRest } from "@/ui/moireShape";
-import { beatInk, beatLattice, beatTilePx } from "@/ui/moireScreenBeat";
-import { PER_PIXEL } from "@/ui/moireScreenCells";
+import { beatInk, beatLattice, beatTilePx } from "@/lib/moireScreenBeat";
+import { PER_PIXEL } from "@/lib/moireScreenCells";
 import { moireRow as row } from "@/lib/moireRow";
-import { baked, painterOn, type Painted, tileOf } from "@/ui/moireCanvasPainted";
-import { beatPx, gridPitchPx, rowPitchPx, tilePx } from "@/ui/moireScreenTile";
+import {
+  baked,
+  forgetScreenTiles,
+  installHereScreenPort,
+  painterOn,
+  type Painted,
+  tileOf,
+} from "@/ui/moireCanvasPainted";
+import { beatPx, gridPitchPx, rowPitchPx, tilePx } from "@/lib/moireScreenFilm";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
   vi.stubGlobal(name, value);
 });
 
-// The stand-in document and display live for exactly the one test that asks for them.
+// The stand-in document and display live for exactly the one test that asks for them, and the shop
+// goes back to the port every other case paints through (src/ui/moireCanvasPainted.ts).
 afterEach(() => {
   vi.unstubAllGlobals();
+  installHereScreenPort();
 });
 
 /** A rack whose tail is blowing nowhere, which is where every case but the crawl's paints. */
@@ -222,5 +231,56 @@ describe("moireScreenBeat", () => {
     // the tile and never the beat cell inside it.
     expect(both).toBeGreaterThan(beatTilePx(beatPx(pitch), cell) / 2 - pitch);
     expect(both).toBeGreaterThan(beatPx(pitch) * 1.5);
+  });
+
+  it("sweeps the tile it is drawing and not the one it asked for, while that one is baked", () => {
+    // Since 0354 a bake is off this task, so a painting whose key has just moved draws the tile the
+    // canvas last stood on — and a translation of exactly one tile is the identity for a repeating
+    // pattern while a translation of anything else is not. A crawl swept at the width the *asked*
+    // tile would have had snaps the whole picture back once a cycle for as long as the bake lasts,
+    // and the fold that stands the second lattice makes that about seven times a tile.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const pitch = gridPitchPx(2);
+    const cell = rowPitchPx(2);
+    // A port that keeps every bake and answers only when this case says so.
+    const answers: ((result: { t: "baked"; key: string; tile: ImageBitmap }) => void)[] = [];
+    const asked: string[] = [];
+    forgetScreenTiles(() => ({
+      bake: (request) => {
+        asked.push(request.order.key);
+      },
+      listen: (onResult) => {
+        answers.push(onResult);
+      },
+      listenFailure: () => {},
+    }));
+    const shape = { ...shapeRest(), cells: shapeRest().cells };
+    const painted = paintedOn(200, 128, ROWS, 2, 20, {
+      frames: 3,
+      advance: 0,
+      shape,
+      wind: { drift: 0.5, veer: 0 },
+      between: (frame) => {
+        // The narrow tile lands after the first painting, so the second draws it.
+        if (frame === 0) {
+          const key = asked.at(-1) ?? "";
+          // The tile is never drawn from, only stood on: what this case reads is the transform.
+          // oxlint-disable-next-line no-unsafe-type-assertion
+          for (const answer of answers) answer({ t: "baked", key, tile: {} as ImageBitmap });
+          return;
+        }
+        // And then the rack's fold stands the second lattice, whose tile is never baked at all.
+        shape.cells = LATTICE_CELLS[1];
+      },
+    });
+    const last = painted.screened.at(-1);
+    const swept = last === undefined ? 0 : last.e;
+    // Half a turn of the wind carries the screen half of the tile it is drawing, which is still the
+    // narrow one — and nowhere near half of the grown one.
+    expect(asked.length).toBeGreaterThan(1);
+    expect(swept).toBeGreaterThan(0);
+    expect(swept % pitch).toBe(0);
+    expect(swept).toBeLessThanOrEqual(beatPx(pitch));
+    expect(swept).toBeLessThan(beatTilePx(beatPx(pitch), cell) / 4);
   });
 });

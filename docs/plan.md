@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0354; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0355; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -87,7 +87,7 @@ the levers that hold, records what stands over it with its cause, and the next c
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
-0349, 0350, 0351 and 0352, and checkpoint A after them as 0353.
+0349, 0350, 0351 and 0352, checkpoint A after them as 0353, and checkpoint A2 after that as 0354.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -241,7 +241,7 @@ a drag still drops. §4 holds what that is qualified for; checkpoint B owns it. 
 step named — a bake on an ink step touching only the tile the step moved — went with it, the
 numbers having put the bake's own shape past what this checkpoint may land.
 
-**Checkpoint A2 — the bake is off the frame (bench-49).** _Durable shape moved:_ none. Added
+**Checkpoint A2 — the bake is off the frame (bench-49, 0354).** _Durable shape moved:_ none. Added
 2026-09-11 on checkpoint A's numbers, and run before step 6 because the page comes first: with the
 stamp fixed, every tile bake at the budget's setting is a long task — 36–38 ms mean and 83–98 ms
 worst against 4 and 8, fourteen to eighteen of them in eight seconds, and they are the whole of
@@ -274,6 +274,25 @@ yet baked draws the last complete tile and asks the shop once, never `build` on 
 shop hands a bake to the worker port where one is given and to the paced fallback where none is;
 a rung of one term rebakes one tile. **Refused:** a governor in place of the shop; a tile that
 paints empty while a bake is late (0144); a bake below device resolution; a rest moved.
+
+**It landed as [0354](decisions/0354-the-screen-tile-is-baked-off-the-frame.md)**, and the outcome
+is met on the two halves the machine could answer. At the budget's setting the bake now runs in a
+worker and the frame draws the last complete tile until the new one lands: interleaved three times
+each against 0353's commit, base put **seven long tasks** in every eight-second window, worst 122
+to 140 ms, with eight to ten rAF gaps over 20 ms and seven over 50; head put **none at all**, its
+worst gap 18 ms, at 124 frames a second against base's 107. The bake is not cheaper where it now
+runs — 42 ms mean and 123 ms worst against base's 45 and 134 — it is off the one loop the hand is
+on. The knob drag landed all 480 of its moves and dropped no frame in either tree. Two things the
+machine could not answer and one it answered against the step: its **audio output device is gone**,
+so the deck clock does not advance and the rebakes were driven by walking the rack's own reading
+three times a second, the same walk in both trees (the gate's `drive` step is red at base for the
+same reason); a **second display** could not be reached from the harness; and a popped window put
+**fullscreen goes on drawing** at 120 frames a second with its opener behind it, in both trees, so
+0353's finding did not reproduce and no step is opened for it. The loop, priced per 0116, is 118 ms
+at p95 against a 4.9 ms floor for writing the same bytes — instruction-bound by twenty-four times,
+with real headroom — but **0058's bar is absolute milliseconds on a path someone waits on**, and a
+bake in a worker that no gesture awaits is the same ground 0058 rejected the analysis kernels on.
+No WASM block is opened; step 18 still owns the question.
 
 **Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
@@ -312,8 +331,11 @@ rate and a song changing parts, and attribute what moved: a lift that re-cut eve
 row's cells moved, a part change that rebaked a tile a frame was waiting on, an alphabet whose ten
 tiles were minted on the frame that first needed them. Land what the numbers say. **Stands on:**
 checkpoint A's `STAMP_PICTURE_DRAWS` and its script (0353); `joltWalked`, `standingPart`. **And it
-reads what checkpoint A2 did with the bake** — the tile bake at 36–38 ms mean that was the whole
-of the long tasks and of the frames a drag dropped — under the landing's own motion. **Outcome wanted:**
+reads what checkpoint A2 did with the bake** (0354) — a tile of the same 42 ms mean, now in a
+worker, with the frame drawing the last complete one until it lands — under the landing's own
+motion: what it has to say is whether a landing puts the bake back on the frame's own task by
+making a rung of it something a frame waits for, and whether a part change's ten fresh keys
+outrun the shop's one bake at a time. **Outcome wanted:**
 a walk flaring its rows on the popped-out picture costs no more per frame than the still lattice
 did at checkpoint A, within the budget. **Tests that must fail first:** a frame at a landing's
 edge pays the same number of picture-sized draws as a frame with no landing; a part change
@@ -528,6 +550,60 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**Checkpoint A2's setting was short of the budget's in one term, and answered two of its questions
+with "the machine cannot say" (0354).** The budget's setting wants a walk playing. The machine this
+was run on has **no audio output device** — Chromium reports it lost, the deck clock stops at
+0.0058 s, and `./scripts/check`'s own `drive` step is red at base for exactly that reason — so no
+travelling term rebakes anything of its own. The rebakes were driven instead by walking the rack's
+reading three times a second from the page, the same walk in both trees, which put twenty-one bakes
+in every eight-second window on both sides: the bake load is the budget's, the thing turning the
+knob is not. For the same reason the knob drag was taken after that walk rather than under it, so
+what it says is that a drag beside a popped picture drops no frame and not that it drops none while
+a tile is baking. A **second display** could not be reached from the harness at all, so 0353's
+"a popped picture on the second screen stops drawing" stands unanswered; **fullscreen** could be
+reached, and did not reproduce it — the popped window went on drawing at 120 frames a second with
+its opener behind it, in both trees — so no step was opened for a fix to a thing that did not
+happen here. Whoever meets it on a real second display should reopen it with that screen's numbers.
+
+**The bake is off the frame and is not one millisecond cheaper (0354).** 42 ms mean and 123 ms
+worst, against base's 45 and 134. A rung of a travelling term therefore shows up to about an eighth
+of a second late on a picture that size, and the frame draws the tile before it meanwhile, which is
+0144's contract taken at its word at a scale 0144 never saw. Priced per 0116 the loop is
+instruction-bound by twenty-four times over the floor of writing its own bytes, so the headroom is
+real — and 0058's bar is absolute milliseconds on a path someone waits on, which a worker bake no
+gesture awaits does not clear. No WASM block was opened on it; step 18 still owns the question, and
+a landing that makes a rung something a frame _does_ wait for would change the answer, which is why
+checkpoint B's entry now asks that.
+
+**Where there is no worker, a slice is one band a frame and the bands are not all the same size
+(0354).** The fallback bands the body, the cell grid of both lattices, the scatter's block read and
+the pixel loop — the four width × height passes — and runs the rack's cell passes, the scatter's
+cut and the fringe cell whole, because each of those is a pass over a grid of cells rather than of
+pixels and none of them was near the budget. A slice is bounded twice: by four milliseconds of wall
+clock, and by one slice a frame, because `paced` is due the instant a slice that spent its whole
+budget ends and without the second bound the loop would be whole again under a budget that only
+looked spent. This path is not what any Chromium runs, so it is proved by its own case and not by
+the measurement.
+
+**The pixel loop moved to `src/lib`, and two of its test files did not (0354).** A worker may import
+`lib` and nothing above it (docs/map.md), so `moireScreenCells`, `moireScreenBeat`,
+`moireScreenScatter` and the whole of `src/ui/scene/` moved there with the loop, and what stayed in
+`src/ui/moireScreenTile.ts` is the half that needs a document. `moireScreenBeat.test.ts` and
+`moireScreenScatter.test.ts` stayed in `src/ui` because they paint through the painter's own
+recorder, which is `src/ui`: the tier rule binds a test like any other file, and a test of a lib
+module that drives the whole painter is a ui test whatever it is named after. The same move took
+`hold` out of `src/ui/driftTiles.ts` into `src/lib/hold.ts` — three caches on both sides of the seam
+now share it — and `MoireCells` lost its `pass` field, because a function is the one thing a
+`postMessage` cannot carry: a standing pass crosses as its look's name and is resolved where the
+bake is put together, which is also the only place that could read the registry without closing an
+import cycle through `moireLook`. `src/ui/moireScreen.ts` carries a file-level
+`import/max-dependencies` waiver with its reason, the seam being two modules where it was one. Three
+smaller things went with the review: `cellGrid` had no caller left once both lattices read in bands
+and was deleted rather than kept for its own tests; the worker handle a host builds became one
+statement (`src/app/workerPort.ts`) at its third site, which is where principle 3 says to take it;
+and the painter's own harness re-exports the shop's two test doors, so a painter case reaches the
+shop through the harness its painting comes from rather than naming a second module for it.
 
 **Checkpoint A could not use the profiler the budget names, and could not reach the budget
 (0353).** The method says CDP `Profiler` self time by function and inclusive time by file. At the

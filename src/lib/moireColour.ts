@@ -5,7 +5,7 @@
  *   nothing claiming its colour is drawn at a given second of sounding. Pure maths, no canvas, no
  *   clock of its own: the second it is handed is the deck's (0126).
  * @instead Which stops the ramp is made of — token names, never colours → the `ramp` each scene
- *   declares in src/ui/scene/, resolved by `sceneStops` in src/ui/moireScreenTile.ts, the one file
+ *   declares in src/lib/scene/, resolved by `sceneStops` in src/ui/moireScreenTile.ts, the one file
  *   that resolves them. What an age does to a claim made
  *   against the orbit → `agedHue` in src/lib/moireAge.ts. The travel toward the result, and the
  *   ladder it is rounded onto → src/ui/moireScreenInk.ts.

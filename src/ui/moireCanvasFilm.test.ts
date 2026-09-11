@@ -7,7 +7,7 @@
  * @instead Everything else the scene reads through the painter → src/ui/moireCanvasScene.test.ts,
  *   which this stands beside for the reason that one stands beside src/ui/moireCanvas.test.ts:
  *   the file it would go in has no room left under the line cap (0045). The terms themselves and
- *   the ease over them → src/ui/moireScreenTile.ts. The bench that argues the share → entry 10,
+ *   the ease over them → src/lib/moireScreenFilm.ts. The bench that argues the share → entry 10,
  *   src/ui/sketch/drift/SketchDriftFilm.tsx.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +20,7 @@ import { resetTuning, setTuning, tunings } from "@/lib/moireTuning";
 import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, type Painted, resolvedInk, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
 import { screenInkRest } from "@/ui/moireScreenInk";
-import { sceneOf } from "@/ui/scene/scenes";
+import { sceneOf } from "@/lib/scene/scenes";
 import {
   beatPx,
   filmStand,
@@ -29,7 +29,7 @@ import {
   rowPitchPx,
   screenKeep,
   SCREEN_FLOOR,
-} from "@/ui/moireScreenTile";
+} from "@/lib/moireScreenFilm";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -110,8 +110,8 @@ function keepsOf(pixels: Uint8ClampedArray): readonly { at: number; keep: number
  * The water, because it is the one field read low enough on its own ramp that a shade stays inside
  * the first stretch of it, where the ramp is a straight line between two stops and a read pulled
  * down is a colour pulled toward the black the ramp opens at. A yard no other case here paints, so
- * the first tile is built rather than answered out of the cache the tunings clear (`tiles`,
- * src/ui/moireScreenTile.ts).
+ * the first tile is baked rather than answered out of the shop's own cache (`tiles`,
+ * src/ui/moireScreenShop.ts).
  */
 const REED = yardScene("Quiet Reed by the Old Wall");
 

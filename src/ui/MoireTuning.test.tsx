@@ -105,7 +105,7 @@ describe("DriftTuning", () => {
   it("holds the poppy field's own numbers under the Bloom group", () => {
     // The bloom is a poppy field since 0332, and what a hand argues on it is how far apart the
     // heads stand at the top of a tile and at its foot, how wide a head is, and how far apart the
-    // stems run — the four the ground actually reads (src/ui/scene/bloom.ts).
+    // stems run — the four the ground actually reads (src/lib/scene/bloom.ts).
     const bloom = grouped(tunings()).find(({ group }) => group.title === "Bloom");
     expect(bloom?.rows.map((row) => row.handle.id)).toEqual([
       "bloom.far",
@@ -151,7 +151,7 @@ describe("DriftTuning", () => {
   it("holds the glint's own numbers under the Water group", () => {
     // The water is the glint since 0333, and what a hand argues on it is the two pitches the glints
     // are the beat of, how long one is, how wide the swell is and how black the water under it is —
-    // the five the ground actually reads (src/ui/scene/water.ts). The blades are written by hand
+    // the five the ground actually reads (src/lib/scene/water.ts). The blades are written by hand
     // and are no longer a spacing anyone can turn.
     const water = grouped(tunings()).find(({ group }) => group.title === "Water");
     expect(water?.rows.map((row) => row.handle.id)).toEqual([

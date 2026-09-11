@@ -91,7 +91,7 @@ import { boxCells, readMarks, stampMarks } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
-import { gridPitchPx } from "@/ui/moireScreenTile";
+import { gridPitchPx } from "@/lib/moireScreenFilm";
 import type { YardScene } from "@/lib/yardScene";
 import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";

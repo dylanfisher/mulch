@@ -5,10 +5,10 @@
  *   itself into — the registry refuses at load a name this file does not hold, and a file that
  *   holds a name this one does not (0329).
  * @instead The scenes themselves — the ground each one lays down and the five stops it is read
- *   along → src/ui/scene/, one file per name, and the registry that refuses them →
- *   src/ui/scene/scenes.ts. The reading of a yard's name into one of these →
+ *   along → src/lib/scene/, one file per name, and the registry that refuses them →
+ *   src/lib/scene/scenes.ts. The reading of a yard's name into one of these →
  *   src/lib/yardScene.ts. The tile a scene's ground is written into, and the film over it →
- *   src/ui/moireScreenTile.ts. The shape this contract copies → src/lib/moireLook.ts.
+ *   src/lib/moireScreenFilm.ts. The shape this contract copies → src/lib/moireLook.ts.
  */
 import { cosTurn, wrap } from "./moire.ts";
 
@@ -158,7 +158,7 @@ export const SCENE_RAMP_STOPS = 5;
  * size, because the tile is laid down as a repeating pattern
  * and every mark in it has to come round at its edges — a ground stated in absolute pixels would
  * ride a seam down the picture once a tile, which is the one artefact the film's own terms are
- * built to avoid (`beatPx`, `tilePx`, src/ui/moireScreenTile.ts). Neither of them is a clock: the
+ * built to avoid (`beatPx`, `tilePx`, src/lib/moireScreenFilm.ts). Neither of them is a clock: the
  * ground is written on a rebuild and never on a frame (0129). `reach` is a multiplier on every
  * mark's period and `stand` is read by the shade over every scene rather than by a ground, both
  * being the yard's place rather than its plant (0335).

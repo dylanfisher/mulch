@@ -107,7 +107,7 @@ export const swayEffect = defineEffect({
   geometry: "linear",
   // The oscillator's rate is how fast the picture is moving under the camera, and a camera does not
   // sample the three channels at one instant: the faster the sway, the further apart the three
-  // channel lattices land, which is the fringe (`CHANNEL_LAG`, src/ui/moireScreenTile.ts, 0141). The
+  // channel lattices land, which is the fringe (`CHANNEL_LAG`, src/lib/moireScreenFilm.ts, 0141). The
   // cycle it works over is the warp's wander below, the same knob read whole-field; the row's own
   // period is the one its id folds to, as the filter's is. Its
   // depth is how unevenly the row travels through its own fringes, which is `bend` — the reading

@@ -3,7 +3,7 @@
  *   winds are each a set with no entry twice, that every one of them carries the terms the picture
  *   reads off it, and that the two marks a ground is cut with are the picture's own cosine (0329).
  * @instead That every name has a file, that an unknown one is refused at load, and that every token
- *   a scene names is in tokens.css → src/ui/scene/scenes.test.ts, which is where those can be
+ *   a scene names is in tokens.css → src/lib/scene/scenes.test.ts, which is where those can be
  *   asserted: `src/lib` may not import `src/ui` (docs/map.md).
  */
 import { describe, expect, it } from "vitest";

@@ -9,10 +9,10 @@
  *   src/lib/yardScene.ts. The tile a scene is written into → src/ui/moireScreenTile.ts.
  */
 import { type Scene, type SceneName, SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
-import { bloom } from "@/ui/scene/bloom";
-import { canopy } from "@/ui/scene/canopy";
-import { meadow } from "@/ui/scene/meadow";
-import { water } from "@/ui/scene/water";
+import { bloom } from "@/lib/scene/bloom";
+import { canopy } from "@/lib/scene/canopy";
+import { meadow } from "@/lib/scene/meadow";
+import { water } from "@/lib/scene/water";
 
 /** Every scene, by the name a yard's plant reads as. One entry per file and one file per entry. */
 export const SCENES: Readonly<Record<SceneName, Scene>> = { meadow, bloom, water, canopy };

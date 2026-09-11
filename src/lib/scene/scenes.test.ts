@@ -21,7 +21,7 @@ import {
   SCENE_REACH_TERMS,
 } from "@/lib/moireScene";
 import { standSpeck } from "@/lib/moireStand";
-import { SCENES, refuseScene, sceneOf } from "@/ui/scene/scenes";
+import { SCENES, refuseScene, sceneOf } from "@/lib/scene/scenes";
 
 /** The one file that says what a colour is (0236), read as text: a token declared nowhere is a colour nobody has. */
 const TOKENS = readFileSync("src/ui/tokens.css", "utf8");
@@ -175,7 +175,7 @@ describe("the scene registry", () => {
   it("keeps the water black under its glints, and lights a few of them outright", () => {
     // The whole of 0333 read off the ground: black water is where the picture rests, and a glint is
     // lit or it is not — a crest allowed to fade through the ramp would spend the middle stops on
-    // its own edge, and the middle of this ramp is a reed (src/ui/scene/water.ts).
+    // its own edge, and the middle of this ramp is a reed (src/lib/scene/water.ts).
     // At every reach, because a far water's two pitches are its tightest: the ripple rests at 2.7
     // device pixels and a far reading takes it under two, which is the one place a mark can stop
     // being a mark at all — so the picture is asserted where it is thinnest and not only at rest.

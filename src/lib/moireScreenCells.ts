@@ -2,17 +2,17 @@
  * @role The cell grid one tile is written on: where each cell of the field stands on the scene's
  *   ramp — the box read, one mean per cell — which of the ten marks that read is cut into, and the
  *   standing rack's own passes over the marks that follow (0345, 0348, 0349). Split off
- *   src/ui/moireScreenTile.ts when the passes landed and that file stood at the 800-line cap, for
+ *   the screen tile when the passes landed and that file stood at the 800-line cap, for
  *   the reason it split off src/ui/moireScreen.ts (0045): what moved is a whole reading and never
  *   half of one — everything between the scene's body and the mark a cell is written in.
- * @instead The tile itself, the ink the marks are drawn in and the one loop over the pixels →
- *   src/ui/moireScreenTile.ts, this file's only caller. What a pass is and what runs one →
- *   src/lib/moireCells.ts; the passes → src/lib/moireCellEchoes.ts, src/lib/moireCellBloom.ts;
- *   which of them a rack stands → src/ui/moireCells.ts. The marks and the wrapped ramp onto them →
- *   src/lib/moireGlyph.ts. The body a cell is read out of → `bodyOf`, src/ui/moireScreenTile.ts.
+ * @instead The tile itself, the ink the marks are drawn in, the one loop over the pixels and the
+ *   body a cell is read out of → src/lib/moireScreenField.ts, this file's only caller. What a pass
+ *   is and what runs one → src/lib/moireCells.ts; the passes → src/lib/moireCellEchoes.ts,
+ *   src/lib/moireCellBloom.ts; which of them a rack stands → src/ui/moireCells.ts. The marks and
+ *   the wrapped ramp onto them → src/lib/moireGlyph.ts.
  */
 import { DRIFT_REST } from "@/lib/moire";
-import { type MoireCells, runCellPasses } from "@/lib/moireCells";
+
 import { GLYPH_COUNT, GLYPH_PHASE, GLYPH_PUSH, markAt, pushRead } from "@/lib/moireGlyph";
 import { sceneAxis } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
@@ -45,48 +45,67 @@ export const sceneHue = (ground: number, hue: number): number =>
 /** Where every cell of a tile stands on its ramp, and which mark each of them is written in. */
 export type CellGrid = { stood: Float32Array; marks: Uint8Array };
 
+/** An empty grid of `cols` by `rows` — the one statement of what a grid is made of. */
+export const cellBlocks = (cols: number, rows: number): CellGrid => ({
+  stood: new Float32Array(cols * rows),
+  marks: new Uint8Array(cols * rows),
+});
+
 /**
- * The grid a tile `width` by `height` is written on, out of the scene's own `body`: one read and
- * one mark per cell, and then the rack's own passes over the marks.
+ * The fall down a tile, one number per device row, held across the bands of one read. Strongest at
+ * the tile's top edge and nought at its foot — which on a tile laid as a repeating pattern is its
+ * middle, because a fall down a picture that never repeats is a bright line at every join (0334,
+ * `sceneAxis(y / height)`). Held rather than rebuilt per band: a read is `cols` lookups per row, so
+ * the row cannot be computed where it is used, and a band is not a bake (0354).
+ */
+let fell = new Float32Array(0);
+let fellFor = "";
+function fallAcross(height: number, falling: number): Float32Array {
+  const key = `${height}|${falling}`;
+  if (fellFor === key) return fell;
+  if (fell.length !== height) fell = new Float32Array(height);
+  for (let y = 0; y < height; y++) fell[y] = falling * sceneAxis(y / height);
+  fellFor = key;
+  return fell;
+}
+
+/**
+ * The box read and the cut for the cell rows `from` up to `to`, into a grid already allocated.
+ * **The one statement of the read**, run over every row at once in a worker and a band at a time
+ * under a per-frame budget where there is none (0354, src/ui/moireScreenShop.ts) — because a bake
+ * in slices that read the cells differently from a bake in one task would be two pictures for one
+ * tile. The rack's passes are not here: they run over the whole grid once the last band has landed,
+ * which is what makes a band resumable at all.
  *
  * **A cell says everything it says once, and says the mean of it**: where on the ramp it stands is
  * the read — the ground under its shade, its air and its bright points — averaged over every pixel
  * in it, the box a lattice of marks reads its picture through. Not its centre pixel, which reads a
  * grating a cell's own pitch apart at one phase in every cell; and not its brightest, which lights
- * a cell a speck only grazes and turns a flock into a blanket.
- *
- * The read is kept beside the mark because the ink is read at the cell's own stand, *before* the
- * cut: the push, and every pass that follows it, move which mark a cell is written in and never one
- * stop of the colour underneath it (0348).
+ * a cell a speck only grazes and turns a flock into a blanket. The read is kept beside the mark
+ * because the ink is read at the cell's own stand, *before* the cut: the push, and every pass that
+ * follows it, move which mark a cell is written in and never one stop of the colour underneath it
+ * (0348).
  */
-// One box read per cell and the cut that follows it: splitting the two would hand a helper the
-// whole of the read's state on the one path a bake may not allocate on (0129).
-// See docs/decisions/0007-reviewed-oversized-functions.md.
+// The read is the loop 0007 is about; banding it moved no line of it.
 // oxlint-disable-next-line max-lines-per-function
-export function cellGrid(
+export function cellRead(
+  grid: CellGrid,
   body: Float32Array,
   width: number,
   height: number,
   across: number,
   down: number,
   cols: number,
-  rows: number,
   hue: number,
   falling: number,
-  cells: readonly MoireCells[],
-): CellGrid {
-  const stood = new Float32Array(cols * rows);
-  const marks = new Uint8Array(cols * rows);
+  from: number,
+  to: number,
+): void {
+  const { marks, stood } = grid;
   const phase = GLYPH_PHASE.value;
   const push = GLYPH_PUSH.value;
-  // The fall, once a row: strongest at the tile's top edge and nought at its foot — which on a
-  // tile laid as a repeating pattern is its middle, because a fall down a picture that never
-  // repeats is a bright line at every join (0334, `sceneAxis(y / height)`).
-  const throughAt = Float32Array.from(
-    { length: height },
-    (_, y) => falling * sceneAxis(y / height),
-  );
-  for (let row = 0; row < rows; row++) {
+  const throughAt = fallAcross(height, falling);
+  for (let row = from; row < to; row++) {
     const y0 = Math.floor(row * down);
     const y1 = Math.min(height, Math.ceil((row + 1) * down));
     for (let col = 0; col < cols; col++) {
@@ -99,7 +118,7 @@ export function cellGrid(
           const into = (y * width + x) * PER_PIXEL;
           // Where on the ramp this pixel stands: its own place, carried along it by however far
           // the picture's own hue has travelled — and then pulled toward the scene's own first
-          // stop by the shade and the film the body already holds (`bodyOf`). **After the travel
+          // stop by the shade and the film the body already holds (`bodyRows`). **After the travel
           // and not before it**, because a shadow a claimed colour could light is not a shadow:
           // the two ends of the travel would read a shaded band at the dark stop and at the hot
           // one, and the field's own shade would swing further than the field.
@@ -120,8 +139,4 @@ export function cellGrid(
       marks[at] = markAt(pushRead(mean, push), GLYPH_COUNT, phase);
     }
   }
-  // And what the standing rack makes of those marks: a ladder behind each of them, a halo around
-  // each of them, or — with nothing standing — the lattice itself, untouched (0349).
-  runCellPasses(marks, cols, rows, cells);
-  return { stood, marks };
 }

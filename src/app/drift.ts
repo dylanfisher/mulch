@@ -8,6 +8,7 @@
  *   writes no session state and sends no command: a tile is a picture and nothing durable (0144).
  */
 import type { DriftBakeRequest, DriftBakeResult } from "@/workers/drift";
+import { workerPort } from "@/app/workerPort";
 
 export type { DriftBakeRequest, DriftBakeResult };
 
@@ -32,28 +33,12 @@ export const driftOffThread = (): boolean =>
 
 /** The real port. One worker per page, built by the shop on the first curved row and never before. */
 export function driftWorkerPort(): DriftPort {
-  const worker = new Worker(new URL("../workers/drift.ts", import.meta.url), {
-    type: "module",
-    name: "mulch-drift",
-  });
-  return {
-    bake: (request) => {
-      // A Worker handle's postMessage takes no targetOrigin; that is window's overload.
-      // oxlint-disable-next-line unicorn/require-post-message-target-origin
-      worker.postMessage(request);
-    },
-    listen: (onResult) => {
-      worker.addEventListener("message", (event: MessageEvent<DriftBakeResult>) => {
-        onResult(event.data);
-      });
-    },
-    listenFailure: (onFailure) => {
-      worker.addEventListener("error", (event: ErrorEvent) => {
-        onFailure(event.message === "" ? "it failed to start" : event.message);
-      });
-      worker.addEventListener("messageerror", () => {
-        onFailure("a reply could not be deserialised");
-      });
-    },
-  };
+  const port = workerPort<DriftBakeRequest, DriftBakeResult>(
+    // Inline, and it may not be lifted: a bundler rewrites this expression where it stands.
+    new Worker(new URL("../workers/drift.ts", import.meta.url), {
+      type: "module",
+      name: "mulch-drift",
+    }),
+  );
+  return { bake: port.post, listen: port.listen, listenFailure: port.listenFailure };
 }

@@ -7,7 +7,7 @@
  *   panel is worn by the strip, so a hook kept in src/ui/MoireStrip.tsx could not be imported back
  *   into it (principle 1, and the cycle that would be).
  * @instead The reading itself → src/lib/yardScene.ts, and the words it is said in →
- *   src/lib/copyScene.ts. What the picture does with a reading → src/ui/moireScreenTile.ts. The
+ *   src/lib/copyScene.ts. What the picture does with a reading → src/lib/moireScreenField.ts. The
  *   dropdown the choice is made on → src/ui/MoireTuning.tsx.
  */
 import { useMemo, useSyncExternalStore } from "react";

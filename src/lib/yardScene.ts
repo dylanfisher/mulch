@@ -9,7 +9,7 @@
  *   no yard word of its own — and the draw that joins them → src/lib/copyYard.ts. What a scene,
  *   a light, a wind, a reach and a stand *are* → src/lib/moireScene.ts. The shade a stand casts →
  *   src/lib/moireStand.ts. The grounds they name →
- *   src/ui/scene/. The tile they are written into → src/ui/moireScreen.ts.
+ *   src/lib/scene/. The tile they are written into → src/ui/moireScreen.ts.
  */
 import {
   type SceneLight,

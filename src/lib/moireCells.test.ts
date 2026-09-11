@@ -10,17 +10,17 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { bloomCells, bloomReach, cellBloom } from "@/lib/moireCellBloom";
-import { cellEchoes, echoCells, echoRungs } from "@/lib/moireCellEchoes";
-import { type CellPass, type MoireCells, runCellPasses } from "@/lib/moireCells";
+import { bloomCells, bloomReach } from "@/lib/moireCellBloom";
+import { echoCells, echoRungs } from "@/lib/moireCellEchoes";
+import { type CellPass, type RunningCells, runCellPasses } from "@/lib/moireCells";
+import { LOOKS } from "@/lib/moireLook";
 
 /** One standing pass, at the whole of itself unless a case says otherwise. */
 const standing = (
-  look: MoireCells["look"],
-  pass: CellPass,
-  terms: MoireCells["terms"],
+  look: RunningCells["look"],
+  terms: RunningCells["terms"],
   at = 1,
-): MoireCells => ({ look, at, terms, pass });
+): RunningCells => ({ look, at, terms, pass: LOOKS[look].cells ?? (() => {}) });
 
 /** A grid `cols` by `rows` with one cell written in `mark` at (`x`, `y`) and the page everywhere else. */
 const oneCell = (cols: number, rows: number, x: number, y: number, mark: number): Uint8Array => {
@@ -49,7 +49,10 @@ describe("the passes a look makes over the cells", () => {
       for (let at = 0; at < cols * rows; at++) into[at] = (marks[at] ?? 0) + 1;
     };
     const marks = new Uint8Array([0, 1, 2, 3]);
-    runCellPasses(marks, 4, 1, [standing("echoes", lift, {}), standing("bloom", lift, {})]);
+    runCellPasses(marks, 4, 1, [
+      { look: "echoes", at: 1, terms: {}, pass: lift },
+      { look: "bloom", at: 1, terms: {}, pass: lift },
+    ]);
     // The second pass reads what the first left and never the grid the first read, which is what
     // makes two delays two ladders rather than one ladder of a ladder.
     expect(read[0]).toEqual([0, 1, 2, 3]);
@@ -63,7 +66,7 @@ describe("the passes a look makes over the cells", () => {
     expect(echoRungs(1, 1, 8, 1)).toBe(3);
     const cols = 8;
     const marks = oneCell(cols, 2, 0, 0, 4);
-    runCellPasses(marks, cols, 2, [standing("echoes", cellEchoes, { spacing: 0, count: 1 })]);
+    runCellPasses(marks, cols, 2, [standing("echoes", { spacing: 0, count: 1 })]);
     // Behind it and never in front of it, each rung one mark lighter, and the ladder ending where
     // the mark runs out rather than writing the page.
     expect([...marks].slice(0, cols)).toEqual([4, 3, 2, 1, 0, 0, 0, 0]);
@@ -81,7 +84,7 @@ describe("the passes a look makes over the cells", () => {
   it("stands the rungs a whole spacing apart and draws none at all where nothing has arrived", () => {
     const cols = 9;
     const wide = oneCell(cols, 1, 0, 0, 9);
-    runCellPasses(wide, cols, 1, [standing("echoes", cellEchoes, { spacing: 1, count: 0 })]);
+    runCellPasses(wide, cols, 1, [standing("echoes", { spacing: 1, count: 0 })]);
     // One rung at the widest spacing the band states, and nothing between it and the cell it came
     // from: a rung that fell between two cells would be a rung in neither.
     expect(echoCells(1, cols)).toBe(2);
@@ -90,7 +93,7 @@ describe("the passes a look makes over the cells", () => {
     // And a delay the picture has not travelled to at all is no ladder: the travel is in the count
     // of rungs, because a mark has no alpha to carry it.
     const absent = oneCell(cols, 1, 0, 0, 9);
-    runCellPasses(absent, cols, 1, [standing("echoes", cellEchoes, { spacing: 1, count: 1 }, 0)]);
+    runCellPasses(absent, cols, 1, [standing("echoes", { spacing: 1, count: 1 }, 0)]);
     expect([...absent]).toEqual([9, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
@@ -101,7 +104,7 @@ describe("the passes a look makes over the cells", () => {
     const rows = 9;
     const marks = oneCell(cols, rows, 4, 4, 9);
     const before = Uint8Array.from(marks);
-    runCellPasses(marks, cols, rows, [standing("bloom", cellBloom, { radius: 1 })]);
+    runCellPasses(marks, cols, rows, [standing("bloom", { radius: 1 })]);
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const away = Math.abs(x - 4) + Math.abs(y - 4);
@@ -116,14 +119,14 @@ describe("the passes a look makes over the cells", () => {
 
   it("blooms nothing where the reverb has not arrived, and wraps at the tile's own edges", () => {
     const absent = oneCell(5, 5, 2, 2, 9);
-    runCellPasses(absent, 5, 5, [standing("bloom", cellBloom, { radius: 1 }, 0)]);
+    runCellPasses(absent, 5, 5, [standing("bloom", { radius: 1 }, 0)]);
     expect(absent[2 * 5 + 2]).toBe(9);
     expect(absent.reduce((sum, mark) => sum + mark, 0)).toBe(9);
     // The tile is laid as a repeating pattern, so the cell past the right edge is the one at the
     // left edge of the tile beside it: a halo that stopped at the edge would draw a seam down every
     // repeat (0346).
     const edge = oneCell(5, 5, 0, 0, 9);
-    runCellPasses(edge, 5, 5, [standing("bloom", cellBloom, { radius: 0 })]);
+    runCellPasses(edge, 5, 5, [standing("bloom", { radius: 0 })]);
     expect(bloomReach(1, 0, 5)).toBe(1);
     expect(edge[4], "the cell past the left edge").toBe(8);
     expect(edge[4 * 5], "the cell above the top edge").toBe(8);
@@ -142,7 +145,7 @@ describe("the passes a look makes over the cells", () => {
       // Read off the pass itself and not off its arithmetic: one bright cell, and every rung a
       // cell of its own behind it with the source left where it was.
       const marks = oneCell(cols, 1, 0, 0, 9);
-      runCellPasses(marks, cols, 1, [standing("echoes", cellEchoes, { spacing: 1, count: 1 })]);
+      runCellPasses(marks, cols, 1, [standing("echoes", { spacing: 1, count: 1 })]);
       expect(marks[0], `the source moved on a row of ${cols}`).toBe(9);
       for (let rung = 1; rung <= rungs; rung++) {
         expect(marks[rung * step], `rung ${rung} of a row of ${cols}`).toBe(9 - rung);
@@ -151,7 +154,7 @@ describe("the passes a look makes over the cells", () => {
       const reach = bloomReach(1, 1, cols);
       expect(2 * reach + 1, `a halo covers the whole of a row of ${cols}`).toBeLessThan(cols);
       const halo = oneCell(cols, 1, 0, 0, 9);
-      runCellPasses(halo, cols, 1, [standing("bloom", cellBloom, { radius: 1 })]);
+      runCellPasses(halo, cols, 1, [standing("bloom", { radius: 1 })]);
       expect(
         [...halo].filter((mark) => mark === 0).length,
         `a row of ${cols} flattened`,

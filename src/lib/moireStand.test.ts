@@ -142,7 +142,7 @@ describe("the shade a stand casts", () => {
 
   it("refuses a stand the contract does not hold", () => {
     // The type says this cannot happen and a cast is one edit away from saying otherwise, which is
-    // why the scene registry checks itself too (`sceneOf`, src/ui/scene/scenes.ts): a fifth stand
+    // why the scene registry checks itself too (`sceneOf`, src/lib/scene/scenes.ts): a fifth stand
     // added to `SCENE_STANDS` and nowhere else would otherwise draw whichever shape is written
     // last, and a picture is the one place a mistake looks deliberate (principle 5).
     expect(() =>

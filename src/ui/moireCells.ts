@@ -8,7 +8,7 @@
  *   themselves → src/lib/moireCellEchoes.ts and src/lib/moireCellBloom.ts. Which looks a rack
  *   stands at all, their travel and the reductions the painting spends → `rackLooks`,
  *   src/ui/moireLooks.ts, which this reads and never repeats. Where the grid is baked and these are
- *   run → `cellGrid`, src/ui/moireScreenCells.ts.
+ *   run → `cellGrid`, src/lib/moireScreenCells.ts.
  */
 import { CELL_TERMS, type MoireCells } from "@/lib/moireCells";
 import { LOOKS, type LookTerm } from "@/lib/moireLook";
@@ -33,7 +33,6 @@ const standing: {
   look: MoireCells["look"];
   at: number;
   terms: Partial<Record<LookTerm, number>>;
-  pass: MoireCells["pass"];
 }[] = [];
 
 /**
@@ -50,10 +49,9 @@ export function rackCells(looks: readonly MoireLook[]): readonly MoireCells[] {
     if (pass === undefined) continue;
     const at = stepped(clamp(look.at, 0, 1), CELL_REACH);
     if (at <= 0) continue;
-    const slot = standing[kept] ?? { look: look.look, at, terms: {}, pass };
+    const slot = standing[kept] ?? { look: look.look, at, terms: {} };
     slot.look = look.look;
     slot.at = at;
-    slot.pass = pass;
     for (const term of CELL_TERMS) slot.terms[term] = stepped(look.terms[term] ?? 0, CELL_REACH);
     standing[kept] = slot;
     kept += 1;
