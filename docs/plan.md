@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0365; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0366; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -89,7 +89,8 @@ the levers that hold, records what stands over it with its cause, and the next c
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
 0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, step
 6 after that as 0355, step 7 as 0356 and step 8 as 0357, which closed the bench; checkpoint B
-landed after it as 0358.
+landed after it as 0358, steps 9 to 14 as 0359, 0360, 0361, 0362, 0363 and 0364, and checkpoint C
+after them as 0365.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -536,8 +537,12 @@ replacing it, since the wind is the rack's tail and the sides are the output's c
 is being played backwards. And `playerRowStand` is zoned: the zone rides on the `PlayerStep` beside
 the bed it bounds, off the spec and never off the voice, which is one object carrying both halves of
 one question rather than a nineteenth parameter threaded down the per-frame read. No frame cost in
-what landed: three writes onto a row the walk already visits, one sign on a term of the transform,
-no term reaching a tile key and the bake count untouched (0353, 0354). Six things went one way and
+what landed: three writes onto a row the walk already visits and one sign on a term of the
+transform. **"No term reaching a tile key" was wrong, and checkpoint C corrects it (0365):**
+`ratchet` → `fringe` and `voice` → `hue` are two of the four ink terms `screenOf` keys the screen
+tile through, so a ratcheting step is one bake per rung of the fringe's ladder and a voice changing
+one per rung of the hue's finer one — under the rate a part change already bakes at (0358), which is
+why nothing here measured it. Six things went one way and
 are in §4: the two refused claims and their prices, how the hue's claim is folded, what the screen's
 own test file cost, the fixture the new rest write broke, and the one input at which the reversed
 crawl is a cell short of its mirror. The gate's `drive` step was green on this run.
@@ -611,7 +616,7 @@ the second is now a painting read twice through a blowing field. Four things wen
 §4: the drift and its dial, the bed measured through the source rather than from the loop's
 in-point, the nudge that is under a cell, and the crawl as an absolute place.
 
-**Checkpoint C — every reach, priced (bench-48).** _Durable shape moved:_ none. Steps 9–14 open
+**Checkpoint C — every reach, priced (bench-48, 0365).** _Durable shape moved:_ none. Steps 9–14 open
 the lattice to every effect and every facet of playback: the stamp is lifted by side (step 11)
 and by spark (step 13), the crawl steps whole cells with the ground (step 14), and every knob on a
 panner, a compressor and an automator now moves the picture — which is every knob a hand turns
@@ -625,6 +630,38 @@ wanted:** turning any knob on the popped-out picture's rack while it plays holds
 page underneath. **Tests that must fail first:** a knob turned within one rung of `DRIFT_STEPS`
 rebakes nothing; a spark stamps through the frame's own passes and adds none. **Refused:** a claim
 removed to save a bake — it goes to §4 with its price, and the human decides.
+
+**It landed as [0365](decisions/0365-a-knob-turned-is-a-fill-and-only-the-inks-ladder-is-a-bake.md)**,
+and the outcome is met: turning any knob on the popped-out picture's rack while it plays holds the
+budget on the page underneath. **The audio device came back**, so unlike every earlier checkpoint in
+this block the walk was really playing — the clock ran, the landings landed and the sparks flashed on
+the player's own schedule, and nothing was driven by hand. Head against `0fbbbd5` interleaved three
+times: **no long task in any run of either tree; rAF p95 9.3–10.3 ms at 120 Hz and 17.5–17.6 at
+60 Hz; and zero bakes in every eight-second window and across a 480-move drag on the panner's own
+Position, in both trees.** Nothing rebakes at the budget's setting at all, so the bake was timed
+separately with one tunable on the stamp's key walked three times a second, two more interleaved
+pairs: 72 a window in all four, 75.4/206 ms against 57.9/144.1 and 58.3/146.1 against 67.0/144.4 —
+the term 0354 left over the budget, off the frame and untouched by this group, which step 18 still
+owns. The drag's own number is where checkpoint B left it: all 480 moves land and no drag bakes, but
+gaps over a frame still occur, 36/5/0 at base against 33/11/4 at head, so the budget's fourth number
+is not met in either tree and this group did not make it worse; one head drag of the six also carried
+a single 58.2 ms gap that nothing reproduced.
+
+The decision's table is the thing the next block's author needs, and it is **not** what the entry
+above assumed. There are two keyed tile shops, not one: the screen's own tile and the picture-sized
+curved tile a non-linear row is drawn through. **A claim is free to the bake unless it lands on the
+ink, the hand the marks are written in, or a curved row's place, period or pitch.** Most of what
+steps 9–14 minted is a fill — measured knob by knob, thirty knobs of the panner, the compressor and
+the two automators, each drag read against a control window with nothing touched: 43 tiles against
+the controls' 66, no knob more than three over its own. **Three of the group's reaches are not**:
+0363's armed hand, which 0363 already called a rebake, and the walk's `ratchet` → `fringe` and
+`voice` → `hue`, which are fields of the screen tile's key — so step 12's own "no term reaching a
+tile key" is corrected by this checkpoint. The bake-side fields are the ink's four terms, the rack's
+lattice fold, the standing alphabet and the armed hand, each rounded onto `DRIFT_STEPS` first — the
+hue onto `HUE_STEPS`, four times finer — and, on the curved tile, a row's stepped `centre` and the
+rings its period and pitch are read into. So `into: "centre"` is free on the panner, which is linear,
+and the automator's `auto.stays` and `auto.drift` are on the curved ladder, which its fan geometry
+makes them. No lever landed and none was available; five things go to §4.
 
 **Colour returns to the marks (steps 15–17).** 0346 rested `glyph.flat` at one and `CHANNEL_MIX`
 at nought because a five-pixel mark cannot show a gradient and a split stroke was a rainbow
@@ -746,6 +783,68 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**Checkpoint C could not time a bake at the budget's own setting, because nothing rebakes there
+(0365).** With the walk really playing, a full rack on two yards and the picture popped out, the
+screen tile is baked during the settle and never again — zero bakes in every eight-second window and
+zero across a 480-move drag, in both trees. That is the checkpoint's headline and it is also why its
+third budget number is measured under a driver that is not the budget's setting: one tunable on the
+stamp's key walked three times a second, cpA2's and cpB's own walk, which puts 72 bakes in a window
+on both sides. What that leaves is a bake time measured at a rate no hand produces, which is the
+right way round for a budget — the mean and the worst are what a bake costs when one is asked for,
+not how often one is asked for — but it cannot say what a bake costs when the queue behind it is a
+hand's rather than a metronome's. The alternative was to report no bake number at all.
+
+**Checkpoint C's knob sweep is one entry heavier than the budget's named rack, and its per-claim
+resolution is a floor and not a count (0365).** The budget names the rack `scripts/smoke.d/drift.js`
+stands up, which holds no compressor; the step's own text names the compressor's knobs, so one was
+added to yard A **after** the still window was read and before the 480-move drag. So the first three
+budget numbers are at the budget's own rack and **the fourth, the drag, is at the budget's rack plus
+a compressor** — the same rack in both trees, so the comparison holds, but not the rack the entry
+names. **The sweep with control windows was run on head alone**: it
+prices head's own claims and is not a comparison, and the base/head comparison is the six
+interleaved budget runs. An earlier pair of sweeps without controls was run on both trees and
+agreed, and is not quoted, because a window with no control beside it cannot tell a knob's bake from
+the walk's. The sweep's own resolution is limited by what else was moving: a generated source
+runs out after four seconds, so the walk was restarted before every pair, and the restart's jump in
+the reading pays its own ladder of bakes. That is why each knob window is preceded by a control
+window with nothing touched — 3.5 s of standing against about 1 s of dragging and 2.5 s of standing,
+which is not the same window and draws about a quarter fewer paintings, an asymmetry that runs
+against the conclusion rather than for it. The claim the sweep can make is that a knob is at
+or inside its own floor (43 bakes against 66 across the thirty knobs of the panner, the compressor
+and the two automators, none of them more than three over its own control), not that a named knob
+baked exactly nothing. A cleaner attribution would need a source that loops, which is a fixture this
+checkpoint did not mint.
+
+**Checkpoint C's bake counter was the screen shop's alone, and the curved shop went uncounted
+(0365).** The per-function accumulators were compiled into `src/ui/moireScreenShop.ts` and not into
+`src/ui/driftTiles.ts`, so the second keyed shop — the picture-sized tile a non-linear row is drawn
+through, whose key holds a row's stepped `centre` and the rings its period and pitch are read into —
+contributed nothing to any count in this checkpoint. It matters for exactly two knobs in the rack
+measured: the automator's Stays and Stray, which are `period` and `pitch` on a fan geometry. What
+stands for them is the wall clock over their own drag windows, which is clean — no long task, at most
+one gap over 20 ms, none over 50, which is what a bake in a worker looks like (0354). A count of them
+would want the same accumulator in `driftTiles.ts`, which this checkpoint did not compile.
+
+**Checkpoint C's bake time came from a driver that failed silently on one side first (0365).** The
+walk that moves a tunable reaches the registry by importing `src/lib/moireTuning.ts` from the page,
+and a tree the dev server has seen edited is served at a timestamped URL — so on head the import
+built a second, empty registry and moved nothing, and two interleaved pairs read 72 bakes at base
+against 0 at head for no reason in the code at all. The instrumentation was extended, identically in
+both trees, to publish the app's own registry on `globalThis`, and only the two pairs taken after
+that are quoted. The lesson is the memory note's, one level down: a page whose modules have been
+touched does not hand a bare specifier the module the app is running.
+
+**Two head windows went bad and nothing reproduced either (0365).** Of the six interleaved 480-move
+drags, one head window carried a single 58.2 ms gap; every base drag carried none, and the head drags
+either side of it carried none. And two of the five head _sweep_ runs opened with a still window at
+42–45 frames a second, p95 66.6 ms and 28–33 gaps over 50, where all three base sweep runs were at
+9.1–9.3 ms p95 with none — but the sweeps were run base-then-head rather than alternated, which is
+precisely the shape this block's own clause says measures the machine, and the interleaved budget
+runs show head clean in every still window. The machine's display also changed between 120 Hz and
+60 Hz across the session, which is why the frame rates come in two families. Both are recorded here
+rather than attributed to this group: an unreproduced window taken out of alternation is not a
+finding, and pretending it is would have spent the checkpoint chasing the machine.
 
 **The wind's one-way drift is gone, and its dial with it (0364).** The screen's crawl was the
 wind's: `MoireWind.drift` integrated the tail into turns of the tile, and the `wind.turns` dial set
