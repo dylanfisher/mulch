@@ -33,7 +33,8 @@ no moiré file, a step's `repeats`/`burst`/`rest`/`rates`/`ratchet`/`reversed`/`
 row, the walk's cast is invisible, and every colour term rests at nought or one — `glyph.flat` at
 one, `CHANNEL_MIX` at nought — so a scene's five stops are spent on mark density and never on a
 mark. This block lands the bench's eight as the lattice's own moves, then opens the lattice to
-every effect, every facet of playback, and colour, one step apiece. Every step keeps 0129: a
+every effect, every facet of playback, and colour, one step apiece, with a performance
+checkpoint after each group (added 2026-09-10; the budget below). Every step keeps 0129: a
 pixel is chosen once per cell in the bake, and a frame pays composites and `drawImage` only.
 
 **Layout, before the first step.** A **cell pass** is the new thing: a function over the cell
@@ -53,6 +54,36 @@ A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mint
 numbers from 0353; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
+
+**The budget, before the first checkpoint (2026-09-10).** The instrument's own page comes first
+and the picture is a guest on it: nothing this block adds may make the page jank, and a popped-out
+picture on a large screen was found doing exactly that. So the block carries four **performance
+checkpoints** — steps like any other, run in the order they stand, each landing as a decision with
+its numbers — and one budget, stated here once. _The setting:_ the picture popped out (0138,
+src/ui/popupWindow.ts) into a window of 2560×1440 CSS pixels at two device pixels each, a full
+rack (the one scripts/smoke.d/drift.js stands up: eq, panner, sway, two automators, a reverb wet)
+on two yards, a walk playing, measured headed on a real GPU over eight seconds — headless
+SwiftShader lied about the last jank (0344) and is not evidence here. _The numbers:_ no long task
+the picture is the cause of; the frame loop's rAF gap p95 under 20 ms and nothing over 50 ms; a
+tile bake under 4 ms mean and 8 ms worst; and on the instrument's page beside the popped picture,
+a knob drag on the dev server (0307's proof, 480 moves at 60 a second) drops no frame. _The
+method:_ a one-off headed Playwright script in the scratchpad, never committed — the strip's
+pop-out button, `context.newCDPSession` with `Profiler.setSamplingInterval(500)`, self time by
+`functionName url:line` and inclusive time by file, a `longtask` observer and a rAF-gap histogram
+— run in the foreground, base and head interleaved three times each per subagent-prompt.md. _What
+a checkpoint may do that a step may not:_ revisit a refusal an earlier step made, on the numbers
+(a per-frame `getImageData`, a bake below device resolution, a rebake held back a frame), add or
+retarget a scenario under scripts/smoke.d/ so a cost it fixed stays fixed as a boolean, and open a
+new block in §1 for work it qualifies and cannot land itself — including a kernel in WASM and the
+build step it needs, which the human has authorised in principle on 2026-09-10 where the
+measurement qualifies it (0058's bar: instruction throughput over its own memory floor; 0211's:
+the picture does not move). _What it may not do:_ hide a cost with a governor and call it fixed. A
+picture that paints every other frame under load is a lever, and it may land, but only beside the
+numbers that say what still stands over the budget and why. _What holds it in the gate:_ every
+checkpoint leaves one stable boolean behind — a recorder count of picture-sized draws a frame
+against one declared budget, a bake-count per ink step, a scenario's `fail(` — because a timing is
+the profiler's and a count is the gate's (0051). A checkpoint that cannot reach the budget lands
+the levers that hold, records what stands over it with its cause, and the next checkpoint owns it.
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
@@ -172,6 +203,29 @@ specks. The threshold is the channel's own spread over the tile — between what
 reaches — and no dial was minted; §4 holds what reading it that way gives up. The bench's entry 07
 goes with it.
 
+**Checkpoint A — the frame at a window's size (bench-46).** _Durable shape moved:_ none. The
+first checkpoint, and the one the budget was written for: a picture popped out on a large screen
+is slow and the page under it janks. Measure it as the budget says, on the commit that landed
+step 5 against the commit that opened the block, and attribute every millisecond over the budget
+to a file and a line. The suspects, by what a frame now pays: `stampMarks` (0350) lays three
+picture-sized composites a mark and a pattern fill a mark, thirty full-canvas draws a frame at
+whatever the window is, where the read it thresholds is one pixel a cell; `boxField` draws the
+field down, up and `BOX_HARDENINGS` times over itself at full size; the tile a full rack bakes is
+seven of the tiles it was (0351), so an ink step that was under two milliseconds (0344) is a
+bake of seven, on the frame, at every step of any travelling term; `readMarks` mints four
+surfaces and ten tiles and must mint them once a canvas and never a frame. Land what the numbers
+say — a band cut at the cell grid's own size and blown up once a pass, a boxed read kept at cell
+size, a bake paced across frames or moved off the thread, a tile cache keyed so a step rebakes
+what moved and not the rest — and no more than the numbers say. **Stands on:** the recorder
+(src/ui/moireCanvasPainted.ts), `frameCostMs`, `paced` (src/ui/frame.ts), `canvasSurface`;
+0344's method. **Outcome wanted:** the popped-out picture at 2560×1440 on a full rack holds the
+budget, and the page under it drags a knob without dropping a frame. **Tests that must fail
+first:** the recorder counts the picture-sized draws a frame pays and the count is under one
+declared budget constant, so a step that adds a full-canvas pass fails here before it fails a
+hand; a bake on an ink step touches only the tile the step moved. **Refused:** a fix judged on
+headless timings; a governor without its numbers; moving the frame loop into the popped window
+(one loop, src/ui/frame.ts).
+
 **Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
 `player.step`) lifts the threshold passes one mark for the cell rows the sounding row's `centre`
@@ -200,6 +254,20 @@ App branch and the menu item go, and entries 10 and 11 of the drift bench with t
 arguments having landed (0339, 0345). **Stands on:** 0247. **Tests that must fail first:**
 SketchPage.test's cleared-id list names the bench's entries and MarksPage.test is gone. **Refused:** keeping
 a bench beside the thing it argued.
+
+**Checkpoint B — the stamp under a landing (bench-47).** _Durable shape moved:_ none. Steps 6
+and 7 put the first per-frame motion on the stamp — a landing lifting a row's threshold passes,
+decaying on the deck clock — and the first key field that rebakes on a part change. Measure the
+budget's setting again, head against checkpoint A's commit, with the walk landing at its fastest
+rate and a song changing parts, and attribute what moved: a lift that re-cut every band when one
+row's cells moved, a part change that rebaked a tile a frame was waiting on, an alphabet whose ten
+tiles were minted on the frame that first needed them. Land what the numbers say. **Stands on:**
+checkpoint A's budget constant and its script; `joltWalked`, `standingPart`. **Outcome wanted:**
+a walk flaring its rows on the popped-out picture costs no more per frame than the still lattice
+did at checkpoint A, within the budget. **Tests that must fail first:** a frame at a landing's
+edge pays the same number of picture-sized draws as a frame with no landing; a part change
+rebakes once. **Refused:** a decay clocked by the frame instead of the deck; a mark tile minted
+per frame.
 
 **Every effect reaches the lattice (steps 9–11).** The registry says an effect declares its whole
 reach; today twenty-one parameters declare none. Each step below is one table of claims and one
@@ -274,6 +342,21 @@ the lattice stepping, visibly, once. **Tests that must fail first:** a fixture g
 bed steps the crawl by one cell over `PLAYER_GROUND_TRAVEL` and the wind alone steps nothing.
 **Refused:** a third clock.
 
+**Checkpoint C — every reach, priced (bench-48).** _Durable shape moved:_ none. Steps 9–14 open
+the lattice to every effect and every facet of playback: the stamp is lifted by side (step 11)
+and by spark (step 13), the crawl steps whole cells with the ground (step 14), and every knob on a
+panner, a compressor and an automator now moves the picture — which is every knob a hand turns
+during a drag now stepping a term, and every term stepped a rebake. Measure the budget's setting
+with the drag on the popped-out picture's own yard — a panner's pan swept, an automator's wait
+counting down, a spark landing — head against checkpoint B's commit, and attribute what moved.
+Land what the numbers say, and name in the decision which claims cost a rebake and which a fill,
+so the next block's author knows the price of a claim before writing one. **Stands on:**
+checkpoint A's budget constant and script; `effectReach`, `rackLooks`, `stepped`. **Outcome
+wanted:** turning any knob on the popped-out picture's rack while it plays holds the budget on the
+page underneath. **Tests that must fail first:** a knob turned within one rung of `DRIFT_STEPS`
+rebakes nothing; a spark stamps through the frame's own passes and adds none. **Refused:** a claim
+removed to save a bake — it goes to §4 with its price, and the human decides.
+
 **Colour returns to the marks (steps 15–17).** 0346 rested `glyph.flat` at one and `CHANNEL_MIX`
 at nought because a five-pixel mark cannot show a gradient and a split stroke was a rainbow
 grille. Colour comes back where a mark can carry it: one whole ink per mark, one whole cell per
@@ -311,11 +394,26 @@ fail first:** two rows claiming two hues draw two bands at two centres; a row wi
 none; the fill count is the coloured-row count. **Refused:** a hue in the bake key; a band per
 uncoloured row.
 
-**Step 18 — the profile (bench-45).** _Durable shape moved:_ none. The block's end: `./scripts/profile`
-on the zoomed drift with a full rack and a walk, the tile-bake time and the frame's draw count
-read against the block's first step, and any rest this block chose on the bench read once more on
-the strip at its own size (0342). **Tests that must fail first:** none; what fails is 0012's line.
-**Refused:** a rest moved without a shot.
+**Step 18 — the profile, and the block's last checkpoint (bench-45).** _Durable shape moved:_
+none. The block's end, in two halves. _The profile:_ `./scripts/profile` on the zoomed drift with a
+full rack and a walk, the tile-bake time and the frame's draw count read against the block's first
+step, and any rest this block chose on the bench read once more on the strip at its own size
+(0342). _The checkpoint:_ the budget's setting measured whole — steps 15–17 put five inks on the
+bake and a band per coloured row on the frame — head against checkpoint C's commit and against the
+commit that opened the block, every number in the budget read and written into the decision beside
+the block's opening numbers, so the block's whole cost is one table. Then the ledger of what the
+four checkpoints could not close: for each cost still over the budget, its cause, the lever that
+would close it and what that lever needs. If what remains is the bake's own JavaScript — `build`,
+`cellGrid`, the cell passes, `beatLattice`, `scatterLattice` — priced per 0116 against its memory
+floor, this step opens a new block in §1 for a kernel in WASM: one file per kernel, the byte
+bar of 0211 as its first step, the build step named as the durable shape it moves, and the
+measurement that qualified it quoted in the block's head. If nothing qualifies, a decision in the
+shape of 0058 says so with the numbers, and the block closes. **Stands on:** 0051, 0058, 0116,
+0211; checkpoint A's script. **Outcome wanted:** a popped-out picture on a large screen on the
+block's last commit holds the budget, and the page under it is the page it was before the block.
+**Tests that must fail first:** none; what fails is 0012's line and the budget's booleans.
+**Refused:** a rest moved without a shot; a regression recorded and not attributed; a WASM block
+opened on a headless number.
 
 ---
 
