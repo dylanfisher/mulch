@@ -112,7 +112,7 @@ the cut. The meadow the outcome also names is not a ground at any setting of the
 holds. The bench's entry 01 goes with it, and its `plainMark` now reads the shipped push, so
 entries 02–08 argue against what ships.
 
-**Step 2 — a look may act on the cells (bench-29).** _Durable shape moved:_ none. The cell-pass
+**Step 2 — a look may act on the cells (bench-29, 0349).** _Durable shape moved:_ none. The cell-pass
 contract and its runner in src/lib/moireCells.ts, and `cells` on a look's declaration read by
 `rackCells`; the tile key carries every standing pass's terms stepped the way look terms already
 step, so a knob turned is a rebake and a knob held is not. The first two passes are the bench's:
@@ -321,7 +321,7 @@ read is one pixel a cell, so the frame pays the same ten passes and the same one
 checkpoint A pinned, and nothing is rebaked. §4 holds what the level costs and what the machine
 could not show. The bench's entry 05 goes with it.
 
-**Step 7 — the part picks the alphabet (bench-34).** _Durable shape moved:_ none. The bench's
+**Step 7 — the part picks the alphabet (bench-34, 0356).** _Durable shape moved:_ none. The bench's
 **part**: src/lib/moireAlphabets.ts holds the marks, the rings and the strokes, and the standing
 part's character (`standingPart`, src/ui/moireRows.ts, read through src/lib/playerCast.ts — the
 first moiré file to read the cast) chooses which the tile is written in: plain and riff in marks,
