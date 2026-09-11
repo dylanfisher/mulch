@@ -43,7 +43,14 @@ import type { YardScene } from "@/lib/yardScene";
 import { cellsKey, rackCells } from "@/ui/moireCells";
 import type { MoireLook } from "@/ui/moireLooks";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
-import { beatPx, gridPitchPx, rowPitchPx, screenTilePx, tilePx } from "@/lib/moireScreenFilm";
+import {
+  beatPx,
+  channelMix,
+  gridPitchPx,
+  rowPitchPx,
+  screenTilePx,
+  tilePx,
+} from "@/lib/moireScreenFilm";
 import { type ScreenStanding } from "@/ui/moireScreenShop";
 import type { AlphabetName } from "@/lib/moireAlphabets";
 import { screenTile, tuneStamp } from "@/ui/moireScreenTile";
@@ -221,10 +228,13 @@ function screenOf(
   // beside it, which the tile's last cell column is baked in: arming a part is one rebake and
   // letting it go is another, and a part queued into the hand already standing arrives null, so a
   // queue that changes no hand changes no key either (`armedAlphabet`, src/ui/moireRows.ts).
+  // The saturation reaches the tile as whole cells of the split and nothing else since 0367, so the
+  // key carries the cells: a pop easing in walks nine rungs of the ink's ladder and one draws a
+  // tile (0365).
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${armed}|${tuneStamp()}${cellsKey(cells)}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${channelMix(tint.saturate)}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${armed}|${tuneStamp()}${cellsKey(cells)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(

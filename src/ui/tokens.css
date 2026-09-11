@@ -75,12 +75,12 @@
 
   /* The three lit channels of the screen the drift picture is filmed off (0130) — the monitor's
      subpixels, pulled apart at every edge, which is what turns a soft shape into a lattice of
-     coloured blobs. Light and not a filter: the painter lays the row's own resolved ink down first
-     and adds a shallow amount of these over it, a third of a cell each, so what colour the picture
-     is stays the row's business and these bring the two colours the row does not already hold.
-     Saturated for that reason — a pale one adds no hue, only brightness, and a brightness comb is
-     the grating we already have. Lighter in the dark, where the picture is bright on black and the
-     added light has to reach past it. */
+     coloured blobs. Named here and nowhere else, and no longer added over a pixel: since 0367 a
+     channel is a whole cell of the lattice standing over there in the ink that cell was already
+     written in, so what colour the picture is stays the row's business outright. These three stay
+     the names of the channels — the sketch bench's own chips read them — and they are saturated
+     because a pale one says nothing about which channel it is. Lighter in the dark, where the
+     picture is bright on black. */
   --screen-red: light-dark(oklch(0.62 0.24 27), oklch(0.7 0.25 27));
   --screen-green: light-dark(oklch(0.78 0.23 145), oklch(0.85 0.25 145));
   --screen-blue: light-dark(oklch(0.54 0.24 265), oklch(0.62 0.26 265));

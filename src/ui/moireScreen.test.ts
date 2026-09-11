@@ -30,7 +30,6 @@ import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { bandTurns, termTurns, SCREEN_TERMS } from "@/ui/moireScreen";
 import {
   beatPx,
-  channelAt,
   blobKeep,
   channelFringe,
   channelKeep,
@@ -262,10 +261,11 @@ describe("moireScreen", () => {
       expect(rowKeep(y + rowPitch, rowPitch)).toBeCloseTo(keep, 10);
   });
 
-  // P99: the picture went one colour. The subpixel split is a fringe a third of a cell wide, so
-  // the eye integrates the three channels back into the row's ink and a yard drawn in one token
-  // reads as that token everywhere. Standing each channel's lattice back by its own share of a
-  // beat cell separates them at the blob's scale instead, which is the scale nothing averages away.
+  // P99: the picture went one colour. The split the channels had then was a fringe a third of a
+  // cell wide, so the eye integrated the three back into the row's ink and a yard drawn in one
+  // token read as that token everywhere; it stands whole cells apart now and only under a pop
+  // (0367). Standing each channel's lattice back by its own share of a beat cell separates them at
+  // the blob's scale whatever the pop is doing, which is the scale nothing averages away.
   it("pulls the three channels apart across a blob rather than across a subpixel", () => {
     const pitch = gridPitchPx(2);
     const rowPitch = rowPitchPx(2);
@@ -338,39 +338,30 @@ describe("moireScreen", () => {
     expect((moves[0]?.f ?? 0) % pitch).toBeCloseTo(0, 10);
   });
 
-  it("lights three channels across a cell, each over the row's own ink", () => {
-    // The fringe the reference is loudest about: the monitor's three channels pulled apart at
-    // every edge. Each third of a cell carries its own channel and no other's, and every one of
-    // them still carries the row's ink underneath — so what the painter names is three tokens and
-    // the picture is still the caller's (0130).
-    vi.stubGlobal("devicePixelRatio", 2);
-    const pitch = gridPitchPx(2);
-    // Under a claimed saturation, the split resting at nought since 0346 (`CHANNEL_MIX`).
-    const { written } = paintedOn(200, 64, [row({ period: 3 })], {
-      ...screenInkRest(),
-      saturate: 1,
-    });
-    expect(written).not.toBeNull();
-    const at = (x: number): number[] => {
-      const from = x * 4;
-      return [0, 1, 2].map((channel) => written?.data[from + channel] ?? 0);
+  it("stands the three channels in one lattice, and a whole cell apart under a pop", () => {
+    // What a pop's Sheen does to the colour: the three channels of a mark stand a whole cell apart
+    // rather than a third of one, so what a saturated picture grows is a coloured ghost of the
+    // lattice either side of it (0367, replacing the subpixel fringe 0130 asked for). Read as the
+    // pixels that carry one channel and not another — the cut leaves every covered pixel on one of
+    // the scene's five stops (0366), and a stop is an ink with all three channels in it, so a pixel
+    // missing one is a cell lit by a neighbour's mark and nothing else.
+    const ghosts = (saturate: number): number => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 64, [row({ period: 3 })], {
+        ...screenInkRest(),
+        saturate,
+      });
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      let seen = 0;
+      for (let at = 0; at < pixels.length; at += 4) {
+        if ((pixels[at + 3] ?? 0) === 0) continue;
+        const ink = [pixels[at] ?? 0, pixels[at + 1] ?? 0, pixels[at + 2] ?? 0];
+        if (Math.min(...ink) === 0 && Math.max(...ink) > 0) seen += 1;
+      }
+      return seen;
     };
-    // Every third of the cell reads as a different colour: one hue shift applied evenly would
-    // leave these three the same, which is the picture a screen with no colour in it draws.
-    const thirds = [0, 1, 2].map((third) => at(Math.floor(((third + 0.5) / 3) * pitch)));
-    expect(new Set(thirds.map((ink) => ink.join(","))).size).toBe(3);
-    // Each leans toward its own channel and away from the other two.
-    expect(thirds[0]?.[0]).toBeGreaterThan(thirds[1]?.[0] ?? 0);
-    expect(thirds[1]?.[1]).toBeGreaterThan(thirds[2]?.[1] ?? 0);
-    expect(thirds[2]?.[2]).toBeGreaterThan(thirds[0]?.[2] ?? 0);
-    // And none of them is its channel outright: the row's ink is under all three.
-    expect(thirds[0]?.[1]).toBeGreaterThan(0);
-    expect(thirds[1]?.[0]).toBeGreaterThan(0);
-    // The channels sit where `channelAt` puts them, and it covers the cell without a gap.
-    expect(Array.from({ length: pitch }, (_, x) => channelAt(x, pitch))).toEqual(
-      Array.from({ length: pitch }, (_, x) => channelAt(x + pitch, pitch)),
-    );
-    expect(new Set(Array.from({ length: pitch }, (_, x) => channelAt(x, pitch))).size).toBe(3);
+    expect(ghosts(0), "the rested picture stands a ghost").toBe(0);
+    expect(ghosts(1), "a saturated picture stands no ghost").toBeGreaterThan(0);
   });
 
   it("gives each of the screen's motions a parameter of its own, and none to no one", () => {
@@ -567,54 +558,6 @@ describe("moireScreen", () => {
     // And dispersing them is a second thing to claim rather than a deeper first: it separates the
     // three even where they stand at no lag at all, because they are no longer one lattice.
     expect(spreadAt(0, DRIFT_DISPERSE_REACH)).toBeGreaterThan(0.1);
-  });
-
-  // P283: pop's saturation, the one thing about the picture's colour that no row claims.
-  it("saturates the ink a standing look asks for, without moving what the cell averages to", () => {
-    // The whole reading, over one tile: how much of each pixel stands on the channel its own third
-    // of the cell lights, and how much ink the tile carries in total. A saturated picture says the
-    // same colour more strongly — each third purer in its own channel — so the first moves and the
-    // second does not.
-    const measured = (saturate: number): { purity: number; total: number } => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      const pitch = gridPitchPx(2);
-      const { written } = paintedOn(200, 640, [row({ period: 3 })], {
-        ...screenInkRest(),
-        saturate,
-      });
-      const pixels = written?.data ?? new Uint8ClampedArray();
-      const width = written?.width ?? 1;
-      let purity = 0;
-      let total = 0;
-      for (let at = 0; at < pixels.length; at += 4) {
-        const red = pixels[at] ?? 0;
-        const green = pixels[at + 1] ?? 0;
-        const blue = pixels[at + 2] ?? 0;
-        const sum = red + green + blue;
-        // How much of this pixel stands on the channel its own third of the cell lights. The share
-        // and not the plain spread between the three: since 0332 the ink under the fringe is the
-        // scene's ramp read per pixel rather than one colour, so a pixel already sitting on a
-        // saturated stop has a wide spread the fringe did nothing to (`ramp`, src/lib/scene/).
-        const own = [red, green, blue][channelAt((at / 4) % width, pitch)] ?? 0;
-        purity += sum > 0 ? own / sum : 0;
-        total += sum;
-      }
-      return { purity: purity / (pixels.length / 4), total };
-    };
-    const rest = measured(0);
-    const lit = measured(1);
-    const half = measured(0.5);
-    expect(lit.purity).toBeGreaterThan(rest.purity);
-    expect(half.purity).toBeGreaterThan(rest.purity);
-    expect(half.purity).toBeLessThan(lit.purity);
-    // And the cell still comes back very nearly to the ink that was sent, which is what a subpixel
-    // is (0130): each third gains in its own channel exactly what it gives up in the other two, at
-    // any saturation. Nearly, and not exactly, because a purer third is a brighter one and a pixel
-    // is a byte — the few per cent lost at the top of the range is the clip, and it is the reason
-    // the split is pushed to twice its resting depth rather than to the 0.45 it was first written
-    // at.
-    expect(lit.total / rest.total).toBeGreaterThan(0.95);
-    expect(lit.total / rest.total).toBeLessThanOrEqual(1);
   });
 
   it("diverges the three lattices without a seam in the tile", () => {

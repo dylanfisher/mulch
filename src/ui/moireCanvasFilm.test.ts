@@ -150,7 +150,7 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
     // The third step of the marks block (0345): `glyph.flat` pulls every cell's colour toward the
     // ramp's middle stop, so at one the tile is one ink under the channels' own lattice and at
     // nought it is the scene's five stops. Read as how many inks the tile holds, because the
-    // channel gain and fringe stand between a pixel and the stop it was read at.
+    // three channels' own fringe stands between a pixel and the stop it was read at.
     const inksOf = (flat: number): number => {
       setTuning("glyph.flat", flat);
       const pixels = tileOf(paintingOf(REED));
@@ -221,8 +221,8 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
     // mechanism, spent by the film), and under the deepest trough of the four terms it is a long
     // walk: darker at a whole share than at a half, and darker at a half than with the film off.
     // Read as brightness and not as a distance to the resolved stop, because the three channels'
-    // own gains stand between a pixel and the ink its stop was named in (`channelGain`), and the
-    // water's ramp is the one that only rises.
+    // own fringe stands between a pixel and the ink its stop was named in (`channelFringe`), and
+    // the water's ramp is the one that only rises.
     const black = resolvedInk("--scene-water-black");
     const foot = (black[0] + black[1] + black[2]) / 3;
     expect(brightOf(none, trough.at), "the trough is off the water's floor").toBeLessThan(4 * foot);

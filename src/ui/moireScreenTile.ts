@@ -1,6 +1,6 @@
 /**
- * @role The theme side of one screen tile: the three lit channel tokens and the scene's five stops
- *   resolved off the canvas's own computed style, put into the one plain order a bake reads, and
+ * @role The theme side of one screen tile: the scene's five stops resolved off the canvas's own
+ *   computed style, put into the one plain order a bake reads, and
  *   handed to the shop. **Nothing here loops over a pixel** — since 0354 that loop runs in a worker
  *   where the browser has one and in bands under a per-frame budget where it does not, so what is
  *   left on this side is the half that needs a document: a `getComputedStyle`, and the count of how
@@ -17,7 +17,6 @@ import type { AlphabetName } from "@/lib/moireAlphabets";
 import type { MoireCells } from "@/lib/moireCells";
 import type { Ink } from "@/lib/moireColour";
 import type { ScreenBake } from "@/lib/moireScreenField";
-import { CHANNEL_TOKENS, channelGain } from "@/lib/moireScreenFilm";
 import { subscribeTuning } from "@/lib/moireTuning";
 import { sceneOf } from "@/lib/scene/scenes";
 import type { YardScene } from "@/lib/yardScene";
@@ -69,9 +68,8 @@ const inkCopy = (stop: Ink): Ink => [stop[0], stop[1], stop[2], stop[3]];
 /**
  * The tile `key` names, as the shop answers for it: the one already built, or the one this canvas
  * was last drawn with while the one asked for is baked. Everything the theme says is resolved here
- * and crosses as numbers — the caller's own ink, the scene's five stops under the yard's air, and
- * what each of the three lit channels does to a third of a cell — because the loop that spends them
- * runs where there is no document to ask (0354).
+ * and crosses as numbers — the caller's own ink and the scene's five stops under the yard's air —
+ * because the loop that spends them runs where there is no document to ask (0354).
  *
  * **The order is built fresh on a miss and never refilled in place.** Every other object on this
  * path is one refilled object for 0070's sake, and this one may not be: a bake outlives the
@@ -98,8 +96,9 @@ export function screenTile(
   const slot = canvasSlot(canvas);
   const held = screenStanding(key, slot);
   if (held !== null) return held;
-  // A bake already out wants nothing built: below is a `getComputedStyle` and nine reads off a
-  // painted pixel, and a bake outlasts a hundred paintings at a window's size (0070, 0354).
+  // A bake already out wants nothing built: below is a `getComputedStyle` and the scene's own five
+  // stops off a painted pixel, and a bake outlasts a hundred paintings at a window's size
+  // (0070, 0354).
   if (screenBaking(key)) return screenStood(slot);
   const style = getComputedStyle(canvas);
   const scene = sceneOf(yard.scene);
@@ -119,9 +118,6 @@ export function screenTile(
     beat,
     own: inkOf(color),
     lift: sceneStops(scene, yard, style).map((stop) => inkCopy(stop)),
-    gains: CHANNEL_TOKENS.map((token) =>
-      channelGain(inkOf(style.getPropertyValue(token).trim()), tint.saturate),
-    ),
     tint: { ...tint },
     yard: { ...yard },
     // Deep to the terms: `rackCells` hands back slots it refills every painting (0349, 0070).

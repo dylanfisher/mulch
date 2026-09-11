@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0367; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0368; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -704,7 +704,7 @@ band of the tile rather than at its one deepest pixel; the rest is a half rather
 that would show the five whole; the bake-order fixture is a third copy; and the hue's ladder is
 finer than a cut ramp can show.
 
-**Step 16 — the channels split by whole cells (bench-43).** _Durable shape moved:_ none.
+**Step 16 — the channels split by whole cells (bench-43, 0367).** _Durable shape moved:_ none.
 `CHANNEL_MIX` rests at nought because a third of a five-pixel cell is under two pixels. A pop's
 saturation splits a mark into its three channels a whole cell apart instead — red one cell left,
 blue one right, green in place — so the lit channel is a mark and not a stroke. `channelMix`
@@ -713,6 +713,30 @@ keeps its knob; what it moves is the offset in cells. **Stands on:** `fringeOf`,
 either side. **Tests that must fail first:** at saturation nought a tile has one lattice; at
 `CHANNEL_MIX_FULL` the red channel's marks stand one cell left of the green's. **Refused:** a
 subpixel split; a split without a pop.
+
+**It landed as [0367](decisions/0367-the-channels-split-by-whole-cells.md)**, and the outcome is
+met: a pop standing is a lattice with coloured ghosts a cell either side. `channelMix`
+(src/lib/moireScreenFilm.ts) keeps its knob and what it moves is an offset in whole cells, nought
+at rest and one cell at `CHANNEL_MIX_FULL`; the pixel loop reads the red of a pixel off the mark a
+cell to its right and the blue off the mark a cell to its left, each in the ink its own cell was
+cut to (0366), so the red lattice stands a cell left of the green's. One alpha carries all three,
+so a pixel is covered wherever any of the three marks stands and each channel carries its own share
+of that union — where all three stand the ink is the cell's own, and where one does the pixel is a
+ghost of that channel. It is two more reads of the coverage a pixel **and only while a pop is
+standing**: at rest the branch is the one line it always was, so the bake step 18 owns pays nothing
+for this until a saturation asks (0354, 0365), and the saturation is on the tile's key already. The
+subpixel split went with it — `channelGain`, `channelAt`, `FLAT_GAIN`, `CHANNEL_TOKENS` and a
+bake's `gains` were a term every tile multiplied by one once the knob moved onto the cells — and
+0130's fringe survives where it was always visible, on the three channels' own blob lattices. The
+review caught three: a pixel the second lattice or the scatter covered where this one did not came
+out black under a pop, because the colours were scaled against a union those two were not in, which
+is fixed and is now a case of its own on both lattices; the queued hand was read off the pixel and
+not off the cell a mark came from, so a split wrote the armed alphabet across three cell columns
+where 0363 allows one; and the two arrays of shifted columns were built on every bake including the
+rested one the branch never reads. The key carries the split in cells now rather than the
+saturation that chose it, so a pop easing in rebakes once and not eight times. Three things went
+one way and are in §4: the two subpixel cases the split's removal took with it, the ghost's own
+compositing, and the two lattices the split does not reach.
 
 **Step 17 — a coloured row washes where it stands (bench-44).** _Durable shape moved:_ none. A
 hue claim — the tape's tone, the reverb's tone, the shift's detune, the pop's sheen, the voice
@@ -1445,8 +1469,8 @@ colour showing neither is worse than a scene showing its five pulled halfway in.
 nought for anyone who wants them whole.
 
 **The bake order is a third hand-built fixture, and the hue's ladder is finer than the cut (0366).**
-`src/lib/moireScreenField.test.ts` builds a `ScreenBake` by hand with the same five stops, the same
-flat gains and the same pitches that `orderAt` in src/ui/moireScreenShop.test.ts and `orderIn` in
+`src/lib/moireScreenField.test.ts` builds a `ScreenBake` by hand with the same five stops and the
+same pitches that `orderAt` in src/ui/moireScreenShop.test.ts and `orderIn` in
 src/lib/moireAlphabets.test.ts already build — the third occurrence principle 3 names, and the same
 shape as the painter tests' tile reader in 0348's own paragraph. One `screenOrder(overrides)` is the
 fix; its home cannot be src/ui/moireCanvasPainted.ts, because a src/lib test importing src/ui is
@@ -1455,3 +1479,25 @@ one. And `HUE_STEPS` is thirty-two because the hue was read along a gradient whe
 across four spans was a visible jump; a cut ramp does not move a cell's ink until its stand crosses
 a stop boundary, so the fine ladder now buys a rebake rather than a colour. It is one of the bake
 key's own fields (0365) and re-reading it is step 18's, not this step's.
+
+**Two subpixel cases went with the split, and a ghost is composited over the page (0367).** The
+knob moving onto whole cells left the subpixel split with nothing to push it, so `channelGain`,
+`channelAt`, `FLAT_GAIN` and a bake's `gains` went, and the two cases that read that split went
+with them: "lights three channels across a cell, each over the row's own ink" and "saturates the ink
+a standing look asks for, without moving what the cell averages to" (src/ui/moireScreen.test.ts).
+One case stands where they did, reading the same painted tile for the pixels that carry one channel
+and not another — none at rest and some under a pop — so the seam through the painter is still read;
+what is gone is the claim that a cell averages back to the row's colour, which is 0130's claim about
+a subpixel and not about a mark. Beside it, a pixel carries one alpha, so a ghost is written by
+scaling each channel against the union of the three marks: the background shows through a ghost
+pixel less in the two blank channels than a per-channel alpha would leave it, which is a dimmed page
+with one channel of ink on it. Three alphas would want three passes and three canvases, which is the
+bake step 18 owns and then some.
+
+**The split reaches one lattice of the three (0367).** The rack's second lattice (`beatBlocks`) and
+the specks' scatter (`scatterBlocks`) stand on cells of their own — the row pitch, and `SCATTER_SPAN`
+of the marks' cells — so a whole cell of the marks' lattice is not a whole cell of theirs, and
+splitting them by it would slice their marks rather than stand them apart. They union into the alpha
+as they did and carry no ghost. A split in each lattice's own cell is two more offsets and two more
+pairs of coverage reads in the loop that is already over the budget; it wants a step with the bake's
+price in front of it.

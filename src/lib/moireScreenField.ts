@@ -28,7 +28,7 @@ import { runCellPasses, type RunningCells } from "@/lib/moireCells";
 import { LOOKS } from "@/lib/moireLook";
 import { ALPHABETS, type AlphabetName, markCoverage } from "@/lib/moireAlphabets";
 import { markBlur } from "@/lib/moireGlyph";
-import type { ScreenInk } from "@/lib/moire";
+import { type ScreenInk, wrap } from "@/lib/moire";
 import {
   type Scene,
   type SceneTerms,
@@ -45,12 +45,11 @@ import {
   bandKeep,
   beatPx,
   blobKeep,
-  channelAt,
   channelFringe,
+  channelMix,
   columnKeep,
   FILM_SHARE,
   filmStand,
-  FLAT_GAIN,
   GLYPH_FLAT,
   rowKeep,
 } from "@/lib/moireScreenFilm";
@@ -64,7 +63,7 @@ import type { YardScene } from "@/lib/yardScene";
 /**
  * Everything one tile is baked out of, as plain data. **This is the whole of what crosses to the
  * worker** (0354): no canvas, no `CSSStyleDeclaration` and no function — a scene is its name, the
- * theme is the five stops and the three gains already resolved off it, and the numbers a hand has
+ * theme is the scene's five stops already resolved off it, and the numbers a hand has
  * moved ride along as the tuning snapshot the port carries beside this. What a tile is *of* is the
  * key, which is written where the painter asks (`screenOf`, src/ui/moireScreen.ts).
  */
@@ -82,8 +81,6 @@ export type ScreenBake = {
   own: Ink;
   /** The scene's five stops, resolved off the theme and mixed toward the yard's own air. */
   lift: readonly Ink[];
-  /** What each of the three lit channels does to the row's ink, resolved off the same theme. */
-  gains: readonly (readonly [number, number, number])[];
   tint: ScreenInk;
   yard: YardScene;
   cells: readonly MoireCells[];
@@ -380,11 +377,25 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
   const uAt = Float32Array.from({ length: width }, (_, x) => (x % across) / across);
   const cellInk = new Float32Array(cols * PER_PIXEL);
   let filled = -1;
-  // Which channel lights each column, resolved once a column rather than once a pixel.
-  const gainAt = Array.from(
-    { length: width },
-    (_, x) => order.gains[channelAt(x, pitch)] ?? FLAT_GAIN,
-  );
+  // How far a standing pop stands the three channels apart, in **whole cells of this lattice**
+  // (0367): a channel of a pixel is the mark a cell over, written in the ink that cell was already
+  // written in, so the red lattice stands a cell left of the green's and the blue a cell right of
+  // it. Nought is the three standing level, which is the one lattice the picture rests as, and it
+  // is the picture's own saturation that moves it — on the tile's key already (0283, 0365).
+  const split = channelMix(tint.saturate);
+  // Which cell the two moved channels read at each column, once a column rather than once a pixel
+  // (0070), and round the lattice rather than off its end: the marks come round with the tile
+  // (`sceneRepeat`), so the ghost that walks off one side is the one the other side is missing.
+  // **Nothing at all where nothing is saturated**: at rest the two arrays are `colOf` and the branch
+  // below never reads them, so a rested bake pays this step no allocation and no wrap.
+  const redOf =
+    split === 0
+      ? null
+      : Int32Array.from({ length: width }, (_, x) => wrap((colOf[x] ?? 0) + split, cols));
+  const blueOf =
+    split === 0
+      ? null
+      : Int32Array.from({ length: width }, (_, x) => wrap((colOf[x] ?? 0) - split, cols));
   // And where in the three channels' own cell each column reads: **on that cell's stride and never
   // on the tile's**, because since 0351 a tile standing a second lattice is several of those cells
   // wide and a column past the first would otherwise walk into the wrong row of the fringe. Once a
@@ -416,38 +427,71 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
       }
       const v = (y - cellRow * downCell) / downCell;
       const lattice = (y % deep) * wide * PER_PIXEL;
+      const markRow = cellRow * cols;
       for (let x = 0; x < width; x++) {
         const col = colOf[x] ?? 0;
         const inked = col * PER_PIXEL;
         // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
         // the ink read above and never more of it than that ink had — one cell of them, repeated.
         const lit = lattice + (fringeAt[x] ?? 0);
-        const gain = gainAt[x] ?? FLAT_GAIN;
         const at = (y * width + x) * 4;
-        pixels[at] = (cellInk[inked] ?? 0) * gain[0] * (lattices[lit] ?? 1);
-        pixels[at + 1] = (cellInk[inked + 1] ?? 0) * gain[1] * (lattices[lit + 1] ?? 1);
-        pixels[at + 2] = (cellInk[inked + 2] ?? 0) * gain[2] * (lattices[lit + 2] ?? 1);
+        const u = uAt[x] ?? 0;
+        // The queued hand on the last column and the standing one everywhere else — one compare a
+        // pixel, no second loop and no second pass over the tile. Read off the cell the mark comes
+        // from and not off the pixel it lands on, so that a split still writes the queued hand on
+        // one cell column and no more (0356, 0363): a ghost of a standing cell is a standing mark.
+        const hand = col === armedCol && armed !== null ? armed : alphabet;
         // The alpha is the mark's coverage of the caller's whole (0345, amending 0340): how solid
         // the picture is still belongs to the surface it is on (0141), and what a mark leaves
         // uncovered is the page, which is the ground this lattice is written on. The screen's own
         // four terms still reach none of it: what they spend, they spend as darkness up on the
         // read (0340).
-        const mark = grid.marks[cellRow * cols + col] ?? 0;
-        // The queued hand on the last column and the standing one everywhere else — one compare a
-        // pixel, no second loop and no second pass over the tile.
-        const hand = col === armedCol && armed !== null ? armed : alphabet;
-        let cover = markCoverage(hand, mark, uAt[x] ?? 0, v, blur);
-        // Unioned with the second lattice's, where the rack stands one, and with the scatter's,
-        // where the yard's detail stands one: the solidest of the marks and never their sum,
-        // because every lattice here is one picture in one ink and a cell under two of them is no
-        // more solid than the solider (0345).
-        // In the standing hand and never the armed one: those two lattices stand on cells of their
-        // own — the rack's second is the row pitch and the scatter's block is `SCATTER_SPAN` of
-        // these cells — so a column of *this* lattice swapped inside one of their marks would slice
-        // that mark rather than write it in another hand. One cell column is a column of the
-        // lattice the column belongs to.
-        if (second !== null) cover = Math.max(cover, beatInk(second, x, y, alphabet));
-        if (scatter !== null) cover = Math.max(cover, scatterInk(scatter, x, y, alphabet));
+        let cover = markCoverage(hand, grid.marks[markRow + col] ?? 0, u, v, blur);
+        // And what the second lattice and the scatter stand here, where the rack and the yard's
+        // detail stand one: the solidest of the marks and never their sum, because every lattice
+        // here is one picture in one ink and a cell under two of them is no more solid than the
+        // solider (0345). In the standing hand and never the armed one: those two lattices stand on
+        // cells of their own — the rack's second is the row pitch and the scatter's block is
+        // `SCATTER_SPAN` of these cells — so a column of *this* lattice swapped inside one of their
+        // marks would slice that mark rather than write it in another hand.
+        let other = second === null ? 0 : beatInk(second, x, y, alphabet);
+        if (scatter !== null) other = Math.max(other, scatterInk(scatter, x, y, alphabet));
+        if (split === 0) {
+          pixels[at] = (cellInk[inked] ?? 0) * (lattices[lit] ?? 1);
+          pixels[at + 1] = (cellInk[inked + 1] ?? 0) * (lattices[lit + 1] ?? 1);
+          pixels[at + 2] = (cellInk[inked + 2] ?? 0) * (lattices[lit + 2] ?? 1);
+          cover = Math.max(cover, other);
+        } else {
+          // And where a pop stands the channels apart, the red and the blue of this pixel are the
+          // marks a cell over, each in the ink its own cell was written in and in that cell's own
+          // hand (0367). The pixel is covered wherever any of the four marks stands — the three of
+          // this lattice and whichever of the other two is here — and each channel carries the ink
+          // of whichever of them stands solidest in it, at its own share of that union. So where
+          // all three stand the ink is the cell's own, where one does the pixel is a ghost of that
+          // channel, and where the second lattice or the scatter is what covers, all three carry
+          // the cell's own ink exactly as they do at rest: those two are not split. Two more reads
+          // of the coverage a pixel, and only while a pop is standing.
+          const red = redOf?.[x] ?? col;
+          const blue = blueOf?.[x] ?? col;
+          const redHand = red === armedCol && armed !== null ? armed : alphabet;
+          const blueHand = blue === armedCol && armed !== null ? armed : alphabet;
+          const redCover = markCoverage(redHand, grid.marks[markRow + red] ?? 0, u, v, blur);
+          const blueCover = markCoverage(blueHand, grid.marks[markRow + blue] ?? 0, u, v, blur);
+          const most = Math.max(cover, redCover, blueCover, other);
+          const scale = most > 0 ? 1 / most : 0;
+          const redInk = redCover >= other ? red * PER_PIXEL : inked;
+          const blueInk = blueCover >= other ? blue * PER_PIXEL : inked;
+          pixels[at] =
+            (cellInk[redInk] ?? 0) * (lattices[lit] ?? 1) * Math.max(redCover, other) * scale;
+          pixels[at + 1] =
+            (cellInk[inked + 1] ?? 0) * (lattices[lit + 1] ?? 1) * Math.max(cover, other) * scale;
+          pixels[at + 2] =
+            (cellInk[blueInk + 2] ?? 0) *
+            (lattices[lit + 2] ?? 1) *
+            Math.max(blueCover, other) *
+            scale;
+          cover = most;
+        }
         pixels[at + 3] = alpha * cover;
       }
     }

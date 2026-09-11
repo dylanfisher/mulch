@@ -1,9 +1,11 @@
 /**
  * @role The film over the picture: the two gratings, the beat they make into a lattice of blobs, the
  *   three channels the monitor lights a cell through, the one broad rolling band, and the pitches
- *   all of them are measured on. Every term is a multiplier on the read and none of them touches the
- *   alpha — the scene is the body of the picture and this screen is a shade laid over it (0340,
- *   amending 0332). Nothing here holds a canvas, a token or a theme, which is what lets the bake
+ *   all of them are measured on. Every term here is a multiplier on the read and none of them
+ *   touches the alpha — the scene is the body of the picture and this screen is a shade laid over
+ *   it (0340, amending 0332). The one exception is `channelMix`, which is a place and not a
+ *   multiplier: it stands the three channels whole cells apart, so under a pop the picture is
+ *   covered wherever any of the three marks stands (0367). Nothing here holds a canvas, a token or a theme, which is what lets the bake
  *   that spends these terms run in a worker (0354).
  * @instead The tile these terms are spent into, a mark at a time → src/lib/moireScreenField.ts, and
  *   the caches and canvas around it → src/ui/moireScreenTile.ts. Where a tile is put and what moves
@@ -11,8 +13,7 @@
  *   src/lib/moireScene.ts. The colours those stops resolve to, which need the theme →
  *   src/ui/moireScreenStops.ts.
  */
-import { DRIFT_REST, TAU, wrap } from "@/lib/moire";
-import type { Ink } from "@/lib/moireColour";
+import { DRIFT_REST, TAU } from "@/lib/moire";
 import { gratingKeep } from "@/lib/moireGrating";
 import { sceneAxis } from "@/lib/moireScene";
 import { beatTilePx } from "@/lib/moireScreenBeat";
@@ -108,63 +109,51 @@ export const GLYPH_FLAT = tunable("glyph.flat", 0.5, { min: 0, max: 1, step: 0.0
 export const filmStand = (keep: number, share: number): number => 1 - share * (1 - keep);
 
 /**
- * The screen's three lit channels, in the order they sit across one pitch. Token names and not
- * colours: what each one is lives in `src/ui/tokens.css`, which is still the only file that says
- * (0130, docs/boundaries.md). Registered there as `<color>`, or the scheme would arrive unresolved
- * and the canvas would drop it without a word. Named here beside the terms that spend the count,
- * the way a scene names its own stops (src/lib/scene/), and read off the theme where there is one
- * (`screenTile`, src/ui/moireScreenTile.ts).
+ * How many lit channels the screen has: the three a monitor lights a pixel through, which is what
+ * the lattices below are a fringe on. The names of the three live in `src/ui/tokens.css` and
+ * nowhere else (0130, docs/boundaries.md); no code reads them for a gain since 0367, so the count
+ * is what this file spends and the list was a list nothing read.
  */
-export const CHANNEL_TOKENS: readonly string[] = [
-  "--screen-red",
-  "--screen-green",
-  "--screen-blue",
-];
-
-/** How many lit channels the screen has across one pitch: those tokens, counted and not restated. */
-export const CHANNEL_COUNT = CHANNEL_TOKENS.length;
+export const CHANNEL_COUNT = 3;
 
 /**
- * How far a third of a cell is pushed onto its own channel. A subpixel neither tints the picture
- * nor filters it: it carries the picture's own amount of one channel and none of the other two, so
- * each third gains in its channel what it gives up in the others and the cell comes back to the
- * row's colour. What changes is that every edge lands on one channel first, which is the fringe
- * (0130).
+ * How far apart the three channels stand, **in whole cells of the marks** (0367). A mark is the
+ * unit the picture is made of, so the unit the channels are pulled apart by is the mark: the red
+ * channel of a cell is the mark a cell to the right, the blue channel the mark a cell to the left,
+ * and the green the mark that stands there — so what a saturated picture grows is a coloured ghost
+ * of the lattice a cell either side of it, each ghost a whole mark.
  *
- * Far shallower than the 0.45 it was written at, and for the reason 0130 could not have known: the
- * picture under it was one broad ribbon then and is a field of fine gratings now (P93), so where
- * the fringe once caught a handful of edges it now catches every crest in the picture. At 0.45 the
- * yard read as red and green candy stripes rather than as its own ink — the cell still averaged
- * back to the row's colour, exactly as 0130 says, but nothing in the picture is as wide as a cell
- * any more.
- *
- * **Nought since the picture became a lattice of marks** (0346): a mark's stroke is a device pixel
- * and a cell's third is under two, so at 0.16 every stroke of every mark took a different channel
- * and the zoomed drift read as a rainbow grille where the reference is one ink. A standing pop
- * still pushes the split to `CHANNEL_MIX_FULL`, which is where the chromatic lattice lives now.
+ * **Nought at rest, and that is the split resting rather than the split gone** (0346): the same
+ * knob was a third of a cell pushed onto its own channel until 0367, which is the subpixel fringe
+ * 0130 asked for, and a third of a five-pixel cell is under two pixels — so every stroke of every
+ * mark took a different channel and the zoomed drift read as a rainbow grille where the reference
+ * is one ink. A standing pop still pushes the split to `CHANNEL_MIX_FULL`, which is where the
+ * chromatic lattice lives now.
  */
 const CHANNEL_MIX = 0;
 
 /**
- * And how far a wholly saturated picture pushes it — where a standing pop's Sheen carries the same
+ * And how far a wholly saturated picture pushes it — where a standing pop's Sheen carries the
  * split, on the ink's own travel and the ink's own steps (`looksSaturate`, src/ui/moireLooks.ts,
- * 0283). Twice the resting split, so a saturated yard is visibly more chromatic than a plain one
- * and the cell still averages back to the row's colour at either end (0130). Short of the 0.45 the
- * split was first written at and by a wide margin, because that number is the one this picture
- * already knows reads as candy stripes rather than as its own ink.
+ * 0283). One cell: the split a mark can carry is a whole mark, and the next one up is two cells of
+ * blank between the ghost and what cast it, which is two lattices and not one picture.
  */
-const CHANNEL_MIX_FULL = 0.32;
+const CHANNEL_MIX_FULL = 1;
 
-/** How far a third of a cell is pushed onto its own channel, at how saturated the picture is. */
-const channelMix = (saturate: number): number =>
-  denormalize(saturate, CHANNEL_MIX, CHANNEL_MIX_FULL);
+/**
+ * How far apart the three channels stand at how saturated the picture is, in whole cells: a place
+ * on the lattice and never a fraction of one, because half a mark's offset is the subpixel fringe
+ * this replaced. Read once a tile — it is the tile's own key that carries the saturation (0365).
+ */
+export const channelMix = (saturate: number): number =>
+  Math.round(denormalize(saturate, CHANNEL_MIX, CHANNEL_MIX_FULL));
 
 /**
  * How far apart the three channels' blob lattices stand, as a fraction of one beat cell. **This is
- * what stops the picture going one colour.** The subpixel split above is a fringe at the cell's own
- * scale — a third of five CSS pixels — so the eye integrates the three back into the row's ink at
- * any distance, and a yard drawn in one token reads as that token everywhere (0130 says the cell
- * averages back to the row's colour, and it does). A camera pointed at a monitor does not sample
+ * what stops the picture going one colour.** The split above stands the channels apart only where
+ * a pop is standing, and at rest it stands them nowhere, so without this a yard drawn in one token
+ * would read as that token everywhere (0130 says the cell averages back to the row's colour, and it
+ * does). A camera pointed at a monitor does not sample
  * the three channels at the same instant or the same place, so the blobs it photographs are
  * separated by channel: one edge of a blob is red and the far edge is blue. Standing each channel's
  * lattice a sixth of a cell back does that at the *blob's* scale rather than the subpixel's, which
@@ -355,34 +344,3 @@ export const screenKeep = (
   rowPitch: number,
   height: number,
 ): number => columnKeep(x, pitch) * scanKeep(y, rowPitch, height) * blobKeep(x, y, pitch, rowPitch);
-
-/** Which of the three channels lights device column `x` of a cell of `pitch`. */
-export const channelAt = (x: number, pitch: number): number =>
-  Math.min(CHANNEL_COUNT - 1, Math.floor((wrap(x, pitch) / pitch) * CHANNEL_COUNT));
-
-/** What a third of a cell does to each of the row's own channels, when no token says otherwise. */
-export const FLAT_GAIN: readonly [number, number, number] = [1, 1, 1];
-
-/**
- * What one lit channel does to the row's ink, as a multiplier per channel. The token says which
- * channel this third of the cell is and how pure it is; the gain is what a subpixel does, so the
- * three thirds average back to the colour that was sent (0130). A token with no light in it would
- * divide by nothing, and is the third that changes nothing rather than a pixel of no colour: a
- * missing fringe shows the wrong token where a blank screen would hide it.
- *
- * `saturate` is how far the split is pushed past where it rests, which is how saturated the standing
- * rack's looks ask this picture to be (0283). It moves how *pure* each third is and never what the
- * three of them average to, so a saturated cell is the same colour more strongly said.
- */
-export function channelGain(lit: Ink, saturate: number): readonly [number, number, number] {
-  const total = lit[0] + lit[1] + lit[2];
-  if (total <= 0) return FLAT_GAIN;
-  const pushed = channelMix(saturate);
-  const rest = 1 - pushed;
-  const share = pushed * CHANNEL_COUNT;
-  return [
-    rest + (share * lit[0]) / total,
-    rest + (share * lit[1]) / total,
-    rest + (share * lit[2]) / total,
-  ];
-}

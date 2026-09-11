@@ -199,7 +199,7 @@ describe("moireScreenBeat", () => {
   it("reads the three channels' own cell on its own stride across the wider tile", () => {
     // The fringe is one beat cell of the two gratings, repeated (`fringeOf`), and a tile standing
     // the second lattice is seven of those cells wide. What stands across a row of the tile is the
-    // cell's own ink, the channel gain and the fringe, and **all three come round on the beat
+    // cell's own ink and the three channels' fringe, and **both come round on the beat
     // cell**: the cells are snapped so a whole number of them spans the tile (`sceneRepeat`) and
     // the beat cell is a whole number of cells, so the ink repeats on that stride whatever the
     // flatness leaves of the scene's five stops (0366). A tile that read the fringe on its own

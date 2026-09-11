@@ -47,11 +47,6 @@ const orderIn = (
     [190, 150, 85, 255],
     [235, 225, 200, 255],
   ],
-  gains: [
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-  ],
   tint: { fringe: 0, disperse: 0, hue: 0, saturate: 0 },
   yard: { ...YARD_SCENE_REST },
   cells: [],
