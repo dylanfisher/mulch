@@ -14,6 +14,7 @@
 // oxlint-disable max-lines
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
+import { cellPushRest, type MoireCellPush } from "@/ui/moireCellPush";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import type { MoireLook } from "@/ui/moireLooks";
 import { type MoireShape, shapeRest } from "@/ui/moireShape";
@@ -190,6 +191,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // measured against, so a case about anything else draws the same picture twice
       // (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
       yard = YARD_SCENE_REST,
+      // And which landings of the walk are still pushing the marks: none unless a case says
+      // otherwise, which is the picture before anything has landed and the still lattice 0346
+      // shipped (`cellPushRest`, src/ui/moireCellPush.ts).
+      pushes = cellPushRest(),
     }: {
       frames?: number;
       advance?: number;
@@ -204,6 +209,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       shape?: MoireShape;
       tinting?: MoireTint;
       yard?: YardScene;
+      pushes?: readonly MoireCellPush[];
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -216,7 +222,7 @@ export function painterOn(stubGlobal: StubGlobal) {
     // painting — the product, the grating's tile, the one pixel a colour is read back through, and
     // the screen's tile — and a single stub would file the colour probe's fills under the product's.
     const surfaces: {
-      fills: { over: string; alpha: number }[];
+      fills: { over: string; alpha: number; box: number[] }[];
       wrote: { width: number; height: number; data: Uint8ClampedArray }[];
       drew: {
         tile: unknown;
@@ -237,7 +243,7 @@ export function painterOn(stubGlobal: StubGlobal) {
     // recording the box a draw was made in is one more field on one of them (0007).
     // oxlint-disable-next-line max-lines-per-function
     const surface = (canvas: { width: number; height: number }) => {
-      const fills: { over: string; alpha: number }[] = [];
+      const fills: { over: string; alpha: number; box: number[] }[] = [];
       const wrote: { width: number; height: number; data: Uint8ClampedArray }[] = [];
       const drew: {
         tile: unknown;
@@ -300,8 +306,11 @@ export function painterOn(stubGlobal: StubGlobal) {
         getImageData(): { data: Uint8ClampedArray } {
           return { data: Uint8ClampedArray.from(resolvedInk(String(this.fillStyle))) };
         },
-        fillRect(): void {
-          fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha });
+        // And the rectangle it was made in, which is the whole of what a fill over part of a
+        // surface says: a landing lifts the cell rows it stands in and no others, and a case about
+        // that has to be able to see where the fill stopped (`liftPushes`).
+        fillRect(...box: number[]): void {
+          fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha, box });
         },
       };
     };
@@ -376,6 +385,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         shape,
         tinting,
         yard,
+        pushes,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

@@ -27,6 +27,7 @@ import {
   joltRest,
   joltWalked,
 } from "@/ui/moireJolt";
+import { CELL_DECAY } from "@/ui/moireCellPush";
 import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
@@ -154,5 +155,54 @@ describe("the jolt the picture answers a hit with", () => {
     );
     expect(set.jolt.at).toBe(1);
     for (const row of set.rows) expect(row.pulse).toBe(1);
+  });
+
+  /**
+   * And the other thing the same landing is spent on: the push the marks are stamped at, taken up
+   * at the distance the walk jumped and let fall on the deck clock over a share of the loop — a row
+   * flaring as its landing sounds and settling after, where the jolt above is the whole field
+   * answering at once.
+   */
+  it("pushes the marks at a landing and falls over its share of the loop", () => {
+    const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
+    const peek = emptyDeckPeek();
+    peek.sounding = 1;
+    const loop = { in: 0, out: 4 };
+    const read = (player: PlayerPeek, elapsed: number): void => {
+      peek.player = player;
+      refillRows(
+        set.rows,
+        set.reads,
+        peek,
+        1,
+        loop,
+        8,
+        null,
+        emptyMasterPeek(),
+        elapsed,
+        1,
+        fractalStopsRest(),
+        fractalStopsRest(),
+        screenInkRest(),
+        [],
+        set.jolt,
+        shapeRest(),
+      );
+    };
+    // The first landing of a pass has no distance behind it, so it pushes nothing.
+    read(standingOn(0, 0), 0);
+    expect(set.jolt.pushes.every((push) => push.at === 0)).toBe(true);
+    // The next one is across the loop, which is the whole strike — and it stands where the ground
+    // the walk just landed on stands, which is where the rows that rest on that ground stand too.
+    read(standingOn(PLAYER_SLOTS / 2, 1), 0);
+    expect(set.jolt.pushes[0]?.at).toBe(1);
+    // And it falls over `cells.decay` of the loop and no longer: half the share is half gone, and
+    // the whole of it is out — a push that outlived the loop would be the still lattice lifted.
+    const over = CELL_DECAY.value * (loop.out - loop.in);
+    read(standingOn(PLAYER_SLOTS / 2, 1), over / 2);
+    expect(set.jolt.pushes[0]?.at).toBeCloseTo(0.5, 12);
+    read(standingOn(PLAYER_SLOTS / 2, 1), over / 2);
+    expect(set.jolt.pushes[0]?.at).toBe(0);
+    expect(over).toBeLessThanOrEqual(loop.out - loop.in);
   });
 });

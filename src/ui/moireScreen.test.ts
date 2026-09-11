@@ -200,6 +200,7 @@ function paintedOn(
     // the leaf dark, the hot ink, its own tan, the lit leaf and a pale sky, warm for four stops of
     // the five (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
     yard,
+    [],
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).

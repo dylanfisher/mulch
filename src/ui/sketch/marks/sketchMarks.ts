@@ -38,12 +38,7 @@ import {
   type AlphabetName,
 } from "@/ui/sketch/marks/sketchMarksAlphabet";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
-import {
-  fixtureAt,
-  SKETCH_STANDING,
-  SKETCH_WALK,
-  type SketchLanding,
-} from "@/ui/sketch/sketchWalk";
+import { fixtureAt, SKETCH_STANDING, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
 
 /**
  * How many cells stand in the picture's height: the screen's own column pitch at the bench's
@@ -137,47 +132,6 @@ export function latticeInk(
 /** The picture with no entry's move on it: entry 11 of the drift bench, on the bloom, in one ink,
  * cut the way the tile cuts it (0348). */
 export const plainField = (x: number, y: number): number => latticeInk(x, y, CELL, plainMark);
-
-/** How many marks denser a landing at full level pushes its row the moment it lands. */
-export const DECAY_STEPS = 4;
-
-/** How much of the loop a push takes to fall to a third of itself. */
-export const DECAY_SPAN = 0.12;
-
-/** Which row of the lattice a landing of the walk pushes: the landings dealt round the rows. */
-export const landingRow = (index: number): number => index % ROWS;
-
-/** How hard one landing is still pushing at `at` of the loop: its level, decayed since it landed. */
-export function pushAt(at: number, landing: SketchLanding): number {
-  const age = at - landing.at;
-  if (age < 0) return 0;
-  return landing.level * Math.exp(-age / DECAY_SPAN);
-}
-
-/**
- * 05 — the marks moved by the clock: each landing of the walk pushes every cell of its row that
- * many marks denser at its level, and the push decays back down the loop, so what a hand sees is
- * a row flare and settle rather than a lattice that never moves. The dial is where in the loop the
- * bench is standing; at the top nothing has landed and the picture is the plain lattice.
- */
-export const DECAY_DIAL: SketchDial = {
-  min: 0,
-  max: 1,
-  step: 0.01,
-  rest: fixtureAt(SKETCH_WALK, SKETCH_STANDING, "landing").at + 0.02,
-};
-const decayedCells = new Map<number, Map<number, number>>();
-export function decayedMark(col: number, row: number, at: number): number {
-  return held(decayedCells, at, col, row, () => {
-    let push = 0;
-    for (const [index, landing] of SKETCH_WALK.entries()) {
-      if (landingRow(index) === row) push += pushAt(at, landing);
-    }
-    return Math.min(GLYPH_COUNT - 1, plainMark(col, row) + Math.round(push * DECAY_STEPS));
-  });
-}
-export const decayField: SketchDriftField = (x, y, at) =>
-  latticeInk(x, y, CELL, (col, row) => decayedMark(col, row, at));
 
 /**
  * Which alphabet each character is written in: the plain and the riff in the marks the picture

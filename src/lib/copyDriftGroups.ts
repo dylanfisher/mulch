@@ -719,6 +719,11 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         label: "Rows",
         hint: "How deep the sound's rows are stamped over the picture as marks; at nothing the rows are holes in the lattice and at everything every strong cell carries a whole mark.",
       },
+      {
+        id: "cells.decay",
+        label: "Decay",
+        hint: "How much of the loop a landing's flare takes to settle; at a little a row lights and is out before the next lands, and at everything it is still lit when the walk comes round.",
+      },
     ],
   },
   {

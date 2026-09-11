@@ -44,6 +44,8 @@ import {
   joltWalked,
   type MoireJolt,
 } from "@/ui/moireJolt";
+import { CELL_DECAY, cellPushInto } from "@/ui/moireCellPush";
+import { loopPeriodSecs } from "@/lib/recurrence";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import {
@@ -534,13 +536,30 @@ export function refillRows(
   // it below as a floor under its own reading, exactly as every row on the ground is written with
   // the one ground (0213). The walk's own strike is taken before the step below writes the landing
   // it was measured against.
+  // How far the walk just jumped, read once: it is the jolt's own strike and it is the level the
+  // landing pushes the marks at, and a second reading of it would be the same distance measured
+  // twice (principle 1).
+  const walked = joltWalked(peek.player, jolt);
   joltInto(
     jolt,
-    Math.max(joltHeard(peek.crest, peek.meter), joltWalked(peek.player, jolt)),
+    Math.max(joltHeard(peek.crest, peek.meter), walked),
     peek.player,
     age,
     elapsed,
     peek.sounding > 0 ? DRIFT_JOLT_SECS.value : 0,
+  );
+  // And one step of the push that same landing puts on the marks, at the ground the landing stands
+  // on — the place the walk has just jumped to, which is what makes a walk a row after another row
+  // rather than one row lit twice. Falling over a share of the loop the yard is reading, so the
+  // flare is over before the walk comes round again, and outright where there is no loop to measure
+  // it against (0144). Beside the jolt and never inside the walk below: it is the field's, like the
+  // jolt, and no row's (0213).
+  cellPushInto(
+    jolt.pushes,
+    walked,
+    groundCentre,
+    elapsed,
+    peek.sounding > 0 ? CELL_DECAY.value * loopPeriodSecs(loop, rate) : 0,
   );
   if (flight > 0) fractalTravelInto(seed, toward, elapsed, flight);
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once

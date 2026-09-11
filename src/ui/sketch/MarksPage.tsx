@@ -28,7 +28,6 @@ import { Wordmark } from "@/ui/Logo";
 import { MARKS_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
-import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
 import { COLS, ROWS } from "@/ui/sketch/marks/sketchMarks";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -58,17 +57,6 @@ export type MarksEntry = {
  * turns.
  */
 export const SKETCH_MARKS: readonly MarksEntry[] = [
-  {
-    id: "decay",
-    label: "The Decay",
-    thesis:
-      "The marks moved by the clock: each landing of the walk pushes every cell of its row that many marks denser at its level, and the push decays down the loop. The lattice stands still between events, and what may move it is an event — a row that flares when its landing sounds and settles after is the sound reaching the marks a row at a time.",
-    trades:
-      "the stillness on a busy walk. Sixteen landings across a loop dealt round eleven rows is a row flaring every sixteenth, and a lattice with a row always flaring reads as a meter and not a picture — the span of the decay is the one number that keeps it a picture, and it is short.",
-    built:
-      "in refillRows at src/ui/moireRows.ts as one integer per row read off the meters and decayed on the deck clock, carried into the cell read in build at src/ui/moireScreenTile.ts. Frame-side for the integer, bake-side for the tile: a row's push is one more field on the key.",
-    Content: SketchMarksDecay,
-  },
   {
     id: "part",
     label: "The Part",

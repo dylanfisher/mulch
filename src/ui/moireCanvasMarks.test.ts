@@ -30,6 +30,7 @@ import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moire
 import { bandFloor, bitPx, boxCells, CELL_ROWS, STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
+import { CELL_DECAY, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
 // oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -134,6 +135,31 @@ function heavyShare(scene: SceneName, push: number): number {
 function stampedOn(dpr: number, frames = 1): Painted {
   vi.stubGlobal("devicePixelRatio", dpr);
   return paintedOn(200, 128, ROWS, 2, 20, { frames });
+}
+
+/** One painting of the same picture with `pushes` landings still falling on it. */
+function landedOn(pushes: readonly MoireCellPush[], frames = 1): Painted {
+  vi.stubGlobal("devicePixelRatio", 2);
+  return paintedOn(200, 128, ROWS, 2, 20, { frames, pushes });
+}
+
+/**
+ * Which surface the stamp reads the boxed field onto: the first one the cell grid's own size, the
+ * read being minted before the band and the bands already stamped (`stampFor`).
+ */
+const readAt = (painted: Painted, wide: number, deep: number): number =>
+  painted.elements.findIndex((element) => element.width === wide && element.height === deep);
+
+/**
+ * What a landing lifted on that read: the fills made under `lighter`, which are the lift's and
+ * nothing else's — every band below it is cut with `copy` and `destination-out` on a surface of its
+ * own (`liftPushes`, `cutBand`).
+ */
+function liftsOn(painted: Painted, wide: number, deep: number): { alpha: number; box: number[] }[] {
+  const read = painted.surfaces[readAt(painted, wide, deep)];
+  return (read?.fills ?? [])
+    .filter((fill) => fill.over === "lighter")
+    .map(({ alpha, box }) => ({ alpha, box }));
 }
 
 /**
@@ -382,6 +408,72 @@ describe("the marks the painter puts down", () => {
     expect(inked).toHaveLength(GLYPH_COUNT);
     expect(inked[0], "the mark a quiet cell is written in inks something").toBe(0);
     expect(inked.at(-1), "the heaviest mark is not the block").toBe(GLYPH_GRID * GLYPH_GRID);
+  });
+
+  it("stamps one mark heavier in the cell rows a landing stands in, and lighter as it falls", () => {
+    // The sixth step of the block: a landing lifts the threshold passes one mark for the cell rows
+    // the sounding row's centre stands in, at its own level, and the lift falls with it — so a row
+    // flares when its landing sounds and settles after, and the lattice between them stands still.
+    const cell = gridPitchPx(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    // The frame before the landing lifts nothing at all: the still lattice 0346 shipped.
+    expect(liftsOn(stampedOn(2), wide, deep)).toEqual([]);
+    // The frame at the landing's edge lifts exactly one mark's worth of the ramp — the step every
+    // band floor is a multiple of, so a cell standing at one band's floor now stands at the next
+    // one's, which is the cell stamped one mark heavier.
+    const edge = liftsOn(landedOn([{ at: 1, centre: 0.5 }]), wide, deep);
+    expect(edge).toHaveLength(1);
+    expect(edge[0]?.alpha).toBeCloseTo(bandFloor(1), 12);
+    for (let mark = 0; mark + 1 < GLYPH_COUNT; mark++) {
+      expect(bandFloor(mark) + bandFloor(1), `one mark above band ${mark}`).toBeCloseTo(
+        bandFloor(mark + 1),
+        12,
+      );
+    }
+    // And a quarter of a loop later it lifts less than it did at the edge, and still something: the
+    // fall is a whole level over `cells.decay` of the loop, so a quarter of the loop at the rest is
+    // half the flare gone.
+    const fallen = 1 - 0.25 / CELL_DECAY.value;
+    expect(fallen).toBeGreaterThan(0);
+    const later = liftsOn(landedOn([{ at: fallen, centre: 0.5 }]), wide, deep);
+    expect(later[0]?.alpha).toBeLessThan(edge[0]?.alpha ?? 0);
+    expect(later[0]?.alpha).toBeGreaterThan(0);
+    // A landing that has fallen away lifts nothing, which is the picture before it landed.
+    expect(liftsOn(landedOn([{ at: 0, centre: 0.5 }]), wide, deep)).toEqual([]);
+    // And none of it costs the picture a thing: the lift is on the read, one pixel a cell, so the
+    // frame pays the same ten passes and the same one picture-sized draw checkpoint A pinned.
+    const landed = landedOn([{ at: 1, centre: 0.5 }]);
+    expect(stampPasses(landed, 200, 128)).toBe(GLYPH_COUNT);
+    expect(stampDraws(landed)).toBeLessThanOrEqual(STAMP_PICTURE_DRAWS);
+  });
+
+  it("moves no cell outside the rows the landing stands in", () => {
+    // The step's third case. The lift is one rectangle over the cell rows the centre stands in —
+    // the whole width of the read and that band of it — so every cell above and below reaches the
+    // ten passes at exactly the read the box wrote.
+    const cell = gridPitchPx(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    for (const centre of [0, 0.25, 0.5, 1]) {
+      const rows = pushedRows({ at: 1, centre }, deep);
+      const [lift] = liftsOn(landedOn([{ at: 1, centre }]), wide, deep);
+      expect(lift?.box, `a landing at ${centre}`).toEqual([0, rows.top, wide, rows.of]);
+      expect(rows.of, `a landing at ${centre} lifts less than the picture`).toBeLessThan(deep);
+    }
+    // Two landings a step apart are two bands that do not touch, which is what makes a walk rows
+    // flaring in turn rather than the whole lattice lifting.
+    const apart = liftsOn(
+      landedOn([
+        { at: 1, centre: 0.25 },
+        { at: 1, centre: 0.75 },
+      ]),
+      wide,
+      deep,
+    );
+    expect(apart).toHaveLength(2);
+    const [first, second] = apart;
+    expect((first?.box[1] ?? 0) + (first?.box[3] ?? 0)).toBeLessThan(second?.box[1] ?? 0);
   });
 
   it("reads the boxed field on the very grid it stamps the marks back onto", () => {

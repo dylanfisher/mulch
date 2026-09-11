@@ -191,12 +191,21 @@ export function carryArrivals(from: MoireRowSet, to: MoireRowSet): void {
 }
 
 /**
- * And how hard the field was jolting, with what it was last jolted by. The same argument the wind's
+ * And how hard the field was jolting, with what it was last jolted by, and which landings were
+ * still pushing the marks. The same argument the wind's
  * own carry makes and for the same rebuild: an effect added or retired is a fresh set, and a jolt
  * that started again from still would swallow the hit it was in the middle of answering. What it is
  * *going* to be is the next frame's strike and is never carried, which is what keeps the next hit a
  * hit (0271).
  */
 export function carryJolt(from: MoireRowSet, to: MoireRowSet): void {
-  Object.assign(to.jolt, from.jolt);
+  // The landings still pushing the marks written into the slots the fresh set already holds, and
+  // never handed its array: every carry beside this one keeps the destination's own object, and a
+  // jolt that took the old set's ring would leave two sets stepping one list (0070).
+  const { pushes, ...struck } = from.jolt;
+  Object.assign(to.jolt, struck);
+  to.jolt.pushes.forEach((push, at) => {
+    const was = pushes[at];
+    if (was !== undefined) Object.assign(push, was);
+  });
 }

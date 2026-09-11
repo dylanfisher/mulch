@@ -16,6 +16,7 @@
  */
 import { GLYPH_COUNT, GLYPH_GRID, markCoverage } from "@/lib/moireGlyph";
 import { tunable } from "@/lib/moireTuning";
+import { type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
 
 /**
  * How deep the sound's rows are stamped over the picture, as the share of the ink a whole mark is
@@ -208,6 +209,39 @@ function sheetOf(
 export const bandFloor = (mark: number): number => mark / GLYPH_COUNT;
 
 /**
+ * Lift the cell rows a landing stands in, on the boxed read itself and before a single band is cut
+ * out of it: one mark's worth of the ramp (`bandFloor(1)`, the step every band is a multiple of) at
+ * the landing's own level, added to the rows that landing's centre stands in and to no others
+ * (`pushedRows`). So the ten threshold passes below all see those cells one mark higher and a cell
+ * on the band's shoulder carries its share of the mark above it, which is what a flare looks like:
+ * a row going one mark denser and settling back as the push falls.
+ *
+ * **On the read and never on the picture.** The read is one pixel a cell, so a landing costs one
+ * fillRect over a handful of rows of it — no pass is added, nothing picture-sized is drawn and no
+ * tile is rebaked (plan §1, checkpoint A; 0353, 0354).
+ *
+ * Filled under `lighter` through whatever colour the surface was left at: the read is taken for its
+ * alpha alone, and adding to alpha is the one arithmetic a canvas does on it without a loop over
+ * the pixels — the same reason the bands below are cut with a `destination-out` fill.
+ */
+function liftPushes(
+  ink: CanvasRenderingContext2D,
+  pushes: readonly MoireCellPush[],
+  wide: number,
+  deep: number,
+): void {
+  ink.globalCompositeOperation = "lighter";
+  for (const push of pushes) {
+    if (push.at <= 0) continue;
+    const { of, top } = pushedRows(push, deep);
+    ink.globalAlpha = bandFloor(1) * push.at;
+    ink.fillRect(0, top, wide, of);
+  }
+  ink.globalAlpha = 1;
+  ink.globalCompositeOperation = "copy";
+}
+
+/**
  * Cut `mark`'s own band out of the boxed read: the read taken down to the band's floor and back up
  * `STAMP_SLOPE` doublings, folded into a step, and then the bands already stamped taken out of it —
  * so the ten bands are disjoint and a cell is written in the heaviest mark it stands above. The
@@ -258,12 +292,17 @@ function cutBand(
  * the surfaces one painting mints are the surfaces every painting of that canvas mints, whatever
  * the rack is doing, which is what keeps a pass's own surface where its case looks for it.
  * Nothing at all at no depth: a stamp nobody asked for mints no surface and reads no field.
+ *
+ * And `pushes` is the landings still falling (`cellPushInto`, src/ui/moireCellPush.ts), lifted into
+ * the read here rather than into any pass below it: one reading thresholded ten times, so a row
+ * lifted is lifted for every mark at once and the ten bands stay disjoint.
  */
 export function readMarks(
   canvas: HTMLCanvasElement,
   field: HTMLCanvasElement,
   cell: number,
   color: string,
+  pushes: readonly MoireCellPush[],
 ): Stamp | null {
   if (CELL_ROWS.value <= 0) return null;
   const wide = boxCells(field.width, cell);
@@ -286,6 +325,9 @@ export function readMarks(
   read.globalCompositeOperation = "copy";
   read.imageSmoothingEnabled = true;
   read.drawImage(field, 0, 0, wide * cell, deep * cell, 0, 0, wide, deep);
+  // And the landings still falling lifted into that same read, before any band is cut out of it:
+  // the rows a landing stands in go one mark denser at its level and settle as it falls.
+  liftPushes(read, pushes, wide, deep);
   return stamp;
 }
 

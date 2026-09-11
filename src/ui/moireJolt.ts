@@ -19,6 +19,7 @@ import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { clamp, normalize } from "@/lib/range";
 import type { PlayerPeek } from "@/audio/deckPeek";
 import { tunable } from "@/lib/moireTuning";
+import { cellPushRest, type MoireCellPush } from "@/ui/moireCellPush";
 
 /**
  * How hard the picture is jolting and what it last jolted for. Two numbers, because a jolt is an
@@ -35,6 +36,15 @@ export type MoireJolt = {
    */
   landing: number | null;
   /**
+   * And which landings are still pushing the marks, and where each of them stands on the picture:
+   * the same event this jolt is struck by, read where the whole field answers it at once and read
+   * again here for the row it landed on (`cellPushInto`, src/ui/moireCellPush.ts). On the jolt
+   * rather than beside it because it is one landing and one reading of it (principle 1), and so
+   * that what carries a jolt mid-fall across a rebuilt set carries the flares with it
+   * (`carryJolt`, src/ui/moireCarry.ts).
+   */
+  pushes: MoireCellPush[];
+  /**
    * And which slot that landing read from, which is the only thing the strike is measured against:
    * how far the walk jumped is a distance on the grid, and an ordinal is a count of steps rather
    * than a place on it. Null for the same frames the ordinal is.
@@ -43,7 +53,12 @@ export type MoireJolt = {
 };
 
 /** Where a jolt stands before anything has struck it: still, and nothing struck yet. */
-export const joltRest = (): MoireJolt => ({ at: 0, landing: null, slot: null });
+export const joltRest = (): MoireJolt => ({
+  at: 0,
+  landing: null,
+  slot: null,
+  pushes: cellPushRest(),
+});
 
 /**
  * The crest a window jolts the picture wholly at. **The third band of the one crest reading**, and

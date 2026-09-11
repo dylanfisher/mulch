@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0355; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0356; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -87,7 +87,8 @@ the levers that hold, records what stands over it with its cause, and the next c
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
-0349, 0350, 0351 and 0352, checkpoint A after them as 0353, and checkpoint A2 after that as 0354.
+0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, and
+step 6 after that as 0355.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -294,7 +295,7 @@ with real headroom — but **0058's bar is absolute milliseconds on a path someo
 bake in a worker that no gesture awaits is the same ground 0058 rejected the analysis kernels on.
 No WASM block is opened; step 18 still owns the question.
 
-**Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
+**Step 6 — a landing pushes its rows (bench-33, 0355).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
 `player.step`) lifts the threshold passes one mark for the cell rows the sounding row's `centre`
 stands in, at the landing's level, decaying on the deck clock over `cells.decay` of a loop — so a
@@ -303,7 +304,17 @@ row flares when its landing sounds and settles after, and the lattice stands sti
 wanted:** on the zoomed drift a walk is rows flaring in turn. **Tests that must fail first:** a
 frame at a landing's edge stamps one mark heavier in that row's cells than the frame before; a
 quarter of a loop later it stamps lighter than at the edge; no cell outside the row moves.
-**Refused:** a rebake per landing; a push that outlives the loop.
+**Refused:** a rebake per landing; a push that outlives the loop. _Landed_ 2026-09-11 as
+[0355](decisions/0355-a-landing-pushes-its-rows.md): `CELL_DECAY`, `cellPushInto` and `pushedRows`
+in a new src/ui/moireCellPush.ts, stepped in `refillRows` beside `joltInto` and spent in `readMarks`
+(src/ui/moireCanvasMarks.ts) as one `lighter` fill of `bandFloor(1)` — one mark's worth of the ramp
+— over the pushed rows of the boxed read, before a band is cut out of it. The level is `joltWalked`
+read once and spent twice, so a landing that jumps nowhere pushes nothing; the falling landings ride
+on `MoireJolt` itself, four of them, carried by the carry the jolt already had; the band is
+`DRIFT_CENTRE_SWING`, the ladder every anchor is quantised onto, so no dial was minted for it. The
+read is one pixel a cell, so the frame pays the same ten passes and the same one picture-sized draw
+checkpoint A pinned, and nothing is rebaked. §4 holds what the level costs and what the machine
+could not show. The bench's entry 05 goes with it.
 
 **Step 7 — the part picks the alphabet (bench-34).** _Durable shape moved:_ none. The bench's
 **part**: src/lib/moireAlphabets.ts holds the marks, the rings and the strokes, and the standing
@@ -550,6 +561,31 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**A landing that jumps nowhere flares nothing, and the flare itself was never seen (0355).** The
+level a landing pushes at is `joltWalked`, the distance the walk jumped as a share of the furthest
+it could — so a pattern that repeats its slot, or creeps one along it, lifts nothing or almost
+nothing, and a walk that never moves draws the still lattice. That is the jolt's own judgement about
+a landing taken at its word (0271) rather than a second reading of the same event, and the
+alternative would have been a level of its own with nothing to read it off: a step carries no level
+and the meters are the instance's, not the landing's. So `meterPulse`, which the step names beside
+`joltWalked`, is where the push is read from and not what it is read off, and entry 05's own integer
+a row off the meters became one band a landing off the walk: a meter says how hard an instance is
+working and not that anything landed. What it gives up is a flare on the pattern that stays put,
+which the eye might well want. **And the outcome the step names — on the zoomed
+drift a walk is rows flaring in turn — was not seen.** The machine's audio output device is gone
+(0354's own paragraph above): the deck clock stops at 0.0058 s, `drive` is red at base, and with no
+clock there is no walk, no landing and no fall. What stands instead is the gate's own arithmetic —
+the lift is one mark of the ramp in exactly the rows `pushedRows` names and in no others, and it
+falls to nothing over `cells.decay` of the loop — which says the push is wired and timed, not that
+the picture reads as rows flaring in turn. The hand that next opens the zoomed drift on a machine
+with audio should watch a walk and say whether four falling landings is the right number and half a
+loop the right fall. One thing to watch for when they do: the flare stands at the ground the landing
+put the rows **on**, and the rows themselves ease onto it over `groundTravel` — so the flare is
+brightest for half a landing's period before the rows arrive under it. That is the jump being a
+distance the picture shows (0224) and not a slip, and the alternative — the flare at where the rows
+still are — would light the landing that has just stopped sounding; but whether the eye reads the
+lead as a row flaring or as a flare beside a row is a thing only the zoomed drift can say.
 
 **Checkpoint A2's setting was short of the budget's in one term, and answered two of its questions
 with "the machine cannot say" (0354).** The budget's setting wants a walk playing. The machine this

@@ -8,20 +8,15 @@ import { describe, expect, it } from "vitest";
 
 import { GLYPH_COUNT } from "@/lib/moireGlyph";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
-import { SKETCH_STANDING, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
+import { SKETCH_WALK } from "@/ui/sketch/sketchWalk";
 import {
   CELL,
   CHARACTER_ALPHABET,
   COLS,
-  DECAY_DIAL,
-  decayedMark,
-  decayField,
-  landingRow,
   PART_DIAL,
   partAlphabet,
   partField,
   plainField,
-  plainMark,
   ROWS,
   stood,
 } from "@/ui/sketch/marks/sketchMarks";
@@ -30,7 +25,6 @@ import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 
 /** Every field on the bench with the dial it is drawn under, so one cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "decay", field: decayField, dial: DECAY_DIAL },
   { name: "part", field: partField, dial: PART_DIAL },
 ];
 
@@ -80,37 +74,6 @@ describe("every field on the marks bench", () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(1);
     }
-  });
-});
-
-describe("the decay", () => {
-  it("is the plain lattice at the top of the loop, before anything has landed", () => {
-    expect(SKETCH_WALK[0]?.at).toBeGreaterThan(0);
-    expect(differ(plainField, (x, y) => decayField(x, y, 0))).toBe(0);
-  });
-
-  it("opens just after the standing landing, with that landing's row pushed denser", () => {
-    const standing = SKETCH_WALK[SKETCH_STANDING];
-    if (standing === undefined) throw new Error("The walk has no standing landing.");
-    expect(DECAY_DIAL.rest).toBeGreaterThan(standing.at);
-    const row = landingRow(SKETCH_STANDING);
-    let pushed = 0;
-    for (let col = 0; col < COLS; col += 1) {
-      const mark = decayedMark(col, row, DECAY_DIAL.rest);
-      expect(mark).toBeGreaterThanOrEqual(plainMark(col, row));
-      expect(mark).toBeLessThan(GLYPH_COUNT);
-      if (mark > plainMark(col, row)) pushed += 1;
-    }
-    expect(pushed).toBeGreaterThan(0);
-  });
-
-  it("settles: a row pushed at a landing is pushed less a quarter of a loop later", () => {
-    const row = landingRow(SKETCH_STANDING);
-    const standing = SKETCH_WALK[SKETCH_STANDING];
-    if (standing === undefined) throw new Error("The walk has no standing landing.");
-    const soon = decayedMark(0, row, standing.at + 0.01) - plainMark(0, row);
-    const later = decayedMark(0, row, standing.at + 0.25) - plainMark(0, row);
-    expect(later).toBeLessThan(soon);
   });
 });
 

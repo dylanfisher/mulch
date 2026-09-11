@@ -45,10 +45,11 @@ describe("the marks route", () => {
 describe("MarksPage mounts the bench", () => {
   /** What is left of the eight the bench was asked for, and every one off the list (0254): an
    * entry goes as its argument lands in the tile — the ground's with 0348, the echoes' and the
-   * bloom's with 0349, the rows' with 0350, the beat's with 0351, the scatter's with 0352. */
+   * bloom's with 0349, the rows' with 0350, the beat's with 0351, the scatter's with 0352, the
+   * decay's with 0355. */
   it("mounts every entry, with one id apiece", () => {
-    expect(SKETCH_MARKS.length).toBe(2);
-    const landed = ["ground", "echoes", "bloom", "rows", "beat", "scatter"];
+    expect(SKETCH_MARKS.length).toBe(1);
+    const landed = ["ground", "echoes", "bloom", "rows", "beat", "scatter", "decay"];
     for (const gone of landed) {
       expect(
         SKETCH_MARKS.map((entry) => entry.id),

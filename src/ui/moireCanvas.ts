@@ -88,6 +88,7 @@ import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/dr
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
 import { cutField } from "@/ui/moireCanvasField";
 import { boxCells, readMarks, stampMarks } from "@/ui/moireCanvasMarks";
+import type { MoireCellPush } from "@/ui/moireCellPush";
 import type { MoireLook } from "@/ui/moireLooks";
 import { cutLattice, gratingOf, TILE_CACHE } from "@/ui/moireCanvasPattern";
 import { inkThrough } from "@/ui/moireScreen";
@@ -571,6 +572,12 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * 0278): how tight a lattice stands over it, which is a pattern and costs a fill, and how far the
  * warp's wander has gone round, which the bend above is slid on.
  *
+ * And `pushes`, the landings of the walk that are still falling: where each stands on the picture
+ * and how hard, fallen on the deck's own clock over a share of the loop (`cellPushInto`,
+ * src/ui/moireCellPush.ts). The field's again and no row's, like the jolt it is struck at, and what
+ * it is spent on is the threshold the marks are stamped through — so a row flares as its landing
+ * sounds and settles after, and the lattice between them stands still (0346).
+ *
  * And `yard`, the field this picture is of, read off the yard's own name and nothing else
  * (`yardScene`, src/lib/yardScene.ts, 0329): the scene its plant stands in, the light its air puts
  * that scene under, the wind its adjective sets, and how close its place word stands to the one
@@ -597,6 +604,7 @@ export function paintMoire(
   shape: Readonly<MoireShape>,
   tinting: Readonly<MoireTint>,
   yard: Readonly<YardScene>,
+  pushes: readonly MoireCellPush[],
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -638,7 +646,7 @@ export function paintMoire(
   boxField(field, ink, cell);
   // And that same reading taken into the stamp's own grid, beside the box that made it: what it
   // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
-  const marks = readMarks(canvas, field, cell, color);
+  const marks = readMarks(canvas, field, cell, color, pushes);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs

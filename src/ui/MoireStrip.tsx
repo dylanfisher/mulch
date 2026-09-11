@@ -428,6 +428,7 @@ function useMoirePicture(
         set.shape,
         set.tint,
         yard,
+        set.jolt.pushes,
       );
     },
     [refill, yard],
