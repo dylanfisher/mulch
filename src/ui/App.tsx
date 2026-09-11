@@ -34,7 +34,7 @@ import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { MasterRack } from "@/ui/MasterRack";
-import { DEV_ROUTE, MARKS_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
+import { DEV_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
 import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
@@ -55,11 +55,6 @@ const SketchPage = lazy(async () => ({
 // And the structure bench, which bakes the real escape kernel a pixel at a time, seven ways (0295).
 const StructurePage = lazy(async () => ({
   default: (await import("@/ui/sketch/StructurePage")).StructurePage,
-}));
-
-// And the marks bench, which writes a lattice of the real marks a pixel at a time, eight ways (0347).
-const MarksPage = lazy(async () => ({
-  default: (await import("@/ui/sketch/MarksPage")).MarksPage,
 }));
 
 function useActiveDeck(instrument: Instrument): DeckId | null {
@@ -195,14 +190,6 @@ function Screen({ instrument }: { instrument: Instrument }) {
     );
   }
 
-  if (route === "marks") {
-    return (
-      <Suspense fallback={null}>
-        <MarksPage />
-      </Suspense>
-    );
-  }
-
   return (
     <div className="min-h-dvh">
       {/* Fixed and blurred, the treatment the gallery already wore: the menus, the meter and the
@@ -218,7 +205,6 @@ function Screen({ instrument }: { instrument: Instrument }) {
                 <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
                 <MenubarItem render={<a href={SKETCH_ROUTE}>Sketches</a>} />
                 <MenubarItem render={<a href={STRUCTURE_ROUTE}>Structure</a>} />
-                <MenubarItem render={<a href={MARKS_ROUTE}>Marks</a>} />
               </MenubarContent>
             </MenubarMenu>
           </Menubar>

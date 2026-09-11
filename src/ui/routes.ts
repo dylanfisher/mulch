@@ -14,7 +14,7 @@ export const INSTRUMENT_ROUTE = "#/";
 /**
  * The gallery hangs off a hash rather than a router: mulch is one screen and two workbenches
  * beside it, and a router would be a dependency bought for two links. The switch below now
- * selects five, which is still an `if` and still not the day to buy one — what would buy it is
+ * selects four, which is still an `if` and still not the day to buy one — what would buy it is
  * a route that carries a *parameter*, because that is the first thing a hash comparison cannot
  * do. Until then a screen costs one const, one member and one line.
  */
@@ -33,23 +33,14 @@ export const SKETCH_ROUTE = "#/sketch";
  * with `src/ui/sketch/structure/` the day one of its arguments wins (0247).
  */
 export const STRUCTURE_ROUTE = "#/structure";
-/**
- * The marks bench, where the lattice of marks the screen writes (0345, 0346) is pushed every way
- * to see which way it goes next. A bench of its own for the structure bench's reason: every
- * picture reads a scene a cell at a time and writes a lattice a pixel at a time (0347). Deleted
- * with `src/ui/sketch/marks/` the day one of its arguments wins (0247).
- */
-export const MARKS_ROUTE = "#/marks";
-
 /** Which screen a hash selects. Everything unrecognised is the instrument. */
-export type Route = "instrument" | "dev" | "sketch" | "structure" | "marks";
+export type Route = "instrument" | "dev" | "sketch" | "structure";
 
 /** The hash, resolved to a screen. */
 export function routeOf(hash: string): Route {
   if (hash === DEV_ROUTE) return "dev";
   if (hash === SKETCH_ROUTE) return "sketch";
   if (hash === STRUCTURE_ROUTE) return "structure";
-  if (hash === MARKS_ROUTE) return "marks";
   return "instrument";
 }
 

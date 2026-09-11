@@ -7,8 +7,8 @@
  * @instead Everything else the scene reads through the painter → src/ui/moireCanvasScene.test.ts,
  *   which this stands beside for the reason that one stands beside src/ui/moireCanvas.test.ts:
  *   the file it would go in has no room left under the line cap (0045). The terms themselves and
- *   the ease over them → src/lib/moireScreenFilm.ts. The bench that argues the share → entry 10,
- *   src/ui/sketch/drift/SketchDriftFilm.tsx.
+ *   the ease over them → src/lib/moireScreenFilm.ts. The bench that argued the share is gone with
+ *   the share's own landing (0339, 0357).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 

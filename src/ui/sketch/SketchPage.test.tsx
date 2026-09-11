@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -85,8 +85,14 @@ describe("SketchPage is cleared of what it argued before", () => {
    * fold are the picture's own (0278) — and a
    * bench nobody clears stops being a bench (principle 6). Named here so a re-mount of one has to
    * say so.
+   *
+   * The last nine are the two benches that closed with the lattice block: the drift's own tenth
+   * and eleventh, which argued a dial apiece and landed as one (0339, 0345), and the marks
+   * bench's eight, whose route, page and directory went with the last of them (0247). The marks
+   * bench's `bloom` is not here because the drift bench mounts a `bloom` of its own — the shipped
+   * scene at entry 07 — and the case below is what holds that one down.
    */
-  it("mounts none of the twenty-nine the bench was cleared of", () => {
+  it("mounts none of the thirty-eight the bench was cleared of", () => {
     const cleared = [
       "cast",
       "score",
@@ -117,11 +123,40 @@ describe("SketchPage is cleared of what it argued before", () => {
       "lattice",
       "warp",
       "fold",
+      "film",
+      "glyph",
+      "ground",
+      "beat",
+      "echoes",
+      "decay",
+      "part",
+      "scatter",
+      "rows",
     ];
     for (const gone of cleared) {
       expect(markup, `${gone} is still on the bench`).not.toContain(`id="${gone}"`);
       expect(markup, `${gone} is still in the nav`).not.toContain(`data-section="${gone}"`);
     }
+  });
+
+  /**
+   * And the marks bench is gone whole, not cleared in place: its eight entries landed in the
+   * painter one at a time and the last of them took the directory, the page, the route and the
+   * menu item with it (0247). The ids cannot all be checked against this page's markup — `bloom`
+   * is the drift bench's own entry 07 — so what is checked is that nothing of the bench is left
+   * to mount: no file, and no hash that resolves anywhere but the instrument.
+   */
+  it("keeps no marks bench, no file for one and no route to one", () => {
+    for (const file of [
+      "src/ui/sketch/MarksPage.tsx",
+      "src/ui/sketch/MarksPage.test.tsx",
+      "src/ui/sketch/marks/sketchMarks.ts",
+      "src/ui/sketch/drift/SketchDriftFilm.tsx",
+      "src/ui/sketch/drift/SketchDriftGlyph.tsx",
+    ]) {
+      expect(existsSync(file), `${file} outlived the bench it was for`).toBe(false);
+    }
+    expect(routeOf("#/marks"), "the marks route still resolves").toBe("instrument");
   });
 });
 

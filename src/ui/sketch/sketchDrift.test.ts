@@ -1,5 +1,5 @@
 /**
- * The six fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
+ * The five geometry fields, pinned the way the drive's own `{"shot":…}` line reads a picture: every one
  * answers inside nought and one across the whole box at every end of its dial, and every one has
  * a swing across the box — a field that draws flat is a direction that argues nothing, and a static
  * render would frame it anyway.
@@ -15,10 +15,6 @@ import {
   BLOBS_DIAL,
   blobsField,
   CELL_GUTTER,
-  FILM_DIAL,
-  filmField,
-  GLYPH_DIAL,
-  glyphField,
   RAMP_DIAL,
   rampField,
   SKETCH_BANDS,
@@ -31,15 +27,13 @@ import {
 } from "@/ui/sketch/sketchDrift";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 
-/** Every field on the bench with the dial it is drawn under, so a sixth cannot be left out. */
+/** Every geometry field on the bench with its dial, so a new one cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
   { name: "ramp", field: rampField, dial: RAMP_DIAL },
   { name: "tunnel", field: tunnelField, dial: TUNNEL_DIAL },
   { name: "terrace", field: terraceField, dial: TERRACE_DIAL },
   { name: "blobs", field: blobsField, dial: BLOBS_DIAL },
   { name: "bands", field: bandsField, dial: BANDS_DIAL },
-  { name: "film", field: filmField, dial: FILM_DIAL },
-  { name: "glyph", field: glyphField, dial: GLYPH_DIAL },
 ];
 
 /** The picture sampled coarsely across the whole box: its least, its most and the swing between. */

@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0357; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0358; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -88,7 +88,7 @@ the levers that hold, records what stands over it with its cause, and the next c
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
 0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, step
-6 after that as 0355 and step 7 as 0356.
+6 after that as 0355, step 7 as 0356 and step 8 as 0357, which closed the bench.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -340,14 +340,24 @@ folded onto the same `PLAYER_CHARACTERS` a drawn part takes its name from, read 
 no moiré file walks the song for it. §4 holds what that gives up. The bench's entry 06 goes with
 it, and with it the last of the eight: `SKETCH_MARKS` now lists nothing and step 8 takes the shell.
 
-**Step 8 — the bench is deleted (bench-35).** _Durable shape moved:_ none. Entries 01–08 have
+**Step 8 — the bench is deleted (bench-35, 0357).** _Durable shape moved:_ none. Entries 01–08 have
 landed or been refused in §4 — the last of them with 0356, which left `SKETCH_MARKS` empty and
 src/ui/sketch/marks/sketchMarks.ts holding nothing but the plain field the entries were measured
 against; `src/ui/sketch/marks/`, `MARKS_ROUTE`, the `"marks"` member, the
 App branch and the menu item go, and entries 10 and 11 of the drift bench with them, their
 arguments having landed (0339, 0345). **Stands on:** 0247. **Tests that must fail first:**
 SketchPage.test's cleared-id list names the bench's entries and MarksPage.test is gone. **Refused:** keeping
-a bench beside the thing it argued.
+a bench beside the thing it argued. _Landed_ 2026-09-11 as
+[0357](decisions/0357-a-bench-is-deleted-when-its-arguments-land.md): `src/ui/sketch/marks/`,
+`src/ui/sketch/MarksPage.tsx` and its test, `MARKS_ROUTE`, the `"marks"` member of `Route`, the
+`App` branch and the View menu's item are gone, and `routeOf` selects four screens again. Entries 10
+and 11 of the drift bench went with them for the same reason and not as a tidy-up — the film's share
+landed as one dial a hand moves (0339) and the marks' ink as another (0345) — taking
+`SketchDriftFilm.tsx`, `SketchDriftGlyph.tsx` and their two fields out of
+src/ui/sketch/sketchDrift.ts, which is the six fields its own header says it is again. The bench's
+graveyard is one list on the page that still stands: `SketchPage.test.tsx` gains nine of the ten
+names, and `bloom` — which the drift bench mounts as its own entry 07 — is held down instead by a
+case beside the list that asserts no file and no route survives. §4 holds what that split cost.
 
 **Checkpoint B — the stamp under a landing (bench-47).** _Durable shape moved:_ none. Steps 6
 and 7 put the first per-frame motion on the stamp — a landing lifting a row's threshold passes,
@@ -576,6 +586,18 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The marks bench's graveyard is nine names and a file check, not ten names (0357).** The step asked
+that SketchPage.test's cleared-id list name the bench's entries, and one of the eight cannot be
+named there: the marks bench's `bloom` is also the drift bench's entry 07, the shipped scene, which
+SketchPage mounts and must go on mounting. A list that held `bloom` would fail on the picture it is
+meant to protect. The nine that do not collide are on the list under the same two assertions as the
+twenty-nine before them; `bloom` is held by a case beside it that asserts the bench's five files are
+gone and that `#/marks` resolves to the instrument. What that gives up is the one property the list
+has and the file check does not — it catches a re-mount under the old id on a page that still
+renders — so a future `bloom` entry re-added to the marks bench's ground would be caught by the
+absent files and not by the markup. Nothing was renamed to dodge the collision: the ids were the
+bench's own and the bench is gone.
 
 **A part's character does not pick the alphabet, because a part has no character (0356).** Step 7
 was written against "the standing part's character", and a part has carried a spec and no character

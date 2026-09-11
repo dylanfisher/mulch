@@ -25,8 +25,6 @@ import {
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { SketchDriftBands } from "@/ui/sketch/drift/SketchDriftBands";
 import { SketchDriftBlobs } from "@/ui/sketch/drift/SketchDriftBlobs";
-import { SketchDriftFilm } from "@/ui/sketch/drift/SketchDriftFilm";
-import { SketchDriftGlyph } from "@/ui/sketch/drift/SketchDriftGlyph";
 import { SketchDriftRamp } from "@/ui/sketch/drift/SketchDriftRamp";
 import {
   SketchDriftBloom,
@@ -144,12 +142,12 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
 ];
 
 /**
- * Ten directions the drift picture could be pushed in, none of them exclusive of another. The
+ * Nine directions the drift picture could be pushed in, none of them exclusive of another. The
  * picture today is a product of gratings cut out of one ink and filmed through three channels
  * (src/ui/moireCanvas.ts, src/ui/moireScreen.ts), and its structure is two fractal rows whose
  * levels were meant to read as a lattice of cells (0268) and still read as a weave. Each of these
  * is one move a shader would make — a fold, a ramp, a warp, a mirror, a feedback, a terrace, a
- * union, a per-cell read, a share of the picture the film may spend — drawn on a stand-in weave in the instrument's own inks, under the one
+ * union, a per-cell read — drawn on a stand-in weave in the instrument's own inks, under the one
  * dial that direction turns. Every one carries where it would land and what side of the bake line
  * it falls on (docs/plan.md, "a tile is a bake and a frame is a `fillStyle`").
  *
@@ -157,7 +155,9 @@ export const SKETCH_GROUNDS: readonly SketchEntry[] = [
  * **per pixel** to argue that a ground is the picture rather than a sixth of its alpha (0331), and
  * every one of the four has since become the scene it was arguing for — the poppies as the bloom
  * (0332), the glint as the water (0333), the seed heads as the meadow and the canopy light as the
- * canopy (0334). A bench entry that lands is a bench entry that goes, which is what one is for.
+ * canopy (0334). The two after them argued a dial apiece and landed as one: the film's share
+ * (0339) and the marks' ink (0345). A bench entry that lands is a bench entry that goes, which is
+ * what one is for.
  */
 export const SKETCH_DRIFTS: readonly SketchEntry[] = [
   {
@@ -258,27 +258,5 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "the ground in src/lib/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/lib/scene/scenes.ts.",
     Content: SketchDriftCanopy,
-  },
-  {
-    id: "film",
-    label: "The Film",
-    thesis:
-      "The scene is the body of the picture and the film is a shade over it — and how much of the picture the film may spend is one number a hand can see and move, film.share, not a depth buried in four terms. At nothing the bloom stands solid, which is the bench's own picture of it; at everything it is the deepest shade the dial admits; between, the beat between the gratings survives at every setting and only its depth moves.",
-    trades:
-      "the film's own strength at the settings a hand will choose. One dial over the product of the four terms cannot say which of them a picture could spare, so a share that leaves the lattice legible leaves the band and the two gratings shallower than they were argued at — and a share per term is four dials for one question (0333). The rows' cut and the ghost are outside it: this is the screen's share and not the film's whole cost, and so are the three channels' fringe and gain, which are a lattice on the ink and not a depth on the read — so the bench at nothing is flatter than the app at nothing, which still carries that chromatic lattice.",
-    built:
-      "one tunable, film.share, declared in src/ui/moireScreenTile.ts beside SCREEN_FLOOR and eased over the product of the four keep terms in build, `1 - share * (1 - keep)`, with its row in a Film group in src/lib/copyDriftGroups.ts. Spent on the read and not on the alpha since 0340: the eased product pulls the pixel toward the scene's own first stop the way standShade does, and the tile is written at the caller's own alpha at every pixel. Bake-side: it is read once a tile and tuneStamp() already keys the tile, so a drag rebakes the ground and no frame reads it (0126, 0129).",
-    Content: SketchDriftFilm,
-  },
-  {
-    id: "glyph",
-    label: "The Marks",
-    thesis:
-      "The picture is a lattice of marks: a cell of the field is one of ten marks chosen by where its mean stands on the scene's ramp, through a ramp that starts two marks in and wraps, so the ground and the peaks read sparse and the band between reads dense — and the page shows between the marks. Whether the marks are printed in the scene's five stops or in one ink is glyph.flat, and it is chosen here by looking.",
-    trades:
-      "the scene's colour for its density. At one ink every scene is told apart by its field's shape alone, which is what the reference does and what a picture in a monospace texture reads best as; at five stops a canopy is green and a bloom is scarlet over green, but a lattice of coloured marks reads busier than either. The channels' fringe is outside the dial: a chromatic lattice on a seven-pixel stroke is measured on the shots and not argued here.",
-    built:
-      "the ten marks and the wrap in src/lib/moireGlyph.ts, read by bands in src/lib/moireScreenField.ts a cell at a time — the cell's mean over the body, its mark by markAt, its coverage the tile's alpha — with glyph.flat declared beside FILM_SHARE and its row in a Glyph group in src/lib/copyDriftGroups.ts. Bake-side: the marks are baked into the tile and a frame still costs one fillStyle (0345).",
-    Content: SketchDriftGlyph,
   },
 ];
