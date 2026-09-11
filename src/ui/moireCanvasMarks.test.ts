@@ -64,6 +64,7 @@ const look = (name: LookName, terms: LookTerms): MoireLook => ({
   at: 1,
   terms,
   held: 0,
+  waited: 0,
 });
 
 /**

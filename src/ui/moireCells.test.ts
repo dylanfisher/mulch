@@ -23,6 +23,7 @@ const look = (name: LookName, terms: LookTerms = {}, at = 1, key: string = name)
   at,
   terms,
   held: 0,
+  waited: 0,
 });
 
 // One flat list of the reading's cases (0007).

@@ -153,11 +153,20 @@ describe("what a look is", () => {
       }
     }
     // The three at the cut: the warp bends on a turn of its own range and wanders in the parameter's
-    // own units, the shatter takes a share and a piece size on two turns, and the shards read nothing
-    // at all — how torn the picture is, is how many automators are standing (0278, 0296).
+    // own units, the shatter takes a share and a piece size on two turns, and the shards read the six
+    // knobs that shape a run — how torn the picture is is still how many automators are standing, and
+    // what the tear is *like* is theirs (0278, 0296, 0360). The seed is in its own units, because a
+    // seed is a place along the valley and not a turn of a knob.
     expect(LOOKS.warp.terms).toEqual({ bend: "turn", wander: "value" });
     expect(LOOKS.shatter.terms).toEqual({ share: "turn", size: "turn" });
-    expect(LOOKS.shards.terms).toEqual({});
+    expect(LOOKS.shards.terms).toEqual({
+      seed: "value",
+      lens: "turn",
+      share: "turn",
+      spacing: "turn",
+      fade: "turn",
+      wander: "turn",
+    });
     expect(LOOKS.shards.at).toBe("cut");
     // And where a look lands and whether it carries a draw of its own are one fact: every look that
     // says `pass` has one, and no look that lands elsewhere does.

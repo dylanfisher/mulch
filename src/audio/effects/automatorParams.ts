@@ -235,52 +235,30 @@ export const WEIGHT_OF: Record<string, AutoParamId> = {
 };
 
 /**
- * Every knob of this entry that reaches no dimension of the drift picture, beside the reason it
- * reaches none — the other half of `driftFrom`, and the list the registry throws at load for a
- * parameter that is in neither (0148).
+ * Every knob of this entry that reaches no dimension of the drift picture and no term of its look,
+ * beside the reason it reaches none — the other half of `driftFrom` and `lookFrom`, and the list the
+ * registry throws at load for a parameter that is in none of them (0148, 0359).
+ *
+ * **The pool weights, and nothing else** (0360). A weight is one voice in a pool: what it decides is
+ * which effects a run grows, and every one of those already reaches the picture as a row of its own
+ * the moment it is grown (`grownInto`, src/ui/moireGrown.ts). So the reach of these eleven is the
+ * rows they bring, which is declared here rather than left as a silence — a row per weight would be
+ * eleven rows for a pool the run may never draw from. Every one of the eleven says the same thing,
+ * once, because they are one knob eleven times over.
  */
+const POOL_WEIGHT =
+  "a weight is one voice in a pool, and its reach is the rows the run it grows lays";
+
 export const AUTO_UNREACHED: readonly { param: AutoParamId; because: string }[] = [
-  {
-    param: "auto.least",
-    because:
-      "the picture reads how deep a swarm is off the most a run may hold, and a floor is " +
-      "that same swarm on the ticks the odds thinned",
-  },
-  {
-    param: "auto.odds",
-    because:
-      "how often a place is filled is the same run happening less often, and a row that " +
-      "read it would say the swarm had changed shape when only its size had",
-  },
-  {
-    param: "auto.seed",
-    because: "a seed says which performance this is, never what it is like",
-  },
-  {
-    // 0148's own rule, said of a hold: a wait is *when* the next place is laid and a row's shape
-    // is *what* was laid, so a picture that read it would report a still run as a changed one.
-    param: "auto.wait",
-    because: "a wait is when the run lays its next place, and a row's shape is what it laid",
-  },
-  { param: "auto.fade", because: "a fade is how long an arrival takes, which is not a shape" },
-  {
-    param: "auto.wander",
-    because:
-      "the picture already reads how finely a run is drawn off Stray, and how often a " +
-      "drawn knob is redrawn afterwards is the same shape happening more times",
-  },
-  { param: "auto.panner", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.delay", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.eq", because: "a weight is one voice in a pool, and no row is a pool" },
-  {
-    param: "auto.compressor",
-    because: "a weight is one voice in a pool, and no row is a pool",
-  },
-  { param: "auto.reverb", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.tape", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.pop", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.scatter", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.crush", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.sway", because: "a weight is one voice in a pool, and no row is a pool" },
-  { param: "auto.shift", because: "a weight is one voice in a pool, and no row is a pool" },
+  { param: "auto.panner", because: POOL_WEIGHT },
+  { param: "auto.delay", because: POOL_WEIGHT },
+  { param: "auto.eq", because: POOL_WEIGHT },
+  { param: "auto.compressor", because: POOL_WEIGHT },
+  { param: "auto.reverb", because: POOL_WEIGHT },
+  { param: "auto.tape", because: POOL_WEIGHT },
+  { param: "auto.pop", because: POOL_WEIGHT },
+  { param: "auto.scatter", because: POOL_WEIGHT },
+  { param: "auto.crush", because: POOL_WEIGHT },
+  { param: "auto.sway", because: POOL_WEIGHT },
+  { param: "auto.shift", because: POOL_WEIGHT },
 ];

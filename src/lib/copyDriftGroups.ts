@@ -318,7 +318,7 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
   },
   {
     title: "Shards",
-    hint: "How an automator tears the picture into pieces at unrelated offsets, and how a fuller run tears finer.",
+    hint: "How an automator tears the picture into pieces at unrelated offsets, how a fuller run tears finer, and what its own knobs make of the tear.",
     entries: [
       {
         id: "shards.reach",
@@ -354,6 +354,36 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         id: "shards.down",
         label: "Down phase",
         hint: "The down throw's phase against the across, in turns.",
+      },
+      {
+        id: "shards.hold",
+        wild: "max",
+        label: "Hold width",
+        hint: "How many times wider a piece is for a run held still the longest a hand may hold one.",
+      },
+      {
+        id: "shards.deepest",
+        wild: "max",
+        label: "Depth",
+        hint: "How far into the plane a run whose floor is at the top of its range reads the count.",
+      },
+      {
+        id: "shards.faded",
+        wild: "min",
+        label: "Faded throw",
+        hint: "How much of the throw a run whose arrivals take the longest still stands at.",
+      },
+      {
+        id: "shards.stir",
+        wild: "max",
+        label: "Stir",
+        hint: "How many times the golden turn one piece takes on from the last at a full wander.",
+      },
+      {
+        id: "shards.wait",
+        wild: "max",
+        label: "Hourglass",
+        hint: "How far round the throw's cosine a run's whole layer is turned by a hold just asked for.",
       },
     ],
   },

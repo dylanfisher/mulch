@@ -24,7 +24,7 @@ import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { effectParamDefaults, PARAMS } from "@/audio/params";
 import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
-import { SHARD_CAP } from "@/lib/moireShards";
+import { SHARD_CAP, SHARD_GLASS_SECS, type ShardRun } from "@/lib/moireShards";
 import { PLAIN_CUT, RACK_SHATTER_BROKEN } from "@/lib/moireSound";
 import { normalize } from "@/lib/range";
 import { NO_GROWN } from "@/ui/moireGrown";
@@ -32,6 +32,7 @@ import {
   looksCrowd,
   looksHeldInto,
   looksShards,
+  shardRuns,
   looksSaturate,
   looksShatter,
   looksShatterSize,
@@ -99,9 +100,6 @@ const arrived = (effects: SessionEffect[]): MoireLook[] => {
   return looks;
 };
 
-/** A table of tears poisoned so a slot the reading missed shows (`looksShards`). */
-const into = (): Float64Array => new Float64Array(SHARD_CAP).fill(Number.NaN);
-
 /** One place of a run, standing at `presence`, as the read holds it (`looksHeldInto`). */
 const place = (presence: number) => ({
   effect: "eq",
@@ -112,14 +110,21 @@ const place = (presence: number) => ({
   values: [],
 });
 
-/** The presences and the helds `looksShards` fills, and the count it answers. */
-const sharded = (
-  looks: MoireLook[],
-): { standing: number; at: Float64Array; held: Float64Array } => {
-  const at = into();
-  const held = into();
-  return { standing: looksShards(looks, at, held), at, held };
+/** A frame on which nothing is being held still. */
+const NO_WAITS = new Map<string, number>();
+
+/** The runs `looksShards` fills, poisoned so a slot the reading missed shows, and the count filled. */
+const sharded = (looks: MoireLook[]): { standing: number; runs: ShardRun[] } => {
+  const runs = shardRuns();
+  for (const run of runs) run.presence = Number.NaN;
+  return { standing: looksShards(looks, runs), runs };
 };
+
+/** What one slot of that table stands at, as a plain pair. */
+const slot = (runs: ShardRun[], at: number): [number, number] => [
+  runs[at]?.presence ?? Number.NaN,
+  runs[at]?.held ?? Number.NaN,
+];
 
 /** How broken a rack draws the picture, once its looks have arrived. */
 const shattered = (effects: SessionEffect[]): number => looksShatter(arrived(effects));
@@ -158,9 +163,7 @@ describe("the looks a standing rack gives the picture", () => {
       share: 1,
       size: normalize(span.default, span.min, span.max, span.curve),
     });
-    // The shards read no term at all: how torn the picture is, is how many automators are standing,
-    // and an entry with no honest presence stands at one.
-    expect(rack[3]?.terms).toEqual({});
+    // And an entry with no honest presence stands at one; what the shards read is the case below.
     expect(rack[3]?.presence).toBe(1);
     // A bypassed entry is in none of it, which is the test every reading of the population is built
     // through; and neither is one turned down to nothing.
@@ -365,9 +368,8 @@ describe("the looks a standing rack gives the picture", () => {
     expect(sharded([]).standing).toBe(0);
     const one = sharded(arrived([instance("x", { effect: "automator" })]));
     expect(one.standing).toBe(1);
-    expect(one.at[0]).toBe(1);
     // A run the frame has not read yet holds nothing, and says so rather than poisoning the slot.
-    expect(one.held[0]).toBe(0);
+    expect(slot(one.runs, 0)).toEqual([1, 0]);
     // Two automators, with something that is not one between them: two slots, in the rack's order.
     const two = sharded(
       arrived([
@@ -377,7 +379,7 @@ describe("the looks a standing rack gives the picture", () => {
       ]),
     );
     expect(two.standing).toBe(2);
-    expect(Array.from(two.at.subarray(0, 2))).toEqual([1, 1]);
+    expect([slot(two.runs, 0)[0], slot(two.runs, 1)[0]]).toEqual([1, 1]);
     // Past the cap the count stops, and nothing past it is written.
     const many = sharded(
       arrived(
@@ -387,7 +389,7 @@ describe("the looks a standing rack gives the picture", () => {
       ),
     );
     expect(many.standing).toBe(SHARD_CAP);
-    expect(Array.from(many.at).every((presence) => presence === 1)).toBe(true);
+    expect(many.runs.every((run) => run.presence === 1)).toBe(true);
     // A bypassed automator is in no set at all, and so in no slot.
     expect(
       sharded(arrived([instance("x", { effect: "automator", bypassed: true })])).standing,
@@ -403,12 +405,55 @@ describe("the looks a standing rack gives the picture", () => {
     ]);
     // Presences summed, so a place halfway in counts for half; a run the read does not hold is a
     // run holding nothing; and the slot is what the cut is handed.
-    looksHeldInto(looks, new Map([["x", [place(1), place(1), place(0.5)]]]));
+    looksHeldInto(looks, new Map([["x", [place(1), place(1), place(0.5)]]]), NO_WAITS);
     expect(looks.map((look) => look.held)).toEqual([2.5, 0, 0]);
-    expect(Array.from(sharded(looks).held.subarray(0, 2))).toEqual([2.5, 0]);
+    expect([slot(sharded(looks).runs, 0)[1], slot(sharded(looks).runs, 1)[1]]).toEqual([2.5, 0]);
     // And rewritten every frame, not accumulated.
-    looksHeldInto(looks, NO_GROWN);
+    looksHeldInto(looks, NO_GROWN, NO_WAITS);
     expect(looks.map((look) => look.held)).toEqual([0, 0, 0]);
+  });
+
+  // P356 step 10: the six knobs that shape a run are the shards' terms (0360).
+  it("reads the automator's six knobs as the shards' terms, the seed in its own units", () => {
+    const least = PARAMS["auto.least"];
+    const fade = PARAMS["auto.fade"];
+    expect(arrived([instance("x", { effect: "automator" })])[0]?.terms).toEqual({
+      // Minted off the instance id the gesture that added it named, never the declared default
+      // (0089) — a seed is a place along the valley and not a turn of a knob, so it is read whole.
+      seed: effectParamDefaults("automator", "x")["auto.seed"],
+      lens: normalize(least.default, least.min, least.max, least.curve),
+      share: 1,
+      spacing: 0,
+      fade: normalize(fade.default, fade.min, fade.max, fade.curve),
+      wander: 0.2,
+    });
+  });
+
+  // P356 step 10: the hourglass — how much of a hold is still to run — onto the same look off the
+  // same read, as a share of the longest hold a hand may ask for (0360).
+  it("writes how much of each hold is still to run onto its look, and the lock at the whole of it", () => {
+    const looks = arrived([
+      instance("x", { effect: "automator" }),
+      instance("r", { effect: "reverb" }),
+      instance("y", { effect: "automator" }),
+    ]);
+    looksHeldInto(looks, NO_GROWN, new Map([["x", SHARD_GLASS_SECS / 4]]));
+    expect(looks.map((look) => look.waited)).toEqual([0.25, 0, 0]);
+    expect(slot(sharded(looks).runs, 0)).toEqual([1, 0]);
+    expect(sharded(looks).runs[0]?.waited).toBe(0.25);
+    // A hold with no end is the whole of it, a hold longer than the glass is not more than it,
+    // and a run nobody is holding is back at nought the next frame.
+    looksHeldInto(
+      looks,
+      NO_GROWN,
+      new Map([
+        ["x", Number.POSITIVE_INFINITY],
+        ["y", SHARD_GLASS_SECS * 3],
+      ]),
+    );
+    expect(looks.map((look) => look.waited)).toEqual([1, 0, 1]);
+    looksHeldInto(looks, NO_GROWN, NO_WAITS);
+    expect(looks.map((look) => look.waited)).toEqual([0, 0, 0]);
   });
 
   it("breaks the field by the scatters it can hear and nothing else", () => {

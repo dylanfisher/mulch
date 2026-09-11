@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0360; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0361; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -441,7 +441,7 @@ pays, no term reaches a tile key, and the bake count is untouched (0353, 0354). 
 step is red for the machine's missing audio device and nothing else — the ring carries no
 `"t":"error"` and a headless `AudioContext` stands at 0.0058 s after 800 ms.
 
-**Step 10 — the automator's knobs reach through its run (bench-37).** _Durable shape moved:_
+**Step 10 — the automator's knobs reach through its run (bench-37, 0360).** _Durable shape moved:_
 none. Seventeen of the automator's knobs reach nothing by name; eleven of them are pool weights
 whose whole effect on the sound is which effects grow, and those already reach as grown rows
 (`grownInto`). That is declared, not left: `AUTO_UNREACHED` shrinks to the pool weights with a
@@ -454,6 +454,26 @@ wait counting down is the tear closing. **Stands on:** `shardsLook`, `fractalSee
 wait is visible on the strip. **Tests that must fail first:** `AUTO_UNREACHED` holds exactly the
 eleven pool weights; `shardsLook.terms` names six; the tear's phase follows a fixture's `waits`.
 **Refused:** a row per pool weight; reading the run's future.
+
+**It landed as [0360](decisions/0360-a-run-is-a-tear-and-its-knobs-are-what-the-tear-is-like.md)**,
+and the outcome is met: two automators on two seeds read two valleys and tear two planes, and a wait
+turns the whole layer half a turn and travels back to where it stood as the hourglass empties.
+`AUTO_UNREACHED` is the eleven pool weights, with the grown rows named as their reach; the six that
+shape the run are the shards' terms, which is the look's first — `seed` in its own units, because a
+seed is a place along the valley and not a turn of a knob, and `least`, `odds`, `wait`, `fade` and
+`wander` as turns of their own ranges. One of the step's own words moved on the measurement: Least
+reads the tear **deeper** into the plane, and deeper is _larger_ pieces of one place's filigree
+rather than finer ones, because the same slices span fewer cycles of the count the further in they
+are read — §4 holds what that leaves. `fractalRest` now takes a seed, answering the notch at nought,
+so where a run stands along the valley is one arithmetic and not two. The review moved four things: the odds are floored at a
+quarter, because the run's floor beats them and a standing, sounding automator that tore nothing
+would say no automator was there; the hourglass is read against half a minute rather than the knob's
+ten, or the hold somebody actually takes would move the picture a fortieth of a turn; a short run
+table throws rather than dropping a tear; and the faded end of the Wild push stops above nothing. No
+frame cost: every term is read once a painting inside the throw table the cut already fills, no term
+reaches a tile key and the bake count is untouched (0353, 0354). The gate's `drive` step is red for the machine's missing audio
+device and nothing else — the ring carries no `"t":"error"` and a headless `AudioContext` stands at
+0.0058 s after 800 ms.
 
 **Step 11 — the master's two sides (bench-38).** _Durable shape moved:_ none. `MasterPeek.left`
 and `right` reach no moiré file. They reach the stamp: the threshold passes are lifted on the
@@ -634,6 +654,51 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**A yard already holding an automator draws a different tear than it did (0360).** The step's
+comments are exact that a term _absent_ is the tear 0296 and 0298 shipped, and a real automator
+states all six: at the declared rests the Least reads the plane twice as deep and the Fade stands the
+throw at about five eighths of its reach, so the picture a saved yard draws today is not the picture
+it drew yesterday. Nothing durable moved and no session needs repair (0131), but the block's own
+before-and-after shots of a rack holding an automator are not comparable across this step.
+
+**A hold shorter than a passage barely widens a seam (0360).** `auto.wait` reaches `spacing` as a
+turn of its own declared range, which runs to ten minutes by 0359's rule, so a thirty-second hold
+widens a piece by about a seventh. That is the knob's own range held to rather than a narrowing
+chosen here — what makes a hold visible at once is the hourglass, which is a fact about the moment
+and is read against its own band. A step wanting the term itself to bite would have to curve the
+knob, which is a change to what the knob does and not something a sweep of the picture may decide
+(0148's own words about `comp.attack`).
+
+**src/lib/copyDriftGroups.ts stands at 799 lines against the 800-line cap (0360).** Five of this
+step's dials landed there and the next tunable minted into any group fails `./scripts/arch`. The
+split is a file of tables cut in two and belongs to whoever needs the next row, not to this step —
+which is why the hourglass's own band is a plain constant and not a sixth dial.
+
+**Least reads the tear deeper, and deeper is larger pieces and not finer ones (0360).** The step's
+own words said a run that is never small would be drawn where the count climbs oftener; the table
+says the opposite, and the table was believed. Opening a run's tear further into the plane makes the
+same slices span less of it, so the count climbs through fewer cycles across the picture and the
+pieces are larger — cut from the filigree of one place rather than from the sweep of the whole. That
+leaves the Least and the Wait both widening a piece, which they do through two different numbers —
+the Wait widens the piece a count of cycles is cut into and the Least changes how many cycles there
+are to cut, so a picture under both is not the picture under either — but nothing in this step makes
+a run's floor tear _finely_, and a later step wanting that would have to read the count at a shallower
+depth than the picture itself stands at, which is a plane the painter does not roam.
+
+**A weight's reach is the rows it grows, which no test can hold to (0360).** The eleven pool weights
+stay in `driftUnreached` with the grown rows named as the reach they already have, and that sentence
+is prose: nothing checks that turning a weight down changes which rows appear, because what it
+changes is a draw the run makes on its own seed at its own tick, and a test that pinned it would be
+pinning `effectGrowth`'s draw and not the picture. The registry still refuses a twelfth silent knob,
+which is the half of it a gate can hold.
+
+**A run's terms are what it is set to, so a run wandering does not move its own tear (0360).** The
+six terms are read when the look set is built, as every look's terms are, so an automator whose
+values are being stirred by its own Wander tears the same picture between rebuilds. Making the tear
+follow the run's standing values would be a term read per frame, which is the thing 0204 and 0298
+already refused for `held` and answered with a per-frame field instead — and only two facts have
+earned one, how much a run holds and how much of its hold is left.
 
 **A panner's three stages show only while its spread is over nothing, and a compressor at one to one
 shows none of its Makeup (0359).** Both are the entries' own arithmetic held to rather than a

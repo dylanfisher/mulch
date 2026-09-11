@@ -69,6 +69,7 @@ const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireL
   at: 1,
   terms,
   held: 0,
+  waited: 0,
 });
 
 /**

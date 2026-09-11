@@ -19,7 +19,7 @@ import { effectById } from "@/audio/effects/registry";
 import { effectHeard, PARAMS, paramIn } from "@/audio/params";
 import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS, easedToward } from "@/lib/moire";
 import { LOOKS, type LookName, type LookTerm, type LookTerms } from "@/lib/moireLook";
-import { SHARD_CAP } from "@/lib/moireShards";
+import { SHARD_CAP, SHARD_GLASS_SECS, type ShardRun } from "@/lib/moireShards";
 import { rackScatter } from "@/lib/moireSound";
 import { clamp, normalize } from "@/lib/range";
 import type { DeckState } from "@/state/store";
@@ -51,6 +51,13 @@ export type MoireLook = {
    * because a term is read off what an instance is set to and a run is set to nothing (0204, 0298).
    */
   held: number;
+  /**
+   * And how much of the hold a hand has asked for is still to run, as a share of the longest hold
+   * there is — nought for a run nobody is holding and one under a lock with no end. The hourglass,
+   * and a per-frame fact for the reason above: what is stored is the length the hand asked for, and
+   * how much of it is left is the moment's own (0215, 0360).
+   */
+  waited: number;
 };
 
 /**
@@ -85,7 +92,7 @@ export function rackLooks(effects: DeckState["effects"]): MoireLook[] {
           ? normalize(value, spec.min, spec.max, spec.curve)
           : value;
     }
-    looks.push({ key: instance.id, look, presence, at: 0, terms, held: 0 });
+    looks.push({ key: instance.id, look, presence, at: 0, terms, held: 0, waited: 0 });
   }
   return looks;
 }
@@ -200,42 +207,64 @@ export function looksSaturate(looks: readonly MoireLook[]): number {
 /**
  * How much each automator's run is holding, written onto its look off the frame's own read of the
  * run — the presences of its places summed, so a place arriving counts for what it has arrived by
- * (0204, 0298). Every other look holds no run and reads nought. In place and every frame, because a
- * run moves on its own clock and nothing but the read knows when (0070).
+ * (0204, 0298) — and beside it how much of a hold is still to run, as a share of the longest hold a
+ * hand may ask for, with a lock that has no end standing at the whole of it (0215, 0360). Every
+ * other look holds no run and reads nought of both. In place and every frame, because a run moves on
+ * its own clock and nothing but the read knows when (0070).
  */
-export function looksHeldInto(looks: readonly MoireLook[], grown: GrownRun): void {
+export function looksHeldInto(
+  looks: readonly MoireLook[],
+  grown: GrownRun,
+  waits: ReadonlyMap<string, number>,
+): void {
   for (const look of looks) {
     if (look.look !== "shards") continue;
     let held = 0;
     for (const place of grown.get(look.key) ?? []) held += clamp(place.presence, 0, 1);
     look.held = held;
+    // Against the hourglass's own band and never the knob's ten minutes, or the half-minute hold
+    // somebody actually takes would move the picture by a fortieth of a turn (`SHARD_GLASS_SECS`).
+    // A hold with no end arrives as `Infinity` and lands at the whole of it through the same
+    // normalisation every term takes, which is why there is no case for it here (0215).
+    look.waited = normalize(waits.get(look.key) ?? 0, 0, SHARD_GLASS_SECS);
   }
 }
 
 /**
- * And how many automators are tearing the picture, each at the presence it has travelled to and
- * how much its run holds, into `presences` and `helds` in rack order — one slot per automator
- * standing and never past the cap, which is what the cut hands the throw table's own maths
- * (`shardsInto`, src/lib/moireShards.ts, 0296). Answers the count filled; a bypassed automator is
- * in no set at all and so in none of them, and one on its way in stands at a fraction, which is a
- * fainter tear and never a whole one rounded to. Filled in place rather than answered as a list,
- * because this runs once a painting on the frame path (0070).
+ * And how many automators are tearing the picture, each at the presence it has travelled to, how
+ * much its run holds, how much of its hold is left and what its own knobs make of the look's terms,
+ * into `runs` in rack order — one slot per automator standing and never past the cap, which is what
+ * the cut hands the throw table's own maths (`shardsInto`, src/lib/moireShards.ts, 0296, 0360).
+ * Answers the count filled; a bypassed automator is in no set at all and so in none of them, and one
+ * on its way in stands at a fraction, which is a fainter tear and never a whole one rounded to.
+ * Filled in place rather than answered as a list, because this runs once a painting on the frame
+ * path (0070) — the terms are the look's own object and never a copy, for the same reason.
  */
-export function looksShards(
-  looks: readonly MoireLook[],
-  presences: Float64Array,
-  helds: Float64Array,
-): number {
+export function looksShards(looks: readonly MoireLook[], runs: ShardRun[]): number {
   let standing = 0;
   for (const look of looks) {
     if (look.look !== "shards") continue;
     if (standing >= SHARD_CAP) break;
-    presences[standing] = look.at;
-    helds[standing] = look.held;
+    const run = runs[standing];
+    // A table shorter than the cap is a caller that did not build it here, and a tear quietly
+    // dropped is the silence `shardsInto` already refuses on the same fact (principle 5).
+    if (run === undefined) {
+      throw new Error(
+        `A table of ${runs.length} runs holds no ${SHARD_CAP} the picture tears for.`,
+      );
+    }
+    run.presence = look.at;
+    run.held = look.held;
+    run.waited = look.waited;
+    run.terms = look.terms;
     standing += 1;
   }
   return standing;
 }
+
+/** The table `looksShards` fills, made once by whoever keeps it: a slot per automator the cut tears for. */
+export const shardRuns = (): ShardRun[] =>
+  Array.from({ length: SHARD_CAP }, () => ({ presence: 0, held: 0, waited: 0, terms: {} }));
 
 /**
  * How long a chain still paints at the drift's whole rate. Every pass in it is a draw of the whole

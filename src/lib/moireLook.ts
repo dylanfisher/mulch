@@ -83,6 +83,8 @@ export const LOOK_TERMS = [
   "ceiling",
   "zoom",
   "size",
+  "seed",
+  "lens",
 ] as const;
 
 export type LookTerm = (typeof LOOK_TERMS)[number];

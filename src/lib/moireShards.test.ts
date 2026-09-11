@@ -11,14 +11,17 @@ import { describe, expect, it } from "vitest";
 
 import { fractalRest } from "@/lib/moireFractal";
 import { geometryRef, LENS_SLICES } from "@/lib/moireGeometry";
+import type { LookTerms } from "@/lib/moireLook";
 import {
   SHARD_CAP,
   SHARD_LAYER,
+  SHARD_FADED,
   SHARD_REACH,
   SHARD_STEP,
   SHARD_WIDEST,
   shardsInto,
   shardsLook,
+  type ShardRun,
   shardWidth,
 } from "@/lib/moireShards";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
@@ -31,6 +34,10 @@ const REF = geometryRef(WIDTH, HEIGHT);
 /** Where the picture rests on the plane with nothing roaming it. */
 const SEED = fractalRest();
 
+/** Two seeds far enough apart to fall on two stops of the valley, as a minted one always is. */
+const ONE = 0x12_34_56_78;
+const TWO = 0x89_ab_cd_ef;
+
 /**
  * The table `presences` automators fill, in rack order, each holding a full run unless `helds` says
  * otherwise, over a table poisoned so a slot missed shows.
@@ -38,15 +45,17 @@ const SEED = fractalRest();
 function thrown(
   presences: number[],
   helds: number[] = presences.map(() => GROWTH_COUNT_MAX),
+  terms: LookTerms[] = [],
+  waiteds: number[] = [],
 ): Float64Array {
   const out = new Float64Array(SHARD_CAP * SHARD_LAYER).fill(Number.NaN);
-  const at = new Float64Array(SHARD_CAP);
-  const held = new Float64Array(SHARD_CAP);
-  presences.forEach((presence, index) => {
-    at[index] = presence;
-    held[index] = helds[index] ?? GROWTH_COUNT_MAX;
-  });
-  shardsInto(out, SEED, REF, WIDTH, HEIGHT, at, held, presences.length);
+  const runs: ShardRun[] = Array.from({ length: SHARD_CAP }, (_each, at) => ({
+    presence: presences[at] ?? 0,
+    held: helds[at] ?? GROWTH_COUNT_MAX,
+    waited: waiteds[at] ?? 0,
+    terms: terms[at] ?? {},
+  }));
+  shardsInto(out, SEED, REF, WIDTH, HEIGHT, runs, presences.length);
   return out;
 }
 
@@ -61,6 +70,10 @@ const down = (table: Float64Array): number[] => Array.from(table.subarray(LENS_S
 /** How many seams a list of throws holds: neighbours thrown by different amounts. */
 const seamsOf = (throws: number[]): number =>
   throws.slice(1).filter((slid, at) => slid !== throws[at]).length;
+
+/** How many of a layer's throws are not thrown at all: a piece the odds left standing. */
+const untorn = (table: Float64Array): number =>
+  Array.from(table).filter((slid) => slid === 0).length;
 
 /** How many distinct throws a list holds, at a thousandth of the height. */
 const distinct = (throws: number[]): number =>
@@ -139,12 +152,17 @@ describe("the shards", () => {
     for (const slid of full) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH.value + 1e-12);
     expect(across(layer(full, SHARD_CAP - 1)).some((slid) => slid !== 0)).toBe(true);
     const out = new Float64Array(SHARD_CAP * SHARD_LAYER);
-    const over = new Float64Array(SHARD_CAP + 1);
+    const over: ShardRun[] = Array.from({ length: SHARD_CAP + 1 }, () => ({
+      presence: 1,
+      held: 1,
+      waited: 0,
+      terms: {},
+    }));
     expect(() => {
-      shardsInto(out, SEED, REF, WIDTH, HEIGHT, over, over, SHARD_CAP + 1);
+      shardsInto(out, SEED, REF, WIDTH, HEIGHT, over, SHARD_CAP + 1);
     }).toThrow("not a count");
     expect(() => {
-      shardsInto(new Float64Array(SHARD_LAYER), SEED, REF, WIDTH, HEIGHT, over, over, 1);
+      shardsInto(new Float64Array(SHARD_LAYER), SEED, REF, WIDTH, HEIGHT, over, 1);
     }).toThrow("holds no");
   });
 
@@ -157,9 +175,82 @@ describe("the shards", () => {
     expect(Array.from(thrown([1, 0.5]))).toEqual(Array.from(thrown([1, 0.5])));
   });
 
-  it("is cut and reads no term at all", () => {
+  it("is cut and reads the six knobs that shape a run", () => {
     expect(shardsLook.at).toBe("cut");
-    expect(shardsLook.terms).toEqual({});
+    expect(shardsLook.terms).toEqual({
+      seed: "value",
+      lens: "turn",
+      share: "turn",
+      spacing: "turn",
+      fade: "turn",
+      wander: "turn",
+    });
+    expect(Object.keys(shardsLook.terms)).toHaveLength(6);
     expect("pass" in shardsLook).toBe(false);
+    // And a run that states none of them is torn exactly as 0296 and 0298 tore it, which is what
+    // lets every case above state no term at all.
+    expect(Array.from(thrown([1], [3], [{}]))).toEqual(Array.from(thrown([1], [3])));
+  });
+
+  // P356 step 10: two seeds are two valleys, which is the outcome the step is for (0360).
+  it("reads each run's own seed as its own valley, so two seeds tear two planes", () => {
+    const one = Array.from(layer(thrown([1, 1], undefined, [{ seed: ONE }, { seed: ONE }]), 1));
+    const other = Array.from(layer(thrown([1, 1], undefined, [{ seed: ONE }, { seed: TWO }]), 1));
+    expect(other).not.toEqual(one);
+    // The same seed is the same tear, and no seed at all is the plane the picture already stands on.
+    expect(one).toEqual(
+      Array.from(layer(thrown([1, 1], undefined, [{ seed: TWO }, { seed: ONE }]), 1)),
+    );
+    expect(Array.from(layer(thrown([1]), 0))).toEqual(
+      Array.from(layer(thrown([1], undefined, [{ seed: 0 }]), 0)),
+    );
+  });
+
+  // And the hourglass: how much of a hold is left turns the whole layer round (0215, 0360).
+  it("turns a held run's whole layer, and stands where it always did once the wait has run out", () => {
+    const still = across(layer(thrown([1]), 0));
+    const held = across(layer(thrown([1], undefined, undefined, [1]), 0));
+    expect(held).not.toEqual(still);
+    // A phase and not a fade: the layer moves, it is still a tear, and nothing is thrown further
+    // than the reach. Said without predicting the turn itself, because `SHARD_WAIT` is a dial and a
+    // case that recomputed its cosine would be red the first time anybody moved it.
+    expect(held.some((slid) => slid !== 0)).toBe(true);
+    for (const slid of held) expect(Math.abs(slid)).toBeLessThanOrEqual(SHARD_REACH.value + 1e-12);
+    // And it travels: a glass half run out is neither where it started nor where it was turned to.
+    const halfway = across(layer(thrown([1], undefined, undefined, [0.5]), 0));
+    expect(halfway).not.toEqual(still);
+    expect(halfway).not.toEqual(held);
+    expect(across(layer(thrown([1], undefined, undefined, [0]), 0))).toEqual(still);
+  });
+
+  // And the four that shape the tear itself, each in its own direction.
+  it("thins, widens, deepens and shortens the tear by the four knobs that say so", () => {
+    const plain = layer(thrown([1], [3]), 0);
+    // Odds: a piece outside the share is not thrown at all, and no odds at all is no tear.
+    const thin = layer(thrown([1], [3], [{ share: 0.5 }]), 0);
+    expect(untorn(thin)).toBeGreaterThan(untorn(plain));
+    // And never all of it: the floor beats the odds in the run, so an automator at no odds at all
+    // is still standing, still holding its floor and still a tear (`SHARD_LEAST_TORN`).
+    const thinnest = layer(thrown([1], [3], [{ share: 0 }]), 0);
+    expect(untorn(thinnest)).toBeGreaterThan(untorn(thin));
+    expect(Array.from(thinnest).some((slid) => slid !== 0)).toBe(true);
+    // Wait: the seams stand further apart, so there are fewer of them down the same column.
+    expect(seamsOf(across(layer(thrown([1], [3], [{ spacing: 1 }]), 0)))).toBeLessThan(
+      seamsOf(across(plain)),
+    );
+    // Least: read from inside the structure, where the same slices span fewer cycles of the count,
+    // so the pieces are larger — and larger by a different number than the Wait widens them by.
+    const deep = across(layer(thrown([1], [3], [{ lens: 1 }]), 0));
+    expect(seamsOf(deep)).toBeLessThan(seamsOf(across(plain)));
+    expect(deep).not.toEqual(across(layer(thrown([1], [3], [{ spacing: 1 }]), 0)));
+    // Fade: the same tear, every throw a share of what it was, and never past the reach.
+    const faded = layer(thrown([1], [3], [{ fade: 1 }]), 0);
+    for (const [at, slid] of Array.from(plain).entries()) {
+      expect(faded[at]).toBeCloseTo(slid * SHARD_FADED.value, 12);
+    }
+    // Wander: the scatter itself, so which pieces pair up moves and the tear is still a tear.
+    const stirred = across(layer(thrown([1], [3], [{ wander: 1 }]), 0));
+    expect(stirred).not.toEqual(across(plain));
+    expect(distinct(stirred)).toBeGreaterThan(4);
   });
 });

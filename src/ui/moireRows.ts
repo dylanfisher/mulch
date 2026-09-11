@@ -680,9 +680,10 @@ export function refillRows(
   });
   const wash = washAmount(peek.crest, peek.meter);
   // And how much each automator's run is holding, onto its look, which is how finely it tears the
-  // picture (`looksHeldInto`, 0298): off the same read the fractal row stands on, and per frame for
-  // the same reason.
-  looksHeldInto(looks, peek.grown);
+  // picture (`looksHeldInto`, 0298) — and how much of a hold is still to run, which is how far round
+  // the tear is turned (0360): off the same read the fractal row stands on, and per frame for the
+  // same reason.
+  looksHeldInto(looks, peek.grown, peek.waits);
   // And one step of the picture's ink travel, from where it has got to toward what the rows claim
   // now. After the walk and never inside it: a lane riding a colour writes its row's claim in there,
   // and the ink is the boldest of them all — one screen being one tile (`inkTravelInto`).

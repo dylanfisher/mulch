@@ -26,6 +26,7 @@ import { warpShare, warpSlideX, warpSlideY } from "@/lib/moireWarp";
 import {
   looksCrowd,
   looksShards,
+  shardRuns,
   looksShatter,
   looksShatterSize,
   looksWarp,
@@ -40,13 +41,13 @@ const lensOf = (row: MoireRow): number => row.lens;
 /**
  * The shards' own scratch, kept rather than made: how far each automator throws each slice across
  * and each column down, a layer per automator (`shardsInto`, src/lib/moireShards.ts), how present
- * each automator standing is and how much its run holds, and the seed the count is read off — the
+ * each automator standing is, what its run holds and what its knobs make of the look's terms, and
+ * the seed the count is read off — the
  * painter's roamed stops denormalised once a painting, at the zoom of one and the fly of nought the
  * tear reads at. A painting allocates nothing (0070).
  */
 const throws = new Float64Array(SHARD_CAP * SHARD_LAYER);
-const presences = new Float64Array(SHARD_CAP);
-const helds = new Float64Array(SHARD_CAP);
+const runs = shardRuns();
 const thrown = fractalRest();
 
 /**
@@ -215,7 +216,7 @@ export function cutField(
   const lens = bold === null ? 0 : bold.lens;
   const broken = shatterPieces(shatter, piece);
   const bent = warpShare(looksWarp(looks));
-  const standing = looksShards(looks, presences, helds);
+  const standing = looksShards(looks, runs);
   if (lens <= 0 && broken <= 0 && bent <= 0 && standing <= 0) {
     context.drawImage(passed, 0, 0);
     return;
@@ -224,16 +225,7 @@ export function cutField(
   // the painter roams, at the zoom of one and the fly of nought the tear reads at (0261, 0296).
   if (standing > 0) {
     fractalSeedInto(thrown, stops, 1, 0);
-    shardsInto(
-      throws,
-      thrown,
-      geometryRef(width, height),
-      width,
-      height,
-      presences,
-      helds,
-      standing,
-    );
+    shardsInto(throws, thrown, geometryRef(width, height), width, height, runs, standing);
   }
   // A yard scattering with no row asking for a lens has nothing to take a phase off, and needs
   // none: the slices stand where they are and the field is drawn out of order through them.

@@ -250,10 +250,41 @@ export type FractalSeed = {
   fly: number;
 };
 
-/** The seed a picture with nothing standing in it would be cut from, and never is. */
-export const fractalRest = (): FractalSeed => ({
-  cx: FRACTAL_REST_X,
-  cy: FRACTAL_REST_Y,
+/**
+ * How far a stop of the wander band stands from the notch it is a fraction of: the one place the
+ * band is spelled, so the roam and a run's own seed walk the valley by one arithmetic.
+ */
+const valleyBand = (stop: number): number => FRACTAL_WANDER * (stop - 0.5);
+
+/**
+ * How far one seed of its own stands from the notch, along one axis of the wander band — the same
+ * band and the same stops the population's own roam is carried across (`fractalSeedInto`), read off
+ * the same fold. **Nought at a seed of nought**, which is what makes the rest below the notch
+ * itself: a caller with no seed to give is asking for the picture nothing is standing in, and a
+ * fold of nought is a stop like any other and not that (0246, 0272).
+ *
+ * Answered per axis rather than as a place, so a caller that may not allocate can ask for one
+ * number at a time (`shardsInto`, src/lib/moireShards.ts, 0070).
+ */
+const valleyOff = (seed: number, shift: number): number =>
+  seed === 0
+    ? 0
+    : valleyBand(foldStop(seed, shift, FRACTAL_WANDER_STOPS) / (FRACTAL_WANDER_STOPS - 1));
+
+/** How far a seed of its own stands from the notch across the plane, and down it. */
+export const valleyAcross = (seed: number): number => valleyOff(seed, FRACTAL_CX_SHIFT);
+export const valleyDown = (seed: number): number => valleyOff(seed, FRACTAL_CY_SHIFT);
+
+/**
+ * The seed a picture with nothing standing in it would be cut from, and never is — and, given a
+ * seed of its own, the same picture stood at that seed's own place along the valley. **Two seeds
+ * are two valleys**: the notch is boundary at every scale, so a stop along it is a different
+ * structure and structure at all of them, which is what lets one run's tear read a plane no other
+ * run's does (0272, 0296).
+ */
+export const fractalRest = (seed = 0): FractalSeed => ({
+  cx: FRACTAL_REST_X + valleyAcross(seed),
+  cy: FRACTAL_REST_Y + valleyDown(seed),
   ratio: FRACTAL_RATIO_BAND[0],
   turn: 0,
   zoom: 1,
@@ -303,8 +334,8 @@ export function fractalSeedInto(
   zoom: number,
   fly: number,
 ): void {
-  out.cx = FRACTAL_REST_X + FRACTAL_WANDER * (stops.cx - 0.5);
-  out.cy = FRACTAL_REST_Y + FRACTAL_WANDER * (stops.cy - 0.5);
+  out.cx = FRACTAL_REST_X + valleyBand(stops.cx);
+  out.cy = FRACTAL_REST_Y + valleyBand(stops.cy);
   out.ratio = denormalize(stops.ratio, ...FRACTAL_RATIO_BAND);
   out.turn = denormalize(stops.turn, ...FRACTAL_TURN_BAND);
   out.zoom = zoom > 0 ? zoom : 1;

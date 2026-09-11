@@ -180,11 +180,27 @@ export function createAutomator(
     driftUnreached: AUTO_UNREACHED,
     // And the whole-field move an automator makes: the finished picture torn along the structure's
     // own cross-section, one tear per automator standing, which reaches every straight row without
-    // a bake (0279, 0296). The one look with no terms at all — how torn the picture is, is how many
-    // automators are standing, which is a fact about the run each of them *is* and not about any
-    // value one holds — and cut through the slices the lens already reads the field back in, so it
-    // takes no slot in the chain.
+    // a bake (0279, 0296). How torn the picture is, is how many automators are standing and how much
+    // each run holds, which are facts about the run each of them *is*; and the six knobs that shape
+    // the run are the look's terms, which is where a value a row has no honest dimension for lands
+    // (0359, 0360). Cut through the slices the lens already reads the field back in, so it takes no
+    // slot in the chain.
+    //
+    // Seed is which valley the tear reads, so two automators on two seeds tear two planes; Least is
+    // how far into the structure it reads, a run that is never empty being torn from inside one
+    // place rather than across the whole sweep; Odds is how much of the picture is torn at all;
+    // Wait is how far apart the seams stand, a run nothing is being laid in having stopped
+    // splintering; Fade is how much of the reach still stands, a run always half-arrived being a
+    // seam half open; and Wander is how unlike its neighbour a piece is thrown.
     look: "shards",
+    lookFrom: [
+      { param: "auto.seed", into: "seed" },
+      { param: "auto.least", into: "lens" },
+      { param: "auto.odds", into: "share" },
+      { param: "auto.wait", into: "spacing" },
+      { param: "auto.fade", into: "fade" },
+      { param: "auto.wander", into: "wander" },
+    ],
     // An automator holding nothing is already inaudible, but it is not a thing another automator
     // may fade: one growing inside another is refused by the pool it draws from, which holds only
     // the entries that declared a presence of their own (0202).

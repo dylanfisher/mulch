@@ -20,15 +20,29 @@ import {
   STRAIGHT_DIMENSIONS,
   type DriftGeometry,
 } from "@/lib/moire";
-import { LOOK_NAMES, LOOKS, RESERVED_LOOKS, type LookName } from "@/lib/moireLook";
+import {
+  LOOK_NAMES,
+  LOOK_TERMS,
+  LOOKS,
+  RESERVED_LOOKS,
+  type LookName,
+  type LookTerm,
+} from "@/lib/moireLook";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
 import { PARAMS } from "@/audio/params";
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
 import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
-import { AUTO_UNREACHED } from "./automatorParams";
+import { AUTO_UNREACHED, WEIGHT_OF } from "./automatorParams";
 import { effectById, EFFECTS, effectForParam, isGrowable, validateEffects } from "./registry";
 import { defineEffect, type Effect, type ParamDeclaration } from "./contract";
+
+/** Every term of the look above, off the one parameter a fixture owns. */
+const SHARDS_FROM = (param: string): { param: string; into: LookTerm }[] =>
+  LOOK_TERMS.filter((term) => LOOKS.shards.terms[term] !== undefined).map((into) => ({
+    param,
+    into,
+  }));
 
 const unbuilt = (id: string, param: string, drift: DriftProfile = "cross"): Effect => ({
   id,
@@ -40,9 +54,11 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "cross"): Effe
   drift,
   geometry: LINEAR_GEOMETRY,
   driftFrom: [{ param, into: "period" }],
-  // The one look with no terms at all, so an entry built here declares one — which every entry
-  // must, now that every pass has landed (0290) — without also having to map values into it.
+  // One look nothing else in a fixture claims, with its one parameter answering for every term of
+  // it — every entry must declare a look (0290) and must leave none of its terms unread (0359), and
+  // a fixture with one knob says so with the knob it has.
   look: "shards",
+  lookFrom: SHARDS_FROM(param),
   presence: { param, silent: 0, full: 1 },
   params: [
     { id: param, label: param, min: 0, max: 1, default: 0, precision: 2, automation: "linear" },
@@ -253,9 +269,25 @@ describe("effect registry", () => {
     }
   });
 
+  // P356 step 10: what the automator writes off is now the eleven pool weights and nothing else —
+  // the six knobs that shape its run reach the shards look, and a weight's own reach is the rows the
+  // run it grows lays (0360). A twelfth line here is a knob that has quietly left the picture.
+  it("writes off the automator's eleven pool weights and nothing else", () => {
+    expect(AUTO_UNREACHED.map((each) => each.param)).toEqual(Object.values(WEIGHT_OF));
+    expect(AUTO_UNREACHED).toHaveLength(11);
+    // And every other knob of it is drawn, by a dimension of its row or by a term of its look.
+    const { params, driftFrom, lookFrom } = effectById("automator");
+    const reached = new Set([...driftFrom, ...(lookFrom ?? [])].map((each) => each.param));
+    const written = new Set<string>(AUTO_UNREACHED.map((each) => each.param));
+    for (const param of params) {
+      const said = reached.has(param.id) !== written.has(param.id);
+      expect(`automator: ${param.id} ${said}`).toBe(`automator: ${param.id} true`);
+    }
+  });
+
   // And the list the block is closing, said as a whole rather than per entry: the only values still
-  // written off are the automator's, which the block's own step 10 owes the picture. A new one here
-  // is an entry deciding for itself that it has nothing to say.
+  // written off are the automator's pool weights. A new one here is an entry deciding for itself
+  // that it has nothing to say.
   it("writes off only the knobs a step of this block still owes", () => {
     const owed = new Set<string>(AUTO_UNREACHED.map((each) => each.param));
     for (const { id, driftUnreached } of EFFECTS) {
@@ -567,7 +599,7 @@ describe("effect registry", () => {
     }).toThrow(/a look has no such term: one\.bend/u);
     // A term nothing reaches is a look reading a number nobody stated.
     expect(() => {
-      validateEffects([{ ...one, look: "shatter" }]);
+      validateEffects([{ ...one, look: "shatter", lookFrom: [] }]);
     }).toThrow(/effect leaves a look term unread: one\.share/u);
     // And an entry that names no look at all is refused outright, now that every pass has landed
     // and there is nothing left for an entry to be waiting on (0290). The type says so too; this is

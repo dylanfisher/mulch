@@ -286,6 +286,23 @@ describe("the seed", () => {
     expect(seen.size).toBeGreaterThan(8);
   });
 
+  // P356 step 10: the rest takes a seed of its own, so a run that reads the plane for itself reads
+  // its own place along the valley (0360).
+  it("stands the rest at a seed's own valley, and at the notch itself with no seed", () => {
+    expect(fractalRest(0)).toEqual(fractalRest());
+    const seeds = Array.from({ length: 64 }, (_each, at) => fold(`a run standing ${at}`));
+    const seen = new Set(seeds.map((seed) => `${fractalRest(seed).cx}/${fractalRest(seed).cy}`));
+    // Many valleys, all of them inside the band the roam wanders in, and one seed is one valley.
+    expect(seen.size).toBeGreaterThan(8);
+    for (const seed of seeds) {
+      const stood = fractalRest(seed);
+      expect(Math.abs(stood.cx - fractalRest().cx)).toBeLessThanOrEqual(FRACTAL_WANDER);
+      expect(Math.abs(stood.cy - fractalRest().cy)).toBeLessThanOrEqual(FRACTAL_WANDER);
+      expect(stood.zoom).toBe(1);
+      expect(fractalRest(seed)).toEqual(stood);
+    }
+  });
+
   /** A zoom of nothing is a zoom of one, so a caller with no phase yet still reads a picture. */
   it("never opens onto nothing", () => {
     expect(fractalSeed(fold("a run"), 0).zoom).toBe(1);
