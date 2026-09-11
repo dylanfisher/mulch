@@ -25,6 +25,25 @@ import { clamp } from "./range.ts";
 export const GLYPH_PHASE = tunable("glyph.phase", 0.2, { min: 0, max: 0.9, step: 0.1 });
 
 /**
+ * How hard a cell's read is pushed toward the ends of its ramp before it is cut into marks: a gain
+ * about the ramp's middle, so most of a field falls onto the sparse mark its ground is written in
+ * and only the band that was already bright wraps through the dense ones. At nought the read is
+ * the scene's own and the lattice is the one 0346 shipped, where about three-quarters of a bloom
+ * tile's cells are heavier than the plus; at the rest that share falls to about a fifth, which is
+ * the reference's sparse ground with ribbons through it (0348).
+ */
+export const GLYPH_PUSH = tunable("glyph.push", 1, { min: 0, max: 4, step: 0.25 });
+
+/**
+ * A read pushed `push` harder about the ramp's middle and held to the ramp. At nought it is the
+ * read itself, which is the one thing the dial promises: the push is a cut of the ramp and never
+ * a second wrap, and it reaches the mark alone — the cell's colour is read at the scene's own
+ * stand, so the ground the scene draws is untouched (0348).
+ */
+export const pushRead = (value: number, push: number): number =>
+  clamp(value + (value - 0.5) * push, 0, 1);
+
+/**
  * The ten marks, lightest first, each a square of `GRID` rows: nothing, a dot, a colon, a dash, a
  * plus, a percent, an at, a hash, a star and a block. **Bit-grids in the source and not a font**: a
  * mark rasterised from a face would be a different mark on every machine and none at all on the

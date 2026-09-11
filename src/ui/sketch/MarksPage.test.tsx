@@ -1,5 +1,5 @@
 /**
- * The marks bench's own half of the naming rule (0252): eight ways to push the lattice of marks,
+ * The marks bench's own half of the naming rule (0252): the ways left to push the lattice of marks,
  * each on a canvas under its own dial, each naming what the dial stands at and drawn in the one
  * ink, and each saying where in the tile it would land — at a file that exists. In the shape
  * StructurePage.test.tsx took, because it is the same bench on its own route (0295, 0347).
@@ -43,9 +43,11 @@ describe("the marks route", () => {
 });
 
 describe("MarksPage mounts the bench", () => {
-  /** Eight, which is what the bench was asked for, and every one off the list (0254). */
+  /** What is left of the eight the bench was asked for, and every one off the list (0254): one
+   * entry goes as its argument lands in the tile, the ground's with 0348. */
   it("mounts every entry, with one id apiece", () => {
-    expect(SKETCH_MARKS.length).toBe(8);
+    expect(SKETCH_MARKS.length).toBe(7);
+    expect(SKETCH_MARKS.map((entry) => entry.id)).not.toContain("ground");
     for (const entry of SKETCH_MARKS) {
       expect(markup, `${entry.id} has an entry and no section`).toContain(`id="${entry.id}"`);
       expect(markup, `${entry.id} has an entry and no nav link`).toContain(
@@ -81,7 +83,7 @@ describe("MarksPage mounts the bench", () => {
   });
 });
 
-describe("each of the eight says where it would land", () => {
+describe("each entry says where it would land", () => {
   it("names at least one real file of the painter in every build note, and draws the note", () => {
     for (const entry of SKETCH_MARKS) {
       const named = [...entry.built.matchAll(/src\/[\w/.-]+\.tsx?/gu)].map((found) => found[0]);

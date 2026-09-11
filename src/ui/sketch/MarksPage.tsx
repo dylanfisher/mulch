@@ -1,13 +1,14 @@
 /**
- * @role The marks bench at #/marks — the nav and the one list it mounts: eight ways the lattice of
- *   marks could be pushed past where 0346 left it — the read pushed to its ramp's ends, a second
- *   lattice, the delay's echoes and the reverb's bloom in marks, a landing's push decaying, an
- *   alphabet per part, a scatter of big marks and the sound's rows as marks. Every entry carries
+ * @role The marks bench at #/marks — the nav and the one list it mounts: the ways the lattice of
+ *   marks could still be pushed past where 0346 left it — a second lattice, the delay's echoes and
+ *   the reverb's bloom in marks, a landing's push decaying, an alphabet per part, a scatter of big
+ *   marks and the sound's rows as marks. The read pushed to its ramp's ends has landed and its
+ *   entry has gone with it (0348). Every entry carries
  *   the one sentence it makes, the thing it gives up to make it and where in the real tile it
  *   would land, and every picture is the real marks over the shipped bloom under the shipped film
  *   in one ink, under the one dial that move turns. Its own route beside the structure bench for
  *   the structure bench's reason: every picture here reads a scene a cell at a time and writes a
- *   lattice a pixel at a time, and a page that mounts every other bench to show these eight is a
+ *   lattice a pixel at a time, and a page that mounts every other bench to show these is a
  *   page nobody opens (0295, 0347).
  * @instead The picture these argue with → src/ui/moireScreenTile.ts and src/lib/moireGlyph.ts.
  *   The bench beside this one, and the frame and stage this borrows → src/ui/sketch/StructurePage.tsx,
@@ -30,7 +31,6 @@ import { SketchMarksBeat } from "@/ui/sketch/marks/SketchMarksBeat";
 import { SketchMarksBloom } from "@/ui/sketch/marks/SketchMarksBloom";
 import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
 import { SketchMarksEchoes } from "@/ui/sketch/marks/SketchMarksEchoes";
-import { SketchMarksGround } from "@/ui/sketch/marks/SketchMarksGround";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
 import { SketchMarksRows } from "@/ui/sketch/marks/SketchMarksRows";
 import { SketchMarksScatter } from "@/ui/sketch/marks/SketchMarksScatter";
@@ -54,24 +54,14 @@ export type MarksEntry = {
 };
 
 /**
- * Eight ways to push the lattice of marks, none exclusive of another. The picture today is a
+ * The ways left to push the lattice of marks, none exclusive of another: an entry goes as its
+ * argument lands in the tile (0348). The picture today is a
  * still lattice of the screen's own cells, each cell one of ten marks off a wrapped ramp, in one
  * ink, with the sound's cut read a cell at a time (0345, 0346). Each of these is one move, drawn
  * with the real marks over the shipped bloom under the shipped film, under the one dial that move
  * turns.
  */
 export const SKETCH_MARKS: readonly MarksEntry[] = [
-  {
-    id: "ground",
-    label: "The Ground",
-    thesis:
-      "A cell's read pushed toward the ends of its ramp before it is cut into marks, so most of a field stands at a sparse mark and only a band of it wraps through the dense ones. Today a bloom stands mostly in the middle of its ramp, which the wrap makes the dense marks, and the lattice reads denser than the reference's sparse ground with ribbons through it.",
-    trades:
-      "the scene's own gradient. A push is a contrast on the read, and a cell that stood a little above another may stand at the same mark once both are pushed to an end — what is kept is the band, and what is spent is the shoulder either side of it.",
-    built:
-      "in src/lib/moireGlyph.ts beside markAt, as one more dial beside glyph.phase, read in build at src/ui/moireScreenTile.ts where the cell's mean is cut into a mark. Bake-side, and no dearer: one multiply per cell.",
-    Content: SketchMarksGround,
-  },
   {
     id: "beat",
     label: "The Beat",
@@ -165,7 +155,7 @@ function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
 
 /**
  * The bench's own opening, held apart from the page for the length cap's sake and not for reuse:
- * the one paragraph that says what the picture is today and what the eight below it ask.
+ * the one paragraph that says what the picture is today and what the entries below it ask.
  */
 const INTRO = (
   <p className="max-w-3xl type-body text-muted-foreground">

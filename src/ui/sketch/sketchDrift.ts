@@ -10,7 +10,14 @@
  *   real picture these argue about → src/lib/moireFractal.ts, src/ui/moireCanvas.ts and
  *   src/ui/moireScreen.ts, none of which this reads.
  */
-import { GLYPH_COUNT, GLYPH_PHASE, markAt, markCoverage } from "@/lib/moireGlyph";
+import {
+  GLYPH_COUNT,
+  GLYPH_PHASE,
+  GLYPH_PUSH,
+  markAt,
+  markCoverage,
+  pushRead,
+} from "@/lib/moireGlyph";
 import { cellFold, rim, roundedBox } from "@/lib/moireLattice";
 import { type SceneName, SCENE_REACH_TERMS, sceneCells, sceneRepeat } from "@/lib/moireScene";
 import { clamp } from "@/lib/range";
@@ -354,8 +361,9 @@ function glyphCell(col: number, row: number): number {
  * film's palette is laid; a pixel it leaves uncovered is the page. The water and not the film's
  * bloom, because the reference is glints on black water in one ink, and because the bench reads
  * every palette once (SketchDrifts.test.tsx). The mark is the tile's own
- * (`markAt`, `markCoverage`), read hard rather than soft, because the bench is read at its own
- * pixels and a soft edge is the painter's business.
+ * (`markAt`, `markCoverage`, the read pushed to its ramp's ends first since 0348), read hard rather
+ * than soft, because the bench is read at its own pixels and a soft edge is the painter's
+ * business.
  */
 export const glyphField: SketchDriftField = (x, y, flat) => {
   const px = Math.floor(x * SCENE_BENCH_PX);
@@ -363,7 +371,7 @@ export const glyphField: SketchDriftField = (x, y, flat) => {
   const col = Math.min(GLYPH_COLS - 1, Math.floor(px / GLYPH_ACROSS));
   const row = Math.floor(py / GLYPH_DOWN);
   const stood = glyphCell(col, row);
-  const mark = markAt(stood, GLYPH_COUNT, GLYPH_PHASE.rest);
+  const mark = markAt(pushRead(stood, GLYPH_PUSH.rest), GLYPH_COUNT, GLYPH_PHASE.rest);
   const u = (px - Math.floor(px / GLYPH_ACROSS) * GLYPH_ACROSS) / GLYPH_ACROSS;
   const v = (py - row * GLYPH_DOWN) / GLYPH_DOWN;
   if (markCoverage(mark, u, v, 0) < 0.5) return 0;

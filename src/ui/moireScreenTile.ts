@@ -31,7 +31,14 @@
 // oxlint-disable max-lines
 import { DRIFT_REST, TAU, wrap } from "@/lib/moire";
 import { type Ink, ramp } from "@/lib/moireColour";
-import { GLYPH_COUNT, GLYPH_PHASE, markAt, markCoverage } from "@/lib/moireGlyph";
+import {
+  GLYPH_COUNT,
+  GLYPH_PHASE,
+  GLYPH_PUSH,
+  markAt,
+  markCoverage,
+  pushRead,
+} from "@/lib/moireGlyph";
 import { gratingKeep } from "@/lib/moireGrating";
 import {
   type Scene,
@@ -677,6 +684,7 @@ function build(
   const cols = sceneCells(width, cell);
   const blur = 0.25 / across;
   const phase = GLYPH_PHASE.value;
+  const push = GLYPH_PUSH.value;
   const flat = GLYPH_FLAT.value;
   const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
   const colOf = Int32Array.from({ length: width }, (_, x) =>
@@ -728,13 +736,15 @@ function build(
         const stood = sum / Math.max(1, (y1 - y0) * (x1 - x0));
         const inked = ramp(lift, stood, read);
         // Pulled toward the ramp's middle stop by however flat the picture is asked to be; and
-        // the mark: where the cell stands on its ramp, cut into as many steps as there are marks
-        // and wrapped, so the ground and the peaks are sparse and the band between is dense.
+        // the mark: where the cell stands on its ramp, pushed toward the ramp's ends and then cut
+        // into as many steps as there are marks and wrapped, so the ground and the peaks are
+        // sparse, the band between is dense, and most of a field is that ground (0348). The push
+        // is on the cut alone and never on `inked` above: the scene's own ground is untouched.
         const at = c * PER_PIXEL;
         cellInk[at] = inked[0] + (mid[0] - inked[0]) * flat;
         cellInk[at + 1] = inked[1] + (mid[1] - inked[1]) * flat;
         cellInk[at + 2] = inked[2] + (mid[2] - inked[2]) * flat;
-        cellMark[c] = markAt(stood, GLYPH_COUNT, phase);
+        cellMark[c] = markAt(pushRead(stood, push), GLYPH_COUNT, phase);
       }
     }
     const v = (y - cellRow * downCell) / downCell;

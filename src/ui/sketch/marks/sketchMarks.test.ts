@@ -1,5 +1,5 @@
 /**
- * The eight fields, as arithmetic: each is the real marks over the shipped bloom, so what is
+ * The fields the bench still draws, as arithmetic: each is the real marks over the shipped bloom, so what is
  * proved here is that each move is the move it claims — at its dial's nought it is the plain
  * lattice (or says why not), at its rest it is something the plain lattice is not, and none of
  * them writes anything but nought or one, in the one ink.
@@ -25,8 +25,6 @@ import {
   ECHOES_DIAL,
   echoedMark,
   echoesField,
-  GROUND_DIAL,
-  groundField,
   landingRow,
   PART_DIAL,
   partAlphabet,
@@ -43,9 +41,8 @@ import {
 import { ALPHABETS, alphabetOf, alphabetWeight } from "@/ui/sketch/marks/sketchMarksAlphabet";
 import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 
-/** Every field on the bench with the dial it is drawn under, so an eighth cannot be left out. */
+/** Every field on the bench with the dial it is drawn under, so one cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "ground", field: groundField, dial: GROUND_DIAL },
   { name: "beat", field: beatField, dial: BEAT_DIAL },
   { name: "echoes", field: echoesField, dial: ECHOES_DIAL },
   { name: "bloom", field: bloomField, dial: BLOOM_DIAL },
@@ -57,7 +54,7 @@ const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial
 
 /**
  * A grid over the whole picture at about a bit of a mark, so every bit of every mark is landed in
- * — and no finer, because eight fields at three settings apiece are read across it under the
+ * — and no finer, because the fields at three settings apiece are read across it under the
  * gate's own load, and a test that reads a picture at the pixel is a test that times out there.
  */
 const GRID: readonly [number, number][] = ((): [number, number][] => {
@@ -110,31 +107,6 @@ describe("every field on the marks bench", () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(1);
     }
-  });
-});
-
-describe("the ground", () => {
-  it("is the plain lattice at no push", () => {
-    expect(differ(plainField, (x, y) => groundField(x, y, 0))).toBe(0);
-  });
-
-  /** The plan's own test for its fifth step: at the rest, most of a field is a sparse mark. */
-  it("leaves fewer than a third of the cells heavier than the plus at its rest", () => {
-    const plus = 4;
-    const marks = everyCell((col, row) => {
-      let heavy = 0;
-      for (let v = 0.1; v < 1; v += 0.2) {
-        for (let u = 0.1; u < 1; u += 0.2)
-          heavy += groundField((col + u) * CELL, (row + v) * CELL, GROUND_DIAL.rest);
-      }
-      return heavy;
-    });
-    const plain = everyCell(plainMark);
-    const heavyPlain = plain.filter((mark) => mark > plus).length / plain.length;
-    // The plain lattice is the dense one the step names, and the pushed one is not.
-    expect(heavyPlain).toBeGreaterThan(1 / 3);
-    const heavy = marks.filter((bits) => bits > 9).length / marks.length;
-    expect(heavy).toBeLessThan(1 / 3);
   });
 });
 

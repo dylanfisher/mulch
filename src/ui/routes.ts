@@ -34,7 +34,7 @@ export const SKETCH_ROUTE = "#/sketch";
  */
 export const STRUCTURE_ROUTE = "#/structure";
 /**
- * The marks bench, where the lattice of marks the screen writes (0345, 0346) is pushed eight ways
+ * The marks bench, where the lattice of marks the screen writes (0345, 0346) is pushed every way
  * to see which way it goes next. A bench of its own for the structure bench's reason: every
  * picture reads a scene a cell at a time and writes a lattice a pixel at a time (0347). Deleted
  * with `src/ui/sketch/marks/` the day one of its arguments wins (0247).

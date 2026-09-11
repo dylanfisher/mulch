@@ -50,14 +50,14 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0348; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0349; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
-in the order that builds the machine before what rides it.
+in the order that builds the machine before what rides it. Step 1 landed as 0348.
 
-**Step 1 — the field is mostly ground (bench-28).** _Durable shape moved:_ none. The bench's
+**Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
 dial `glyph.push` beside `glyph.phase` in src/lib/moireGlyph.ts, read in `build` where the cell's
 mean is cut. Its rest is chosen on the bench and the zoomed drift so most of a bloom is a sparse
@@ -66,7 +66,15 @@ from a half to under a fifth. **Stands on:** `markAt`; entry 01 in src/ui/sketch
 **Outcome wanted:** a bloom and a meadow that read as the reference's sparse ground with ribbons
 through it. **Tests that must fail first:** at the rest, fewer than a third of a bloom tile's
 cells are marks heavier than the plus; at nought the tile is the one 0346 shipped. **Refused:**
-touching a scene's ground; a second wrap.
+touching a scene's ground; a second wrap. _Landed_ 2026-09-10 as
+[0348](decisions/0348-the-field-is-mostly-ground.md): `GLYPH_PUSH` and `pushRead` in
+src/lib/moireGlyph.ts, read in `build` where the cell's mean is cut, resting at one. On a bloom
+tile the share of cells heavier than the plus falls from 0.73 to 0.21 — the bench's fixture read
+about a half, this one is denser — and the push spends no ink at all: every pixel's three channels
+stand the same at nought and at the rest, because a cell's colour is read at its own stand before
+the cut. The meadow the outcome also names is not a ground at any setting of the dial, which §4
+holds. The bench's entry 01 goes with it, and its `plainMark` now reads the shipped push, so
+entries 02–08 argue against what ships.
 
 **Step 2 — a look may act on the cells (bench-29).** _Durable shape moved:_ none. The cell-pass
 contract and its runner in src/lib/moireCells.ts, and `cells` on a look's declaration read by
@@ -150,7 +158,7 @@ an alphabet per effect; a fourth alphabet without a character that needs it.
 landed or been refused in §4; `src/ui/sketch/marks/`, `MARKS_ROUTE`, the `"marks"` member, the
 App branch and the menu item go, and entries 10 and 11 of the drift bench with them, their
 arguments having landed (0339, 0345). **Stands on:** 0247. **Tests that must fail first:**
-SketchPage.test's cleared-id list names the eight and MarksPage.test is gone. **Refused:** keeping
+SketchPage.test's cleared-id list names the bench's entries and MarksPage.test is gone. **Refused:** keeping
 a bench beside the thing it argued.
 
 **Every effect reaches the lattice (steps 9–11).** The registry says an effect declares its whole
@@ -329,3 +337,34 @@ different window from the one it is compared against.
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and a
 failing seam-level test before broad UI work. Do not turn the driver into a second application by
 teaching it feature semantics.
+
+## 4. Not taken
+
+**The push at nought is proved as an identity, not as a byte comparison (0348).** The step asked
+that at nought the tile be the one 0346 shipped, and there is no pre-0348 tile to compare bytes
+with. What stands instead is the only place the dial reaches the picture: `pushRead(value, 0)` is
+`value` for every read on the ramp — asserted exactly, which is why the push is written
+`value + (value - 0.5) * push` rather than as a gain on a read centred first, the second form
+moving a value by a float's width at a push of nought — and the marks chosen through it are the
+marks chosen without it. Beside it, a tile case reads the push at both ends of the dial and holds
+every pixel's ink equal, which is the step's own refusal (touching a scene's ground) read off the
+painter.
+
+**The meadow is not made a ground by the push (0348).** The step's outcome wanted a bloom and a
+meadow reading as the reference's sparse ground with ribbons. The bloom does: the share of its
+cells heavier than the plus falls from 0.73 to 0.21 at the rest. The meadow does not, at any
+setting: every cell of its tile is heavier than the plus at nought, 0.84 of them at the rest and
+0.50 at the top of the dial — its read clusters at the ramp's own middle, and the middle is the one
+read a push about that middle cannot move. Refused here rather than answered, because the two
+answers available are the ones the step refuses: moving the scene's own ground, or a second wrap.
+What the meadow wants is its own ramp, or a phase that puts its cluster on the sparse marks, and
+that is a step and not a hunch. The case in src/ui/moireCanvasMarks.test.ts asserts the shortfall,
+so the step that ends it fails there first.
+
+**The painter tests' tile reader is a third copy (0348).** `ROWS`, `tileOf` and `paintingOf` now
+stand character-identical in src/ui/moireCanvasFilm.test.ts, src/ui/moireCanvasScene.test.ts and the
+new src/ui/moireCanvasMarks.test.ts, which is the third occurrence principle 3 names. The one home
+for them is src/ui/moireCanvasPainted.ts, which already exports the painter's other test-only
+helpers and which stands three lines under its 400-line soft cap: moving fourteen lines into it
+prints a new lint warning, which a step owns. Left as three copies here; step 3 writes the rest of
+src/ui/moireCanvasMarks.test.ts and is where the split and the factoring can be done together.

@@ -1,6 +1,6 @@
 /**
- * @role The eight fields the marks bench draws — one per direction the lattice of marks could be
- *   pushed in past 0346: a cell's read pushed toward the ends of its ramp, a second lattice at a
+ * @role The fields the marks bench still draws — one per direction the lattice of marks could be
+ *   pushed in past 0346: a second lattice at a
  *   held ratio, the delay's echoes and the reverb's bloom written in marks rather than in the
  *   field, a landing's push decaying down the loop, an alphabet per character, a scatter of big
  *   marks over the fine ones, and the sound's rows as a lattice of their own — and the one dial
@@ -13,11 +13,17 @@
  *   are mounted on → src/ui/sketch/MarksPage.tsx. The tile these argue about →
  *   src/ui/moireScreenTile.ts, which this never reads.
  */
-import { GLYPH_COUNT, GLYPH_PHASE, markAt, markCoverage } from "@/lib/moireGlyph";
+import {
+  GLYPH_COUNT,
+  GLYPH_PHASE,
+  GLYPH_PUSH,
+  markAt,
+  markCoverage,
+  pushRead,
+} from "@/lib/moireGlyph";
 import { ECHO_CAP, echoSpacing } from "@/lib/moireEchoes";
 import { sceneCells } from "@/lib/moireScene";
 import type { PlayerCharacter } from "@/lib/playerCast";
-import { clamp } from "@/lib/range";
 import { FILM_SHARE, filmStand, gridPitchPx } from "@/ui/moireScreenTile";
 import {
   BENCH_DPR,
@@ -107,9 +113,14 @@ export function stood(col: number, row: number, cell = CELL): number {
   });
 }
 
-/** Which mark a cell at `col, row` is written in: the shipped read, the shipped wrap. */
-export const plainMark = (col: number, row: number): number =>
-  markAt(stood(col, row), GLYPH_COUNT, GLYPH_PHASE.rest);
+/**
+ * Which mark a cell of a `cell`-sized lattice is written in: the shipped read, pushed toward its
+ * ramp's ends and wrapped the way the tile does it (0348), so every entry below argues against
+ * what ships and not against what shipped. The cell is the bench's own unless the beat asks for
+ * its second lattice's.
+ */
+export const plainMark = (col: number, row: number, cell = CELL): number =>
+  markAt(pushRead(stood(col, row, cell), GLYPH_PUSH.rest), GLYPH_COUNT, GLYPH_PHASE.rest);
 
 /**
  * Whether the point `x, y` is under the ink of a lattice of `cell`-sized cells, each written in
@@ -127,22 +138,9 @@ export function latticeInk(
   return markCoverage(markOf(col, row), x / cell - col, y / cell - row, 0);
 }
 
-/** The picture with nothing done to it: entry 11 of the drift bench, on the bloom, in one ink. */
+/** The picture with no entry's move on it: entry 11 of the drift bench, on the bloom, in one ink,
+ * cut the way the tile cuts it (0348). */
 export const plainField = (x: number, y: number): number => latticeInk(x, y, CELL, plainMark);
-
-/**
- * 01 — a cell's read pushed toward the ends of its ramp before it is cut into marks, so most of a
- * field stands at a sparse mark and only a band of it wraps through the dense ones (docs/plan.md,
- * the marks block's fifth step). The dial is how hard the push is: at nought the read is the
- * scene's own, and the lattice reads denser than the reference it was drawn against (0346).
- */
-export const GROUND_DIAL: SketchDial = { min: 0, max: 4, step: 0.25, rest: 1 };
-export const pushRead = (value: number, push: number): number =>
-  clamp(0.5 + (value - 0.5) * (1 + push), 0, 1);
-export const groundField: SketchDriftField = (x, y, push) =>
-  latticeInk(x, y, CELL, (col, row) =>
-    markAt(pushRead(stood(col, row), push), GLYPH_COUNT, GLYPH_PHASE.rest),
-  );
 
 /**
  * 02 — a second lattice of marks at a cell a held ratio larger, laid over the first in the one
@@ -154,9 +152,7 @@ export const beatField: SketchDriftField = (x, y, ratio) => {
   const cell = CELL * ratio;
   return Math.max(
     plainField(x, y),
-    latticeInk(x, y, cell, (col, row) =>
-      markAt(stood(col, row, cell), GLYPH_COUNT, GLYPH_PHASE.rest),
-    ),
+    latticeInk(x, y, cell, (col, row) => plainMark(col, row, cell)),
   );
 };
 
