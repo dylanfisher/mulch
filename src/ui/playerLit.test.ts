@@ -13,6 +13,7 @@ import { litRows, sameRow, SONG_ATTRIBUTE, standingIn } from "@/ui/playerLit";
 const STANDING: PlayerStep = {
   slot: 0,
   bed: 0,
+  zone: null,
   repeats: 2,
   burst: 1,
   rest: 2,

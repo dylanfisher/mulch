@@ -21,11 +21,14 @@ import { fold } from "./copy";
 import {
   colourReached,
   DRIFT_CENTRE_REACH,
+  DRIFT_DEPTH_FLOOR,
+  DRIFT_FRINGE_REACH,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   FLAT_BEND,
   LINEAR_GEOMETRY,
+  type DriftDimension,
   type DriftGeometry,
   type MoireRow,
 } from "./moire";
@@ -35,7 +38,11 @@ import type { SongPlace } from "./playerSongs";
 import { PLAIN_PROFILE, RESERVED_PROFILES, type DriftProfile } from "./moireProfiles";
 import { bedGround } from "./playerBed";
 import { clamp, denormalize, normalize } from "./range";
-import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart } from "./playerSong";
+import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart, type SongPartId } from "./playerSong";
+import { PLAYER_RATCHET_MAX } from "./playerRepeats";
+import { PLAYER_REST_DRAWN_MAX } from "./playerRest";
+import type { PlayerStep } from "./playerWalk";
+import type { BedZone } from "./playerZone";
 import { landingSecs, type PlayerSpec } from "./player";
 import type { Loop } from "./timeline";
 
@@ -167,10 +174,18 @@ export const PLAYER_TINTS = 4;
  * Rest with no part standing: a pattern that is not stepping is making no claim on the picture's
  * colour, and a row resting in a dimension is a row that leaves it to whoever says it loudest.
  */
-export const playerRowHue = (part: SongPart | null): number =>
-  part === null
+export const playerRowHue = (part: SongPart | null): number => playerTint(part?.id ?? null);
+
+/**
+ * That stop, off the badge alone. Its own function because two rows now ask for it — the module's
+ * own row off the part standing, and the reference row off the voice that part handed the step
+ * (`PLAYER_REACH`) — and a second fold of the same badge onto the same four stops would be one
+ * colour derived twice (principle 1).
+ */
+export const playerTint = (id: SongPartId | null): number =>
+  id === null
     ? DRIFT_REST.hue
-    : colourReached("hue", (fold(part.id) % PLAYER_TINTS) / (PLAYER_TINTS - 1));
+    : colourReached("hue", (fold(id) % PLAYER_TINTS) / (PLAYER_TINTS - 1));
 
 /**
  * Which of the two waves no effect may claim the module's row is cut to while `part` stands, and
@@ -260,12 +275,14 @@ export const playerRowStand = (
   bed: number | null,
   loop: Loop | null,
   duration: number,
+  zone: BedZone | null,
 ): { centre: number; ground: number } | null => {
   if (bed === null || loop === null || duration <= 0) return null;
-  // Unzoned, which is this picture's one known cost: the anchor is read off a per-frame peek that
-  // carries no spec, so a yard with a zone marked anchors its rows where the walk would have stood
-  // without one (plan §4). Nothing else here reads a ground.
-  const stood = bedGround(loop.in, loop.out - loop.in, duration, bed, null);
+  // Zoned, like every other reader of a ground: where a hand said the loop may stand narrows where
+  // the walk can be, so a picture folding the offset without it would anchor a yard's rows outside
+  // the stretch that yard is actually reading (0318). The zone is the spec's and reaches here
+  // through the surface that holds one, because a per-frame peek carries no spec.
+  const stood = bedGround(loop.in, loop.out - loop.in, duration, bed, zone);
   return { centre: standingCentre(stood.in, duration), ground: stood.on };
 };
 
@@ -392,6 +409,78 @@ export function playerTierInto(
  * Not a reference row, and not an instance's: the module is neither the axis the picture is read
  * against nor a plugin, so nothing meters it and its pulse rests at nothing.
  */
+/**
+ * What the step the walk is playing claims of the picture, one dimension a field, the way an
+ * effect's registry entry declares a way into the drift for each of its knobs (0139, 0148, 0359).
+ * Three fields of a `PlayerStep` and three dimensions of the one row every other row is read
+ * against. `burst` and `repeats` are already the row's own period between them (`landingSecs`,
+ * `playerRowPeriod`); `reversed` reaches no row at all, being which way the screen's lattice crawls
+ * (`inkThrough`, src/ui/moireScreen.ts); and `rates` reaches nothing, because the one dimension a
+ * climb could be is a sweep, and a swept reference row is a picture-wide tile keyed by a spacing
+ * this row moves every frame — the block's budget refuses it and docs/plan.md §4 holds the price.
+ *
+ * **On the reference row and on no other.** What is sounding is what that row is cut by (0196), and
+ * a step is the whole of what is sounding — so a claim of the walk's on any other row would be the
+ * arrangement drawing over a plugin's. The five are exactly the five that row does not already
+ * spend: its spacing is the stretch under the playhead and its anchor is the ground. The depth is
+ * the one they share, and they do not disagree: this is the ceiling a knob asked for and the deck's
+ * own meter is a reading that only ever takes it down (0128 amended, 0196).
+ *
+ * A table rather than three functions, so the claims can be read at once and counted by a test the
+ * way an effect's `driftFrom` is — and spent through it below, so a claim written here that nothing
+ * spends cannot exist.
+ */
+export const PLAYER_REACH = {
+  rest: "depth",
+  ratchet: "fringe",
+  voice: "hue",
+} as const satisfies Record<string, DriftDimension>;
+
+/**
+ * `PLAYER_REACH` spent onto the row every other row is read against. Written in place on the row
+ * the caller already holds, like every other per-frame read (0070), and all three rest where no
+ * step stands — a yard playing nothing makes no claim, which is the row the picture drew before the
+ * walk reached it. A write and not an omission: left alone the picture would hold the last
+ * landing's claim after the walk had stopped.
+ *
+ * **Each field's zero is the dimension's own rest**, which is what makes a plain step a plain
+ * picture: a pattern nobody has ratcheted or rested draws exactly what it drew before the walk
+ * reached the row, and only a knob a hand has turned moves it. The claims are read off the fields
+ * rather than off their dials' turns for that reason — the wait as how much of the widest one a
+ * roll may draw it is (`PLAYER_REST_DRAWN_MAX`, P87), and *down* the depth, because a step that
+ * waits is a step sounding less; the ratchet up from the rest to the whole of the fringe's own
+ * reach, because a landing nothing shortens spreads no channels; and the voice as the badge of the
+ * part that handed it over, on the same four stops the module's own row takes its tint from
+ * (`playerTint`).
+ */
+export function playerReachInto(row: MoireRow, step: PlayerStep | null): void {
+  if (step === null) {
+    row[PLAYER_REACH.rest] = DRIFT_REST.depth;
+    row[PLAYER_REACH.ratchet] = DRIFT_REST.fringe;
+    row[PLAYER_REACH.voice] = DRIFT_REST.hue;
+    return;
+  }
+  row[PLAYER_REACH.rest] = denormalize(
+    1 - normalize(step.rest, 0, PLAYER_REST_DRAWN_MAX),
+    DRIFT_DEPTH_FLOOR,
+    1,
+  );
+  // From the rest and not from nought, which is where `colourReached` would start it: nought is the
+  // three lattices laid on top of each other, and it is the loudest claim on the dimension there is
+  // (`boldestRow`, src/ui/moireScreenInk.ts) — so a pattern at the dial's own zero would flatten the
+  // whole screen for as long as it played.
+  row[PLAYER_REACH.ratchet] = denormalize(
+    normalize(step.ratchet, 0, PLAYER_RATCHET_MAX),
+    DRIFT_REST.fringe,
+    DRIFT_FRINGE_REACH,
+  );
+  // The voice is what makes the claim and the part is what tells two of them apart: a voice carries
+  // no identity of its own, being the numbers a part is overriding the card's dials with, so what
+  // the tint is folded off is the badge that handed it over. A step playing the card's own numbers
+  // rests, which is every step of a pattern holding no song.
+  row[PLAYER_REACH.voice] = playerTint(step.voice === null ? null : step.part);
+}
+
 export const playerRow = (period: number): MoireRow => ({
   period,
   phase: 0,

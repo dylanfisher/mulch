@@ -39,6 +39,15 @@ export const PLAYER_REST_SPREAD_MIN = 0;
 export const PLAYER_REST_SPREAD_MAX = 1;
 
 /**
+ * The longest wait a roll can actually draw, in slots: the dial's own ceiling strayed by the whole
+ * of the spread above it (`drawRest`, src/lib/playerDraw.ts). Declared here rather than as a `2 ×`
+ * wherever a reader needs the widest a `PlayerStep.rest` reaches, because the two the product is of
+ * both live here and a picture normalising against a bare multiplier would go on reading the wrong
+ * span the day either moved (principle 1). A placed wait is the dial exactly and is inside it (P87).
+ */
+export const PLAYER_REST_DRAWN_MAX = PLAYER_REST_MAX * (1 + PLAYER_REST_SPREAD_MAX);
+
+/**
  * How many jumps one turn of the pattern is spread over, 1…`PLAYER_REST_SPAN_MAX`. Counted in
  * jumps, like every hold and keep in this module, and never in slots: what the pattern places is
  * which *jumps* wait, and how far each of those jumps travelled is the Distance dial's business.

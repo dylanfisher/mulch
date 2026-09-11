@@ -31,6 +31,7 @@ import {
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   LINEAR_GEOMETRY,
+  type DriftDimension,
   type MoireRow,
 } from "@/lib/moire";
 import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
@@ -43,6 +44,7 @@ import {
   PLAYER_ROW_SHAPE,
   PLAYER_SONG_ROW_PITCH,
   PLAYER_SONG_ROW_SHAPE,
+  PLAYER_REACH,
   PLAYER_TINTS,
   playerRowStand,
   playerRowGeometry,
@@ -51,7 +53,8 @@ import {
   playerRowPitch,
   playerRowProfile,
 } from "@/lib/playerDrift";
-import { PLAYER_REPEATS_MAX } from "@/lib/playerRepeats";
+import { PLAYER_RATCHET_MAX, PLAYER_REPEATS_MAX } from "@/lib/playerRepeats";
+import { PLAYER_REST_DRAWN_MAX } from "@/lib/playerRest";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
@@ -473,8 +476,8 @@ describe("the jumps module's row", () => {
     expect(row.centre).toBe(3 / 16);
 
     // A yard with no loop and one with no source are both reading nowhere, so both rest.
-    expect(playerRowStand(8, null, duration)).toBe(null);
-    expect(playerRowStand(8, loop, 0)).toBe(null);
+    expect(playerRowStand(8, null, duration, null)).toBe(null);
+    expect(playerRowStand(8, loop, 0, null)).toBe(null);
   });
 
   // The two bounds the module's row is written against, neither of which a default spec reaches:
@@ -508,5 +511,64 @@ describe("the jumps module's row", () => {
     expect(tints.size).toBeLessThanOrEqual(PLAYER_TINTS);
     // And a tint is the badge's and nobody else's, so a part keeps it wherever it is in the list.
     expect(playerRowHue(songPart("verse", 2))).toBe(playerRowHue(songPart("verse", 64)));
+  });
+});
+
+/**
+ * Two steps differing in exactly one of the three fields the walk claims a dimension for, per field
+ * — the pairs the case below reads the reference row at (`PLAYER_REACH`, src/lib/playerDrift.ts).
+ * Each pair is the two ends of that field's own range, because a claim that only moves the picture
+ * across a dial's whole travel is a claim a hand cannot see.
+ */
+const REACHING: [DriftDimension, Partial<PlayerStep>, Partial<PlayerStep>][] = [
+  [PLAYER_REACH.rest, { rest: 0 }, { rest: PLAYER_REST_DRAWN_MAX }],
+  [PLAYER_REACH.ratchet, { ratchet: 0 }, { ratchet: PLAYER_RATCHET_MAX }],
+  // The card's own numbers against a part's: a voice is what makes the claim at all.
+  [PLAYER_REACH.voice, { voice: null }, {}],
+];
+
+/**
+ * The twelfth step of the block: a `PlayerStep` carries seven things about the landing sounding and
+ * the picture read only the bed and the place. The reference row is what is sounding (0196), so it
+ * is the row that claims them — one dimension a field, the way an effect's entry claims its knobs.
+ */
+describe("the step's own knobs", () => {
+  it("moves the reference row by every one of them, and rests where no step stands", () => {
+    const song = [songPart("verse", 2)];
+    const spec = playerSpec(song);
+    const { rows, reads } = moireRows([], [], 4, PLAIN_CUT, playerRowPeriod(spec));
+    const reference = rows.find((row) => row.reference);
+    if (reference === undefined) throw new Error("the picture has no reference row");
+    const standing = standingStep(song, songPart("verse", 2));
+    if (standing.voice === null) throw new Error("the walk stood in no part");
+    const read = (step: PlayerStep | null): Record<string, number> => {
+      const peek = emptyDeckPeek();
+      peek.player.step = step;
+      refillRows(rows, reads, peek, 1, null, 0);
+      return Object.fromEntries(Object.values(PLAYER_REACH).map((into) => [into, reference[into]]));
+    };
+    // Nothing standing: a yard playing nothing claims nothing, which is the row the picture drew
+    // before the walk reached it.
+    const resting = Object.fromEntries(
+      Object.values(PLAYER_REACH).map((into) => [into, DRIFT_REST[into]]),
+    );
+    expect(read(null)).toEqual(resting);
+    // And a plain landing draws the plain picture: a pattern nobody has ratcheted or rested, playing
+    // the card's own numbers, leaves every dimension exactly where a stopped yard leaves it. Read
+    // off a real step and not off nothing, which is the case above — the dial's own zero has to be
+    // the dimension's own rest, or merely pressing play would claim the picture.
+    expect(read({ ...standing, voice: null, part: null, ratchet: 0, rest: 0 })).toEqual(resting);
+    // Every claim in the table, and the table is the whole of it: a claim declared and never read
+    // here would be a knob the picture says it moves and does not.
+    expect(REACHING.map(([into]) => into)).toEqual(Object.values(PLAYER_REACH));
+    for (const [into, one, two] of REACHING) {
+      const was = read({ ...standing, ...one });
+      const now = read({ ...standing, ...two });
+      // The dimension that field claims moves, and every other one it does not stays put: a claim
+      // that moved two dimensions would be one knob drawn twice.
+      expect(now[into]).not.toBe(was[into]);
+      for (const other of Object.values(PLAYER_REACH))
+        if (other !== into) expect(now[other]).toBe(was[other]);
+    }
   });
 });

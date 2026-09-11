@@ -30,10 +30,14 @@ const STOOD = fractalStopsRest();
 /** And a performance that has just begun, which is where every case here reads it. */
 const FRESH = 0;
 
-/** A yard's picture, with one row of it saying the loudest thing in the picture about colour. */
+/**
+ * A yard's picture, with one row of it saying the loudest thing in the picture about colour — and
+ * never the reference row, whose colour the step sounding now claims and whose rest the per-frame
+ * read writes over a case's own claim (`PLAYER_REACH`, src/lib/playerDrift.ts, 0362).
+ */
 const claiming = (hue: number): ReturnType<typeof moireRows> => {
   const set = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
-  const loudest = set.rows[0];
+  const loudest = set.rows.find((row) => !row.reference);
   if (loudest === undefined) throw new Error("a picture drawn with no rows in it");
   loudest.hue = hue;
   return set;

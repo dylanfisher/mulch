@@ -17,6 +17,7 @@ import {
   playerRowPeriod,
   playerRowStand,
 } from "./playerDrift.ts";
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { oneSong } from "./playerSongs.ts";
 import type { PlayerSpec } from "./player.ts";
 
@@ -37,7 +38,7 @@ describe("loopStand", () => {
     // of zero inside the loop and the loop itself are the one anchor (principle 1).
     const loop = { in: 4, out: 6 };
     expect(loopStand(loop, 16)).toBe(4 / 16);
-    expect(loopStand(loop, 16)).toBe(playerRowStand(0, loop, 16)?.centre);
+    expect(loopStand(loop, 16)).toBe(playerRowStand(0, loop, 16, null)?.centre);
     expect(loopStand({ in: 0, out: 2 }, 16)).toBe(0);
   });
 
@@ -50,8 +51,27 @@ describe("loopStand", () => {
     expect(loopStand(null, 0)).toBe(null);
     // The walk's own ground still needs a loop to be standing in: a bed is a slot of a loop, and
     // there is no bed on a yard that has none.
-    expect(playerRowStand(0, null, 16)).toBe(null);
-    expect(playerRowStand(0, { in: 4, out: 6 }, 0)).toBe(null);
+    expect(playerRowStand(0, null, 16, null)).toBe(null);
+    expect(playerRowStand(0, { in: 4, out: 6 }, 0, null)).toBe(null);
+  });
+});
+
+describe("playerRowStand", () => {
+  it("anchors a zoned yard on the ground the hand left it, and not where an unzoned walk would be", () => {
+    // 0318: a zone is where the hand said the loop may stand, and every reader of a ground comes
+    // through `bedBounds` for it. Until the twelfth step of the lattice block this one did not: the
+    // picture folded the step's offset over the whole file, so a yard marked at the top of its
+    // source anchored its rows wherever the crawl would have reached without the mark.
+    const loop = { in: 0, out: 1 };
+    const unzoned = playerRowStand(PLAYER_SLOTS, loop, 16, null);
+    // One whole loop-length further in, which is where the offset lands with nothing narrowing it.
+    expect(unzoned).toEqual({ centre: 1 / 16, ground: PLAYER_SLOTS });
+    // And inside a zone that holds only the loop itself, the same offset folds back onto it: the
+    // nearest ground the hand left, which is what a zone means (0318).
+    expect(playerRowStand(PLAYER_SLOTS, loop, 16, { from: 0, to: 0 })).toEqual({
+      centre: 0,
+      ground: 0,
+    });
   });
 });
 

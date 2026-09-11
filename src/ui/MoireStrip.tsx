@@ -68,7 +68,14 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
-import { deckLanes, moireRows, paintsPerFrame, refillRows, standingAlphabet } from "@/ui/moireRows";
+import {
+  deckLanes,
+  moireRows,
+  paintsPerFrame,
+  refillRows,
+  standingAlphabet,
+  standingReversed,
+} from "@/ui/moireRows";
 import {
   carryArrivals,
   carryFractal,
@@ -294,6 +301,11 @@ function useMoireRows(
     // it, and a read rather than a rebuild: what moves it is the walk arriving at the next section,
     // which nothing durable has changed.
     set.alphabet = standingAlphabet(peek.player);
+    // And which way the lattice crawls, off the landing sounding: a step that reads its slot
+    // backwards crawls the screen backwards, so a reversed landing is visibly not a plain one
+    // (`PlayerStep.reversed`, `inkThrough`, src/ui/moireScreen.ts, 0362). Beside the hand above it
+    // and for its reason — the field's and no row's, and a read rather than anything durable.
+    set.reversed = standingReversed(peek.player);
     // And one step of the wind the standing rack blows the whole field with: how long that rack
     // takes to fall silent came back with the set, and this is where it has actually blown to
     // (`rackWind`, `windTravelInto`, src/ui/moireWind.ts, 0267). Here beside the age rather than
@@ -435,6 +447,7 @@ function useMoirePicture(
         yard,
         set.jolt.pushes,
         set.alphabet,
+        set.reversed,
       );
     },
     [refill, yard],

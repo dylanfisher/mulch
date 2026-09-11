@@ -200,6 +200,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       // which is the picture drawn before there was a song behind it (`ALPHABET_REST`,
       // src/lib/moireAlphabets.ts, 0356).
       alphabet = ALPHABET_REST,
+      reversed = false,
     }: {
       frames?: number;
       advance?: number;
@@ -216,6 +217,8 @@ export function painterOn(stubGlobal: StubGlobal) {
       yard?: YardScene;
       pushes?: readonly MoireCellPush[];
       alphabet?: AlphabetName;
+      /** Whether the landing sounding reads its slot backwards, which reverses the crawl (0362). */
+      reversed?: boolean;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -393,6 +396,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         yard,
         pushes,
         alphabet,
+        reversed,
       );
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.

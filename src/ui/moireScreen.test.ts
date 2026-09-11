@@ -200,6 +200,7 @@ function paintedOn(
     yard,
     [],
     "marks",
+    false,
   );
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).

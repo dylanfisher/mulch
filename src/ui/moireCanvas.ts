@@ -591,6 +591,10 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * the song folded onto the cast's own names (`partAlphabet`, src/lib/moireAlphabets.ts, 0356). It
  * reaches both lattices of marks, the tile's baked one through the key and the stamp's frame-side
  * one through the tiles it mints, because they are one picture in one hand.
+ *
+ * And `reversed`, whether the landing sounding reads its slot backwards (`PlayerStep.reversed`,
+ * 0362): the crawl is the one travel the lattice makes across the picture and this is which way it
+ * runs, so a reversed landing draws the lattice walking back the way it came.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -612,6 +616,7 @@ export function paintMoire(
   yard: Readonly<YardScene>,
   pushes: readonly MoireCellPush[],
   alphabet: AlphabetName,
+  reversed: boolean,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -673,6 +678,7 @@ export function paintMoire(
     looks,
     latticeFold(shape.cells),
     alphabet,
+    reversed,
   );
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the

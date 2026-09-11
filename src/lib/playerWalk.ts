@@ -41,6 +41,7 @@ import { climbRungs } from "./playerRungs.ts";
 import { drawBurst, drawRepeats, drawRest, drawRung, leanStep } from "./playerDraw.ts";
 import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
+import type { BedZone } from "./playerZone.ts";
 import { assertPlayer } from "./playerWire.ts";
 import {
   PLAYER_GATE_FLOOR,
@@ -66,6 +67,15 @@ export type PlayerStep = {
    * One author of where a pattern is, one resolver of where that lands (principle 1).
    */
   bed: number;
+  /**
+   * The stretch of the source a hand said that ground may stand in, or null where it may stand
+   * anywhere (0318). Carried beside the offset above and never derived from it: `bed` is unbounded
+   * here, so a reader folding it onto a buffer without these bounds would put the yard outside the
+   * ground the hand marked — and the one reader that cannot ask a spec is the picture, which is
+   * handed a per-frame peek and nothing else (`playerRowStand`, src/lib/playerDrift.ts). The spec's
+   * own and never the voice's, because a zone is a place and not a number a dial turns.
+   */
+  zone: BedZone | null;
   /** How many times that burst plays before the next jump — the count this step is held at. */
   repeats: number;
   /**
@@ -620,6 +630,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // armed seconds before it sounds, and every surface that draws the loop asks where it is
       // reading *now* (0157, 0180).
       bed,
+      // And the bounds that offset means anything inside, off the spec and not off the voice: the
+      // walk is the one place that holds both, so every surface reading a ground reads it zoned
+      // (0318, principle 1).
+      zone: spec.zone,
       // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
       // draw the performer cannot turn off — which is what the count was before it had a spread
       // and a chance of its own (0134, 0135). The cell's, where a hand wrote the row: the ×n on it

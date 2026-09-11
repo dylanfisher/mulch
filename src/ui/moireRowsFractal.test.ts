@@ -398,7 +398,7 @@ describe("the picture's own structure", () => {
     // And a ground standing carries both of them there — travelled and not written, like every
     // other row that rests on it: a frame of the move stands them between the two (0235).
     peek.player.step = { ...playerWalk(JUMPING)(), bed: 3 };
-    const stood = playerRowStand(3, loop, secs)?.centre;
+    const stood = playerRowStand(3, loop, secs, null)?.centre;
     expect(stood).not.toBe(rest);
     const ground = stood ?? 0;
     // A sliver of the travel: the ground is a few sixteenths of a short loop from the in-point.

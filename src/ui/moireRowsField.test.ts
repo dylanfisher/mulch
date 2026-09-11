@@ -345,7 +345,7 @@ describe("the picture's own field", () => {
     expect(gratingTurns(field)).not.toBe(gratingTurns({ ...field, shape: wash }));
     // And anchored where in the source the yard is actually reading, through the one function the
     // module's own row is anchored by (0185, principle 1).
-    expect(reference.centre).toBe(playerRowStand(3, loop, secs)?.centre);
+    expect(reference.centre).toBe(playerRowStand(3, loop, secs, null)?.centre);
     expect(field.centre).toBe(reference.centre);
     expect(reference.centre).not.toBe(DRIFT_REST.centre);
   });
@@ -373,12 +373,12 @@ describe("the picture's own field", () => {
     // Standing on the loop itself, arrived: this is where the picture is jumped *from*.
     peek.player.step = standingOn(0);
     refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
-    const from = playerRowStand(0, loop, secs)?.centre ?? -1;
+    const from = playerRowStand(0, loop, secs, null)?.centre ?? -1;
     expect(reference.centre).toBe(from);
 
     // And a jump three quarters of the way across the file, read one frame at a time.
     const bed = 48;
-    const to = playerRowStand(bed, loop, secs)?.centre ?? -1;
+    const to = playerRowStand(bed, loop, secs, null)?.centre ?? -1;
     expect(to).toBeGreaterThan(from);
     peek.player.step = standingOn(bed);
     const frame = 0.05;
@@ -424,7 +424,7 @@ describe("the picture's own field", () => {
     refillRows(was.rows, was.reads, peek, 1, loop, secs, null, SILENT_MASTER, 0.05);
     const halfway = rowAt(was.rows, -3).centre;
     expect(halfway).toBeGreaterThan(DRIFT_REST.centre - 1);
-    expect(halfway).not.toBe(playerRowStand(48, loop, secs)?.centre);
+    expect(halfway).not.toBe(playerRowStand(48, loop, secs, null)?.centre);
 
     // The rebuilt set stands where the old one had got to, on every row the ground moves — and not
     // where a fresh row is built, which is the middle of the picture.
@@ -470,7 +470,7 @@ describe("the picture's own field", () => {
     peek.position = 0;
     refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(`${reference.shape} ${reference.centre} ${field.shape} ${field.centre}`).not.toBe(was);
-    expect(reference.centre).not.toBe(playerRowStand(3, loop, secs)?.centre);
+    expect(reference.centre).not.toBe(playerRowStand(3, loop, secs, null)?.centre);
     // Nothing of it is stored: the same ground reached again is the field it was.
     peek.player.step = standingOn(3);
     refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);

@@ -286,6 +286,12 @@ function cutThrough(
  * `wind` is how far the standing rack's own tail has blown the whole field, in turns of one cell of
  * the grid (0267). The one term here that does not come back: every other motion of the screen is a
  * cycle of a row's own phase, and this is a reading of the population running one way.
+ *
+ * `reversed` is whether the landing sounding reads its slot backwards (`PlayerStep.reversed`,
+ * 0362): the crawl is the one travel the lattice makes across the picture, so a landing read
+ * backwards draws it walking back the way it came. It turns the crawl alone and neither the wind
+ * nor the sides — those are the rack's own tail and the output's two channels, and neither of them
+ * is being played backwards.
  */
 export function inkThrough(
   canvas: HTMLCanvasElement,
@@ -299,6 +305,7 @@ export function inkThrough(
   looks: readonly MoireLook[],
   fold: number,
   alphabet: AlphabetName,
+  reversed: boolean,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -365,8 +372,13 @@ export function inkThrough(
   // rather than through it: the cells are already whole, so the lattice still lands where 0346 says
   // and the step is the reading's own (`leanCells`). Like the wind it is a term on the transform and
   // touches no key, so a mix panned all day bakes nothing (0129).
+  // And which way that crawl runs: a landing reading its slot backwards runs it the other way,
+  // taken on the term alone and inside the rounding, so the lattice still lands on whole cells
+  // (0346) and the wind and the sides go on saying what they said (0362).
   rolled.e =
-    (Math.round(((termTurns(rows, "crawl") + wind) * drawn.width) / pitch) - sides) * pitch;
+    (Math.round((((reversed ? -1 : 1) * termTurns(rows, "crawl") + wind) * drawn.width) / pitch) -
+      sides) *
+    pitch;
   turnedScale(
     rolled,
     1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0362; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0363; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -414,8 +414,8 @@ test that the unreached list is shorter.
 **Step 9 — the row dimensions nobody claims (bench-36, 0359).** _Durable shape moved:_ none. `chirp` is
 drawn on every row at rest and claimed by no `driftFrom`; `lens` and `octaves` are claimed once.
 The panner's three stage toggles reach the stagger look as `count` (band), `spacing` (time) and
-`size` (slice); `comp.output` reaches the squash as `lift`; and `chirp` is claimed by the walk's
-`rates` in step 12. `STAGE_UNREACHED` in src/audio/effects/panner.ts empties and the registry's
+`size` (slice); `comp.output` reaches the squash as `lift`; and `chirp` was to be claimed by the walk's
+`rates` in step 12, which refused it on the budget and left it unclaimed (0362, §4). `STAGE_UNREACHED` in src/audio/effects/panner.ts empties and the registry's
 unreached lists are tested to hold only what a step in this block names. **Stands on:**
 `effectReach`, `rackLooks`, `staggerLook`, `squashLook`. **Outcome wanted:** turning any knob on a
 panner or a compressor moves the picture. **Tests that must fail first:** every `PARAMS` key of
@@ -505,7 +505,7 @@ lean.
 
 **Every facet of playback reaches the lattice (steps 12–14).**
 
-**Step 12 — the step's own knobs (bench-39).** _Durable shape moved:_ none. A `PlayerStep`
+**Step 12 — the step's own knobs (bench-39, 0362).** _Durable shape moved:_ none. A `PlayerStep`
 carries repeats, burst, rest, rates, ratchet, reversed and voice, and the picture reads only the
 bed and the place. The reference row (what is sounding, 0196) claims them the way an effect claims
 its knobs, in a `playerReach` table in src/lib/playerDrift.ts: `repeats` → `octaves`, `rest` →
@@ -517,6 +517,30 @@ step is visibly not a plain one. **Tests that must fail first:** two steps diffe
 the six produce different reference rows; a reversed step crawls the other way; a zoned yard's
 stand differs from an unzoned one. **Refused:** a row per knob; a claim on any row but the
 reference.
+
+**It landed as [0362](decisions/0362-the-step-sounding-claims-the-reference-row.md)**, and the
+outcome is met: a ratcheting, reversed step draws a reference row with its channels spread either
+side of its spacing, cut shallower by its wait and in the tint of the voice standing — and the
+lattice crawling the other way underneath it. **Three of the five named claims landed and two were
+refused on the budget**: `rest` → `depth`, `ratchet` → `fringe` and `voice` → `hue` are one table,
+`PLAYER_REACH` in src/lib/playerDrift.ts, spent through itself by `playerReachInto` so a claim
+declared and never read cannot exist; `repeats` → `octaves` and `rates` → `chirp` each put a
+picture-sized cost on the frame, and §4 holds both prices. Every claim's zero is its dimension's own
+rest, so a plain landing draws the plain picture — the review caught the ratchet's, which would have
+flattened the whole screen for as long as any unratcheted pattern played. The three rest when no step
+stands, and that is a write rather than an omission:
+left alone the picture would hold the last landing's claim after the walk stopped. `reversed`
+reaches no row at all — it is which way the screen's lattice crawls, negated inside the rounding so
+the lattice still lands on whole cells (0346) and composing with step 11's lean rather than
+replacing it, since the wind is the rack's tail and the sides are the output's channels and neither
+is being played backwards. And `playerRowStand` is zoned: the zone rides on the `PlayerStep` beside
+the bed it bounds, off the spec and never off the voice, which is one object carrying both halves of
+one question rather than a nineteenth parameter threaded down the per-frame read. No frame cost in
+what landed: three writes onto a row the walk already visits, one sign on a term of the transform,
+no term reaching a tile key and the bake count untouched (0353, 0354). Six things went one way and
+are in §4: the two refused claims and their prices, how the hue's claim is folded, what the screen's
+own test file cost, the fixture the new rest write broke, and the one input at which the reversed
+crawl is a cell short of its mirror. The gate's `drive` step was green on this run.
 
 **Step 13 — sparks and the armed part (bench-40).** _Durable shape moved:_ none.
 `player.sparkPositions` reaches only the waveform and `player.armed` only the grid. A spark is a
@@ -533,7 +557,8 @@ a spark that rebakes; more than one column for the armed part.
 ground moves (`bedGround`, travelled by `easedCentre`) and the screen's crawl (`inkThrough`, off
 the wind) are two motions with one name. The crawl takes the ground's travel: when the ground
 moves a bed the lattice steps that many whole cells and the wind only leans it. **Stands on:**
-`playerGroundSecs`, `groundTravel`, the crawl's cell rounding. **Outcome wanted:** a ground move is
+`playerGroundSecs`, `groundTravel`, the crawl's cell rounding, and the sign a reversed landing puts
+on it (0362), which the ground's step composes with rather than replaces. **Outcome wanted:** a ground move is
 the lattice stepping, visibly, once. **Tests that must fail first:** a fixture ground move of one
 bed steps the crawl by one cell over `PLAYER_GROUND_TRAVEL` and the wind alone steps nothing.
 **Refused:** a third clock.
@@ -697,6 +722,56 @@ the left — the overhang reads as nothing either way, which is what a part cell
 **src/ui/moireScreen.test.ts stands at 788 of its 800 lines (0361).** This step put 34 of them there.
 The next step that adds a case to the screen's own file should split it first, the way 0360 left the
 same note against src/lib/copyDriftGroups.ts.
+
+**Step 12 wrote its screen case into a file of its own rather than splitting the screen's (0362).**
+The crawl's reversal is one case and the file above had twelve lines left, so it went to
+src/ui/moireScreenCrawl.test.ts through the shared painting harness
+(`painterOn`, src/ui/moireCanvasPainted.ts), which is the road 0356's alphabet case already took.
+The split that note asks for is still owed, and src/ui/moireCanvas.test.ts stands at 800 of 800
+beside it — the next step that adds a line to either pays for it.
+
+**`repeats` → `octaves` was refused: the budget for extra fills is decided once, where the set is
+built (0362).** `spreadOctaves` puts a floor under every straight row and `shareOctaves` is the last
+word on what the whole set can afford (0230, 0244), both called where the set is built and never per
+frame. A per-frame write of `octaves` on the reference row is a second opinion about that row and an
+escape from that budget at once: a count at the top of its dial asks for two more picture-sized
+fills a frame than the set was allowed, and a count of one erases the floor the run earned. The
+count is not unreached — it is half of the landing the module's own row runs on (`landingSecs`). A
+later step that wants it drawn as scales should ask for it where the set is built, off the spec's
+own dial, so `shareOctaves` still has the last word; the per-landing override a cell or a part makes
+would not follow it there, and that is the trade.
+
+**`rates` → `chirp` was refused: a swept reference row is a picture-wide bake on the frame path
+(0362).** `chirp > 0` takes a straight row off the shared sixty-four-pixel tile and onto one as wide
+as the picture, keyed by the cycles its spacing comes to (`cutStraight`, src/ui/moireCanvas.ts, 0142) — and the reference row's spacing is rewritten every frame off the onsets under a moving
+playhead (0196), so the key moves on the frame path and every move is a picture-wide per-pixel loop.
+Step 9 reserved `chirp` for this and it is unclaimed again; the measurement was wrong too, which is
+how the refusal was found — reading the first rate against the last makes the fullest climb the
+module can play (`climbRungs` turns round at the window's edge, 0167) claim exactly nothing. What a
+climb is worth to the picture is checkpoint C's to price, with the whole ladder read rather than its
+ends.
+
+**At a crawl of exactly half a cell the reversed lattice stands one cell short of its mirror
+(0362).** The sign is taken inside the whole-cell rounding so the lattice still lands where 0346
+says, and `Math.round` is half-up: 0.5 rounds to 1 and −0.5 rounds to −0. Every other input mirrors
+to the digit. Making it exact means either rounding the crawl separately from the wind, which is a
+change to how 0267 composes them, or a symmetric round that moves where a negative wind lands — both
+outside what this step was asked for, for one input the eye cannot tell from its neighbours.
+
+**The reference row's hue is folded off the standing part's badge and not off the voice itself
+(0362).** The step's words claim `voice` for `hue`, and a voice is a set of dial values with no
+identity of its own: folded off those numbers the tint would move whenever any dial of the part
+moved, which is a colour saying something the four stops were coarsened to avoid (0141). So the
+voice is what takes the row off rest and the badge is what tells two of them apart, on the same
+`playerTint` the module's own row uses. A part standing therefore tints two rows the same, which is
+one fact drawn twice at two spacings; nothing in the picture disagrees, and the alternative was a
+second colour ladder.
+
+**A case that claimed a colour on the reference row had to move to another row (0362).** The five
+claims rest every frame, so src/ui/moireRowsInk.test.ts's `claiming` helper — which wrote a hue onto
+`rows[0]` to give the ink something to travel toward — was writing onto the one row the walk now
+answers for. It takes the first row that is not the reference instead. Nothing in production wrote
+that row's colour, so the fixture was the whole of the collision.
 
 **A pan is read from the two peaks, so it is the output's weight and not the panner's knob (0361).**
 `MasterPeek.left` and `right` are instantaneous peaks measured where the decks land, so what the

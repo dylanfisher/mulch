@@ -22,6 +22,7 @@ const SLOT_SECS = 1 / 16;
 const landing = (fields: Partial<PlayerStep> = {}): PlayerStep => ({
   slot: 0,
   bed: 0,
+  zone: null,
   repeats: 1,
   burst: 0.1,
   rest: 0,

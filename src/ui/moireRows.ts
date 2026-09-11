@@ -88,6 +88,7 @@ import {
 import {
   loopStand,
   playerGroundSecs,
+  playerReachInto,
   playerRow,
   playerRowStand,
   playerTierInto,
@@ -208,6 +209,17 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
  */
 export const standingAlphabet = (player: Readonly<PlayerPeek>): AlphabetName =>
   partAlphabet(player.step?.part ?? null);
+
+/**
+ * And which way the picture's lattice crawls while it stands: backwards under a landing that reads
+ * its slot backwards, forwards under every other and under no landing at all (`PlayerStep.reversed`,
+ * `inkThrough`, src/ui/moireScreen.ts, 0362). Beside the alphabet above and read the same way —
+ * the field's and no row's, off the step the read already has in hand, and its own function rather
+ * than a line in the surface that spends it, so what the picture makes of a landing's direction is
+ * stated where every other reading of the walk is.
+ */
+export const standingReversed = (player: Readonly<PlayerPeek>): boolean =>
+  player.step?.reversed ?? false;
 
 /**
  * How long this picture takes to travel a whole ground move, in real seconds — and nought on a
@@ -416,6 +428,9 @@ export function moireRows(
     shape: shapeRest(),
     // And the hand it is written in, at its own rest until the read says which part stands.
     alphabet: ALPHABET_REST,
+    // And which way the lattice crawls, forwards until the read says a landing reads its slot
+    // backwards (0362).
+    reversed: false,
     ...macro,
   };
 }
@@ -516,7 +531,8 @@ export function refillRows(
   // both halves of it, because a second call for the other half is the same fold paid twice. Where
   // the walk is standing beside it, for the same reason: a tier row resolving the standing part for
   // itself would walk the arrangement three times a painting.
-  const stand = playerRowStand(peek.player.step?.bed ?? null, loop, duration);
+  const step = peek.player.step;
+  const stand = playerRowStand(step?.bed ?? null, loop, duration, step?.zone ?? null);
   // And a yard jumping nowhere stands on its loop, which is a place it really is reading: a hand
   // moving the loop across the file is a ground move like a jump is, and the field travels to it
   // (`loopStand`, 0274) — and a yard with no loop stands on the whole file, which is the loop it
@@ -611,6 +627,12 @@ export function refillRows(
     if (read.heard !== null) {
       row.pitch = agedPitch(heardPitch(analysis, duration, peek.position, read.heard), age);
       row.pulse = Math.max(jolt.at, heardPulse(peek.meter));
+      // And what the step actually sounding claims of it: the count it is held at, the wait after
+      // it, how far its rate ladder climbs, its ratchet and the voice it is drawn from, each on one
+      // dimension the stretch under the playhead does not already spend (`PLAYER_REACH`,
+      // src/lib/playerDrift.ts). The reference row is what is sounding, and a step is the whole of
+      // what is sounding — so a ratcheting step is visibly not a plain one (0196).
+      playerReachInto(row, step);
       // And anchored where in the source the yard is reading, the way the module's row is: two
       // combs of one pitch measured from two places differ by where their crests fall, so a ground
       // move stands the axis somewhere new against every row fanned off it (P161, 0185).

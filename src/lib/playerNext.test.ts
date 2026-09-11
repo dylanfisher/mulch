@@ -27,6 +27,7 @@ const SONGS: readonly PlayerSong[] = [
 const standing = (song: string, id: string, songPlay = 0): PlayerStep => ({
   slot: 0,
   bed: 0,
+  zone: null,
   repeats: 1,
   burst: 0.1,
   rest: 0,

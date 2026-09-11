@@ -328,6 +328,15 @@ export type MoireRowSet = {
    * picture drawn before there was a song behind it.
    */
   alphabet: AlphabetName;
+  /**
+   * And which way the picture's lattice crawls across it: forwards, or backwards where the landing
+   * sounding reads its slot that way (`PlayerStep.reversed`, 0362). The field's and no row's, like
+   * the alphabet above it — there is one lattice and it crawls one way — and a per-frame read for
+   * the alphabet's reason: what moves it is the walk arriving at the next landing, which nothing
+   * durable has changed. Forwards until a read has filled it, which is the picture drawn before a
+   * landing could be reversed.
+   */
+  reversed: boolean;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -452,6 +461,7 @@ export function macroInto(
   | "shaping"
   | "tint"
   | "alphabet"
+  | "reversed"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
