@@ -142,7 +142,7 @@ record the decision, and finish.
    replaced on evidence, or landed with a known cost goes to `plan.md` §4 "Not taken" as one
    paragraph. If the step's decision constrains future changes, write it in
    `docs/decisions/`. The plan is updated before the review pass begins.
-5. With the gate passing, spawn up to 4 read-only Opus subagents in the working tree — no
+5. With the gate passing, spawn up to 3 read-only Opus subagents in the working tree — no
    separate worktree — one per lens. For a simple task such as a rename, 1 is enough; if
    you run fewer than four, say which lenses you combined and why.
 6. Re-run `./scripts/fix` and `./scripts/check` after the review fixes. The gate must pass
