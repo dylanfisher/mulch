@@ -93,9 +93,11 @@ export type LookTerms = Readonly<Partial<Record<LookTerm, number>>>;
 /**
  * How a term is read off the parameter an entry maps into it. A `turn` is where the knob stands on
  * its own declared range, which is what every reading of the picture is stated in; a `value` is the
- * parameter's own units, which the wander needs because it is a speed and nothing else in the
- * picture counts cycles a second. Declared here rather than guessed at the reading, so no code
- * outside this file knows which is which.
+ * parameter's own units, which a term needs when its meaning sits at a particular number rather
+ * than at a place on a knob — the wander's cycles a second, the double's unison, and the squash's
+ * unity gain, none of which a turn can name because a declaration's range may move under it.
+ * Declared here rather than guessed at the reading, so no code outside this file knows which is
+ * which.
  */
 export type LookRead = "turn" | "value";
 

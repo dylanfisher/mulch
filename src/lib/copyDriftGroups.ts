@@ -456,6 +456,12 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         label: "Squash floor",
         hint: "The most of the field's range a compressor's floor ever comes up by.",
       },
+      {
+        id: "look.squashLift",
+        wild: "max",
+        label: "Squash lift",
+        hint: "The most of the field's range a compressor's makeup carries the squash back up by.",
+      },
     ],
   },
   {
@@ -509,6 +515,18 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         wild: "max",
         label: "Grain sweep",
         hint: "How fast the grain is swept across the picture, in its own pixels a second.",
+      },
+      {
+        id: "look.staggerLag",
+        wild: "max",
+        label: "Stagger lag",
+        hint: "How far down the field a band is read from while a panner's Time stage stands.",
+      },
+      {
+        id: "look.staggerSlice",
+        wild: "max",
+        label: "Stagger slice",
+        hint: "How much of its width a band gives up while a panner's Slice stage stands.",
       },
     ],
   },

@@ -26,7 +26,14 @@ import {
 } from "@/lib/moireBand";
 import { DOUBLE_CEILING, DOUBLE_ZOOM, doubleAmount, doubleZoom } from "@/lib/moireDouble";
 import { weighed } from "@/lib/moireWeigh";
-import { SQUASH_FLOOR, SQUASH_TOP, squashCeiling, squashFloor } from "@/lib/moireSquash";
+import {
+  SQUASH_FLOOR,
+  SQUASH_LIFT,
+  SQUASH_TOP,
+  squashCeiling,
+  squashFloor,
+  squashLift,
+} from "@/lib/moireSquash";
 import {
   ECHO_CAP,
   ECHO_CEILING,
@@ -63,6 +70,7 @@ import {
   LOOK_TERMS,
   LOOKS,
   RESERVED_LOOKS,
+  type LookTerms,
 } from "@/lib/moireLook";
 import { SHATTER_BANDS, shatterBands, SHATTER_CEILING, shatterPieces } from "@/lib/moireGeometry";
 import { clamp, normalize } from "@/lib/range";
@@ -506,7 +514,7 @@ describe("what a look is", () => {
   // P288: compressor's, and the eighth look to take a slot in the chain (0288).
   it("closes the field's range up between a floor and a ceiling, the floor always the lower", () => {
     expect(LOOKS.squash.at).toBe("pass");
-    expect(LOOKS.squash.terms).toEqual({ floor: "turn", ceiling: "turn" });
+    expect(LOOKS.squash.terms).toEqual({ floor: "turn", ceiling: "turn", lift: "value" });
     // The floor is a share weighed under a ceiling of its own, because the term is the Ratio's own
     // turn and one to one is no compression at all; the ceiling's band is stated open end last,
     // because the term is the Threshold's and a threshold nothing reaches is a wire. Neither reaches
@@ -545,6 +553,36 @@ describe("what a look is", () => {
     expect(standing).toBeGreaterThan(0);
     expect(standing).toBeLessThan(SQUASH_FLOOR.value);
     expect(squashCeiling(ratioHeard(4), thresholdTurn(-24))).toBeLessThan(1);
+  });
+
+  // P356 step 9: and the Makeup carries the pair back up the field (0359) — the third term, and the
+  // reason the compressor no longer writes a value off as reaching nowhere.
+  it("carries the squashed range back up by the makeup, and by nothing at unity", () => {
+    // Read as the gain itself and not as a turn, so unity puts nothing back whatever range the knob
+    // is declared over, and four times — two doublings — is the whole of the lift.
+    expect(squashLift(1, 1)).toBe(0);
+    expect(squashLift(1, 0)).toBe(0);
+    expect(squashLift(1, 2)).toBeGreaterThan(0);
+    expect(squashLift(1, 2)).toBeLessThan(squashLift(1, 4));
+    expect(squashLift(1, 4)).toBeCloseTo(SQUASH_LIFT.value, 12);
+    // And it is weighed by the presence like every other share here: a compressor the picture has
+    // not travelled to yet puts nothing back, because it has taken nothing off.
+    expect(squashLift(0, 4)).toBe(0);
+    // **And it moves the picture where the ceiling has no room left**, which is the threshold at the
+    // top of its own knob: nothing is over it, the ceiling stands at the field's whole range, and a
+    // makeup that stopped there would be a knob the picture does not answer. What it does instead is
+    // go on lifting the floor — the deepest ink pushed up into the windows.
+    const shut = { floor: ratioTurn(4), ceiling: thresholdTurn(0) };
+    expect(squashCeiling(1, thresholdTurn(0))).toBe(1);
+    expect(squashFilled({ ...shut, lift: 4 })).toBeGreaterThan(squashFilled({ ...shut, lift: 1 }));
+    // The floor stays under the ceiling and under one at every setting of the three, which is what
+    // keeps the pass's own share a share.
+    for (const lift of [1, 2, 4]) {
+      for (const ceiling of [0, 0.5, 1]) {
+        const filled = squashFilled({ floor: 1, ceiling, lift });
+        expect({ lift, ceiling, under: filled < 1 }).toEqual({ lift, ceiling, under: true });
+      }
+    }
   });
 
   // P289: shift's, and the ninth look to take a slot in the chain (0289).
@@ -642,3 +680,29 @@ describe("what a look is", () => {
     expect(shatterPieces(1, 1)).toBe(1);
   });
 });
+
+/**
+ * The alpha the squash lays its floor with, at one set of terms and at the whole of its presence:
+ * the pass's own `fillRect`, which is where the floor and so the makeup's lift actually land. A
+ * surface that records the one thing this case asks of it and nothing else — the pass draws the
+ * field and fills once (0288), so a floor of nought is a pass that took the early return and filled
+ * at no alpha at all.
+ */
+function squashFilled(terms: LookTerms): number {
+  const squash = LOOKS.squash;
+  if (squash.at !== "pass") throw new Error("the squash is a pass");
+  let filled = 0;
+  const into = {
+    globalCompositeOperation: "source-over",
+    globalAlpha: 1,
+    drawImage: () => {},
+    fillRect: function fillRect(this: { globalAlpha: number }) {
+      filled = this.globalAlpha;
+    },
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the pass draws the field and fills once
+  const ctx = into as unknown as CanvasRenderingContext2D;
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the pass reads width and height only
+  squash.pass(ctx, { width: 8, height: 8 } as unknown as HTMLCanvasElement, 1, terms, 0, 0, 1);
+  return filled;
+}

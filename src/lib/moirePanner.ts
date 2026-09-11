@@ -11,6 +11,7 @@
 import type { Look, LookPass } from "@/lib/moireLook";
 import { clamp, denormalize } from "@/lib/range";
 import { tunable } from "@/lib/moireTuning";
+import { weighed } from "@/lib/moireWeigh";
 
 /**
  * How many bands the field is taken apart in. The sound's own crossover is three ways and its
@@ -20,6 +21,26 @@ import { tunable } from "@/lib/moireTuning";
  * a comb rather than a sound taken apart.
  */
 export const STAGGER_BANDS = 6;
+
+/**
+ * How many more the field is taken apart in while the Band stage is standing. The stage is a
+ * crossover and its crossover is three ways, so what a standing one adds to the picture is its own
+ * three: nine bands rather than six is visibly more pieces and still short of the dozen the count
+ * above refuses, which would read as a comb rather than as a sound taken apart (0359).
+ */
+export const STAGGER_SPLIT = 3;
+
+/**
+ * Whether a stage is standing, read off the toggle's own turn. The three toggles are stepped by one
+ * and two values wide (src/audio/effects/panner.ts), so what arrives here is nought or one and the
+ * round is what says the picture reads a choice as a choice: none of the three is an amount, which
+ * is why none of them reaches a dimension of a row (0148, 0359).
+ */
+const standing = (turn: number): number => Math.round(clamp(turn, 0, 1));
+
+/** How many bands the field is taken apart in, with the Band stage standing or not. */
+export const staggerBands = (count: number): number =>
+  STAGGER_BANDS + standing(count) * STAGGER_SPLIT;
 
 /**
  * How far the outermost band slides from where it stood, as a share of the field's width. In shares
@@ -67,13 +88,53 @@ export const staggerCentre = (position: number): number =>
  * Symmetric about the middle, so a spread of nothing leaves every band where it was and the whole
  * of the move is the position.
  */
-export const staggerAlong = (band: number): number => (band / (STAGGER_BANDS - 1)) * 2 - 1;
+export const staggerAlong = (band: number, bands: number): number => (band / (bands - 1)) * 2 - 1;
 
 /**
- * The stagger, drawn: the field taken in `STAGGER_BANDS` bands down the picture, each slid its own
+ * How far the field a band is read from is drawn in toward the middle of the picture while the Time
+ * stage is standing, as a share — the one term that is a distance down the picture rather than
+ * across it, which is what the stage is: the two sides of the sound no longer arriving together. A
+ * share and not a count of pixels, for `STAGGER_SHIFT`'s reason, and well short of the whole: a
+ * field read entirely from its own middle is one band repeated down the picture.
+ */
+export const STAGGER_LAG = tunable("look.staggerLag", 0.12, { min: 0, max: 0.4, step: 0.01 });
+
+export const staggerLag = (presence: number, spacing: number): number =>
+  weighed(presence, standing(spacing), STAGGER_LAG.value);
+
+/**
+ * Which row of the field one band is read from: its own top, drawn toward the middle of the picture
+ * by the lag. **Stated as a squeeze toward the middle rather than as an offset down the field,
+ * because an offset cannot move the two end bands at all** — the top band has nothing above it and
+ * the bottom band nothing below, so a clamped offset lags the four in between and leaves the two
+ * the spread throws furthest standing exactly where they were. A squeeze moves every band but the
+ * one at the middle, moves the ends the most, and needs no clamp: it is a point inside a span
+ * scaled about that span's own centre, so it cannot leave the field.
+ */
+export const staggerRead = (top: number, deep: number, height: number, lag: number): number => {
+  const middle = (height - deep) / 2;
+  return middle + (top - middle) * (1 - clamp(lag, 0, 1));
+};
+
+/**
+ * How much of its own width a band gives up while the Slice stage is standing, as a share: the band
+ * is read from a slice of the field and drawn over the whole of its width, and successive bands
+ * take the slice from opposite edges — which is what a slicer does to a sound, landing successive
+ * slices in different places. Bounded well under the whole width, because a slice of nothing blown
+ * up over a band is one column of the picture and not a picture.
+ */
+export const STAGGER_SLICE = tunable("look.staggerSlice", 0.3, { min: 0, max: 0.7, step: 0.01 });
+
+export const staggerTake = (presence: number, size: number): number =>
+  weighed(presence, standing(size), STAGGER_SLICE.value);
+
+/**
+ * The stagger, drawn: the field taken in `staggerBands` bands down the picture, each slid its own
  * distance across — the whole of them by the position, and each further from the last by the
- * spread. Draws of what is already drawn, no fill over the picture and no pixel touched (0129,
- * 0269).
+ * spread — and each read from where its own stages say, which is the lag down the field and the
+ * slice across it. Draws of what is already drawn, no fill over the picture and no pixel touched
+ * (0129, 0269), and **the same two draws a band whatever the three stages say**: a stage moves
+ * where a band is read from and never how many times it is drawn (0359).
  *
  * **Each band is drawn twice, a width apart, for the wobble's reason** (`wobblePass`,
  * src/lib/moireLook.ts): the column a slide leaves behind is covered by the copy on the far side of
@@ -87,6 +148,10 @@ const staggerPass: LookPass = (into, source, presence, terms) => {
   const { width, height } = source;
   const spread = staggerSpread(presence, terms.spread ?? 0);
   const centre = staggerCentre(terms.position ?? 0.5);
+  const bands = staggerBands(terms.count ?? 0);
+  const lag = staggerLag(presence, terms.spacing ?? 0);
+  const take = staggerTake(presence, terms.size ?? 0);
+  const slice = Math.max(1, Math.round(width * (1 - take)));
   // A panner at no spread, and one the picture has not travelled to yet, are both the field where
   // it stands — and this is the one draw that says so. The position goes with it: where a sound
   // sits is a place and not an amount, so a panner nothing has arrived at is not standing anywhere
@@ -95,14 +160,30 @@ const staggerPass: LookPass = (into, source, presence, terms) => {
     into.drawImage(source, 0, 0);
     return;
   }
-  for (let band = 0; band < STAGGER_BANDS; band++) {
-    const top = Math.floor((band * height) / STAGGER_BANDS);
-    const deep = Math.floor(((band + 1) * height) / STAGGER_BANDS) - top;
+  for (let band = 0; band < bands; band++) {
+    const top = Math.floor((band * height) / bands);
+    const deep = Math.floor(((band + 1) * height) / bands) - top;
     if (deep <= 0) continue;
-    const slid = Math.round((centre + spread * staggerAlong(band)) * width);
-    into.drawImage(source, 0, top, width, deep, slid, top, width, deep);
+    const along = staggerAlong(band, bands);
+    // Where the band is read from: drawn toward the middle of the field by its own lag, which moves
+    // every band but the middle one and cannot leave the picture; and from one edge of the width or
+    // the other by its place in the order, so successive bands take opposite slices.
+    const read = staggerRead(top, deep, height, lag);
+    const from = band % 2 === 0 ? 0 : width - slice;
+    const slid = Math.round((centre + spread * along) * width);
+    into.drawImage(source, from, read, slice, deep, slid, top, width, deep);
     if (slid !== 0) {
-      into.drawImage(source, 0, top, width, deep, slid - Math.sign(slid) * width, top, width, deep);
+      into.drawImage(
+        source,
+        from,
+        read,
+        slice,
+        deep,
+        slid - Math.sign(slid) * width,
+        top,
+        width,
+        deep,
+      );
     }
   }
 };
@@ -112,9 +193,15 @@ const staggerPass: LookPass = (into, source, presence, terms) => {
  * the spread, at the position. What a panner does to a sound is take it apart and put the pieces in
  * different places, and this is that said at a glance's size — the field no longer standing in one
  * piece, leaning further the harder the spread is pushed (0323).
+ *
+ * **And its three stages, which are the picture of what the sound is taken apart *by*** (0359): the
+ * Band split is how many pieces there are (`count`), the Time offset is how far down the field a
+ * piece is read from (`spacing`), and the Slicer is how much of the width each piece is taken from
+ * (`size`). None of the three is an amount, so none of them reaches a dimension of a row — a look
+ * is where a choice lands, as the eq's shape already is (0148, 0322).
  */
 export const staggerLook: Look = {
   at: "pass",
-  terms: { spread: "turn", position: "turn" },
+  terms: { spread: "turn", position: "turn", count: "turn", spacing: "turn", size: "turn" },
   pass: staggerPass,
 };

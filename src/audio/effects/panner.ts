@@ -123,12 +123,6 @@ const STAGE_IDS = stageParams.map((param) => param.id);
 const isMoveParam = (param: PannerParamId): param is MoveParamId =>
   !(STAGE_IDS as readonly string[]).includes(param);
 
-/**
- * Why none of the three toggles reaches a dimension of a row — one sentence, because it is one
- * reason said of three knobs rather than three reasons that happen to read alike (principle 1).
- */
-const STAGE_UNREACHED = "a stage is standing or it is not, and a row's dimensions are amounts";
-
 /** Whether a toggle's value, whatever a command or a run handed it, is asking for the stage. */
 const toggled = (value: number): boolean => Math.round(value) >= 1;
 
@@ -181,16 +175,21 @@ export const pannerEffect = defineEffect({
   ],
   // And the three toggles reach no dimension of a row, for the EQ shape's reason (0148, 0322): a row
   // is a grating and every dimension it has is a quantity, and which stages are standing is three
-  // choices. What they do to the sound is how far apart its pieces end up, which is the spread's own
-  // dimension above — a second road into it would be principle 1.
-  driftUnreached: stageParams.map(({ id }) => ({ param: id, because: STAGE_UNREACHED })),
+  // choices. They are not written off for it: a choice lands in the look, where the eq's shape
+  // already lands, so all three are below and none of them is unreached (0359).
+  //
   // The picture's own rows displaced across the field in bands, by the spread, at the position: the
   // field no longer standing in one piece, which is what a panner does to a sound said at a glance's
-  // size (0323).
+  // size (0323). And each stage is the picture of what the field is taken apart *by* — the band
+  // split is how many pieces there are, the time offset is how far down the field a piece is read
+  // from, and the slicer is how much of the width each piece is taken from.
   look: "stagger",
   lookFrom: [
     { param: "panner.spread", into: "spread" },
     { param: "panner.position", into: "position" },
+    { param: "panner.band", into: "count" },
+    { param: "panner.time", into: "spacing" },
+    { param: "panner.slice", into: "size" },
   ],
   // The longest thing in the graph is the time stage's own offset, and there is no feedback anywhere
   // to ring past it: the two sides stand at most a base and a spread apart, and a filter's memory is

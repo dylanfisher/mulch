@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0359; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0360; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -411,7 +411,7 @@ unmeasured.
 reach; today twenty-one parameters declare none. Each step below is one table of claims and one
 test that the unreached list is shorter.
 
-**Step 9 — the row dimensions nobody claims (bench-36).** _Durable shape moved:_ none. `chirp` is
+**Step 9 — the row dimensions nobody claims (bench-36, 0359).** _Durable shape moved:_ none. `chirp` is
 drawn on every row at rest and claimed by no `driftFrom`; `lens` and `octaves` are claimed once.
 The panner's three stage toggles reach the stagger look as `count` (band), `spacing` (time) and
 `size` (slice); `comp.output` reaches the squash as `lift`; and `chirp` is claimed by the walk's
@@ -421,6 +421,25 @@ unreached lists are tested to hold only what a step in this block names. **Stand
 panner or a compressor moves the picture. **Tests that must fail first:** every `PARAMS` key of
 those two entries is in a `driftFrom` or a `lookFrom`. **Refused:** a claim that duplicates
 another param's dimension on the same row.
+
+**It landed as [0359](decisions/0359-a-value-reaches-the-picture-through-a-row-or-a-look.md)**, and
+the outcome is met for both entries: every knob on a panner and on a compressor now moves the
+picture. What the step actually had to move was 0148's own rule — a row's dimensions are all
+quantities, so a knob that is a choice could never reach one and the silence was the only place it
+could land. The registry now takes a look's term as an answer: every parameter is drawn — by a row's
+dimension, a look's term, or honestly by both — or it is written off, and a value its own look draws
+may not also be written off. `STAGE_UNREACHED` is gone and the three toggles are the stagger's `count` (the field
+taken in nine bands rather than six), `spacing` (how far down the field a band is read from) and
+`size` (how much of the width it is read across); `comp.output` is the squash's `lift`, read as the
+gain itself and not as a turn, carrying the floor and the ceiling up together until the ceiling is
+back at the field's whole range. **A third entry came with it**: `eq.shape` was in `lookFrom` and
+`driftUnreached` both, which the new rule makes a contradiction, so its silence goes and the
+registry's written-off list is now exactly the automator's seventeen — which is the list step 10
+owes, and the whole of what the new case at the top of the block's inventory now allows. No frame
+cost: all three stagger terms are source-rectangle arithmetic inside the two draws a band already
+pays, no term reaches a tile key, and the bake count is untouched (0353, 0354). The gate's `drive`
+step is red for the machine's missing audio device and nothing else — the ring carries no
+`"t":"error"` and a headless `AudioContext` stands at 0.0058 s after 800 ms.
 
 **Step 10 — the automator's knobs reach through its run (bench-37).** _Durable shape moved:_
 none. Seventeen of the automator's knobs reach nothing by name; eleven of them are pool weights
@@ -615,6 +634,26 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**A panner's three stages show only while its spread is over nothing, and a compressor at one to one
+shows none of its Makeup (0359).** Both are the entries' own arithmetic held to rather than a
+narrowing chosen here, and both bound the step's stated outcome. The stagger draws the field where
+it stands at a spread of nothing — the entry's own rule, because at no spread every stage collapses
+onto the position in the sound too (0202, 0323) — so a toggle turned on a panner nobody has spread
+moves nothing in the picture, exactly as it moves nothing in the ear. And a compressor at a ratio of
+one is at no presence whatever its Makeup says, because a held value is not a presence
+(`effectHeard`, 0202): there the sound moves and the picture does not, which is the convention every
+look term obeys and not this step's to change. The squash's **ceiling** is bounded the same way and
+deliberately — it stops at the field's whole range, past which the lift goes on raising the floor
+alone, because a ceiling carried past the field's range is a brightener and not a makeup, which is
+0288's own complaint about the floor. **And no browser reading was taken of any of it**: the
+machine's audio device is gone, so the picture was proved by the passes' own draws and the registry's
+lists rather than by a shot.
+
+**src/lib/copyDriftGroups.ts stands at 769 of its 800 lines, and this step put 18 of them there
+(0359).** Three dials minted, three rows owed, and the block has a **Cells** group and step 10's own
+dials still to land in the same table. The answer at the cap is a split and not shaved prose, so the
+next step that mints a dial should split the table before it adds to it rather than after.
 
 **A part change mints ten mark tiles on the frame that first needs them, and they stay there
 (0358).** It is the one cost checkpoint B could attribute to steps 6–8 at all: a section changing

@@ -222,13 +222,30 @@ export function validateEffects(effects: readonly Effect[]): void {
       reached.add(into);
       claimed.add(param);
     }
+    // And the other way into the picture, which is the look's own terms. A term of a whole-field
+    // move draws the value as surely as a dimension of a row does — a choice lands there because
+    // every dimension of a row is a quantity and a choice is not (0148) — so a value in `lookFrom`
+    // has been answered for and is not silent (0359). The ownership of each and the terms they
+    // reach are `validateLook`'s, run above; this reads the list for what it says about the
+    // parameters, and after the loop over `driftFrom`, because a value may honestly do both.
+    const reachedByLook = new Set<string>();
+    for (const { param } of effect.lookFrom ?? []) {
+      reachedByLook.add(param);
+      claimed.add(param);
+    }
     // And what it deliberately says nothing with. An entry that ran out of dimensions to claim and
     // one that decided a value has no honest place in the picture read identically from outside, so
-    // every parameter is in exactly one of the two lists and neither list may be quietly short: a
-    // silence is a reason nobody wrote down (0122, 0148).
+    // every parameter is drawn — by a row's dimension, a look's term or both — or it is in this
+    // list, and none of them may be quietly short: a silence is a reason nobody wrote down
+    // (0122, 0148, 0359).
     for (const { param, because } of effect.driftUnreached ?? []) {
       if (!owned.has(param)) {
         throw new Error(`effect declares a value it does not own unreached: ${effect.id}.${param}`);
+      }
+      // A value its own look draws is not unreached, and saying both is the same contradiction as
+      // a row dimension and a silence declared of one value (0359).
+      if (reachedByLook.has(param)) {
+        throw new Error(`effect declares a value its look reads unreached: ${effect.id}.${param}`);
       }
       // Said once, either way: a parameter in both lists and a parameter twice in this one are the
       // same contradiction — the entry gives two answers about one value.

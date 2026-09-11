@@ -76,6 +76,35 @@ export const squashCeiling = (presence: number, ceiling: number): number =>
   1 + clamp(presence, 0, 1) * (denormalize(ceiling, ...SQUASH_TOP) - 1);
 
 /**
+ * How far the whole squashed range is pushed back up the field: the Makeup, which is the one knob
+ * on this entry that puts back what the threshold took off, so in the picture it puts back what the
+ * pass took out — the floor and the ceiling carried up together, and the floor alone once the
+ * ceiling is at the field's whole range (0359). The most of the field's range it may carry them.
+ *
+ * **Bounded by the ceiling's own band and not by a number of its own**: the most room the ceiling
+ * ever has is `1 - SQUASH_TOP[0]`, so a dial past that could only ever move the floor, and half of
+ * its travel would be a slider the picture does not answer. Read off the band rather than spelt as
+ * the same number twice (principle 1), so moving the ceiling's shut end moves this with it.
+ */
+export const SQUASH_LIFT = tunable("look.squashLift", 0.2, {
+  min: 0,
+  max: 1 - SQUASH_TOP[0],
+  step: 0.01,
+});
+
+/**
+ * How many doublings of the makeup gain are the whole of that lift. Read off the gain's own value
+ * and not its turn, because unity is the one setting that means *unchanged* and a knob's middle is
+ * not it: a makeup at one puts nothing back and lifts nothing, whatever range the declaration gives
+ * it. Two doublings — the gain at four times — is the whole of the lift, which is what this look
+ * has to say about a makeup; past that a gain is a level and not a threshold put back.
+ */
+const SQUASH_LIFT_DOUBLINGS = 2;
+
+export const squashLift = (presence: number, makeup: number): number =>
+  weighed(presence, Math.log2(Math.max(makeup, 1)) / SQUASH_LIFT_DOUBLINGS, SQUASH_LIFT.value);
+
+/**
  * The squash, drawn: the field at a share of itself, and one flat alpha laid `destination-over`
  * under it. With the field covering `c` that leaves `floor + (top - floor)·c` — the whole of the
  * mask's range mapped onto the shorter one between the two, which is the one affine squeeze this
@@ -97,8 +126,17 @@ export const squashCeiling = (presence: number, ceiling: number): number =>
  * this pass takes out of 0269 is one composite wide and not two.
  */
 const squashPass: LookPass = (into, source, presence, terms) => {
-  const top = squashCeiling(presence, terms.ceiling ?? 1);
-  const floor = squashFloor(presence, terms.floor ?? 0);
+  const ceiling = squashCeiling(presence, terms.ceiling ?? 1);
+  // The makeup carries the pair up together — the ceiling as far as there is room under the field's
+  // whole range, and **the floor by the whole of the lift whether there was room or not**: a
+  // threshold at the top of its own knob leaves the ceiling nowhere to go, and a makeup that moved
+  // nothing there would be a knob the picture does not answer at all. What it does instead is what
+  // a level put back past the ceiling does to a sound: it pushes the deepest ink up into the
+  // windows. The floor stays under the ceiling and under one at every setting, because the lift is
+  // bounded by the ceiling's own band and the floor by `SQUASH_FLOOR`.
+  const lift = squashLift(presence, terms.lift ?? 1);
+  const top = ceiling + Math.min(lift, 1 - ceiling);
+  const floor = squashFloor(presence, terms.floor ?? 0) + lift;
   // A compressor at one to one, and one the picture has not travelled to yet, are both the field it
   // came from — and one draw of it at the whole of itself is what says so.
   if (floor <= 0 && top >= 1) {
@@ -106,7 +144,8 @@ const squashPass: LookPass = (into, source, presence, terms) => {
     return;
   }
   const { width, height } = source;
-  // The floor is well under one (`SQUASH_FLOOR`), so the share is a share and the divide is safe.
+  // The floor is well under one — `SQUASH_FLOOR`'s own ceiling and the lift's together come to less
+  // than four fifths — so the share is a share and the divide is safe.
   into.globalAlpha = (top - floor) / (1 - floor);
   into.drawImage(source, 0, 0);
   // No `fillStyle`, and none is wanted: the field is a mask and only its alpha ever reaches the
@@ -123,10 +162,13 @@ const squashPass: LookPass = (into, source, presence, terms) => {
  * up toward its own middle, so the ink thins and the windows dim and what is left is flatter than
  * what the rows drew. How far the floor comes up under the picture's ink is the Ratio — the knob
  * this entry's presence is already read off, standing at nought with it at one to one (0202) — and
- * how far the ceiling comes down into its windows is the Threshold, on its own range.
+ * how far the ceiling comes down into its windows is the Threshold, on its own range. **And how far
+ * the pair is carried back up is the Makeup** (0359), read as the gain itself rather than as a turn:
+ * what a makeup does to a sound is put the level back after the threshold took it off, and this is
+ * that said of the picture's own range.
  */
 export const squashLook: Look = {
   at: "pass",
-  terms: { floor: "turn", ceiling: "turn" },
+  terms: { floor: "turn", ceiling: "turn", lift: "value" },
   pass: squashPass,
 };

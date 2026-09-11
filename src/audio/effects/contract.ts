@@ -327,12 +327,15 @@ export type Effect<
   driftFrom: readonly { param: Params[number]["id"]; into: DriftDimension }[];
   /**
    * The parameters of this entry that reach the picture nowhere, each beside the reason there is
-   * no honest dimension for it. Written rather than omitted: an entry used to be silent about a
+   * no honest place for it. Written rather than omitted: an entry used to be silent about a
    * value simply because it had run out of dimensions to claim, and silence and a considered "this
-   * one says nothing about a row" looked identical from here. Every parameter is now in exactly one
-   * of the two lists and the registry throws at load for one that is in neither or in both, so the
-   * only way a value stays out of the picture is by someone writing down why
-   * ([0148](../../../docs/decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
+   * one says nothing about a row" looked identical from here. Every parameter is now either drawn —
+   * by a dimension of the row in `driftFrom`, by a term of the look in `lookFrom`, or honestly by
+   * both — or in this list, and the registry throws at load for one that is in none of the three and
+   * for one that is drawn and written off at once, so the only way a value stays out of the picture
+   * is by someone writing down why
+   * ([0148](../../../docs/decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md),
+   * [0359](../../../docs/decisions/0359-a-value-reaches-the-picture-through-a-row-or-a-look.md)).
    */
   driftUnreached?: readonly { param: Params[number]["id"]; because: string }[];
   /**

@@ -3,7 +3,9 @@
 - **Date:** 2026-08-24
 - **Status:** accepted, extending
   [0139](0139-a-row-is-what-an-effect-is-set-to.md) and
-  [0122](0122-a-registry-answers-for-itself-at-load.md)
+  [0122](0122-a-registry-answers-for-itself-at-load.md), widened by
+  [0359](0359-a-value-reaches-the-picture-through-a-row-or-a-look.md), which makes a look's term the
+  other way a value is reached and takes `comp.output` out of the list below
 
 0139 gave each registry entry a way to say how its own values reach the drift, and there were four
 dimensions to say it in. Two entries have more than four parameters, so those entries **could not**

@@ -116,14 +116,8 @@ export const eqEffect = defineEffect({
   // And the shape reaches no dimension of a row, because a row is a grating and every dimension it
   // has is a quantity — how fast, how deep, how far apart. Which of four shapes a band is standing
   // in is none of those, and folding it onto one would have the picture read a choice as an amount
-  // (0148). It is not silent about it: the look below is where the shape lands, and it lands there
-  // as the whole draw rather than as a term with a size.
-  driftUnreached: [
-    {
-      param: "eq.shape",
-      because: "a shape is a choice, and every dimension of a row is a quantity",
-    },
-  ],
+  // (0148). It is not written off for it and no longer says it is: the look below is where the
+  // shape lands, and a value a look draws is reached (0359).
   // One band of the picture stood out of the rest of it, where the band sits: the frequency walks
   // it up the field, the Q says how deep it is, and the gain says which way it goes — read for a
   // direction and not for a share, because a lift and a cut of the same size are the same amount

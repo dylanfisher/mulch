@@ -83,22 +83,18 @@ export const compressorEffect = defineEffect({
   // The picture's whole range closed up toward its own middle: how far the floor comes up is the
   // Ratio — the same knob the presence above is read off, and the two agree at one to one, which is
   // the filter's answer and not the bloom's (0286, 0288) — and where the ceiling comes down to is
-  // the Threshold, the level everything else here is measured from.
+  // the Threshold, the level everything else here is measured from. And the Makeup carries the pair
+  // of them back up the field: the one thing in the picture that means level is `depth`, which the
+  // ratio holds, so a gain put back after the threshold took it off has no dimension of a row left
+  // to reach — but it has this look's own range to put back, which is exactly what it does to the
+  // sound, and a value reaches the picture through a look as honestly as through a row (0359). Read
+  // as the gain itself and not as a turn, because unity is what "unchanged" means and the middle of
+  // a knob is not it.
   look: "squash",
   lookFrom: [
     { param: "comp.ratio", into: "floor" },
     { param: "comp.threshold", into: "ceiling" },
-  ],
-  driftUnreached: [
-    {
-      param: "comp.output",
-      because:
-        "a makeup gain is a level put back after the threshold took it off, and the one thing " +
-        "in the picture that means level is `depth` — which the ratio holds, because how hard " +
-        "this squeezes is what the effect is. Every dimension left says where a row is, how fine " +
-        "it is drawn or what colour it is in, and a gain is none of those: taking one of them " +
-        "would be the free slot choosing rather than the value's own meaning (0148).",
-    },
+    { param: "comp.output", into: "lift" },
   ],
   // The follower's own release, which is the longest thing in this node that outlives a sample,
   // given a few time constants to arrive. Capped by the declaration at a second, so this is never

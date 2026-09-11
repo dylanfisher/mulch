@@ -26,6 +26,7 @@ import { PARAMS } from "@/audio/params";
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
 import { normalize } from "@/lib/range";
 import { SETTLE_FLOOR_SECS } from "@/lib/settle";
+import { AUTO_UNREACHED } from "./automatorParams";
 import { effectById, EFFECTS, effectForParam, isGrowable, validateEffects } from "./registry";
 import { defineEffect, type Effect, type ParamDeclaration } from "./contract";
 
@@ -216,11 +217,14 @@ describe("effect registry", () => {
   });
 
   // The sweep 0148 is: an entry that had run out of dimensions to claim and one that had decided a
-  // value says nothing about a row read identically from here, so every parameter is now in exactly
-  // one of the two lists and a reason that is not written is not a reason.
+  // value says nothing about a row read identically from here, so every parameter is now drawn or
+  // written off, and a reason that is not written is not a reason. The look's terms are the other
+  // way it is drawn (0359): a choice lands there because every dimension of a row is a quantity, and
+  // a value its own look draws is reached and may not also be written off — while a value in both
+  // `driftFrom` and `lookFrom` is an entry saying one honest thing twice, which several do.
   it("says something about every one of its own values, either way", () => {
-    for (const { id, params, driftFrom, driftUnreached } of EFFECTS) {
-      const reached = new Set(driftFrom.map((each) => each.param));
+    for (const { id, params, driftFrom, lookFrom, driftUnreached } of EFFECTS) {
+      const reached = new Set([...driftFrom, ...(lookFrom ?? [])].map((each) => each.param));
       const unreached = new Set((driftUnreached ?? []).map((each) => each.param));
       for (const param of params) {
         expect(`${id}: ${param.id} ${reached.has(param.id) || unreached.has(param.id)}`).toBe(
@@ -232,6 +236,31 @@ describe("effect registry", () => {
       for (const { param, because } of driftUnreached ?? []) {
         expect(owned.has(param)).toBe(true);
         expect(because.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // P356 step 9: the panner and the compressor were the two entries with a value in neither list —
+  // the three stage toggles and the makeup — and both of them now say all of it, the toggles as the
+  // stagger's three stages and the makeup as the squash's lift (0359).
+  it("leaves no value of a panner or a compressor outside the picture", () => {
+    for (const id of ["panner", "compressor"] as const) {
+      const { params, driftFrom, lookFrom } = effectById(id);
+      const reached = new Set([...driftFrom, ...(lookFrom ?? [])].map((each) => each.param));
+      for (const param of params) {
+        expect(`${id}: ${param.id} ${reached.has(param.id)}`).toBe(`${id}: ${param.id} true`);
+      }
+    }
+  });
+
+  // And the list the block is closing, said as a whole rather than per entry: the only values still
+  // written off are the automator's, which the block's own step 10 owes the picture. A new one here
+  // is an entry deciding for itself that it has nothing to say.
+  it("writes off only the knobs a step of this block still owes", () => {
+    const owed = new Set<string>(AUTO_UNREACHED.map((each) => each.param));
+    for (const { id, driftUnreached } of EFFECTS) {
+      for (const { param } of driftUnreached ?? []) {
+        expect(`${id}: ${param} ${owed.has(param)}`).toBe(`${id}: ${param} true`);
       }
     }
   });
@@ -403,6 +432,34 @@ describe("effect registry", () => {
         { ...two, driftUnreached: [{ param: "one.b", because: "no honest room" }] },
       ]);
     }).not.toThrow();
+  });
+
+  // 0359: a look's term is the other way into the picture, so a value its own look draws is reached
+  // — and an entry saying both about one value gives two answers, exactly as one in `driftFrom` and
+  // `driftUnreached` does.
+  it("takes a look's term as an answer, and refuses one beside a silence", () => {
+    const one = unbuilt("one", "one.a");
+    const two = {
+      ...one,
+      params: [
+        one.params[0]!,
+        { ...one.params[0]!, id: "one.b" },
+        { ...one.params[0]!, id: "one.c" },
+      ],
+      look: "squash" as const,
+      lookFrom: [
+        { param: "one.a", into: "floor" as const },
+        { param: "one.b", into: "ceiling" as const },
+        { param: "one.c", into: "lift" as const },
+      ],
+    };
+    // `one.b` is in no drift list at all, and the look reading it is what answers for it.
+    expect(() => {
+      validateEffects([two]);
+    }).not.toThrow();
+    expect(() => {
+      validateEffects([{ ...two, driftUnreached: [{ param: "one.b", because: "nowhere" }] }]);
+    }).toThrow(/declares a value its look reads unreached: one\.one\.b/u);
   });
 
   // A geometry is not claimed exclusively the way a profile is — two rooms are both radial — so
