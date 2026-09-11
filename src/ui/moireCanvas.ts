@@ -82,7 +82,7 @@ import { clamp } from "@/lib/range";
 import { profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
 import { centreAcross, chirpTurns, geometryRef } from "@/lib/moireGeometry";
-import { isFieldGeometry, LATTICE_GEOMETRY } from "@/lib/moireLattice";
+import { isFieldGeometry, LATTICE_GEOMETRY, latticeFold } from "@/lib/moireLattice";
 import { viewOf } from "@/ui/canvasSurface";
 import { curvedTileFor, endPainting, heldStraight, startPainting } from "@/ui/driftTiles";
 import { aimCurved, placeCurved } from "@/ui/moireCanvasCurved";
@@ -644,7 +644,9 @@ export function paintMoire(
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
   // to travel across: a lean that varies with x cannot be one affine transform, so it is one fill
   // per strip of it (`inkThrough`, src/ui/moireScreen.ts).
-  inkThrough(canvas, context, rows, color, tint, wind.drift, yard, looks);
+  // The last term is how full the rack is, read off the lattice cell the shape has already
+  // travelled to: what brings the second lattice of marks into the tile as the rack fills (0278).
+  inkThrough(canvas, context, rows, color, tint, wind.drift, yard, looks, latticeFold(shape.cells));
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the
   // structure off the plane the picture already stands on and never off a second one (0296).

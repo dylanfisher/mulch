@@ -7,6 +7,11 @@
  * @instead The painter itself → src/ui/moireCanvas.ts. What a row is → src/lib/moire.ts. The rows a
  *   yard actually holds → src/ui/moireRows.ts.
  */
+// One recorder and the readings every painter case takes through it: a case that reached for half
+// of this would be holding a stand-in with nothing recorded in it, and the readings only mean
+// anything against the painting this file makes. Under the 800-line hard cap and over the warn.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
@@ -389,6 +394,21 @@ export function painterOn(stubGlobal: StubGlobal) {
 
 /** What one painting recorded. */
 export type Painted = ReturnType<ReturnType<typeof painterOn>>;
+
+/**
+ * The one tile `wide` device pixels across that a painting wrote a pixel field into, as its pixels.
+ * Here rather than in each of the four files that read it (principle 1), and it throws where a
+ * painting wrote no such tile or more than one: either is a case reading a picture it did not paint.
+ */
+export function tileOf(painted: Painted, wide: number): Uint8ClampedArray {
+  const written = painted.surfaces.flatMap((surface, at) =>
+    painted.elements[at]?.width === wide ? surface.wrote : [],
+  );
+  if (written.length !== 1) {
+    throw new Error(`A painting wrote ${written.length} tiles ${wide} wide, and not the one.`);
+  }
+  return written[0]?.data ?? new Uint8ClampedArray();
+}
 
 /** How many tiles `wide` device pixels across one painting wrote a pixel field into. */
 export const baked = (painted: Painted, wide: number): number =>

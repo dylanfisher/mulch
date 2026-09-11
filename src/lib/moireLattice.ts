@@ -127,6 +127,17 @@ export const latticeCells = (standing: number): number =>
   (LATTICE_CELLS[1] - LATTICE_CELLS[0]) * clamp((standing - 1) / (LATTICE_REACH.value - 1), 0, 1);
 
 /**
+ * And the same fold read back as a turn: nought where the cell stands at its loosest — a rack
+ * nobody has added to, and a rack of exactly one entry — and one where it stands at its tightest.
+ * The one number "how full is the rack" has on the bake side, read off the cell the frame has
+ * already travelled to (`shape.cells`, src/ui/moireShape.ts) rather than off a second count of the
+ * standing entries, so what the second lattice of marks arrives on is the same fold the gutter
+ * tightens on and it arrives over the same travel (0278).
+ */
+export const latticeFold = (cells: number): number =>
+  clamp((cells - LATTICE_CELLS[0]) / (LATTICE_CELLS[1] - LATTICE_CELLS[0]), 0, 1);
+
+/**
  * How hard the lattice cuts, off how loud the output is: a floor, so a lattice is there whenever a
  * rack is, and the rest of the way up with the level, which is the gutter thickening on a hit.
  * Its own depth and not a share of the picture's (`cutGratings`, src/ui/moireCanvas.ts), so the

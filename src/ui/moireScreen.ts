@@ -42,6 +42,7 @@ import {
   gridPitchPx,
   rowPitchPx,
   screenTile,
+  screenTilePx,
   tilePx,
   tuneStamp,
 } from "@/ui/moireScreenTile";
@@ -56,6 +57,13 @@ import { viewOf } from "@/ui/canvasSurface";
  * drift no pixel of the marks stood above half alpha until they rested here. The dials stay, for a
  * hand that wants the blur.
  */
+/**
+ * How far the rack's lattice fold is stepped before it may key a tile: the whole of a turn, onto
+ * `DRIFT_STEPS`, which is the ladder every other bake-side reading of a knob walks (`stepped`,
+ * src/ui/moireScreenInk.ts). The fold is a turn already, so one reach answers for it.
+ */
+const BEAT_REACH = 1;
+
 const TURN_TURNS = tunable("screen.turn", 0, { min: 0, max: 0.05, step: 0.001 });
 const BREATH_PX = tunable("screen.breath", 0, { min: 0, max: 3, step: 0.05 });
 
@@ -167,6 +175,13 @@ const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
  * a `getComputedStyle` per frame being the style flush 0070 exists to keep out. The only thing
  * that moves those three is the scheme, which moves `color` with it, so the key catches them.
  *
+ * The cell the marks are written in is the screen's own column pitch, so a bit of a mark is a whole
+ * device pixel on every display and the tile is a whole number of cells across (0345, 0346); and
+ * how wide the tile stands is that cell's own beat, grown to hold the second lattice too wherever
+ * the rack's fold stands one (`screenTilePx`). The key carries the fold rather than the width,
+ * because the width is those three numbers and a key that named both would say it twice. The passes
+ * the rack declares over the cells go in stepped, and none of them adds nothing (`cellsKey`, 0349).
+ *
  * A canvas whose engine hands back no tile context and no pattern is drawn in flat ink, which is
  * the picture this file's caller drew before the screen was over it.
  */
@@ -179,11 +194,11 @@ function screenOf(
   tint: ScreenInk,
   yard: Readonly<YardScene>,
   cells: readonly MoireCells[],
+  beat: number,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
-  // And the cell the marks are written in: the screen's own column pitch, so a bit of a mark is a
-  // whole device pixel on every display and the tile is a whole number of cells wide (0345, 0346).
   const cell = pitch;
+  const wide = screenTilePx(pitch, rowPitch, beat);
   // The hue itself and no longer where it lands on a scene's ramp: since 0332 the read is a
   // per-pixel offset on the ground rather than one position for the whole tile, so there is no
   // single read to key through and every step of the travel is its own tile.
@@ -197,13 +212,12 @@ function screenOf(
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  // And the passes the rack declares over the cells, stepped; none adds nothing (`cellsKey`, 0349).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${tuneStamp()}${cellsKey(cells)}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${tint.saturate}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${tuneStamp()}${cellsKey(cells)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(
     key,
-    beatPx(pitch),
+    wide,
     height,
     canvas,
     color,
@@ -213,6 +227,7 @@ function screenOf(
     yard,
     cell,
     cells,
+    beat,
   );
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
@@ -249,6 +264,7 @@ export function inkThrough(
   wind: number,
   yard: Readonly<YardScene>,
   looks: readonly MoireLook[],
+  fold: number,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -264,7 +280,22 @@ export function inkThrough(
   tinted.hue = steppedHue(ink.hue);
   tinted.saturate = stepped(ink.saturate, SCREEN_SATURATE_REACH);
   // And what the rack does to the marks, stepped onto the same ladders (`rackCells`, 0349).
-  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted, yard, rackCells(looks));
+  // And how far the rack's own lattice fold has come, on the same ladder: what brings the second
+  // lattice of marks in as the rack fills, and nothing at all for one effect (0278).
+  const beat = stepped(fold, BEAT_REACH);
+  // And how wide one tile of it stands, which is what the crawl below sweeps and comes back across.
+  const wide = screenTilePx(pitch, rowPitch, beat);
+  const pattern = screenOf(
+    canvas,
+    context,
+    color,
+    pitch,
+    rowPitch,
+    tinted,
+    yard,
+    rackCells(looks),
+    beat,
+  );
   // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
   // picture that engine draws is the one this file's caller drew before there was a screen behind
   // it, and it is one fill whatever the wind says.
@@ -285,10 +316,14 @@ export function inkThrough(
   // at half strength. The cell is the column pitch, so a whole cell is a whole pixel too.
   rolled.f = Math.round((bandTurns(rows) * tilePx(canvas.height, rowPitch)) / pitch) * pitch;
   // And the wind on that same axis, added to the crawl rather than given one of its own: the crawl
-  // sweeps a cell and comes back, and this is the same axis running one way — how far the standing
-  // rack's own tail has blown the whole field (`windTravelInto`, src/ui/moireWind.ts, 0267). It is a
-  // term on the transform and touches no key, so a field blowing all day bakes nothing (0129).
-  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * beatPx(pitch)) / pitch) * pitch;
+  // sweeps the tile's own period and comes back, and this is the same axis running one way — how
+  // far the standing rack's own tail has blown the whole field (`windTravelInto`,
+  // src/ui/moireWind.ts, 0267). It is a term on the transform and touches no key, so a field
+  // blowing all day bakes nothing (0129). **The period is the tile's width and not the gratings'
+  // beat cell**: a translation of exactly one tile is the identity for a repeating pattern and a
+  // translation of anything else is not, so a crawl sweeping a seventh of a tile standing the
+  // second lattice would snap the whole picture back once a cycle (`screenTilePx`, 0351).
+  rolled.e = Math.round(((termTurns(rows, "crawl") + wind) * wide) / pitch) * pitch;
   turnedScale(
     rolled,
     1 + ((sway * BREATH_PX.value) / pitch) * Math.sin(TAU * termTurns(rows, "breath")),

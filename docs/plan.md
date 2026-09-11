@@ -40,7 +40,7 @@ pixel is chosen once per cell in the bake, and a frame pays composites and `draw
 grid's marks, run in `build` (src/ui/moireScreenTile.ts) after a cell's mark is chosen and before
 its coverage is written. The contract is `src/lib/moireCells.ts` (`CellPass`, `runCellPasses`,
 `CELL_TERMS`) with its test beside it, and one file per pass from the first — `moireCellEchoes.ts`,
-`moireCellBloom.ts`, `moireCellScatter.ts`, `moireCellBeat.ts` — each declared on its look's entry
+`moireCellBloom.ts`, `moireCellScatter.ts` — each declared on its look's entry
 in src/lib/moireLook.ts as `cells`, read by `rackCells` in a new `src/ui/moireCells.ts` the way
 `rackLooks` reads looks (src/ui/moireLooks.ts). The alphabets are `src/lib/moireAlphabets.ts`
 (the shipped `MARKS` table moves there from src/lib/moireGlyph.ts, with rings and strokes beside
@@ -50,12 +50,13 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0351; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0352; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
-in the order that builds the machine before what rides it. Steps 1, 2 and 3 landed as 0348, 0349 and 0350.
+in the order that builds the machine before what rides it. Steps 1, 2, 3 and 4 landed as 0348, 0349,
+0350 and 0351.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -130,7 +131,7 @@ quiet cell writes nothing. Two calls and not one, because the surfaces a paintin
 same whatever the rack is doing and the patterns must be asked for after the picture's own two; §4
 holds what that cost and what the rest was chosen on. The bench's entry 08 goes with it.
 
-**Step 4 — the second lattice is the rack's (bench-31).** _Durable shape moved:_ none. The
+**Step 4 — the second lattice is the rack's (bench-31, 0351).** _Durable shape moved:_ none. The
 bench's **beat**: a second lattice of marks at a held ratio, unioned into the tile's alpha — and
 the ratio is held to whole device pixels, five and seven, because a bit that is a fraction of a
 pixel is the smear 0346 took out; the tile grows to the two cells' common multiple. Its presence is
@@ -139,7 +140,20 @@ rack fills and never for one effect. **Stands on:** `cutLattice`, `latticeCut`; 
 `sceneCells`; entry 02. **Outcome wanted:** a full rack beats grid against grid where an empty one
 is one lattice. **Tests that must fail first:** with nothing standing the tile is one lattice; with
 `LATTICE` standing every cell of the seven-pixel lattice is written; the tile width is a whole
-number of both cells. **Refused:** a ratio that is a dial; a second alphabet on the second lattice.
+number of both cells. **Refused:** a ratio that is a dial; a second alphabet on the second lattice. _Landed_ 2026-09-10 as
+[0351](decisions/0351-the-second-lattice-is-the-racks.md): `beatLattice`, `beatInk` and
+`beatTilePx` in a new src/ui/moireScreenBeat.ts, read in `build` beside the first lattice's grid
+and unioned into the alpha as the solider of the two coverages. The ratio is the two pitches the
+picture already stands on — `gridPitchPx` against `rowPitchPx`, five CSS pixels against seven — so
+it is whole device pixels on every display and nothing new declares it. The tile's width is
+`screenTilePx` (src/ui/moireScreenTile.ts): the gratings' own beat cell where the fold is nought,
+which is the tile 0350 shipped, and a whole number of those cells — seven at every whole display
+ratio — where the fold stands one. Presence is
+`latticeFold` (src/lib/moireLattice.ts) reading `shape.cells` back as a turn, so the second lattice
+arrives on the travel the gutter already thickens on and a rack of one entry draws none of it. On
+the shipped bake at two device pixels to the CSS one the share of a tile's pixels carrying ink goes
+from 0.71 to 0.83 when the rack fills. §4 holds what the wider tile costs. The bench's entry 02
+goes with it.
 
 **Step 5 — the flock is a scatter of big marks (bench-32).** _Durable shape moved:_ none. The
 bench's **scatter** as the specks' own layer: a speck is a point smaller than a mark, which 0345
@@ -359,6 +373,43 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The wider tile is paid at every step of the fold, and it is seven times and not seven fifths
+(0351).** The second lattice's cell has to come round at the tile's edge, so the tile grows to the
+common multiple of the coarse cell and the gratings' own beat cell — and because that beat cell is
+the pitch times the pitch plus one, the growth is a whole seven at every whole display ratio,
+eleven at three halves, and one at four, where the coarse cell already divides the beat. With the
+width goes the scene body, the cell grid and the pixel loop, plus one more box read of that body
+for the coarse cells; a grown body and a grown tile each want a cache entry beside the ungrown one.
+The width does not move with the fold, but the key does, so a rack filling over `SHAPE_SECS`
+rebakes at the grown size once per step of the fold's ladder rather than once. It is bake-side and
+never on a frame (0129), and a picture with an empty rack pays none of it. The narrower
+alternatives were both refused by the step: a ratio rounded to whatever divides the beat cell is a
+ratio the step forbids being a dial, and a cell snapped by `sceneRepeat` is the fraction-of-a-pixel
+smear 0346 took out.
+
+**A full rack's ground is not the empty rack's ground with a lattice over it (0351).** The tile's
+width is what the scenes snap their own periods and noise cells to, so growing it re-seeds a
+meadow's noise and shifts a bloom's and a water's repeats. The picture at a fold of nought is
+exactly the one 0350 shipped; the picture at a full fold is a second lattice over a ground of the
+same texture and not the same field. Nothing reads the two against each other, and the alternative
+— a body baked at one width and sampled into another — is a second declaration of where a tile
+comes round.
+
+**The crawl now sweeps the whole tile, so it is seven times faster on a full rack (0351).** A
+translation of exactly one tile is the identity for a repeating pattern and a translation of
+anything else is not, so the crawl and the wind on its axis have to sweep the tile's own period
+(`screenTilePx`, src/ui/moireScreen.ts) — which is what they always did, the period simply being
+`beatPx` until this step. Left on the beat cell they snapped the picture back a seventh of a tile
+once a cycle. What that costs is the crawl's rate: the same turn now carries the screen seven times
+as far while the second lattice stands. The rate was never declared as a speed, only as "a cell a
+turn", so nothing else had to move.
+
+**The beat is not a cell pass, and there is no `moireCellBeat.ts` (0351).** The block's layout
+paragraph named one. A cell pass runs over one grid at one cell size and carries a look's own terms;
+the beat is a second grid at another cell size whose presence is the rack's lattice fold and no
+look's, so it has neither the shape nor the declaration a pass has. It lands as the tile's own
+second reading instead, in src/ui/moireScreenBeat.ts.
 
 **The bloom's reach in cells is a second number about one knob (0349).** The step stood both
 passes on the looks' own bands. The echoes do: `echoCells` reads `echoSpacing` across the grid's

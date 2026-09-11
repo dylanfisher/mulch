@@ -53,6 +53,7 @@ import { denormalize } from "@/lib/range";
 import type { ScreenInk } from "@/lib/moire";
 import type { YardScene } from "@/lib/yardScene";
 import { hold } from "@/ui/driftTiles";
+import { beatInk, beatLattice, beatTilePx } from "@/ui/moireScreenBeat";
 import { cellGrid, PER_PIXEL } from "@/ui/moireScreenCells";
 import { inkOf, sceneStops } from "@/ui/moireScreenStops";
 import { sceneOf } from "@/ui/scene/scenes";
@@ -219,6 +220,18 @@ export const rowPitchPx = (dpr: number): number => Math.max(2, Math.round(ROW_PX
 export const beatPx = (pitch: number): number => pitch * (pitch + 1);
 
 /**
+ * And how wide a whole tile of the screen stands: that beat cell, grown to a whole number of the
+ * second lattice's cells as well wherever the rack stands one (`beatTilePx`,
+ * src/ui/moireScreenBeat.ts). How many beat cells that is falls out of the two pitches and is not
+ * one number — seven at every whole display ratio, eleven at three halves, and one at four, where
+ * the coarse cell already divides the beat. At a fold of nought it is the beat cell alone, which is
+ * the tile 0350 shipped at the width it shipped: a picture with an empty rack pays nothing for a
+ * lattice it does not draw, and every tile it holds is the size it always was.
+ */
+export const screenTilePx = (pitch: number, rowPitch: number, beat: number): number =>
+  beat > 0 ? beatTilePx(beatPx(pitch), rowPitch) : beatPx(pitch);
+
+/**
  * One grating's transmission at `at`, on `pitch`: a soft cosine rather than an unlit column, which
  * is why the crossings read as round blobs rather than as a mesh of squares. The cosine is
  * `gratingKeep`'s, which the picture under this screen is also built out of — one cosine in the
@@ -282,9 +295,9 @@ const mix = (from: number, to: number, amount: number): number => from + (to - f
  * `spread` is that ratio and `disperse` crossfades this channel away from the lattice the other two are on and onto one of its
  * own: its pitch multiplied by a whole number of cycles per cell and its axes leaned into each
  * other by a whole cell of the other. **Whole either way, and that is the constraint rather than a
- * choice** — the tile is one beat cell wide and a whole number of them tall, so anything but an
- * integer here is a hue seam riding down a picture whose whole point is that its tile repeats
- * without one.
+ * choice** — the tile is a whole number of beat cells across and a whole number of them down, so
+ * anything but an integer here is a hue seam riding down a picture whose whole point is that its
+ * tile repeats without one.
  */
 export const channelKeep = (
   x: number,
@@ -408,7 +421,9 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * held the same one — so this room is spent across as many `(scene, light, wind)` triples as the
  * page is showing, and the eviction that first evicted the tile every resting yard shared now
  * evicts a yard's own. What a miss costs is still the build below on a later paint and never one on
- * a frame: the tile is one beat wide, and the room is kilobytes.
+ * a frame: the tile is one beat wide, and the room is kilobytes — except where the rack stands the
+ * second lattice, which grows it to a whole number of the coarse cell as well and costs that many
+ * times the room (`screenTilePx`, 0351).
  */
 const TILE_CACHE = 48;
 
@@ -440,7 +455,10 @@ subscribeTuning(() => {
  * the hand is on. Split so, a step re-reads this body and re-runs nothing of the scene.
  *
  * Room for both sizes of both yards a page shows with a little over: a body is three floats a
- * pixel and an overlay's is a megabyte, so this is the one cache here that is not kilobytes.
+ * pixel and an overlay's is a megabyte, so this is the one cache here that is not kilobytes. **A
+ * yard standing the second lattice wants two entries and not one** — the width is part of the key
+ * and the fold moves it — and the grown one is as many times the megabyte as the tile is times as
+ * wide (`screenTilePx`, 0351), so the little over is spent on a full rack.
  */
 const BODY_CACHE = 8;
 const bodies = new Map<string, Float32Array>();
@@ -539,10 +557,11 @@ export function screenTile(
   yard: Readonly<YardScene>,
   cell: number,
   cells: readonly MoireCells[],
+  beat: number,
 ): HTMLCanvasElement | null {
   return (
     tiles.get(key) ??
-    build(key, width, height, canvas, color, pitch, rowPitch, tint, yard, cell, cells)
+    build(key, width, height, canvas, color, pitch, rowPitch, tint, yard, cell, cells, beat)
   );
 }
 
@@ -610,6 +629,7 @@ function build(
   yard: Readonly<YardScene>,
   cell: number,
   cells: readonly MoireCells[],
+  beat: number,
 ): HTMLCanvasElement | null {
   const tile = document.createElement("canvas");
   tile.width = width;
@@ -666,6 +686,11 @@ function build(
     falling,
     cells,
   );
+  // And the second lattice, on the row pitch's own cell where that one is on the column pitch's —
+  // seven device pixels against five — brought in by how full the rack is and absent entirely at
+  // nought, which is the tile 0350 shipped (`beatLattice`, src/ui/moireScreenBeat.ts).
+  const second =
+    beat > 0 ? beatLattice(body, width, height, rowPitch, tint.hue, falling, cells, beat) : null;
   const blur = 0.25 / across;
   const flat = GLYPH_FLAT.value;
   const mid = lift[Math.floor(SCENE_RAMP_STOPS / 2)] ?? [0, 0, 0, 0];
@@ -677,6 +702,12 @@ function build(
   let filled = -1;
   // Which channel lights each column, resolved once a column rather than once a pixel.
   const gainAt = Array.from({ length: width }, (_, x) => gains[channelAt(x, pitch)] ?? FLAT_GAIN);
+  // And where in the three channels' own cell each column reads: **on that cell's stride and never
+  // on the tile's**, because since 0351 a tile standing a second lattice is several of those cells
+  // wide and a column past the first would otherwise walk into the wrong row of the fringe. Once a
+  // column rather than once a pixel, for the reason every other read in this loop is (0070).
+  const wide = beatPx(pitch);
+  const fringeAt = Int32Array.from({ length: width }, (_, x) => (x % wide) * PER_PIXEL);
   const field = ink.createImageData(width, height);
   const pixels = field.data;
   for (let y = 0; y < height; y++) {
@@ -696,13 +727,13 @@ function build(
       }
     }
     const v = (y - cellRow * downCell) / downCell;
-    const lattice = (y % deep) * width;
+    const lattice = (y % deep) * wide * PER_PIXEL;
     for (let x = 0; x < width; x++) {
       const col = colOf[x] ?? 0;
       const inked = col * PER_PIXEL;
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
       // the ink read above and never more of it than that ink had — one cell of them, repeated.
-      const lit = (lattice + x) * PER_PIXEL;
+      const lit = lattice + (fringeAt[x] ?? 0);
       const gain = gainAt[x] ?? FLAT_GAIN;
       const at = (y * width + x) * 4;
       pixels[at] = (cellInk[inked] ?? 0) * gain[0] * (lattices[lit] ?? 1);
@@ -713,7 +744,11 @@ function build(
       // is the page, which is the ground this lattice is written on. The screen's own four terms
       // still reach none of it: what they spend, they spend as darkness up on the read (0340).
       const mark = grid.marks[cellRow * cols + col] ?? 0;
-      pixels[at + 3] = own[3] * markCoverage(mark, uAt[x] ?? 0, v, blur);
+      const cover = markCoverage(mark, uAt[x] ?? 0, v, blur);
+      // Unioned with the second lattice's, where the rack stands one: the solider of the two marks
+      // and never their sum, because two lattices in one ink are one picture and a cell under both
+      // of them is no more solid than the solider (0345).
+      pixels[at + 3] = own[3] * (second === null ? cover : Math.max(cover, beatInk(second, x, y)));
     }
   }
   ink.putImageData(field, 0, 0);

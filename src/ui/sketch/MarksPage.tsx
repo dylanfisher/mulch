@@ -28,7 +28,6 @@ import { Wordmark } from "@/ui/Logo";
 import { MARKS_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
-import { SketchMarksBeat } from "@/ui/sketch/marks/SketchMarksBeat";
 import { SketchMarksDecay } from "@/ui/sketch/marks/SketchMarksDecay";
 import { SketchMarksPart } from "@/ui/sketch/marks/SketchMarksPart";
 import { SketchMarksScatter } from "@/ui/sketch/marks/SketchMarksScatter";
@@ -60,17 +59,6 @@ export type MarksEntry = {
  * turns.
  */
 export const SKETCH_MARKS: readonly MarksEntry[] = [
-  {
-    id: "beat",
-    label: "The Beat",
-    thesis:
-      "A second lattice of marks at a cell a held ratio larger, laid over the first in the one ink, so grid beats against grid the way the two gratings under the screen beat. Two still lattices a ratio apart are a beat that stands still, which is the beat 0346 left the picture without.",
-    trades:
-      "the whole-pixel bit. The first lattice's cell is the column pitch so a bit is a device pixel; a second cell at a ratio is a bit that is a fraction of one, and a stroke that is a fraction of a pixel is the smear 0346 took out — unless the ratio is held to whole pixels, which is a ratio a hand cannot turn freely.",
-    built:
-      "in build at src/ui/moireScreenTile.ts as a second pass of cells at another pitch over the same baked body, unioned into the tile's alpha. Bake-side; a tile a whole number of both cells wide, so the tile grows to their common multiple.",
-    Content: SketchMarksBeat,
-  },
   {
     id: "decay",
     label: "The Decay",
@@ -108,7 +96,7 @@ export const SKETCH_MARKS: readonly MarksEntry[] = [
 
 /**
  * The nav scrolls rather than linking, for the sketch bench's reason: the route is the whole hash,
- * so a bare `#beat` would leave `#/marks` and unmount the bench.
+ * so a bare `#decay` would leave `#/marks` and unmount the bench.
  */
 function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
   event.preventDefault();

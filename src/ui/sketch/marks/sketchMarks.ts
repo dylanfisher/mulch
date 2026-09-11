@@ -91,17 +91,16 @@ const bloom = sceneField("bloom");
 
 /**
  * Where one cell of the lattice stands on the bloom's ramp: the film's shade over the scene's own
- * read, averaged over the cell, which is how the tile reads a cell (0345). Held per cell size,
- * because the beat reads a second lattice at another size.
+ * read, averaged over the cell, which is how the tile reads a cell (0345).
  */
 const stoodCells = new Map<number, Map<number, number>>();
-export function stood(col: number, row: number, cell = CELL): number {
-  return held(stoodCells, cell, col, row, () => {
+export function stood(col: number, row: number): number {
+  return held(stoodCells, CELL, col, row, () => {
     let sum = 0;
     for (let j = 0; j < SAMPLES; j += 1) {
       for (let i = 0; i < SAMPLES; i += 1) {
-        const x = (col + (i + 0.5) / SAMPLES) * cell;
-        const y = (row + (j + 0.5) / SAMPLES) * cell;
+        const x = (col + (i + 0.5) / SAMPLES) * CELL;
+        const y = (row + (j + 0.5) / SAMPLES) * CELL;
         sum +=
           filmStand(filmKeep(x * SCENE_BENCH_PX, y * SCENE_BENCH_PX), FILM_SHARE.rest) *
           bloom(x, y, SCENE_DIAL.rest);
@@ -112,13 +111,12 @@ export function stood(col: number, row: number, cell = CELL): number {
 }
 
 /**
- * Which mark a cell of a `cell`-sized lattice is written in: the shipped read, pushed toward its
- * ramp's ends and wrapped the way the tile does it (0348), so every entry below argues against
- * what ships and not against what shipped. The cell is the bench's own unless the beat asks for
- * its second lattice's.
+ * Which mark a cell of the lattice is written in: the shipped read, pushed toward its ramp's ends
+ * and wrapped the way the tile does it (0348), so every entry below argues against what ships and
+ * not against what shipped.
  */
-export const plainMark = (col: number, row: number, cell = CELL): number =>
-  markAt(pushRead(stood(col, row, cell), GLYPH_PUSH.rest), GLYPH_COUNT, GLYPH_PHASE.rest);
+export const plainMark = (col: number, row: number): number =>
+  markAt(pushRead(stood(col, row), GLYPH_PUSH.rest), GLYPH_COUNT, GLYPH_PHASE.rest);
 
 /**
  * Whether the point `x, y` is under the ink of a lattice of `cell`-sized cells, each written in
@@ -139,20 +137,6 @@ export function latticeInk(
 /** The picture with no entry's move on it: entry 11 of the drift bench, on the bloom, in one ink,
  * cut the way the tile cuts it (0348). */
 export const plainField = (x: number, y: number): number => latticeInk(x, y, CELL, plainMark);
-
-/**
- * 02 — a second lattice of marks at a cell a held ratio larger, laid over the first in the one
- * ink, so grid beats against grid the way the two gratings under the screen do. The dial is the
- * ratio; at one the two are the one lattice drawn twice.
- */
-export const BEAT_DIAL: SketchDial = { min: 1, max: 2, step: 0.05, rest: 1.4 };
-export const beatField: SketchDriftField = (x, y, ratio) => {
-  const cell = CELL * ratio;
-  return Math.max(
-    plainField(x, y),
-    latticeInk(x, y, cell, (col, row) => plainMark(col, row, cell)),
-  );
-};
 
 /** How many marks denser a landing at full level pushes its row the moment it lands. */
 export const DECAY_STEPS = 4;

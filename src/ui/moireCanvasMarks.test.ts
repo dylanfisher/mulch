@@ -22,7 +22,7 @@ import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
 import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { type LookName, type LookTerms } from "@/lib/moireLook";
-import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
+import { painterOn, type Painted, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
 import { bandFloor, boxCells, CELL_ROWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/ui/moireScreenTile";
@@ -42,14 +42,7 @@ afterEach(() => {
 const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
 
 /** The screen's own tile out of one painting: the one surface a beat cell wide (`beatPx`). */
-function tileOf(painted: Painted): Uint8ClampedArray {
-  const wide = beatPx(gridPitchPx(2));
-  const written = painted.surfaces.flatMap((surface, at) =>
-    painted.elements[at]?.width === wide ? surface.wrote : [],
-  );
-  expect(written).toHaveLength(1);
-  return written[0]?.data ?? new Uint8ClampedArray();
-}
+const tileOf = (painted: Painted): Uint8ClampedArray => tileFrom(painted, beatPx(gridPitchPx(2)));
 
 /** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
 function paintingOf(yard: Readonly<YardScene>, looks: readonly MoireLook[] = []): Painted {

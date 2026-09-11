@@ -10,8 +10,6 @@ import { GLYPH_COUNT } from "@/lib/moireGlyph";
 import { FIELD_ASPECT } from "@/ui/sketch/sketchField";
 import { SKETCH_STANDING, SKETCH_WALK } from "@/ui/sketch/sketchWalk";
 import {
-  BEAT_DIAL,
-  beatField,
   CELL,
   CHARACTER_ALPHABET,
   COLS,
@@ -34,7 +32,6 @@ import type { SketchDial, SketchDriftField } from "@/ui/sketch/sketchDrift";
 
 /** Every field on the bench with the dial it is drawn under, so one cannot be left out. */
 const FIELDS: readonly { name: string; field: SketchDriftField; dial: SketchDial }[] = [
-  { name: "beat", field: beatField, dial: BEAT_DIAL },
   { name: "decay", field: decayField, dial: DECAY_DIAL },
   { name: "part", field: partField, dial: PART_DIAL },
   { name: "scatter", field: scatterField, dial: SCATTER_DIAL },
@@ -85,19 +82,6 @@ describe("every field on the marks bench", () => {
       const value = stood(0, row);
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(1);
-    }
-  });
-});
-
-describe("the beat", () => {
-  it("is the one lattice drawn twice at a ratio of one, and two lattices at its rest", () => {
-    expect(differ(plainField, (x, y) => beatField(x, y, 1))).toBe(0);
-    expect(differ(plainField, (x, y) => beatField(x, y, BEAT_DIAL.rest))).toBeGreaterThan(0);
-  });
-
-  it("never takes ink away from the first lattice", () => {
-    for (const [x, y] of GRID) {
-      expect(beatField(x, y, BEAT_DIAL.rest)).toBeGreaterThanOrEqual(plainField(x, y));
     }
   });
 });
