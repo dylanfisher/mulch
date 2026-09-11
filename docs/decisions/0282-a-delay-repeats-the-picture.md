@@ -27,8 +27,10 @@ one term. The Mix is nowhere in `lookFrom`, because it is the presence the whole
 
 **The chain hands every pass the wind's veer, and the wind reaches the painter whole.** A pass that
 displaces the field needs a direction and the picture has exactly one — the direction the standing
-rack blows it in (0267) — so `paintMoire` takes the `MoireWind` rather than the drift alone, spends
-the drift on the ink as before and the veer on the chain, and `LookPass` gains a fifth argument the
+rack blows it in (0267) — so `paintMoire` takes the `MoireWind` rather than one number of it, spends
+its reach on the ink as before (the drift, until
+[0364](0364-the-ground-crawls-the-lattice-and-the-wind-only-leans-it.md) made it a lean) and the veer
+on the chain, and `LookPass` gains a fifth argument the
 two passes that displace nothing simply do not declare. Multiplied by the whole veer and never by
 its sign: the veer travels through nought over the wind's seconds, so the ladder walks in as the wind
 picks up, where a sign would throw every ghost across the picture between two frames.

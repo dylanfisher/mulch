@@ -288,9 +288,17 @@ function cutThrough(
  * rounded there rather than here, because the reading behind them is not monotone: rounded at the
  * spend, a mix sitting near a cell's edge would hop the lattice a cell and back between frames.
  *
- * `wind` is how far the standing rack's own tail has blown the whole field, in turns of one cell of
- * the grid (0267). The one term here that does not come back: every other motion of the screen is a
- * cycle of a row's own phase, and this is a reading of the population running one way.
+ * `wind` is how far the standing rack's own tail leans the whole field, in whole cells of the marks
+ * and toward the way it is blowing (`MoireWind.lean`, `windTravelInto`, src/ui/moireWind.ts, 0267).
+ * A **lean** and no longer a crawl: the one travel the lattice makes across the picture is the
+ * ground's below, and a second one-way travel beside it with no ground under it would be two motions
+ * with one name. Whole cells already, and rounded where the reading is for the sides' reason, so it
+ * is taken off the rounding exactly as they are.
+ *
+ * `crawl` is how many whole cells of the marks the walk's ground has carried the lattice
+ * (`crawlCells`, src/ui/moireCrawl.ts): a ground move of one bed steps the lattice one cell, over
+ * the seconds the field takes to travel onto that ground. Whole cells already, and rounded where
+ * the travel is read rather than here, so it is taken off the rounding the way the sides are.
  *
  * `armed` is the hand the part a launch grid has queued would be written in, or null where nothing
  * is queued — and null too where the queued part reads the hand already standing, a column that
@@ -310,6 +318,7 @@ export function inkThrough(
   color: string,
   ink: Readonly<ScreenInk>,
   wind: number,
+  crawl: number,
   sides: number,
   yard: Readonly<YardScene>,
   looks: readonly MoireLook[],
@@ -369,14 +378,17 @@ export function inkThrough(
   // **Over the tile being drawn and not the one asked for**: the shop's answer while a bake is out
   // may be another size, and the fold that stands the second lattice is sevenfold (0351, 0354).
   rolled.f = Math.round((bandTurns(rows) * drawn.height) / pitch) * pitch;
-  // And the wind on that same axis, added to the crawl rather than given one of its own: the crawl
-  // sweeps the tile's own period and comes back, and this is the same axis running one way — how
-  // far the standing rack's own tail has blown the whole field (`windTravelInto`,
-  // src/ui/moireWind.ts, 0267). It is a term on the transform and touches no key, so a field
-  // blowing all day bakes nothing (0129). **The period is the tile's width and not the gratings'
-  // beat cell**: a translation of exactly one tile is the identity for a repeating pattern and a
-  // translation of anything else is not, so a crawl sweeping a seventh of a tile standing the
-  // second lattice would snap the whole picture back once a cycle (`screenTilePx`, 0351).
+  // And the crawl on the other axis: the term's own sweep across the tile, which comes round and
+  // arrives back where it left. **The period is the tile's width and not the gratings' beat cell**:
+  // a translation of exactly one tile is the identity for a repeating pattern and a translation of
+  // anything else is not, so a crawl sweeping a seventh of a tile standing the second lattice would
+  // snap the whole picture back once a cycle (`screenTilePx`, 0351).
+  // And the ground the walk is standing on, on that same axis and in whole cells of the marks: the
+  // ground move and the crawl are one motion, so a move of a bed is the lattice stepping a cell and
+  // a move of four is four (`crawlCells`, src/ui/moireCrawl.ts). Taken off the rounding rather than
+  // through it, the way the sides are: the cells are already whole, and rounding a travelled
+  // distance twice is the hop 0346 exists to keep out. It is a term on the transform and touches no
+  // key, so a ground walking the file all day bakes nothing (0129).
   // And the output's own two sides leaning that same axis: the crawl is the one travel the lattice
   // makes across the picture, and this is which way it is pulled — toward the louder side, so a
   // panner sweeping sweeps the lattice with it. In whole cells and not in turns of the tile, because
@@ -384,11 +396,17 @@ export function inkThrough(
   // rather than through it: the cells are already whole, so the lattice still lands where 0346 says
   // and the step is the reading's own (`leanCells`). Like the wind it is a term on the transform and
   // touches no key, so a mix panned all day bakes nothing (0129).
+  // And the wind's own lean on that same axis, added last and off the rounding: whole cells of the
+  // marks toward the way the standing rack is blowing, and no travel at all (`MoireWind.lean`,
+  // src/ui/moireWind.ts, 0267, 0364).
   // And which way that crawl runs: a landing reading its slot backwards runs it the other way,
-  // taken on the term alone and inside the rounding, so the lattice still lands on whole cells
-  // (0346) and the wind and the sides go on saying what they said (0362).
+  // taken on the term and on the ground's own step inside it, so the lattice still lands on whole
+  // cells (0346) and the wind and the sides go on saying what they said (0362).
+  const running = reversed ? -1 : 1;
   rolled.e =
-    (Math.round((((reversed ? -1 : 1) * termTurns(rows, "crawl") + wind) * drawn.width) / pitch) -
+    (Math.round((running * termTurns(rows, "crawl") * drawn.width) / pitch) +
+      running * crawl +
+      wind -
       sides) *
     pitch;
   turnedScale(
@@ -427,7 +445,7 @@ export function inkThrough(
   const swing = 2 * Math.sin(Math.PI / strips) * pivot;
   const asked = gust * shear;
   const bowed = swing > 0 ? Math.min(asked, (GUST_BREAK * beatPx(pitch)) / swing) : asked;
-  const crawl = rolled.e;
+  const placed = rolled.e;
   let edge = 0;
   for (let at = 0; at < strips; at += 1) {
     // Rounded to whole device pixels at both ends, so the strips tile the canvas exactly: a
@@ -435,7 +453,7 @@ export function inkThrough(
     const next = Math.round(((at + 1) * canvas.width) / strips);
     const bow = bowed * Math.sin(TAU * (turns + at / strips));
     rolled.c = lean + bow;
-    rolled.e = crawl - bow * pivot;
+    rolled.e = placed - bow * pivot;
     pattern.setTransform(rolled);
     // Re-set on every strip, which is the cost this step is: one `fillStyle` a frame becomes one
     // a strip, and the tile behind all of them is still the one the cache answered with.

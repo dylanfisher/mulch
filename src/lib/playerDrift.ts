@@ -295,6 +295,41 @@ const standingCentre = (at: number, duration: number): number =>
   denormalize(normalize(at, 0, duration), 0, DRIFT_CENTRE_REACH);
 
 /**
+ * And `standingCentre` read back the other way: how far through the source the ground stands, in
+ * **beds** — one bed being one loop-length of it, which is what a ground move is counted in before
+ * it is counted in sixteenths of one (`bedGround`, src/lib/playerBed.ts, 0185).
+ *
+ * Read off a centre the picture has *travelled* to and not off the offset a step carries, which is
+ * the whole of what it is for: the walk's ground move and the screen's crawl are one motion, so the
+ * lattice steps a cell for every bed of it and a move half travelled has stepped half of what it
+ * will (`crawlCells`, src/ui/moireCrawl.ts). The one place the centre is turned back into the
+ * ground's own unit, so neither end of that motion is measured twice (principle 1).
+ *
+ * **Through the source and not from the loop's own in-point**, which the ground move is measured in
+ * (`bedGround`): a hand dragging the loop moves the ground *and* the point a distance from it would
+ * be measured against, so a move read that way is a lattice that steps out and comes back. A loop
+ * resized is another bed and so another count, which is the loop this yard is reading changing and
+ * not a move of the ground inside it.
+ *
+ * The travel it is read off is a *rate* and not a duration — `easedCentre` carries the whole of
+ * `DRIFT_CENTRE_REACH` in `playerGroundSecs` — so a move across the file sweeps the lattice across
+ * it and a bed's move inside a long file steps it almost at once. That is the ground's own rule
+ * (0235), and this reads it rather than writing a second one.
+ *
+ * Nought where there is no loop for a bed to be the length of and on a source of no length, which is
+ * a yard reading nowhere: the same answer `playerRowStand` gives, and a lattice that stands still.
+ */
+export const playerGroundBeds = (centre: number, loop: Loop | null, duration: number): number => {
+  // Guarded the way a travel's own rate is, so a duration that is not a number at all answers the
+  // still lattice rather than writing a NaN into the screen's transform, which draws nothing and
+  // says nothing (principle 5, `windTravelInto`).
+  if (loop === null || !(duration > 0)) return 0;
+  const span = loop.out - loop.in;
+  if (span <= 0) return 0;
+  return ((centre / DRIFT_CENTRE_REACH) * duration) / span;
+};
+
+/**
  * Where a yard that is jumping nowhere anchors the picture: on its loop's own in-point (0274). A
  * loop is a place the yard really is reading whether or not a walk is standing in it, so a hand
  * moving the loop across the file is a ground move like a jump is, and the field travels to it

@@ -228,7 +228,7 @@ describe("the chain of passes", () => {
     const at = plain.elements.length;
     const echoed = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
-      wind: { drift: 0, veer: 1 },
+      wind: { blown: 1, lean: 0, veer: 1 },
     });
     const pass = echoed.surfaces[at];
     const field = echoed.elements[0];
@@ -261,20 +261,20 @@ describe("the chain of passes", () => {
     // turning round rather than two pictures.
     const back = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
-      wind: { drift: 0, veer: -1 },
+      wind: { blown: 1, lean: 0, veer: -1 },
     });
     expect(back.surfaces[at]?.drew[1]?.box).toEqual([-step, 0]);
     // A delay the picture has not travelled to draws the field once and leaves it where it was.
     const absent = settled({
       looks: [{ ...look("echoes", { spacing: 1, count: 1, fade: 1 }), at: 0 }],
-      wind: { drift: 0, veer: 1 },
+      wind: { blown: 1, lean: 0, veer: 1 },
     });
     expect(absent.surfaces[at]?.drew).toHaveLength(1);
     expect(fills(absent)).toEqual(fills(plain));
     // And a delay at its own knobs' bottom is still a repeat, at the count and fade they state.
     const one = settled({
       looks: [look("echoes", { spacing: 0, count: 0, fade: 0 })],
-      wind: { drift: 0, veer: 1 },
+      wind: { blown: 1, lean: 0, veer: 1 },
     });
     expect(one.surfaces[at]?.drew).toHaveLength(1 + echoCount(0));
     expect(one.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING.value, 10);
@@ -286,7 +286,7 @@ describe("the chain of passes", () => {
     // gathers it, and this is the frame where that number is nought.
     const still = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
-      wind: { drift: 0, veer: 0 },
+      wind: { blown: 1, lean: 0, veer: 0 },
     });
     expect(still.surfaces[at]?.drew).toHaveLength(1);
     expect(still.surfaces[at]?.drew[0]?.alpha).toBe(1);
@@ -295,7 +295,7 @@ describe("the chain of passes", () => {
     // are fainter for it, rather than gathering onto it at the whole of their own alpha.
     const turning = settled({
       looks: [look("echoes", { spacing: 1, count: 1, fade: 1 })],
-      wind: { drift: 0, veer: 0.5 },
+      wind: { blown: 1, lean: 0, veer: 0.5 },
     });
     expect(turning.surfaces[at]?.drew[1]?.box).toEqual([step / 2, 0]);
     expect(turning.surfaces[at]?.drew[1]?.alpha).toBeCloseTo(ECHO_CEILING.value / 2, 10);
@@ -309,7 +309,7 @@ describe("the chain of passes", () => {
         look("echoes", { spacing: 1, count: 1, fade: 1 }, "one"),
         look("echoes", { spacing: 1, count: 1, fade: 1 }, "two"),
       ],
-      wind: { drift: 0, veer: 1 },
+      wind: { blown: 1, lean: 0, veer: 1 },
     });
     const rungs = [
       two.surfaces[at]?.drew[1]?.alpha ?? 0,
@@ -640,7 +640,7 @@ describe("the chain of passes", () => {
         looks: [{ ...look(name as LookName, terms), at: presence }],
         // A wind the echoes would ride, so a pass that ignored its presence would have somewhere
         // to put its repeats.
-        wind: { drift: 0, veer: 1 },
+        wind: { blown: 1, lean: 0, veer: 1 },
       });
       return { painted, pass: painted.surfaces[at] };
     };

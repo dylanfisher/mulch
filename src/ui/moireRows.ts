@@ -414,8 +414,9 @@ export function moireRows(
   // And what the rack standing behind all of it is doing to the whole field: how long it takes to
   // fall silent and which way that blows. Read here and never on a frame, because it is a fact
   // about what the entries are *set to* and a rebuild is what a durable move already is
-  // (`rackWind`, src/ui/moireWind.ts). Where the wind has actually blown to is the read's, and it
-  // is carried onto whatever set replaces this one, exactly as the ink is (`carryWind`).
+  // (`rackWind`, src/ui/moireWind.ts). How far the wind has travelled toward that reading is the
+  // read's, and it is carried onto whatever set replaces this one, exactly as the ink is
+  // (`carryWind`).
   const blowing = rackWind(standing);
   // And every look that same rack gives the whole picture, in the order the rack holds them: read
   // here for the same reason and off the same standing population, in a pass of its own — where the
@@ -449,6 +450,9 @@ export function moireRows(
     // And which way the lattice crawls, forwards until the read says a landing reads its slot
     // backwards (0362).
     reversed: false,
+    // And how many beds through the source the ground it stands on is, at nothing until the read
+    // says where that is (`crawlCells`, src/ui/moireCrawl.ts).
+    crawl: 0,
     ...macro,
   };
 }

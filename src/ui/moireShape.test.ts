@@ -13,15 +13,19 @@ import { describe, expect, it } from "vitest";
 import { effectParamDefaults, PARAMS } from "@/audio/params";
 import { DRIFT_PAINT_HZ } from "@/lib/moire";
 import { emptyMasterPeek } from "@/audio/context";
-import { LATTICE_CELLS, LATTICE_LEAN, LATTICE_REACH } from "@/lib/moireLattice";
+import {
+  LATTICE_CELLS,
+  LATTICE_LEAN,
+  LATTICE_REACH,
+  LEAN_CELLS,
+  leanCells,
+} from "@/lib/moireLattice";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { carryShape } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { moireRows, NO_MASTER } from "@/ui/moireRows";
 import {
-  leanCells,
   rackShape,
-  SIDES_CELLS,
   SHAPE_HEARD_SECS,
   SHAPE_SECS,
   shapeRest,
@@ -133,9 +137,9 @@ describe("how the standing rack shapes the picture", () => {
     // steady mix. The crawl leans by whole cells, and a whole cell read off a wobbling number at a
     // cell's own edge is the lattice hopping a cell and back on alternate frames — which is the
     // still lattice moving (0346). So the cell is held until the weight has carried past it.
-    const edge = 0.5 / SIDES_CELLS;
+    const edge = 0.5 / LEAN_CELLS;
     expect(leanCells(edge, 0), "a weight half a cell over does not step").toBe(0);
-    expect(leanCells(1 / SIDES_CELLS + edge, 1), "nor half a cell over the one held").toBe(1);
+    expect(leanCells(1 / LEAN_CELLS + edge, 1), "nor half a cell over the one held").toBe(1);
     // A wobble about a cell's edge steps nothing, however many frames it goes on for.
     let held = 1;
     for (const wobble of [0.34, 0.32, 0.35, 0.31, 0.33, 0.36, 0.3]) {
@@ -143,15 +147,15 @@ describe("how the standing rack shapes the picture", () => {
       expect(held, `a weight of ${wobble}`).toBe(1);
     }
     // And a pan that really moves steps, cell by cell, and comes back the same way.
-    expect(leanCells(1, 1)).toBe(SIDES_CELLS);
-    expect(leanCells(-1, SIDES_CELLS)).toBe(-SIDES_CELLS);
-    expect(leanCells(0, SIDES_CELLS)).toBe(0);
+    expect(leanCells(1, 1)).toBe(LEAN_CELLS);
+    expect(leanCells(-1, LEAN_CELLS)).toBe(-LEAN_CELLS);
+    expect(leanCells(0, LEAN_CELLS)).toBe(0);
     // The whole travel of the reading in one painting cannot cross the hold, which is what makes
     // the hold a hold: at the picture's own cadence the weight moves under half a cell a frame.
     const frame = 1 / DRIFT_PAINT_HZ;
     const moved = shapeRest();
     shapeTravelInto(moved, shapingRest(), { ...quiet, left: 1, right: 0 }, frame, true, 0);
-    expect(moved.sides * SIDES_CELLS).toBeLessThan(1);
+    expect(moved.sides * LEAN_CELLS).toBeLessThan(1);
     expect(moved.sidesCells, "one painting of a hard pan has not stepped yet").toBe(0);
   });
 

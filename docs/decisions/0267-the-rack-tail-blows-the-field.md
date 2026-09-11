@@ -1,7 +1,9 @@
 # 0267 — The rack's tail blows the field
 
 - **Date:** 2026-09-01
-- **Status:** accepted, on
+- **Status:** accepted; its drift half — the one-way travel across the screen — is superseded by
+  [0364](0364-the-ground-crawls-the-lattice-and-the-wind-only-leans-it.md), where the walk's ground
+  takes that travel and the tail leans the lattice by whole cells instead. On
   [0213](0213-a-reading-of-the-output-belongs-to-the-field.md),
   [0248](0248-the-structure-travels-and-its-identity-is-the-automators.md) and
   [0266](0266-the-picture-travels-its-ink.md)

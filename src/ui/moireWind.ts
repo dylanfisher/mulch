@@ -1,23 +1,26 @@
 /**
  * @role The wind the standing rack blows the whole picture with: how long that rack takes to fall
- *   silent, which way that blows the field, and the one-way travel across the screen it buys. A
+ *   silent, which way that blows the field, and the lean on the screen's lattice it buys. A
  *   reading of the population and never a parameter — no registry entry declares it and nothing
  *   about it is durable (0145, 0128) — so it rests on the field the way the wash does (0213) and
  *   belongs to no row.
  * @instead The tail's own arithmetic, and every other reading of a sound → src/lib/moireSound.ts.
  *   Where the reading rests, and the rows the whole field owns → src/ui/moireRowsField.ts. The
- *   transform the drift is a term on → `inkThrough` in src/ui/moireScreen.ts. Keeping the travel
- *   across a rebuilt set → src/ui/moireCarry.ts.
+ *   whole cells a lean is rounded into → `leanCells` in src/lib/moireLattice.ts. The
+ *   transform the lean is a term on → `inkThrough` in src/ui/moireScreen.ts. The one travel the
+ *   lattice does make across the picture, which is the walk's ground and not this →
+ *   src/ui/moireCrawl.ts. Keeping the lean across a rebuilt set → src/ui/moireCarry.ts.
  */
 import { effectHeard, effectSettleSecs } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { easedToward, foldStop, wrap, type MoireWind } from "@/lib/moire";
+import { easedToward, foldStop, type MoireWind } from "@/lib/moire";
+import { leanCells } from "@/lib/moireLattice";
 import { rackTail, type RackHeard } from "@/lib/moireSound";
 import type { DeckState } from "@/state/store";
 import { tunable } from "@/lib/moireTuning";
 
 /** Where the wind stands before a rack has blown anything: still, and nowhere. */
-export const windRest = (): MoireWind => ({ drift: 0, veer: 0 });
+export const windRest = (): MoireWind => ({ blown: 0, lean: 0, veer: 0 });
 
 /**
  * Which way the standing population blows the field, folded off it the way the picture's own
@@ -75,14 +78,11 @@ export function rackWind(effects: DeckState["effects"]): { tail: number; veering
 export const DRIFT_WIND_SECS = tunable("wind.secs", 6, { min: 0.5, max: 30, step: 0.5 });
 
 /**
- * And how fast a fully blown field travels, in turns of one cell of the screen a second — the same
- * cell the crawl sweeps and comes back across, which is the tile's own period (`screenTilePx`,
- * src/lib/moireScreenFilm.ts) and is therefore as wide as the screen is at whatever density it is drawn
- * at, exactly as the crawl is. A fifth of one a second is a drift the eye reads as the field
- * sliding under everything standing on it rather than as a scroll — slow, because the whole of what
- * the reading says is a long tail, and a long tail is a slow wide drift.
+ * The whole reading a blown field has: a tail of nought to one, so a rack that rings for the longest
+ * tail there is arrives at a whole one over `DRIFT_WIND_SECS` (`rackTail`, src/lib/moireSound.ts).
+ * Named for `WIND_VEER_REACH`'s reason — `easedToward` is stated as a whole reach in `over` seconds.
  */
-export const DRIFT_WIND_TURNS = tunable("wind.turns", 0.2, { min: 0, max: 1, step: 0.01 });
+const WIND_BLOWN_REACH = 1;
 
 /**
  * The whole travel a direction has: -1 to 1, a full reversal. Named because `easedToward` is stated
@@ -91,20 +91,27 @@ export const DRIFT_WIND_TURNS = tunable("wind.turns", 0.2, { min: 0, max: 1, ste
 const WIND_VEER_REACH = tunable("wind.veer", 2, { min: 0.5, max: 4, step: 0.1 });
 
 /**
- * One step of the wind: the direction one step nearer what the population says, and the field blown
- * one step further in it. Written in place, because it is read once a picture on the frame path and
- * allocates nothing (0070).
+ * One step of the wind: the direction one step nearer what the population says, and how far that
+ * leans the lattice at the tail it is blowing with. Written in place, because it is read once a
+ * picture on the frame path and allocates nothing (0070).
  *
- * **The drift is the integral and the reading is the speed**, which is the whole of why nothing here
- * needs a second rate: a tail that moves moves how fast the field is blowing and never where it has
- * got to, so the picture is continuous through every rack change by construction. A direction is the
- * one thing that is not — it is a sign, and a sign that flipped between two frames would reverse the
- * whole field at once — so that is what travels (`easedToward`, 0266).
+ * **Both halves of it travel, and the lean is where they stand**: how far the field leans is how
+ * hard it is blowing times which way, and a rack change moves both — a sign that flipped between two
+ * frames would reverse the whole field at once, and a tail that arrived outright would hop the
+ * lattice three marks the moment an effect was added. So each is walked at the one rate
+ * (`easedToward`, 0266) and the lean is read off where they have got to, which is what makes the
+ * picture continuous through every rack change.
  *
  * `over` is how long a whole turn takes — `DRIFT_WIND_SECS`, or nothing where there is no clock to
- * travel against, which arrives outright and blows nowhere. A halted picture is painted on a commit
- * and never on a frame (0144), so a wind timed against a clock that is not running would blow the
- * field the whole gap between two commits in one step.
+ * travel against, which arrives outright. A halted picture is painted on a commit and never on a
+ * frame (0144), so a wind timed against a clock that is not running would turn the whole field
+ * between two commits in one step.
+ *
+ * Rounded through `leanCells` (src/lib/moireLattice.ts), which is the one place a lean is turned
+ * into whole cells of the marks and is the rounding the output's own two sides already step through:
+ * the lattice has one axis, these are two readings pulling it along that one, and a second arithmetic
+ * for the second reading is the same lean said twice (principle 1, 0361). Its hold is what keeps a
+ * reading parked on a cell's edge from hopping the picture back and forth (0346).
  */
 export function windTravelInto(
   wind: MoireWind,
@@ -116,9 +123,13 @@ export function windTravelInto(
   // A whole reversal is one `DRIFT_WIND_SECS` and half of one is half of that, exactly as a whole
   // reach of an ink is one `DRIFT_INK_SECS`.
   wind.veer = easedToward(wind.veer, veering, elapsed, over, WIND_VEER_REACH.value);
-  if (!(over > 0)) return;
-  wind.drift = wrap(
-    wind.drift + wind.veer * tail * DRIFT_WIND_TURNS.value * Math.max(elapsed, 0),
-    1,
-  );
+  // And how hard it is blowing, on the same rate: the tail is a fact about what the rack is set to
+  // and moves in steps as entries are added, bypassed and taken away, so walked here for the
+  // direction's own reason — a lean that arrived outright would hop the whole lattice the moment a
+  // hand added an effect.
+  wind.blown = easedToward(wind.blown, tail, elapsed, over, WIND_BLOWN_REACH);
+  // And a dry rack leans the lattice nowhere: the tail is already on nought to one (`rackTail`,
+  // src/lib/moireSound.ts), so a yard with nothing ringing behind it draws the still lattice 0346
+  // shipped however hard its direction has turned.
+  wind.lean = leanCells(wind.veer * wind.blown, wind.lean);
 }

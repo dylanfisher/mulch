@@ -18,8 +18,10 @@ is `beatPx(pitch)` wide, so a whole number of cells span it by construction, and
 whole device pixel on every display. The marks are five bits a side for that reason
 (`src/lib/moireGlyph.ts`). That is also the reference's own cell in the column it is shown in.
 
-**The lattice stands still.** `inkThrough` rounds its two translations — the crawl with the wind,
-and the roll — to whole cells, so the picture steps through a fixed grid a cell at a time, which
+**The lattice stands still.** `inkThrough` rounds its two translations — the crawl, with the ground
+and the wind that lean it since
+[0364](0364-the-ground-crawls-the-lattice-and-the-wind-only-leans-it.md), and the roll — to whole
+cells, so the picture steps through a fixed grid a cell at a time, which
 is what the reference's fixed glyph grid does with its picture flowing under it. The turn, the
 breath and the shear rest at nought (`screen.turn`, `screen.breath`, `screen.shear`); the dials
 stay for a hand that wants the smear, and the cases that read those motions claim them.

@@ -13,17 +13,11 @@ import { effectParamDefaults, PARAMS } from "@/audio/params";
 import { PLAIN_CUT, RACK_TAIL_BAND, RACK_TAIL_LONGEST_SECS } from "@/lib/moireSound";
 import { emptyMasterPeek } from "@/audio/context";
 import { emptyDeckPeek } from "@/audio/deckPeek";
+import { LEAN_CELLS } from "@/lib/moireLattice";
 import { carryWind } from "@/ui/moireCarry";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { moireRows, NO_MASTER, refillRows as filledRows } from "@/ui/moireRows";
-import {
-  DRIFT_WIND_SECS,
-  DRIFT_WIND_TURNS,
-  rackWind,
-  windRest,
-  windTravelInto,
-  windVeer,
-} from "@/ui/moireWind";
+import { DRIFT_WIND_SECS, rackWind, windRest, windTravelInto, windVeer } from "@/ui/moireWind";
 import { shapeRest } from "@/ui/moireShape";
 import type { SessionEffect } from "@/state/session";
 
@@ -124,27 +118,33 @@ const set = (effects: SessionEffect[]): ReturnType<typeof moireRows> =>
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("how that wind travels", () => {
-  it("blows the field one way and never back, and blows a dry rack nowhere", () => {
+  it("leans the field by whole cells, holds there however long it blows, and leans a dry rack nowhere", () => {
     const wind = windRest();
-    // A whole `DRIFT_WIND_SECS` lands the direction outright, and from there the field is blown at
-    // the tail's own speed: one way, at a rate, without the crawl's own return (0267).
+    // A whole `DRIFT_WIND_SECS` lands the direction outright, and the lean is how hard the field is
+    // blowing times which way: a fully blown field at a whole direction leans the lattice the whole
+    // `LEAN_CELLS` (0267, and the fourteenth step of the block that took the travel away from it).
     windTravelInto(wind, 1, 1, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBe(1);
-    const blown = wind.drift;
-    windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS.value);
-    expect(wind.drift).toBeCloseTo(blown + DRIFT_WIND_TURNS.value, 10);
-    // Wrapped into one turn of a cell, because the screen is a repeating pattern: a wrap there is
-    // invisible, and it is what keeps a wind that has blown all day as exact as one a second old.
+    expect(wind.lean).toBe(LEAN_CELLS);
+    // And it stays there however long the field blows: a lean is a place, so the one travel the
+    // lattice makes across the picture is the walk's ground and not this (`crawlCells`,
+    // src/ui/moireCrawl.ts). The wind blowing all day steps the lattice nowhere at all.
     for (let step = 0; step < 40; step++) windTravelInto(wind, 1, 1, 1, DRIFT_WIND_SECS.value);
-    expect(wind.drift).toBeGreaterThanOrEqual(0);
-    expect(wind.drift).toBeLessThan(1);
-    // And a dry rack blows the field nowhere: a short tail is no drift, which is the picture drawn
+    expect(wind.lean).toBe(LEAN_CELLS);
+    // A quieter rack leans it less — and walks there rather than arriving: the tail steps whenever
+    // an entry is added, bypassed or taken away, and a lean written outright off it would hop the
+    // whole lattice three marks between two frames.
+    windTravelInto(wind, 1, 0.5, 1, DRIFT_WIND_SECS.value);
+    expect(wind.lean, "one second of a quieter rack has not arrived").toBe(LEAN_CELLS);
+    for (let step = 0; step < 40; step++) windTravelInto(wind, 1, 0.5, 1, DRIFT_WIND_SECS.value);
+    expect(wind.lean).toBe(Math.round(LEAN_CELLS / 2));
+    // And a dry rack leans the field nowhere: a short tail is no lean, which is the picture drawn
     // before there was a rack behind it.
     const still = windRest();
     for (let step = 0; step < 60; step++)
       windTravelInto(still, 1, 0, 1 / 60, DRIFT_WIND_SECS.value);
     expect(still.veer).toBeGreaterThan(0);
-    expect(still.drift).toBe(0);
+    expect(still.lean).toBe(0);
   });
 
   it("turns at a rate rather than reversing between two frames, and arrives with no clock", () => {
@@ -160,13 +160,14 @@ describe("how that wind travels", () => {
     // Never past it: a travel that overshot would be a wind blowing harder for having turned.
     windTravelInto(wind, -1, 1, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
     expect(wind.veer).toBe(-1);
-    // And a yard with no clock behind it arrives outright and blows nowhere: a halted picture is
-    // painted on a commit and never on a frame (0144), so a wind timed against a clock that is not
-    // running would blow the field a whole commit's gap in one step.
+    // And a yard with no clock behind it arrives outright: a halted picture is painted on a commit
+    // and never on a frame (0144), so a wind timed against a clock that is not running would turn
+    // the field a whole commit's gap in one step. Its lean is the direction it arrived at, which is
+    // a place and not a distance travelled.
     const halted = windRest();
     windTravelInto(halted, 1, 1, 30, 0);
     expect(halted.veer).toBe(1);
-    expect(halted.drift).toBe(0);
+    expect(halted.lean).toBe(LEAN_CELLS);
   });
 
   it("rests on the set beside the wash and the age, read once and never per row", () => {
@@ -212,7 +213,7 @@ describe("how that wind travels", () => {
     expect(Math.abs(was.veering)).toBe(1);
     expect(was.wind).toEqual(windRest());
     windTravelInto(was.wind, was.veering, was.tail, DRIFT_WIND_SECS.value, DRIFT_WIND_SECS.value);
-    expect(was.wind.drift).not.toBe(0);
+    expect(was.wind.lean).not.toBe(0);
     // A knob touch rebuilds the set, and a fresh one has been blown nowhere — so without the carry
     // the field would drop back to where no wind had ever reached it and set off again on every
     // pointer move, which is a wind that restarts rather than one that turns.

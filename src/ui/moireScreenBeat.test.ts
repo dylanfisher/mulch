@@ -16,6 +16,7 @@ import { PER_PIXEL } from "@/lib/moireScreenCells";
 import { moireRow as row } from "@/lib/moireRow";
 import {
   baked,
+  claiming,
   forgetScreenTiles,
   installHereScreenPort,
   painterOn,
@@ -36,20 +37,28 @@ afterEach(() => {
   installHereScreenPort();
 });
 
-/** A rack whose tail is blowing nowhere, which is where every case but the crawl's paints. */
-const STILL = { drift: 0, veer: 0 };
+/** A rack whose tail is leaning the lattice nowhere, which is where every case here paints. */
+const STILL = { blown: 1, lean: 0, veer: 0 };
 
 /** The rows every painting here is made of: one claiming row, and the deck's own reference. */
 const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
+
+/**
+ * And the rows a case about the crawl paints with: one row whose fold lands in the crawl's own
+ * slice of the turn and stands half a turn through its cycle, and the deck's own reference beside
+ * it. The crawl's term and not the wind, which leans the lattice by whole cells and sweeps nothing
+ * since the walk's ground took the travel over (`crawlCells`, src/ui/moireCrawl.ts).
+ */
+const CRAWLING = [claiming("crawl", { phase: 2 }), row({ period: 4, phase: 1, reference: true })];
 
 /**
  * One painting of a rack whose lattice has folded the picture to `cells`, on a two-pixel display.
  * `deep` is the canvas's own height, which the tile is keyed through: a case wanting a tile of its
  * own rather than the one another case left in the cache asks for another one (`screenOf`).
  */
-function painting(cells: number, deep = 128, wind = STILL): Painted {
+function painting(cells: number, deep = 128, rows = ROWS): Painted {
   vi.stubGlobal("devicePixelRatio", 2);
-  return paintedOn(200, deep, ROWS, 2, 20, { shape: { ...shapeRest(), cells }, wind });
+  return paintedOn(200, deep, rows, 2, 20, { shape: { ...shapeRest(), cells }, wind: STILL });
 }
 
 /** What share of a tile's pixels carry any ink at all. */
@@ -213,17 +222,15 @@ describe("moireScreenBeat", () => {
 
   it("sweeps the crawl across the whole of the wider tile, so the picture never snaps back", () => {
     // A translation of exactly one tile is the identity for a repeating pattern, and a translation
-    // of anything else is not: the crawl and the wind on its axis sweep the tile's own period and
-    // come back (0267). With the second lattice standing that period is the grown width, and a
-    // crawl still sweeping the gratings' beat cell would snap the picture back a seventh of a tile
-    // once a cycle.
+    // of anything else is not: the crawl sweeps the tile's own period and comes back. With the
+    // second lattice standing that period is the grown width, and a crawl still sweeping the
+    // gratings' beat cell would snap the picture back a seventh of a tile once a cycle.
     const pitch = gridPitchPx(2);
     const cell = rowPitchPx(2);
-    const blown = { drift: 0.5, veer: 0 };
-    const one = painting(shapeRest().cells, 130, blown).screened[0]?.e ?? 0;
-    const both = painting(LATTICE_CELLS[1], 131, blown).screened[0]?.e ?? 0;
-    // Half a turn of the wind carries the screen half a tile, whichever tile it is standing on, and
-    // both land on a whole cell of the marks (0346).
+    const one = painting(shapeRest().cells, 130, CRAWLING).screened[0]?.e ?? 0;
+    const both = painting(LATTICE_CELLS[1], 131, CRAWLING).screened[0]?.e ?? 0;
+    // Half a turn of the crawl carries the screen half a tile, whichever tile it is standing on,
+    // and both land on a whole cell of the marks (0346).
     expect(one).toBeGreaterThan(0);
     expect(one % pitch).toBe(0);
     expect(both % pitch).toBe(0);
@@ -255,11 +262,10 @@ describe("moireScreenBeat", () => {
       listenFailure: () => {},
     }));
     const shape = { ...shapeRest(), cells: shapeRest().cells };
-    const painted = paintedOn(200, 128, ROWS, 2, 20, {
+    const painted = paintedOn(200, 128, CRAWLING, 2, 20, {
       frames: 3,
       advance: 0,
       shape,
-      wind: { drift: 0.5, veer: 0 },
       between: (frame) => {
         // The narrow tile lands after the first painting, so the second draws it.
         if (frame === 0) {
@@ -275,8 +281,8 @@ describe("moireScreenBeat", () => {
     });
     const last = painted.screened.at(-1);
     const swept = last === undefined ? 0 : last.e;
-    // Half a turn of the wind carries the screen half of the tile it is drawing, which is still the
-    // narrow one — and nowhere near half of the grown one.
+    // Half a turn of the crawl carries the screen half of the tile it is drawing, which is still
+    // the narrow one — and nowhere near half of the grown one.
     expect(asked.length).toBeGreaterThan(1);
     expect(swept).toBeGreaterThan(0);
     expect(swept % pitch).toBe(0);

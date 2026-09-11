@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0364; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0365; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -579,7 +579,7 @@ hand. Two things went one way and are in §4: the column the armed hand actually
 and so recurs across the picture, and a spark is placed on its landing's own ground rather than
 given a row of its own.
 
-**Step 14 — the ground and the crawl are one (bench-41).** _Durable shape moved:_ none. The walk's
+**Step 14 — the ground and the crawl are one (bench-41, 0364).** _Durable shape moved:_ none. The walk's
 ground moves (`bedGround`, travelled by `easedCentre`) and the screen's crawl (`inkThrough`, off
 the wind) are two motions with one name. The crawl takes the ground's travel: when the ground
 moves a bed the lattice steps that many whole cells and the wind only leans it. **Stands on:**
@@ -588,6 +588,28 @@ on it (0362), which the ground's step composes with rather than replaces. **Outc
 the lattice stepping, visibly, once. **Tests that must fail first:** a fixture ground move of one
 bed steps the crawl by one cell over `PLAYER_GROUND_TRAVEL` and the wind alone steps nothing.
 **Refused:** a third clock.
+
+**It landed as [0364](decisions/0364-the-ground-crawls-the-lattice-and-the-wind-only-leans-it.md)**,
+and the outcome is met: a ground move is the lattice stepping, visibly, once. `crawlCells`
+(src/ui/moireCrawl.ts) reads the first ground row's _travelled_ centre back into beds through
+`playerGroundBeds` (src/lib/playerDrift.ts) and rounds it, so a move of one bed steps the lattice
+one whole cell of the marks and a move of four steps four, on the ground's own travel — a rate, the
+whole source over `playerGroundSecs`, so a move across the file sweeps the lattice and a bed's move
+inside a long file steps it almost at once (0235) — with no third clock and nothing new to carry
+across a rebuilt set. The cells reach `inkThrough` beside the sides, taken off
+the rounding because they are whole already, and a reversed landing turns them with the rest of the
+crawl (0346, 0361, 0362); both are terms on the transform, so a ground walking the file all day
+bakes nothing (0129, 0354). The step's other half cost more than it looked: the wind was that same
+one-way travel, so "the wind only leans it" meant `MoireWind.drift` had to go. It is
+`MoireWind.lean` now — whole cells toward the way the field is blowing, off a direction and a
+strength both travelled at the wind's own rate and rounded through `leanCells`, which moved to
+src/lib/moireLattice.ts so the sides and the tail lean the one axis through one arithmetic (0361) —
+a place and not an integral, so a rack blowing all day leans and never walks. The review caught the
+lean written outright off a tail that steps at every rebuild, which hopped the lattice three marks
+the moment an effect was added, and a required proof asserted tautologically; both are fixed and
+the second is now a painting read twice through a blowing field. Four things went one way and are in
+§4: the drift and its dial, the bed measured through the source rather than from the loop's
+in-point, the nudge that is under a cell, and the crawl as an absolute place.
 
 **Checkpoint C — every reach, priced (bench-48).** _Durable shape moved:_ none. Steps 9–14 open
 the lattice to every effect and every facet of playback: the stamp is lifted by side (step 11)
@@ -724,6 +746,30 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**The wind's one-way drift is gone, and its dial with it (0364).** The screen's crawl was the
+wind's: `MoireWind.drift` integrated the tail into turns of the tile, and the `wind.turns` dial set
+how fast. Step 14 gives that travel to the walk's ground, and a second one-way travel on the same
+axis with no ground under it is the two-motions-one-name the step exists to end — so the drift is a
+bounded lean now and the dial is deleted rather than left pointing at nothing. The price: a yard
+whose rack rings behind a stopped walk no longer has a field that slides under it; it has a field
+leaning a few marks one way. The wind still turns, still takes `DRIFT_WIND_SECS` to do it, and still
+offsets the pass that displaces the field (0267, 0282).
+
+**A bed is measured through the source and a nudge steps nothing (0364).** `playerGroundBeds`
+counts from the top of the file and not from the loop's in-point, because a hand dragging the loop
+moves the ground and the origin together — measured from the loop, a dragged loop steps the lattice
+out and back to nowhere. The cost is that a loop _resized_ is a different bed and so a different
+count, which reads as the lattice stepping once; that is the loop this yard reads changing, not the
+ground moving inside it. And a quarter-bed nudge is under a whole cell and steps nothing on its own
+— four of them are a bed and step one — which is the rounding 0346 asks for and not an oversight.
+
+**The crawl is an absolute place, and unbounded (0364).** It counts beds from the top of the source
+rather than from where the ground was, so a long file with a short loop reads in the hundreds and a
+reversed landing mirrors that number rather than the distance the ground has walked. Both are
+harmless where they land — a translation of a repeating pattern is exact at any whole number of
+cells, and what the eye reads is the difference between two frames — and the alternative, a walked
+distance, is an accumulator with nothing to anchor it after a rebuild.
 
 **The armed hand writes the _tile's_ last cell column, so it recurs across the picture (0363).**
 The step's words are "the picture's rightmost cell column", and the tile is laid as a repeating

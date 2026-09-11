@@ -19,6 +19,7 @@ import { PLAYER_GROUND_TRAVEL, playerGroundSecs } from "@/lib/playerDrift";
 import type { Loop } from "@/lib/timeline";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
+import { crawlCells } from "@/ui/moireCrawl";
 import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { shapeRest } from "@/ui/moireShape";
@@ -92,5 +93,53 @@ describe("the loop as the ground", () => {
     expect(travelled(null, over / 8, 1)).toBe(0);
     expect(travelled(null, ARRIVED, 1)).toBe(0);
     expect(DRIFT_REST.centre).not.toBe(0);
+  });
+
+  it("steps the lattice one cell for a ground move of one bed, over the travel, and never for the wind", () => {
+    // The fourteenth step of the block: the walk's ground move and the screen's crawl are one
+    // motion, so a ground move of a bed — one loop-length of source (`bedGround`,
+    // src/lib/playerBed.ts) — steps the lattice exactly one cell, over the seconds the field takes
+    // to travel onto it and not between two frames.
+    const { rows, reads } = moireRows([], [], 2, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);
+    const duration = 16;
+    const crawled = (loop: Loop, elapsed: number): number => {
+      refillRows(
+        rows,
+        reads,
+        { ...emptyDeckPeek(), sounding: 1 },
+        1,
+        loop,
+        duration,
+        null,
+        SILENT_MASTER,
+        elapsed,
+        FRESH,
+        STOOD,
+        STOOD,
+        screenInkRest(),
+        [],
+        joltRest(),
+        shapeRest(),
+      );
+      return crawlCells(rows, reads, loop, duration);
+    };
+    // Standing on the loop at the top of the file, which is the ground no move has been made from.
+    expect(crawled({ in: 0, out: 2 }, ARRIVED)).toBe(0);
+    const over = playerGroundSecs(2);
+    expect(over).toBe(2 * PLAYER_GROUND_TRAVEL);
+    // The loop dragged one whole bed along, which is a ground move like a jump is (0274). A frame
+    // into the travel the lattice has not stepped at all: the step is the travel's, and a picture
+    // that stepped on the frame the move was made would be a lattice that jumps.
+    expect(crawled({ in: 2, out: 4 }, over / 32)).toBe(0);
+    // And arrived, it has stepped exactly one cell — the bed the ground moved, and no more.
+    expect(crawled({ in: 2, out: 4 }, over)).toBe(1);
+    // Four beds along is four cells, and it walks them: a quarter of a whole move's travel carries
+    // the field three of the four, because the rate is the whole reach over `PLAYER_GROUND_TRAVEL`
+    // of the landing and this move is a fraction of that reach (`easedCentre`, src/lib/moire.ts).
+    expect(crawled({ in: 8, out: 10 }, over / 4)).toBe(3);
+    expect(crawled({ in: 8, out: 10 }, ARRIVED)).toBe(4);
+    // What the wind does to the same lattice is a lean that arrives and holds, and the painting that
+    // reads both is in src/ui/moireScreenCrawl.test.ts: a field blowing on and on places the screen
+    // exactly where the frame before it did.
   });
 });

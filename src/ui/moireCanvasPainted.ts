@@ -24,10 +24,26 @@ import { type MoireTint, tintRest } from "@/ui/moireTint";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
 import { forgetScreenTiles, installHereScreenPort } from "@/ui/moireScreenHere";
+import { moireRow } from "@/lib/moireRow";
+import { SCREEN_TERMS, type ScreenTerm } from "@/ui/moireScreen";
 
 // Re-exported so a painter case that hands the shop a port of its own reaches it through the same
 // harness its painting comes from, rather than naming a second module for one question.
 export { forgetScreenTiles, installHereScreenPort };
+
+/**
+ * A row whose shape lands in the middle of `term`'s slice of the fold, so it claims that motion of
+ * the screen and no other (`termTurns`, src/ui/moireScreen.ts, 0128). Here with the painter rather
+ * than in any one case's file, because three of them paint rows claiming a term and the fold that
+ * picks one is arithmetic nobody should write twice (principle 3).
+ */
+export const claiming = (term: ScreenTerm, over: Partial<MoireRow> = {}): MoireRow =>
+  moireRow({
+    period: 4,
+    phase: 1,
+    shape: ((SCREEN_TERMS.indexOf(term) + 0.5) / SCREEN_TERMS.length) * 2 ** 32,
+    ...over,
+  });
 
 // Installed once, where the shop's own module state is: a painter case that paints twice reads the
 // held tile on the second painting exactly as it did before the bake moved off this task, and the
@@ -179,7 +195,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       // exactly where a picture with no rack behind it starts (`windRest`, src/ui/moireWind.ts,
       // 0267). A wind at rest is blowing nowhere yet, so a case about a pass that displaces the
       // field along it has to hand in a wind that is blowing (0282).
-      wind = { drift: 0, veer: 0 },
+      wind = { blown: 1, lean: 0, veer: 0 },
       // And every whole-field look the standing rack is making: none unless a case says otherwise,
       // which is the picture drawn before there was anything in the rack (`rackLooks`,
       // src/ui/moireLooks.ts, 0279).
@@ -207,6 +223,10 @@ export function painterOn(stubGlobal: StubGlobal) {
       // And the hand a queued part would be written in: none queued unless a case says otherwise.
       armed = null,
       reversed = false,
+      // And how far the walk's ground has crawled the lattice, in whole cells of the marks: nowhere
+      // unless a case says otherwise, which is a picture standing on the ground its loop begins at
+      // (`crawlCells`, src/ui/moireCrawl.ts).
+      crawl = 0,
     }: {
       frames?: number;
       advance?: number;
@@ -228,6 +248,8 @@ export function painterOn(stubGlobal: StubGlobal) {
       armed?: AlphabetName | null;
       /** Whether the landing sounding reads its slot backwards, which reverses the crawl (0362). */
       reversed?: boolean;
+      /** How many whole cells of the marks the walk's ground has carried the lattice. */
+      crawl?: number;
     } = {},
   ) {
     // The rows' gratings are aimed on the surface their product is built on; the screen is made on
@@ -399,6 +421,7 @@ export function painterOn(stubGlobal: StubGlobal) {
         sounding,
         tint,
         wind,
+        crawl,
         looks,
         shape,
         tinting,

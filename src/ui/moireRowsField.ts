@@ -288,11 +288,10 @@ export type MoireRowSet = {
    */
   looks: MoireLook[];
   /**
-   * And where that wind has actually blown the picture to, and which way it is blowing this frame —
-   * the third accumulated thing in the picture beside the ground and the ink, travelled by the read
-   * and carried onto whatever set replaces this one (`windTravelInto`, `carryWind`). Per picture and
-   * not per yard, like the ink and the seed: one screen is one tile, and a strip and an overlay each
-   * blow their own.
+   * And how far that wind leans the picture's lattice, how hard it is blowing and which way this
+   * frame — each travelled toward the population's own reading by the read and carried onto whatever
+   * set replaces this one (`windTravelInto`, `carryWind`, 0364). Per picture and not per yard, like
+   * the ink and the seed: one screen is one tile, and a strip and an overlay each lean their own.
    */
   wind: MoireWind;
   /**
@@ -345,6 +344,17 @@ export type MoireRowSet = {
    * landing could be reversed.
    */
   reversed: boolean;
+  /**
+   * And how far that crawl has got, in whole cells of the marks: the ground the walk is standing on,
+   * read where the picture has actually travelled onto it, so a ground move of one bed is the
+   * lattice stepping one cell (`crawlCells`, src/ui/moireCrawl.ts). The field's and no row's, like
+   * the three above it, and a per-frame read for their reason — what moves it is the walk arriving
+   * on another ground, which nothing durable has changed. An absolute place and not a distance
+   * walked: it is how many beds through the source the ground stands, so a yard reading the top of a
+   * file reads nought and one reading deep into it reads a large number, and what the eye reads is
+   * the difference between two frames. Nought until a read has filled it.
+   */
+  crawl: number;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -471,6 +481,7 @@ export function macroInto(
   | "alphabet"
   | "armed"
   | "reversed"
+  | "crawl"
 > {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);

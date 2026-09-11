@@ -42,19 +42,12 @@ import {
 } from "@/lib/moireScreenFilm";
 import { sceneHue } from "@/lib/moireScreenCells";
 import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
-import { leanCells, type MoireShape, shapeRest } from "@/ui/moireShape";
+import { leanCells } from "@/lib/moireLattice";
+import { type MoireShape, shapeRest } from "@/ui/moireShape";
 import { tintRest } from "@/ui/moireTint";
 
 import { moireRow as row } from "@/lib/moireRow";
-
-/** A shape landing in the middle of `term`'s slice of the fold, so that term and no other. */
-const claiming = (term: (typeof SCREEN_TERMS)[number], over: Partial<MoireRow> = {}): MoireRow =>
-  row({
-    period: 4,
-    phase: 1,
-    shape: ((SCREEN_TERMS.indexOf(term) + 0.5) / SCREEN_TERMS.length) * 2 ** 32,
-    ...over,
-  });
+import { claiming } from "@/ui/moireCanvasPainted";
 
 /** Where the painter put the screen for one fill: the whole matrix, not just how far it rolled. */
 type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
@@ -190,7 +183,8 @@ function paintedOn(
     fractalStopsRest(),
     0,
     ink ?? arrivedInk(rows),
-    { drift: wind, veer: 1 },
+    { blown: 1, lean: wind, veer: 1 },
+    0,
     [],
     shape,
     tintRest(),
@@ -429,24 +423,25 @@ describe("moireScreen", () => {
     expect(placed?.a).not.toBe(1);
   });
 
-  it("blows the whole screen one way along the crawl's own axis, and bakes nothing to do it", () => {
-    // What the standing rack's tail buys: the crawl sweeps one cell and comes back, and this is the
-    // same axis running one way (0267). A drift on any other cell of the matrix would be a second
-    // motion, and one in the tile's key would be a picture-sized bake per frame (0129).
+  it("leans the whole screen by the rack's tail, in whole cells, and bakes nothing to do it", () => {
+    // The fourteenth step of the block: the one travel the lattice makes across the picture is the
+    // walk's ground (`crawlCells`, src/ui/moireCrawl.ts), so what the standing rack's tail buys is
+    // a lean of a few marks along that same axis and never a travel of its own — a second one-way
+    // drift with no ground under it would be two motions with one name (0267). A lean on any other
+    // cell of the matrix would be a second motion, and one in the tile's key would be a
+    // picture-sized bake per frame (0129).
     vi.stubGlobal("devicePixelRatio", 2);
     const pitch = gridPitchPx(2);
     const rows = [claiming("crawl"), row({ period: 4, phase: 1, reference: true })];
     const colour = nextColor();
     const still = paintedOn(200, 64, rows, undefined, 0, colour);
     vi.stubGlobal("devicePixelRatio", 2);
-    const blown = paintedOn(200, 64, rows, undefined, 0.25, colour);
+    const blown = paintedOn(200, 64, rows, undefined, 2, colour);
     const held = still.moves[0];
     const moved = blown.moves[0];
-    // By whole cells of the marks since 0346: as far as the wind says to within a cell, and never
-    // a fraction of one.
-    const swept = (moved?.e ?? 0) - (held?.e ?? 0);
-    expect(Math.abs(swept - 0.25 * beatPx(pitch))).toBeLessThanOrEqual(pitch / 2);
-    expect(swept % pitch).toBeCloseTo(0, 10);
+    // Exactly the cells it says, on the crawl's own axis: the reading is whole cells of the marks
+    // before it arrives here, so the lattice lands where 0346 says without being rounded twice.
+    expect((moved?.e ?? 0) - (held?.e ?? 0)).toBe(2 * pitch);
     for (const cell of ["a", "b", "c", "d", "f"] as const)
       expect(moved?.[cell]).toBeCloseTo(held?.[cell] ?? 0, 10);
     // And the second painting wrote no tile at all: the first one's answered it, because the wind
@@ -484,7 +479,7 @@ describe("moireScreen", () => {
     // has and would not read as a side at all.
     expect(crawledTo(even) - crawledTo(left)).toBeGreaterThan(pitch);
     // The cells are whole where they are read and not where they are spent, so what the crawl is
-    // handed is exactly what it leans by (`leanCells`, src/ui/moireShape.ts).
+    // handed is exactly what it leans by (`leanCells`, src/lib/moireLattice.ts).
     expect(crawledTo(even) - crawledTo(left)).toBe(leanCells(1, 0) * pitch);
     // And on that one cell of the matrix and no other: a lean on any of the rest would be a second
     // motion rather than the crawl's own.

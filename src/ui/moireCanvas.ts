@@ -555,12 +555,12 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * src/ui/moireScreen.ts). What the rows claim is read off the boldest of them and is what the travel
  * is going toward; this is where it actually stands, and it is what the screen tile is keyed by.
  *
- * And `wind`, how far the standing rack's own tail has blown the whole field, in turns of one cell
- * of the screen's grid, and which way it is blowing — the field's again, and travelled there by the
- * same read (`windTravelInto`, src/ui/moireWind.ts, 0267). A picture with a dry rack behind it is
- * blown nowhere, which is the picture drawn before there was a tail in it. Handed in whole rather
- * than as the drift alone, because the direction is what a pass that displaces the field is offset
- * along (0282) and the two are one reading of one population (principle 1).
+ * And `wind`, how far the standing rack's own tail leans the whole field, in whole cells of the
+ * screen's marks, and which way it is blowing — the field's again, and travelled there by the same
+ * read (`windTravelInto`, src/ui/moireWind.ts, 0267). A picture with a dry rack behind it leans
+ * nowhere, which is the picture drawn before there was a tail in it. Handed in whole rather than as
+ * the lean alone, because the direction is what a pass that displaces the field is offset along
+ * (0282) and the two are one reading of one population (principle 1).
  *
  * And `looks`, every whole-field move the standing rack is making, in the rack's own order and each
  * at the presence the picture has travelled to (`rackLooks`, src/ui/moireLooks.ts, 0279). The chain
@@ -606,6 +606,11 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `reversed`, whether the landing sounding reads its slot backwards (`PlayerStep.reversed`,
  * 0362): the crawl is the one travel the lattice makes across the picture and this is which way it
  * runs, so a reversed landing draws the lattice walking back the way it came.
+ *
+ * And `crawl`, how far that one travel has got, in whole cells of the marks: the ground the walk is
+ * standing on, read where the picture has travelled onto it (`crawlCells`, src/ui/moireCrawl.ts).
+ * A ground move of a bed is the lattice stepping a cell, which is the walk's own move and the
+ * screen's crawl being one motion rather than two with one name.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -621,6 +626,7 @@ export function paintMoire(
   sounding: number,
   tint: Readonly<ScreenInk>,
   wind: Readonly<MoireWind>,
+  crawl: number,
   looks: readonly MoireLook[],
   shape: Readonly<MoireShape>,
   tinting: Readonly<MoireTint>,
@@ -685,7 +691,8 @@ export function paintMoire(
     rows,
     color,
     tint,
-    wind.drift,
+    wind.lean,
+    crawl,
     shape.sidesCells,
     yard,
     looks,

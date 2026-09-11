@@ -15,7 +15,13 @@
 import { effectById } from "@/audio/effects/registry";
 import { effectHeard } from "@/audio/params";
 import { easedToward, wrap } from "@/lib/moire";
-import { LATTICE_CELLS, LATTICE_LEAN, latticeCells, latticeLean } from "@/lib/moireLattice";
+import {
+  LATTICE_CELLS,
+  LATTICE_LEAN,
+  latticeCells,
+  latticeLean,
+  leanCells,
+} from "@/lib/moireLattice";
 import { heardLevel, heardSides } from "@/lib/moireSound";
 import { DRIFT_WIND_SECS } from "@/ui/moireWind";
 import type { MasterPeek } from "@/app/facade";
@@ -62,38 +68,10 @@ export type MoireShape = {
    * because a rounding is where a reading that is not monotone flickers: the two sides are
    * unsmoothed peaks, so a mix sitting near a cell's edge would hop the whole lattice a cell and
    * back on alternate frames, which is the still lattice moving (0346). It steps only once the
-   * weight has carried past the cell it is leaning at by `SIDES_HOLD`.
+   * weight has carried past the cell it is leaning at by `LEAN_HOLD` (`leanCells`,
+   * src/lib/moireLattice.ts).
    */
   sidesCells: number;
-};
-
-/**
- * How far the louder side pulls the lattice along the crawl's own axis, in whole cells of the marks
- * at a whole side's worth of weight. Three, because the lattice is read as a standing grid: one cell
- * is inside the swing the crawl already has and would not read as a side at all, and a lean the eye
- * can follow across a sweeping pan has to be a few marks — far enough to see, near enough that a
- * hard pan is the same picture leaning rather than a second picture.
- */
-export const SIDES_CELLS = 3;
-
-/**
- * And how far past the cell it is leaning at the weight must carry before the lattice steps: more
- * than half a cell, so a mix dithering about a cell's own edge cannot hop the picture back and
- * forth, and less than a whole one, so a pan sweeping still steps at every cell it passes. Three
- * fifths, which is over twice the furthest one painting's travel can carry the reading at the rate
- * above.
- */
-const SIDES_HOLD = 0.6;
-
-/**
- * Which whole cell the lattice leans at, given where the weight stands and where it is leaning now:
- * the cell the weight names, but only once it stands more than `SIDES_HOLD` from the one already
- * held. The one place the reading is rounded, so the picture steps when the pan moves and never
- * when the peaks wobble.
- */
-export const leanCells = (sides: number, held: number): number => {
-  const want = sides * SIDES_CELLS;
-  return Math.abs(want - held) >= SIDES_HOLD ? Math.round(want) : held;
 };
 
 /** What a rack nobody has added to asks for: nothing standing, and so the loosest lattice. */
@@ -160,8 +138,9 @@ export const SHAPE_HEARD_SECS = tunable("shape.heardSecs", 0.5, { min: 0.05, max
  * (`rackShape`, 0300): a full run tightened the cell fourfold and a tear through a fine weave is
  * the same weave, so the tear held its reach and lost its look. The wander is the integral and
  * `wander` is the speed, handed in from the looks rather than read here
- * for the wind's reason: a sway's knob moving moves how fast the bend goes round and never where it
- * has got to (`looksWander`, `windTravelInto`).
+ * for the reason the wind's own drift once was: a sway's knob moving moves how fast the bend goes
+ * round and never where it has got to (`looksWander`; the wind itself leans rather than drifts
+ * since 0364).
  *
  * **And no travel at all on a yard that is not running**: everything arrives outright and the
  * wander stands still, which is the answer the ink and the wind give — a halted picture is painted

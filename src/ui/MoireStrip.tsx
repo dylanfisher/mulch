@@ -68,6 +68,7 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
+import { crawlCells } from "@/ui/moireCrawl";
 import {
   deckLanes,
   moireRows,
@@ -312,23 +313,21 @@ function useMoireRows(
     // and for its reason — the field's and no row's, and a read rather than anything durable.
     set.reversed = standingReversed(peek.player);
     // And one step of the wind the standing rack blows the whole field with: how long that rack
-    // takes to fall silent came back with the set, and this is where it has actually blown to
-    // (`rackWind`, `windTravelInto`, src/ui/moireWind.ts, 0267). Here beside the age rather than
-    // inside the read, because it is the one travel in the picture that reads no row: it is the
-    // population's, and the population is what a rebuild already answered.
+    // takes to fall silent came back with the set, and this is how far and which way that leans the
+    // lattice now (`rackWind`, `windTravelInto`, src/ui/moireWind.ts, 0267, 0364). Here beside the
+    // age rather than inside the read, because it reads no row: it is the population's, and the
+    // population is what a rebuild already answered.
     //
     // **And no wind at all on a yard that is not sounding**, which is the answer the ink and the
-    // ground both give: there is nothing to blow a field across, so the direction arrives outright
-    // and the field stands where it is (0144, 0266).
+    // ground both give: there is nothing to lean a field with, so the reading arrives outright and
+    // the field stands where it is (0144, 0266).
     //
     // The gap this is handed is the gap between two *paintings*, which the session's clock keeps
     // running through — a strip covered by its own overlay is not animating and comes back to a
-    // long one. A drift is an integral, so it is the one term here that turns a long gap into
-    // motion rather than saturating; it is bounded to a cell by its own wrap, and every phase term
-    // beside it (`termTurns`, `bandTurns`) has already moved an arbitrary distance across that same
-    // gap, because a phase is read off the deck's position and not accumulated. So the resumed
-    // picture is discontinuous either way and this is the smallest of those jumps, which is why it
-    // is not capped a second time.
+    // long one. Both halves of the wind are travelled toward a reading rather than accumulated, so
+    // a long gap arrives at that reading instead of overshooting it; every phase term beside it
+    // (`termTurns`, `bandTurns`) has already moved an arbitrary distance across the same gap,
+    // because a phase is read off the deck's position.
     windTravelInto(
       set.wind,
       set.veering,
@@ -370,6 +369,12 @@ function useMoireRows(
       set.jolt,
       set.shape,
     );
+    // And how far the ground the picture stands on has crawled the lattice, in whole cells of the
+    // marks: the walk's ground move and the screen's crawl are one motion, so a move of a bed steps
+    // the lattice a cell over the seconds the ground takes to travel (`crawlCells`,
+    // src/ui/moireCrawl.ts). After the read and never before it, because what it measures is the
+    // travel the read just took a step of.
+    set.crawl = crawlCells(set.rows, set.reads, loop, state.duration);
     // And one step of the band washed over the whole of it, after the read because two of the
     // three things it spends — the ink's saturation and its dispersion — are what the read just
     // travelled; the third is the output's own level (`tintTravelInto`, 0302). On the ink's own
@@ -446,6 +451,7 @@ function useMoirePicture(
         set.sounding,
         set.ink,
         set.wind,
+        set.crawl,
         set.looks,
         set.shape,
         set.tint,

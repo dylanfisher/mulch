@@ -93,13 +93,14 @@ export function carryTint(from: MoireRowSet, to: MoireRowSet): void {
 }
 
 /**
- * And how far the wind had blown the picture, and which way it was blowing when it did. The same
- * argument a third time, and the one it matters most for is the rebuild that changes the wind
- * itself: adding an effect is a new population and a new direction, and a set that started still
- * would drop the field back to where it had never been blown and set off again — which is a wind
- * that restarts rather than one that turns, and turning is the whole of what this reading buys
- * (0267). Where it is *going* is the new set's own population and is never carried, which is what
- * makes the added effect turn it at all.
+ * And how hard the wind was blowing the picture and which way, with the lean those two stand at.
+ * The same argument a third time, and the one it matters most for is the rebuild that changes the
+ * wind itself: adding an effect is a new population, a new direction and a new tail, and a set that
+ * started still would drop the field back to where nothing had ever blown it and set off again —
+ * which is a wind that restarts rather than one that turns, and turning is the whole of what this
+ * reading buys (0267, 0364). Where it is *going* is the new set's own population and is never
+ * carried, which is what makes the added effect turn it at all. The lean rides along because it is
+ * where those two stand; the next read writes it from them either way.
  */
 export function carryWind(from: MoireRowSet, to: MoireRowSet): void {
   Object.assign(to.wind, from.wind);

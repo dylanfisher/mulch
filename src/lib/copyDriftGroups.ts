@@ -120,19 +120,13 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
   },
   {
     title: "Wind",
-    hint: "The slow drift of the whole field under everything standing on it, blown by the rack's population.",
+    hint: "The lean the whole field takes under everything standing on it, blown by the rack's population.",
     entries: [
       {
         id: "wind.secs",
         wild: "min",
         label: "Turn",
         hint: "How long the wind takes to turn all the way round, in seconds.",
-      },
-      {
-        id: "wind.turns",
-        wild: "max",
-        label: "Speed",
-        hint: "How fast a fully blown field travels, in cells of the screen a second.",
       },
       {
         id: "wind.veer",

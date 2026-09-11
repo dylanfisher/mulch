@@ -158,6 +158,36 @@ export const LATTICE_LEAN = tunable("lattice.lean", 0.125, { min: 0, max: 0.5, s
 export const latticeLean = (tilt: number): number => LATTICE_LEAN.value * (clamp(tilt, 0, 1) - 0.5);
 
 /**
+ * How far a whole-field reading pulls the lattice along the crawl's own axis, in whole cells of the
+ * marks at the whole of that reading. Three, because the lattice is read as a standing grid: one
+ * cell is inside the swing the crawl already has and would not read as a lean at all, and a lean the
+ * eye can follow has to be a few marks — far enough to see, near enough that the hardest reading
+ * there is leans the same picture rather than drawing a second one. One number for both readings
+ * that lean it, the output's two sides and the rack's own tail (`shapeTravelInto`,
+ * src/ui/moireShape.ts; `windTravelInto`, src/ui/moireWind.ts, 0361, 0364).
+ */
+export const LEAN_CELLS = 3;
+
+/**
+ * And how far past the cell it is leaning at a reading must carry before the lattice steps: more
+ * than half a cell, so a reading dithering about a cell's own edge cannot hop the picture back and
+ * forth, and less than a whole one, so a reading sweeping still steps at every cell it passes. Three
+ * fifths, which is over twice the furthest one painting's travel can carry either reading.
+ */
+const LEAN_HOLD = 0.6;
+
+/**
+ * Which whole cell the lattice leans at, given where the reading stands and where it is leaning now:
+ * the cell the reading names, but only once it stands more than `LEAN_HOLD` from the one already
+ * held. The one place a lean is rounded, so the picture steps when the reading moves and never when
+ * it wobbles about an edge (0346).
+ */
+export const leanCells = (reading: number, held: number): number => {
+  const want = reading * LEAN_CELLS;
+  return Math.abs(want - held) >= LEAN_HOLD ? Math.round(want) : held;
+};
+
+/**
  * How many quarter turns the lattice turns in one period of its row. A whole number, because a
  * square lattice a quarter turn on is the same lattice, so the phase wrapping is a symmetry and
  * never a snap.
