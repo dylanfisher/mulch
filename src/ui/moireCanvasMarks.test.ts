@@ -31,7 +31,7 @@ import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moire
 import { bandFloor, bitPx, boxCells, CELL_ROWS, STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
-import { CELL_DECAY, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
+import { CELL_DECAY, CELL_PUSHES, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
 // oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -447,6 +447,35 @@ describe("the marks the painter puts down", () => {
     const landed = landedOn([{ at: 1, centre: 0.5 }]);
     expect(stampPasses(landed, 200, 128)).toBe(GLYPH_COUNT);
     expect(stampDraws(landed)).toBeLessThanOrEqual(STAMP_PICTURE_DRAWS);
+  });
+
+  it("pays a frame with no landing's picture-sized draws, at a landing's own edge", () => {
+    // Checkpoint B's own boolean (docs/plan.md §1). The sixth step put the first per-frame motion
+    // there is on the stamp, and what a motion may not cost is a draw the size of the picture —
+    // what that costs when it is added is on `stampDraws` above. So the frame at a landing's edge
+    // is measured against the frame with no landing at all rather than against the budget alone:
+    // **equal**, and not merely under it, because a count that only has to stay under a constant
+    // can be raised by raising the constant.
+    const cell = gridPitchPx(2);
+    const wide = boxCells(200, cell);
+    const deep = boxCells(128, cell);
+    const still = stampDraws(stampedOn(2));
+    expect(still).toBe(STAMP_PICTURE_DRAWS);
+    expect(stampDraws(landedOn([{ at: 1, centre: 0.5 }]))).toBe(still);
+    // And with the whole ring falling at once, which is the most the block allows at all: four
+    // landings, four bands, and still one draw — the lift is `CELL_PUSHES` fills on a surface one
+    // pixel a cell and nothing else (`liftPushes`).
+    const ring = Array.from({ length: CELL_PUSHES }, (_, slot) => ({
+      at: 1 - slot / CELL_PUSHES,
+      centre: (slot + 0.5) / CELL_PUSHES,
+    }));
+    const full = landedOn(ring);
+    expect(liftsOn(full, wide, deep)).toHaveLength(CELL_PUSHES);
+    expect(stampDraws(full)).toBe(still);
+    expect(stampPasses(full, 200, 128)).toBe(GLYPH_COUNT);
+    // And the frame after it pays the same again: the lift keeps no surface of its own, so a walk
+    // landing every frame is the still lattice's cost however long it goes on.
+    expect(stampDraws(landedOn(ring, 2))).toBe(2 * still);
   });
 
   it("moves no cell outside the rows the landing stands in", () => {

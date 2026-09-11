@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0358; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0359; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -88,7 +88,8 @@ the levers that hold, records what stands over it with its cause, and the next c
 **The bench's eight (steps 1–8).** Each is the bench's argument landed where its `built` note said,
 in the order that builds the machine before what rides it. Steps 1, 2, 3, 4 and 5 landed as 0348,
 0349, 0350, 0351 and 0352, checkpoint A after them as 0353, checkpoint A2 after that as 0354, step
-6 after that as 0355, step 7 as 0356 and step 8 as 0357, which closed the bench.
+6 after that as 0355, step 7 as 0356 and step 8 as 0357, which closed the bench; checkpoint B
+landed after it as 0358.
 
 **Step 1 — the field is mostly ground (bench-28, 0348).** _Durable shape moved:_ none. The bench's
 first entry: a cell's read pushed toward the ends of its ramp before it is cut into marks, one
@@ -238,7 +239,9 @@ second with every one of the drag's 480 moves landing, the stamp costing 1.2 ms 
 **It does not reach the budget**, and what stands over it is the tile bake at 36–38 ms mean and
 83–98 ms worst against 4 ms and 8 ms — 0351's sevenfold tile with 0349's passes and 0352's
 scatter in one pixel loop — which is every long task, the rAF p95 of 25–33 ms and the 63–90 frames
-a drag still drops. §4 holds what that is qualified for; checkpoint B owns it. The second test the
+a drag still drops. §4 holds what that is qualified for; checkpoint A2 took it off the frame (0354)
+and checkpoint B found it unchanged and still over the budget there (0358), so step 18 owns it now.
+The second test the
 step named — a bake on an ink step touching only the tile the step moved — went with it, the
 numbers having put the bake's own shape past what this checkpoint may land.
 
@@ -359,7 +362,7 @@ graveyard is one list on the page that still stands: `SketchPage.test.tsx` gains
 names, and `bloom` — which the drift bench mounts as its own entry 07 — is held down instead by a
 case beside the list that asserts no file and no route survives. §4 holds what that split cost.
 
-**Checkpoint B — the stamp under a landing (bench-47).** _Durable shape moved:_ none. Steps 6
+**Checkpoint B — the stamp under a landing (bench-47, 0358).** _Durable shape moved:_ none. Steps 6
 and 7 put the first per-frame motion on the stamp — a landing lifting a row's threshold passes,
 decaying on the deck clock — and the first key field that rebakes on a part change. Measure the
 budget's setting again, head against checkpoint A's commit, with the walk landing at its fastest
@@ -377,6 +380,32 @@ did at checkpoint A, within the budget. **Tests that must fail first:** a frame 
 edge pays the same number of picture-sized draws as a frame with no landing; a part change
 rebakes once. **Refused:** a decay clocked by the frame instead of the deck; a mark tile minted
 per frame.
+
+**It landed as [0358](decisions/0358-a-landing-costs-the-stamp-nothing.md)**, and the outcome is
+met: a walk flaring its rows on the popped-out picture costs no more per frame than the still
+lattice did. At the budget's setting — measured against **checkpoint A2's** commit rather than
+checkpoint A's, A2 being the tree that isolates steps 6 to 8 — base and head interleaved with a run
+of head at no landing beside each pair, head under a landing every 125 ms paints in **1.53 ms**,
+which is base's 1.53 and its own
+1.51 with nothing landing — at 120 frames a second with **no long task and no rAF gap over 20 ms**
+in either tree, and the lift itself is 0.0004 ms a painting. Neither question the entry asked came
+back yes. A landing **does not** put the bake on the frame's own task: the push is spent on the
+boxed read after the tile and reaches no field of the key, so the bake count under a landing is
+base's exactly. And a part change is **not** ten fresh keys but one a canvas — 78 bakes against 72
+for a section changing every two seconds, with the section it left still held, so a song coming back
+round pays nothing. What a part change does cost is **0.34 ms a painting** at a section every two
+seconds, all of it the alphabet's ten mark tiles minted on the frame that first needs them; no gap
+and no long task shows it, so it is recorded in §4 rather than levered — with the rate it would
+want levering at. The part change's boolean went into
+src/ui/moireScreenAlphabet.test.ts beside 0356's own, which already reads the key `screenOf` writes,
+and says the half 0356 did not: the hand it left is still held, so an arrangement walked through
+cannot outrun the shop. The tile bake is unchanged and still over the budget — 43 to 46
+ms mean against 4 (one head run at 61, its own noise), base and head alike, off the frame since
+0354, and step 18 still owns it. The budget's fourth number is **not met in either tree**: the knob
+drag beside the popped picture dropped 36 and 38 frames at base against 18 to 26 at head, none over
+50 ms, so what this says is that steps 6 to 8 did not make it worse. Three things were driven by
+hand because this machine's audio device is gone, and §4 says which and what that leaves
+unmeasured.
 
 **Every effect reaches the lattice (steps 9–11).** The registry says an effect declares its whole
 reach; today twenty-one parameters declare none. Each step below is one table of claims and one
@@ -587,6 +616,52 @@ teaching it feature semantics.
 
 ## 4. Not taken
 
+**A part change mints ten mark tiles on the frame that first needs them, and they stay there
+(0358).** It is the one cost checkpoint B could attribute to steps 6–8 at all: a section changing
+every two seconds — the fastest a section could change — costs the paintings 1.89 ms against 1.53,
+and the whole 0.34 ms is in the stamp, where `readMarks` mints the alphabet's ten tiles and the ten
+`sheetOf` blits after a mint lay surfaces the engine has not seen. About 25 ms a part change, spread
+over the paintings after it and never one task: no long task and no rAF gap over 20 ms shows it at a
+canvas of 5120 × 2880. The lever would be a cache of minted tiles keyed on the bit, the ink and the
+alphabet and held across canvases — three alphabets and a handful of pictures, so it is small — and
+it is not taken, because the budget's own sentence is that a cost is a lever when the numbers say so
+and these do not. **The rate it would want levering at is stated rather than assumed away**: the
+cost is linear in how often the section changes, and `PLAYER_PART_MIN` is one jump — a part per jump
+on a walk landing eight times a second is sixteen times the rate measured here, which is where the
+cache earns itself. Nobody has written that song, but the player permits it, drawn or by hand.
+Whoever feels a section change on a big picture should look here first.
+
+**Checkpoint B could not reproduce the budget's setting either, and drove three things by hand
+(0358).** The same fact 0354 recorded: this machine's audio output device is gone, so no deck
+reaches `playing`, the master clock's elapsed is nought and `./scripts/check`'s `drive` step is red
+at base. So the **frame loop** was driven by the measurement rather than by a playing yard (270
+paintings an eight-second window summed across the canvases the opener draws, the same count on both
+sides); the **landing** was fed in where
+`joltWalked` is read, every 125 ms at a level cycling a quarter to one with its centre stepping an
+eighth of the picture; and the **part change** was the alphabet cycled among its three names every
+two seconds — fast for a song but not the fastest the player allows, `PLAYER_PART_MIN` being one
+jump — beside the rack's reading walked three times a second through one tunable, which put 72 bakes
+in every window on both sides. What that leaves unmeasured is **the fall**: with no clock
+nothing decays, so every landing taken up stays up and the ring holds four live pushes for the whole
+window. The lift was therefore measured at the most it can cost and not at its average, which is the
+right way round for a budget and says nothing about whether a flare reads as a fall — 0355's own
+paragraph above already owns that half. And the machine itself drifted six-fold under memory
+pressure across the runs; every degraded run was degraded at base too, so the numbers quoted are the
+runs where both trees stood at 120 frames a second, and the attribution is read head against head as
+well as head against base.
+
+**Checkpoint B's part-change boolean is one assertion added to step 7's case, not a case of its own
+(0358).** The first shape of it was a case in `src/ui/moireScreenShop.test.ts` asking for a tile
+under one alphabet and then another. The review refuted it: the shop reads `order.key`, `width` and
+`height` and never `order.alphabet`, so a part change there is a substring the test itself composes
+and the case reaches no branch the shop's own "asks once" and "holds both" cases do not. The fact
+the checkpoint wanted is asserted through the key `screenOf` actually writes, in
+`src/ui/moireScreenAlphabet.test.ts`, where 0356 already has "bakes once for one hand however often
+it is asked, and again for another" — so what landed is the one thing that case did not say, that
+the hand it left is still held. What that gives up is a direct assertion about the shop's in-flight
+behaviour under a part change specifically; it is the same in-flight behaviour under any key, and
+the shop's own two cases hold it.
+
 **The marks bench's graveyard is nine names and a file check, not ten names (0357).** The step asked
 that SketchPage.test's cleared-id list name the bench's entries, and one of the eight cannot be
 named there: the marks bench's `bloom` is also the drift bench's entry 07, the shipped scene, which
@@ -682,7 +757,10 @@ instruction-bound by twenty-four times over the floor of writing its own bytes, 
 real — and 0058's bar is absolute milliseconds on a path someone waits on, which a worker bake no
 gesture awaits does not clear. No WASM block was opened on it; step 18 still owns the question, and
 a landing that makes a rung something a frame _does_ wait for would change the answer, which is why
-checkpoint B's entry now asks that.
+checkpoint B's entry asked that. **It asked and the answer is no** (0358): the push is spent on the
+boxed read after the tile and reaches no field of the key, so a landing rebakes nothing, and a part
+change rebakes one tile a canvas off the frame like any other rung. The bake is where 0354 left it
+— 43 to 46 ms mean, identical at base — and step 18 still owns it.
 
 **Where there is no worker, a slice is one band a frame and the bands are not all the same size
 (0354).** The fallback bands the body, the cell grid of both lattices, the scatter's block read and

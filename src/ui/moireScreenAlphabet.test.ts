@@ -1,8 +1,9 @@
 /**
  * @role Tests that the alphabet the standing part picks reaches the picture through the tile's own
  *   key: the same picture in one hand is baked once however many paintings ask for it, another
- *   hand is another key and so another bake, and what comes back is another picture in the same
- *   cells (0356). Its own file beside the beat's and the scatter's, because src/ui/moireScreen.test.ts
+ *   hand is another key and so another bake, what comes back is another picture in the same
+ *   cells (0356), and the hand it left is still held so a song coming back round bakes nothing
+ *   (0358). Its own file beside the beat's and the scatter's, because src/ui/moireScreen.test.ts
  *   stands at the line cap (0045).
  * @instead The alphabets themselves, what a mark of one covers, and which one a part picks →
  *   src/lib/moireAlphabets.test.ts. Where the key is written → `screenOf`, src/ui/moireScreen.ts.
@@ -54,5 +55,10 @@ describe("the tile the standing part picks the alphabet for", () => {
     const marks = tileOf(first, wide);
     expect(strokes.length).toBe(marks.length);
     expect([...strokes]).not.toEqual([...marks]);
+    // And **the section it left is still held**, so a song coming back round to the hand it was
+    // written in bakes nothing at all. Checkpoint B's own boolean (docs/plan.md §1, 0358): a part
+    // change is one tile a canvas and not a picture rebuilt, which is what keeps an arrangement
+    // walked through from outrunning a shop that bakes one tile at a time.
+    expect(baked(painting("marks", deep), wide), "coming back to a hand baked again").toBe(0);
   });
 });
