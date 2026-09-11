@@ -241,6 +241,40 @@ a drag still drops. §4 holds what that is qualified for; checkpoint B owns it. 
 step named — a bake on an ink step touching only the tile the step moved — went with it, the
 numbers having put the bake's own shape past what this checkpoint may land.
 
+**Checkpoint A2 — the bake is off the frame (bench-49).** _Durable shape moved:_ none. Added
+2026-09-11 on checkpoint A's numbers, and run before step 6 because the page comes first: with the
+stamp fixed, every tile bake at the budget's setting is a long task — 36–38 ms mean and 83–98 ms
+worst against 4 and 8, fourteen to eighteen of them in eight seconds, and they are the whole of
+the rAF p95 of 25–33 ms, every gap over 50 ms, and the 63–90 frames a knob drag drops (0353). The
+cause is one pixel loop, `build` (src/ui/moireScreenTile.ts), over a tile 0351 made seven of the
+cells it was, with 0349's passes and 0352's scatter read inside it, run on the frame at every rung
+of any travelling term. The instrument already has the shape for this: the curved rows' tile shop
+(src/ui/driftTiles.ts, 0142, 0144) takes at most one bake a painting on the main thread, hands the
+bake to src/workers/drift.ts where the browser has one, and a late tile costs the previous tile and
+never an empty picture. The screen tile takes the same shape — the body and the ink's terms cross
+to the worker as plain data, the bytes come back as an `ImageBitmap` or an `ImageData`, and the
+frame draws the last complete tile until the new one lands, so a rung is never a bake on the frame
+loop's own task. Where a worker is refused, the fallback is a bake in slices under a per-frame
+budget through `paced`, never the whole loop in one task. Measure as the budget says, head against
+0353's commit, and read the bake's cost where it now runs as well as the frame's. Then price the
+loop itself per 0116 — its time against the memory floor of writing the same bytes — and record
+in the decision whether it clears 0058's bar for a kernel; if it does, open the WASM block in §1
+that step 18 describes, with the measurement quoted, rather than waiting for step 18. Also measure
+the fact 0353 found and could not use: a popped window put fullscreen or moved to a second display
+stops the opener's frame loop, so the picture a person pops out to a big screen stops drawing.
+Read `document.visibilityState` and the rAF cadence in both documents in that state; if the
+opener's loop is what stops, the decision names the fix and it lands in §1 as a step of its own
+— a popped document that ticks its own canvas from its own `requestAnimationFrame` while the
+opener holds the one set of callbacks (frame.ts's one-loop rule amended for a second document,
+not a second loop). **Stands on:** `driftTiles`, `driftOffThread`, `src/workers/drift.ts`;
+`paced`; `TILE_CACHE`; 0116's pricing, 0211's byte bar. **Outcome wanted:** at the budget's
+setting no bake runs on the frame loop's task, the knob drag on the page drops no frame, and the
+picture on a second display draws. **Tests that must fail first:** a painting whose tile is not
+yet baked draws the last complete tile and asks the shop once, never `build` on the frame; the
+shop hands a bake to the worker port where one is given and to the paced fallback where none is;
+a rung of one term rebakes one tile. **Refused:** a governor in place of the shop; a tile that
+paints empty while a bake is late (0144); a bake below device resolution; a rest moved.
+
 **Step 6 — a landing pushes its rows (bench-33).** _Durable shape moved:_ none. The bench's
 **decay**, frame-side through the stamp: a landing (`jolt.at`, src/ui/moireJolt.ts, off
 `player.step`) lifts the threshold passes one mark for the cell rows the sounding row's `centre`
@@ -278,8 +312,8 @@ rate and a song changing parts, and attribute what moved: a lift that re-cut eve
 row's cells moved, a part change that rebaked a tile a frame was waiting on, an alphabet whose ten
 tiles were minted on the frame that first needed them. Land what the numbers say. **Stands on:**
 checkpoint A's `STAMP_PICTURE_DRAWS` and its script (0353); `joltWalked`, `standingPart`. **And it
-owns what checkpoint A left over the budget:** the tile bake at 36–38 ms mean and 83–98 ms worst,
-which is the whole of the long tasks and of the frames a drag drops. **Outcome wanted:**
+reads what checkpoint A2 did with the bake** — the tile bake at 36–38 ms mean that was the whole
+of the long tasks and of the frames a drag dropped — under the landing's own motion. **Outcome wanted:**
 a walk flaring its rows on the popped-out picture costs no more per frame than the still lattice
 did at checkpoint A, within the budget. **Tests that must fail first:** a frame at a landing's
 edge pays the same number of picture-sized draws as a frame with no landing; a part change
