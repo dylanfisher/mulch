@@ -79,16 +79,23 @@ export const SCREEN_FLOOR = 0.6;
 export const FILM_SHARE = tunable("film.share", 0.15, { min: 0, max: 1, step: 0.05 });
 
 /**
- * How far every mark's colour is pulled toward the ramp's middle stop: at nought each cell is read
- * in the ramp colour its ground stands at, and at one the whole picture is one ink and the ramp is
- * spent on which mark a cell gets and nothing else (0345). **It rests at one** (0346): the reference
- * this lattice was drawn against is one ink on a pale page, and read off the zoomed drift the
- * covered pixels at one average the scene's own middle stop — a bloom's red, a canopy's green —
- * where at nought they average a mud of all five. A scene keeps its ink and loses its gradient,
- * which in a lattice of marks was never legible: a mark is five pixels and a stop is a tone. The
- * cases that read the film's shade in colour pin this at nought, because that is what they read.
+ * How far the scene's five inks are pulled toward the ramp's middle stop: at nought a cell is
+ * written in exactly the stop its ground stands at, and at one all five have arrived at the middle
+ * and the whole picture is one ink (0345). It is a pull on five stops and no longer a pull on a
+ * gradient — since 0366 the ramp is cut where the mark is chosen (`rampStop`), so every setting of
+ * this is five inks and never a mix of two, and a bloom at any of them is red marks and cool marks
+ * rather than the mud that rested it at one under 0346.
+ *
+ * **It rests at a half**, read off the zoomed drift a scene at a time: at nought the canopy and the
+ * water are a near-black lattice, because both grounds sit at the foot of their own ramps — the
+ * canopy's covered pixels average 7,36,16 against its middle stop's 46,219,75 — and a scene whose
+ * name is its colour reads as neither. At a half every scene's covered pixels average nearer its
+ * own middle stop than half the span of its own ramp (canopy 98 of 200, water 102 of 230, bloom 78
+ * of 232, meadow 3 of 189), which is the scene's ink standing under the air the stops were mixed
+ * toward rather than the foot of its ramp standing in place of it. The cases that read the film's
+ * shade in colour pin this at nought, because that is what they read.
  */
-export const GLYPH_FLAT = tunable("glyph.flat", 1, { min: 0, max: 1, step: 0.05 });
+export const GLYPH_FLAT = tunable("glyph.flat", 0.5, { min: 0, max: 1, step: 0.05 });
 
 /**
  * How much of a pixel's read the film leaves standing: the four keep terms eased toward one by

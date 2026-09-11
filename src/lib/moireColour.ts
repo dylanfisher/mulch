@@ -5,7 +5,7 @@
  *   nothing claiming its colour is drawn at a given second of sounding. Pure maths, no canvas, no
  *   clock of its own: the second it is handed is the deck's (0126).
  * @instead Which stops the ramp is made of — token names, never colours → the `ramp` each scene
- *   declares in src/lib/scene/, resolved by `sceneStops` in src/ui/moireScreenTile.ts, the one file
+ *   declares in src/lib/scene/, resolved by `sceneStops` in src/ui/moireScreenStops.ts, the one file
  *   that resolves them. What an age does to a claim made
  *   against the orbit → `agedHue` in src/lib/moireAge.ts. The travel toward the result, and the
  *   ladder it is rounded onto → src/ui/moireScreenInk.ts.
@@ -38,6 +38,23 @@ export function ramp(stops: readonly Ink[], value: number, into: Ink): Ink {
   const to = stops[low + 1];
   if (from === undefined || to === undefined) throw new Error(`The ramp has no stop ${low}.`);
   return fill(into, from, to, at - low);
+}
+
+/**
+ * The same read **cut to one stop**: the nearest of the ramp's own inks, never a mix of two. The
+ * ramp becomes five bands rather than a gradient, so a pixel covered by a mark is exactly one of
+ * the colours the scene named and a bloom is red marks and cool marks and never mud (0366). A mark
+ * is five device pixels and a stop is a tone, so the gradient `ramp` reads was never legible inside
+ * one of them; what it is legible as is which of the five this cell got.
+ *
+ * Filled into the ink it is handed, for the reason `ramp` is: this runs once per cell of a tile on
+ * the bake's own path, where a fresh array would be an allocation per cell (0129, 0070).
+ */
+export function rampStop(stops: readonly Ink[], value: number, into: Ink): Ink {
+  const at = Math.round(clamp(value, 0, 1) * (stops.length - 1));
+  const stop = stops[at];
+  if (stop === undefined) throw new Error(`The ramp has no stop ${at}.`);
+  return fill(into, stop, stop, 0);
 }
 
 /** The two stops either side of a read, mixed straight into the ink the caller handed over. */

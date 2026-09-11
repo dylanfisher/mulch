@@ -40,7 +40,8 @@ of every mark took its own channel: the zoomed drift read as a rainbow grille. `
 nought; a standing pop still pushes it to `CHANNEL_MIX_FULL`, and the case that reads the three
 channels claims a saturation.
 
-**And the ink is one.** `glyph.flat` rests at one: read off the same canvas the covered pixels
+**And the ink is one.** (Until 0366 cut the ramp to the five stops and rested this at a half.)
+`glyph.flat` rests at one: read off the same canvas the covered pixels
 average the scene's own middle stop — a bloom's red, a canopy's green — where at nought they
 average a mud of all five. A scene keeps its ink under its air and loses a gradient a five-pixel
 mark could never show. The cases that read the film's shade in colour pin the dial at nought.

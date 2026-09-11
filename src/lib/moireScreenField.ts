@@ -22,7 +22,7 @@
 // oxlint-disable import/max-dependencies Splitting it further would hand a helper the pixel loop's whole state on a path
 // that must not allocate (0129). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { type Ink, ramp } from "@/lib/moireColour";
+import { type Ink, rampStop } from "@/lib/moireColour";
 import type { MoireCells } from "@/lib/moireCells";
 import { runCellPasses, type RunningCells } from "@/lib/moireCells";
 import { LOOKS } from "@/lib/moireLook";
@@ -253,7 +253,7 @@ function fringeOf(pitch: number, rowPitch: number, spread: number, disperse: num
 }
 
 /**
- * The one ink a whole tile is read into: refilled by `ramp` at every cell and written straight out
+ * The one ink a whole tile is read into: refilled by `rampStop` at every cell and written straight out
  * into the field, because a build allocates a ramp and no more (0129, 0070).
  */
 const read: Ink = [0, 0, 0, 0];
@@ -400,11 +400,14 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
       if (cellRow !== filled) {
         filled = cellRow;
         for (let c = 0; c < cols; c++) {
-          // The ink this cell is written in: the ramp read at the cell's own stand, pulled toward
-          // the ramp's middle stop by however flat the picture is asked to be. **At its stand and
+          // The ink this cell is written in: the ramp **cut** at the cell's own stand — one of the
+          // scene's five stops and never a mix of two (`rampStop`, 0366) — pulled toward the ramp's
+          // middle stop by however flat the picture is asked to be. **At its stand and
           // never at its mark** — the push and every pass over the cells move which mark a cell is
-          // written in and not one stop of the colour underneath it (0348, 0349).
-          const inked = ramp(lift, grid.stood[cellRow * cols + c] ?? 0, read);
+          // written in and not one stop of the colour underneath it (0348, 0349). The cut is made
+          // here, once a cell, where the mark is already being chosen: not a second pass over the
+          // pixels, which the bake has no room for (0354).
+          const inked = rampStop(lift, grid.stood[cellRow * cols + c] ?? 0, read);
           const at = c * PER_PIXEL;
           cellInk[at] = inked[0] + (mid[0] - inked[0]) * flat;
           cellInk[at + 1] = inked[1] + (mid[1] - inked[1]) * flat;

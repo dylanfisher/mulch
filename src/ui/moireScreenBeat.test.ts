@@ -198,10 +198,12 @@ describe("moireScreenBeat", () => {
 
   it("reads the three channels' own cell on its own stride across the wider tile", () => {
     // The fringe is one beat cell of the two gratings, repeated (`fringeOf`), and a tile standing
-    // the second lattice is seven of those cells wide. Every cell is written in the ramp's middle
-    // stop at the resting flatness (`GLYPH_FLAT`, 0346), so what is left across a row of the tile
-    // is the channel gain and the fringe alone — and both come round on the beat cell. A tile that
-    // read the fringe on its own width instead would step into another row of it at every join.
+    // the second lattice is seven of those cells wide. What stands across a row of the tile is the
+    // cell's own ink, the channel gain and the fringe, and **all three come round on the beat
+    // cell**: the cells are snapped so a whole number of them spans the tile (`sceneRepeat`) and
+    // the beat cell is a whole number of cells, so the ink repeats on that stride whatever the
+    // flatness leaves of the scene's five stops (0366). A tile that read the fringe on its own
+    // width instead would step into another row of it at every join.
     const pitch = gridPitchPx(2);
     const cell = rowPitchPx(2);
     const wide = beatTilePx(beatPx(pitch), cell);

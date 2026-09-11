@@ -644,7 +644,7 @@ describe("moireScreen", () => {
   });
 
   it("reads the scene's own five stops per pixel, and slides the whole field with the travel", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // The fourth crossing of the colour boundary (0141), read along the scene's own ramp (0301,
     // 0329) — and since 0332 read **per pixel**, so one tile holds both ends of that ramp at once
@@ -694,7 +694,7 @@ describe("moireScreen", () => {
   });
 
   it("reads two places of one tile in two inks, and spends none of the alpha doing it", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // The whole of 0332 in one case: a head is scarlet and the ground between two heads is green,
     // inside one tile, and the tile's alpha is the film's alone — so a bloom takes exactly as much
@@ -725,7 +725,7 @@ describe("moireScreen", () => {
   });
 
   it("draws the water darker than the bloom, in its own black and not in the film's alpha", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // A darker water is one token (0333): the deepest stop this instrument held was
     // `--scene-water-deep` at a lightness of 0.42 and the water the glints stand in is near black,
@@ -752,7 +752,7 @@ describe("moireScreen", () => {
   });
 
   it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
       vi.stubGlobal("devicePixelRatio", 2);

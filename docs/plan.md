@@ -51,7 +51,7 @@ the boxed field (`boxField`, src/ui/moireCanvas.ts) read through ten threshold p
 pattern fill of one mark per pass, so a frame pays ten draws whatever the cell count. Painter
 cases go in `src/ui/moireCanvasMarks.test.ts` (new; moireCanvasFilm.test.ts stands near the cap).
 A **Cells** group in src/lib/copyDriftGroups.ts holds every dial this block mints. Decision
-numbers from 0366; bench tags from bench-28. The bench's own entries name the file each lands in;
+numbers from 0367; bench tags from bench-28. The bench's own entries name the file each lands in;
 when a step lands, its entry is deleted from `src/ui/sketch/marks/` and the whole directory, the
 route, the member, the branch and the menu item go with the last (0247).
 
@@ -668,7 +668,7 @@ at nought because a five-pixel mark cannot show a gradient and a split stroke wa
 grille. Colour comes back where a mark can carry it: one whole ink per mark, one whole cell per
 channel, one band per coloured row.
 
-**Step 15 — a mark is one of five inks (bench-42).** _Durable shape moved:_ none. A cell's read
+**Step 15 — a mark is one of five inks (bench-42, 0366).** _Durable shape moved:_ none. A cell's read
 chooses its stop as well as its mark: the ramp is cut into the scene's five stops and a covered
 pixel is exactly one of them, never a mix, so a bloom is red marks and cool marks and never mud.
 `glyph.flat` becomes how far the five are pulled toward the middle, resting where the zoomed
@@ -678,6 +678,31 @@ green marks with a few of its other four; a page whose covered pixels average th
 and not a mean of them. **Tests that must fail first:** every covered pixel of a tile at flat
 nought is one of the five resolved stops; at flat one it is the middle stop. **Refused:** a sixth
 stop; a gradient inside a mark.
+
+**It landed as [0366](decisions/0366-a-mark-is-one-of-five-inks.md)**, and the outcome is met: a
+page's covered pixels average the scene's stops and not a mean of them. `rampStop`
+(src/lib/moireColour.ts) reads a cell's stand to the nearest of the scene's five resolved stops and
+never mixes two, called where the mix was — the cell loop of `bands`, src/lib/moireScreenField.ts —
+so the stop is chosen where the mark is, one read a cell, with no second pass over the pixels and
+nothing added to the bake step 18 owns (0354, 0365). `ramp` keeps its mix for the readers that
+draw a gradient at a scale an eye can see. `glyph.flat` is now a pull on five inks rather than on a
+gradient and **rests at a half**, read off the zoomed drift a scene at a time: at nought the canopy
+and the water are a near-black lattice, because both grounds sit at the foot of their own ramps —
+the canopy's covered pixels average 7,36,16 against its middle stop's 46,219,75 — and at a half
+every scene's covered pixels average nearer its own middle stop than half its own ramp's span
+(canopy 98 of 200, water 102 of 230, bloom 78 of 232, meadow 3 of 189), which is the scene's ink
+under its air with all five still five. The review moved the claim where it is true: the cut is the
+cell's, and the three channels' own fringe multiplies that ink per pixel afterwards (0130), so a
+covered pixel is one of the five outright on a tile the three stand level across and a stop scaled
+per channel on a shipping one — the cut's promise everywhere is that no read is a mix of two stops.
+It also caught a case whose stated reason had parted from its real one — the beat's fringe stride,
+green because the cell ink comes round on the beat cell and not because there is one ink, which is
+what its comment says now — a push slider whose wild end had become the end
+that removes the colour this step restores, and nine comments still saying the picture rests at one
+ink. Four things went one way and are in §4: the shade the film's share spends is now read over a
+band of the tile rather than at its one deepest pixel; the rest is a half rather than the nought
+that would show the five whole; the bake-order fixture is a third copy; and the hue's ladder is
+finer than a cut ramp can show.
 
 **Step 16 — the channels split by whole cells (bench-43).** _Durable shape moved:_ none.
 `CHANNEL_MIX` rests at nought because a third of a five-pixel cell is under two pixels. A pop's
@@ -1404,3 +1429,29 @@ helpers and which stands three lines under its 400-line soft cap: moving fourtee
 prints a new lint warning, which a step owns. Left as three copies here; step 3 wrote the rest of
 src/ui/moireCanvasMarks.test.ts and left them, for the reason the `look()` factory's own paragraph
 gives — the split is the step, and it is not this one.
+
+**The film's shade is read over a band of the tile, and the flatness rests at a half (0366).** Cutting
+the ramp to the scene's five stops makes the read a staircase, so the film's share — which still
+moves the read and never the alpha (0340) — now moves a pixel down that ramp in whole stops, and two
+shares can land one pixel on the same stop and paint it the same colour. The case that read the
+shade at the tile's single deepest pixel therefore reads it over the tenth the four terms cross
+deepest under instead (src/ui/moireCanvasFilm.test.ts), which is the band the same case already used
+for its share-of-the-read half; the assertion is the same one, over pixels rather than over a pixel.
+Dithering the stop boundary would have kept the per-pixel reading and is refused by the step, which
+says a covered pixel is exactly one of the five. And the flatness rests at a half rather than at the
+nought that would show the five whole: at nought the canopy and the water read as a near-black
+lattice, because both grounds sit at the foot of their own ramps, and a scene whose name is its
+colour showing neither is worse than a scene showing its five pulled halfway in. The dial reaches
+nought for anyone who wants them whole.
+
+**The bake order is a third hand-built fixture, and the hue's ladder is finer than the cut (0366).**
+`src/lib/moireScreenField.test.ts` builds a `ScreenBake` by hand with the same five stops, the same
+flat gains and the same pitches that `orderAt` in src/ui/moireScreenShop.test.ts and `orderIn` in
+src/lib/moireAlphabets.test.ts already build — the third occurrence principle 3 names, and the same
+shape as the painter tests' tile reader in 0348's own paragraph. One `screenOrder(overrides)` is the
+fix; its home cannot be src/ui/moireCanvasPainted.ts, because a src/lib test importing src/ui is
+what the tiers forbid, so it wants a file and a `@role` of its own, which is a step and not this
+one. And `HUE_STEPS` is thirty-two because the hue was read along a gradient where eight steps
+across four spans was a visible jump; a cut ramp does not move a cell's ink until its stand crosses
+a stop boundary, so the fine ladder now buys a rebake rather than a colour. It is one of the bake
+key's own fields (0365) and re-reading it is step 18's, not this step's.

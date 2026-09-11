@@ -1,13 +1,14 @@
 /**
  * @role Tests the ramp the picture's ink is read along and the orbit its rest runs on: that a ramp
- *   reads its ends and mixes its middles straight, that a yard not sounding rests where every yard
- *   rested before there was an orbit, and that the orbit reaches both sides of the ramp and comes
- *   back through the middle.
+ *   reads its ends and mixes its middles straight, that the same ramp **cut** reads one stop and
+ *   never a colour between two (0366), that a yard not sounding rests where every yard rested
+ *   before there was an orbit, and that the orbit reaches both sides of the ramp and comes back
+ *   through the middle.
  */
 import { describe, expect, it } from "vitest";
 
 import { DRIFT_REST } from "./moire.ts";
-import { INK_ORBIT_SECS, INK_WANDER, type Ink, orbitHue, ramp } from "./moireColour.ts";
+import { INK_ORBIT_SECS, INK_WANDER, type Ink, orbitHue, ramp, rampStop } from "./moireColour.ts";
 
 /** The three stops every case below reads through, dark to light with one warm stop between. */
 const STOPS: readonly Ink[] = [
@@ -50,6 +51,43 @@ describe("the ramp", () => {
       expect(between[channel], `channel ${channel}`).toBeGreaterThan(low);
       expect(between[channel], `channel ${channel}`).toBeLessThan(high);
     }
+  });
+});
+
+// The cut's own cases, in a list of their own beside the mix's (0007).
+describe("the ramp cut to its stops", () => {
+  it("reads one stop and never a colour between two", () => {
+    // 0366: where a mark's colour is chosen, the ramp is five bands and not a gradient. Read over
+    // the whole range rather than at a handful of values, because what the cut promises is that
+    // *no* read comes out between two stops.
+    const named = new Set(STOPS.map((stop) => stop.join(",")));
+    const cut = new Set<string>();
+    for (let step = 0; step <= 200; step++) {
+      cut.add(rampStop(STOPS, step / 200, ink()).join(","));
+    }
+    expect([...cut].every((read) => named.has(read))).toBe(true);
+    // And every stop is reachable, so a ramp of five is five inks and not the middle three.
+    expect(cut.size).toBe(STOPS.length);
+  });
+
+  it("cuts to the nearest stop, so a claim worth one stop moves the ink by one", () => {
+    // Nearest and not a band apiece: a hue claim is carried by exactly `1 / (stops - 1)` of the
+    // ramp (`sceneHue`), so rounding onto the stops' own spacing is what makes one stop of claim
+    // one stop of ink wherever the ground already stood. The two end stops keep half a band each,
+    // which is what nearest means and why a scene's ends are its rarest inks.
+    expect(rampStop(STOPS, 0, ink())).toEqual(STOPS[0]);
+    expect(rampStop(STOPS, 0.24, ink())).toEqual(STOPS[0]);
+    expect(rampStop(STOPS, 0.26, ink())).toEqual(STOPS[1]);
+    expect(rampStop(STOPS, 0.74, ink())).toEqual(STOPS[1]);
+    expect(rampStop(STOPS, 0.76, ink())).toEqual(STOPS[2]);
+    expect(rampStop(STOPS, 1, ink())).toEqual(STOPS[2]);
+    // Off either end it holds, as the mix does, and a ramp of none reads nothing rather than black.
+    expect(rampStop(STOPS, -3, ink())).toEqual(STOPS[0]);
+    expect(rampStop(STOPS, 4, ink())).toEqual(STOPS[2]);
+    expect(() => rampStop([], 0, ink())).toThrow("no stop");
+    // And it fills the ink it is handed, for the reason the mix does (0129, 0070).
+    const into = ink();
+    expect(rampStop(STOPS, 1, into)).toBe(into);
   });
 });
 

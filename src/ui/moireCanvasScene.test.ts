@@ -237,7 +237,7 @@ describe("the picture is the field its name says", () => {
   });
 
   it("lays down a bloom whose pixels span more than one of its own stops", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // The whole of 0332 through the painter: the bloom's ramp is read per pixel, so one tile holds
     // a scarlet head and a green stem at full strength — and not one ink the ground dimmed. The
@@ -263,7 +263,7 @@ describe("the picture is the field its name says", () => {
   });
 
   it("lets a light fall through the field from the tile's top edge and washes one alike", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // The air's joining word (0324): a field stood *in* its light is washed by it, and a field seen
     // *through* one has that light fall through it — strongest where the field is thinnest, which

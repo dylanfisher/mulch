@@ -108,8 +108,9 @@ function keepsOf(pixels: Uint8ClampedArray): readonly { at: number; keep: number
 
 /**
  * The water, because it is the one field read low enough on its own ramp that a shade stays inside
- * the first stretch of it, where the ramp is a straight line between two stops and a read pulled
- * down is a colour pulled toward the black the ramp opens at. A yard no other case here paints, so
+ * the first stretch of it, where a read pulled down is a read pulled toward the black the ramp
+ * opens at — in whole stops since 0366, which is why the shade is read over a band of the tile and
+ * never at one pixel of it. A yard no other case here paints, so
  * the first tile is baked rather than answered out of the shop's own cache (`tiles`,
  * src/ui/moireScreenShop.ts).
  */
@@ -207,7 +208,7 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
   });
 
   it("spends the film's share as a shade on the scene's own read", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     const full = shot(1);
     const half = shot(0.5);
@@ -225,8 +226,16 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
     const black = resolvedInk("--scene-water-black");
     const foot = (black[0] + black[1] + black[2]) / 3;
     expect(brightOf(none, trough.at), "the trough is off the water's floor").toBeLessThan(4 * foot);
-    expect(brightOf(full, trough.at)).toBeLessThan(brightOf(half, trough.at));
-    expect(brightOf(half, trough.at)).toBeLessThan(brightOf(none, trough.at));
+    const tenth = Math.floor(ranked.length / 10);
+    // Over the tenth of the tile the terms cross deepest under, and no longer at the one deepest
+    // pixel: since 0366 the read is cut to the scene's own five stops where the cell's mark is
+    // chosen, so the shade walks a pixel down the ramp in whole stops and two shares that land it
+    // on the same stop paint that pixel the same colour. What the share moves is where a band of
+    // the picture stands on the ramp, which is what a walk down a ramp of five stops is.
+    const troughBright = (pixels: Uint8ClampedArray): number =>
+      ranked.slice(0, tenth).reduce((sum, { at }) => sum + brightOf(pixels, at), 0) / tenth;
+    expect(troughBright(full)).toBeLessThan(troughBright(half));
+    expect(troughBright(half)).toBeLessThan(troughBright(none));
     // And how deep the shade goes is the depth of the film there: over the tenth of the tile the
     // terms cross deepest under, a smaller share of the scene's own read stands than over the
     // tenth they crest under. As a share of each pixel's own read and never as two brightnesses,
@@ -235,7 +244,6 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
     // terms at their crest at once (0.84 is the most of itself the film ever leaves standing), so
     // "the same colour at a crest" is a limit the tile approaches and not a pixel it holds.
     expect(crest.keep, "the four terms crest together").toBeLessThan(1);
-    const tenth = Math.floor(ranked.length / 10);
     const standing = (band: readonly { at: number; keep: number }[]): number =>
       band.reduce((sum, { at }) => sum + brightOf(full, at) / brightOf(none, at), 0) / band.length;
     const under = standing(ranked.slice(0, tenth));
@@ -281,7 +289,7 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
   });
 
   it("leaves SCREEN_FLOOR of every scene's lightness standing under the deepest shade", () => {
-    // Read in the scene's own stops: the picture rests at one ink since 0346 (`GLYPH_FLAT`).
+    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
     setTuning("glyph.flat", 0);
     // The floor re-aimed at what it now guards (0340): it was the least of the tile's alpha the
     // screen could leave, and with the screen out of the alpha it is the least of the tile's
@@ -301,7 +309,7 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
       // and a yardstick that already carries the shipped shade divides that shade out of both
       // sides and hides a term deep enough to grille the field at the setting the app ships.
       setTuning("film.share", 0);
-      // And in the scene's own stops, `resetTuning` having put the picture back to one ink (0346).
+      // And in the scene's own stops, `resetTuning` having put the picture back to its rest (0366).
       setTuning("glyph.flat", 0);
       const whole = meanOf(tileOf(paintingOf(yard)));
       for (const { entries } of wild) {

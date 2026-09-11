@@ -770,7 +770,7 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
   },
   {
     title: "Glyph",
-    hint: "The lattice of marks the picture is written in — a cell is the screen's own column pitch — where along the ten marks the ramp starts before it wraps, how hard a cell's read is pushed toward that ramp's ends, and how far every mark is pulled toward one ink.",
+    hint: "The lattice of marks the picture is written in — a cell is the screen's own column pitch — where along the ten marks the ramp starts before it wraps, how hard a cell's read is pushed toward that ramp's ends, and how far the scene's five inks are pulled toward one of them.",
     entries: [
       {
         id: "glyph.phase",
@@ -784,9 +784,9 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
       },
       {
         id: "glyph.flat",
-        wild: "max",
+        wild: "min",
         label: "Flat",
-        hint: "How far every mark's colour is pulled toward the ramp's middle stop; at everything the picture is one ink.",
+        hint: "How far the scene's five inks are pulled toward the ramp's middle stop — a mark is written in one of them and never a mix; at nothing they stand whole and at everything the picture is one ink.",
       },
     ],
   },
