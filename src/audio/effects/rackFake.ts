@@ -118,6 +118,9 @@ export function fakeContext() {
   };
 
   const context = {
+    // The clock every instance is built on. It never moves here: a rack case reads what a plugin
+    // built, and the one plugin that counts from its birth counts from nought.
+    currentTime: 0,
     createGain: () => {
       const gain = Object.assign(node(`gain-${gains.length}`), { gain: fakeParam() });
       gains.push(gain);

@@ -19,12 +19,7 @@ import type { Instrument } from "@/app/facade";
 import { drawnParamIds, type GrowablePlugin } from "@/audio/effects/automator";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
-import {
-  EFFECTS,
-  isBoundableParam,
-  isGrowable,
-  type EffectParamId,
-} from "@/audio/effects/registry";
+import { type EFFECTS, isBoundableParam, POOL, type EffectParamId } from "@/audio/effects/registry";
 import { PARAMS, paramIn, type EffectParamValues, type ParamId } from "@/audio/params";
 import {
   BOUNDS_ANY,
@@ -402,7 +397,7 @@ export function PoolEntry({
  * a grid.
  */
 const POOL_BY_WEIGHT: ReadonlyMap<string, GrowablePlugin> = new Map(
-  EFFECTS.filter((effect) => isGrowable(effect)).flatMap((plugin) => {
+  POOL.flatMap((plugin) => {
     const weight = WEIGHT_OF[plugin.id];
     return weight === undefined ? [] : [[weight, plugin] as [string, GrowablePlugin]];
   }),

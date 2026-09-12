@@ -87,6 +87,9 @@ export function createLull(
   born: number,
   grid: LullGrid,
 ): LullCursor {
+  // A cursor born nowhere lays every edge nowhere, and `edges` below would walk that forever:
+  // refused here, where the number came from, rather than found as a hang (principle 5).
+  if (!Number.isFinite(born)) throw new RangeError(`a lull is born on a clock: ${born}`);
   /** Where the cursor stands: the last edge handed out, or where a reset put it. */
   let at = born;
   let resting = false;
@@ -154,6 +157,7 @@ export function createLull(
     },
     resting: () => resting,
     reset: (when) => {
+      if (!Number.isFinite(when)) throw new RangeError(`a lull is reset on a clock: ${when}`);
       at = when;
       resting = false;
       pending = null;

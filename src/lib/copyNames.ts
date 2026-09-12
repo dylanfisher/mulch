@@ -101,6 +101,16 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
         "Pip Seed Stone Cone Catkin Nutlet Acorn Grain Pellet Spore Cracker Fizz",
     ),
   },
+  lull: {
+    adjectives: words(
+      "Still Hushed Quiet Resting Paused Held Lulled Calm Idle Stilled Waiting Becalmed " +
+        "Silent Dormant Slack Settled Breathing Halted Patient Lingering Drowsy Muted Stalled Hushing",
+    ),
+    nouns: words(
+      "Lull Pause Rest Hush Breath Stillness Halt Wait Calm Silence Lacuna Respite " +
+        "Standstill Doldrum Ebb Truce Hiatus Recess Fermata Caesura Stop Hold Nap Doze",
+    ),
+  },
   scatter: {
     adjectives: words(
       "Scattered Strewn Broken Flung Torn Sprinkled Shed Tumbled Sifted Chopped Loosed Spilled " +

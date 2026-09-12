@@ -21,6 +21,7 @@ import {
   type FakeParam,
   required,
 } from "./rackFake";
+import type { HoldEdge } from "./contract";
 import { effectById } from "./registry";
 import { createEffectRack } from "./rack";
 
@@ -493,6 +494,63 @@ describe("the shift in the rack", () => {
     rack.remove("p1");
     expect(stage.stops).toBe(1);
     expect([...stage.connections]).toEqual([]);
+    expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
+  });
+});
+
+// The one entry that asks the transport for something rather than only processing what reaches
+// it: built transparent, its knobs on parked constants, its asks gathered by the rack while it
+// runs and not while it is bypassed (0371).
+describe("the lull in the rack", () => {
+  it("passes the audio through one gain, and asks the rack's transport for rests", () => {
+    const { context, gains, constants, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("l1", effectById("lull"), {
+      ...effectParamDefaults("lull", "l1"),
+      "lull.chance": 1,
+      "lull.least": 1,
+      "lull.most": 1,
+      "lull.gapLeast": 2,
+      "lull.gapMost": 2,
+    });
+
+    // Built: the audio passes through one gain at one; every knob is a parked constant source,
+    // started, so the declaration road stays the ordinary one (0049).
+    const through = required(gains, 1);
+    expect(constants).toHaveLength(8);
+    for (const constant of constants) expect(constant.started).toBe(true);
+    expect([...asFakeNode(rack.input).connections]).toEqual([through]);
+    expect([...through.connections]).toEqual([destination]);
+
+    // Asked: at every chance and fixed lengths, a hold two seconds in and a release a second
+    // after it, then the next pair — gathered up to the horizon and no further.
+    expect(rack.holding()).toBe(true);
+    expect(rack.pumping()).toBe(true);
+    const asks: HoldEdge[] = [];
+    expect(rack.holds(4, asks)).toBe(2);
+    expect(asks[0]).toEqual({ t: "hold", at: 2 });
+    expect(asks[1]).toEqual({ t: "release", at: 3, jump: 0 });
+    expect(rack.holds(4, asks)).toBe(0);
+    expect(rack.holds(5.5, asks)).toBe(1);
+    expect(asks[0]).toEqual({ t: "hold", at: 5 });
+
+    // Moved: a knob and a lane are two ways into one AudioParam (0024), and the chance is read
+    // off the lane's own target at the next roll.
+    rack.setParam("l1", "lull.chance", 0, 3);
+    expect(required(constants, 1).offset.ramps).toEqual([[0, 3 + PARAM_RAMP_SECS]]);
+    expect(rack.automationTarget("l1", "lull.chance")).toBe(required(constants, 1).offset);
+
+    // Bypassed: the switch means not running, so nothing is asked and nothing is holding.
+    rack.setBypass("l1", true);
+    expect(rack.holding()).toBe(false);
+    expect(rack.holds(60, asks)).toBe(0);
+    rack.setBypass("l1", false);
+    expect(rack.holding()).toBe(true);
+
+    // Disposed: the gain leaves the graph and the chain closes over it.
+    rack.remove("l1");
+    expect([...through.connections]).toEqual([]);
     expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
   });
 });

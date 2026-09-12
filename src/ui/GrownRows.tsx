@@ -22,7 +22,7 @@ import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { drawnParamIds } from "@/audio/effects/automator";
 import {
-  EFFECTS,
+  POOL,
   effectById,
   isBoundableParam,
   isEffectId,
@@ -61,7 +61,6 @@ const SLOTS = Array.from({ length: GROWTH_COUNT_MAX }, (_, at) => at);
  * a visibility flag: nothing per-frame goes through state (docs/boundaries.md, 0070). The picture
  * is the registry's own `icon` field, which is the point of the field (0055, P172).
  */
-const POOL = EFFECTS.filter((effect) => isGrowable(effect));
 
 /**
  * How many of a grown effect's own knobs one row draws: as many as the widest entry in the pool is

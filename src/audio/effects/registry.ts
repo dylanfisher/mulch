@@ -15,6 +15,7 @@ import { compressorEffect } from "./compressor";
 import { crushEffect } from "./crush";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
+import { lullEffect } from "./lull";
 import { pannerEffect } from "./panner";
 import { popEffect } from "./pop";
 import { reverbEffect } from "./reverb";
@@ -57,11 +58,21 @@ const growable = [
 export const isGrowable = <T extends Effect>(effect: T): effect is T & GrowablePlugin =>
   "param" in effect.presence;
 
+/**
+ * The pool an automator draws from, stated once: the growable entries and no other. Not "every
+ * entry that declares a presence" read off `EFFECTS` — the lull declares one and is kept out of
+ * the pool on purpose (0374) — so every surface that draws the pool reads this list.
+ */
 // Passed by reference on purpose: `isGrowable` is a type predicate, and an arrow wrapping it
 // returns plain `boolean`, so `filter` would hand `createAutomator` a list of `Effect` rather than
 // the `GrowablePlugin` pool it takes. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line unicorn/no-array-callback-reference
-export const EFFECTS = [...growable, createAutomator(growable.filter(isGrowable))] as const;
+export const POOL: readonly GrowablePlugin[] = growable.filter(isGrowable);
+
+// And the lull outside the pool, deliberately: it declares a presence, but an automator drawing one
+// would stop the yard — or every yard, on the rack under all of them — under a run nobody asked to
+// pause, so it takes no weight knob and no run may lay it (0374).
+export const EFFECTS = [...growable, createAutomator(POOL), lullEffect] as const;
 
 /**
  * Every parameter a run may draw, and so every one a hand may put a window on: the drawn
@@ -72,9 +83,9 @@ export const EFFECTS = [...growable, createAutomator(growable.filter(isGrowable)
  */
 // The ids came from the same literal plugin tuple the union above is derived from.
 // oxlint-disable-next-line no-unsafe-type-assertion
-export const BOUNDABLE_PARAM_IDS = growable
-  .filter((plugin) => isGrowable(plugin))
-  .flatMap((plugin) => drawnParamIds(plugin)) as readonly EffectParamId[];
+export const BOUNDABLE_PARAM_IDS = POOL.flatMap((plugin) =>
+  drawnParamIds(plugin),
+) as readonly EffectParamId[];
 
 const boundable = new Set<string>(BOUNDABLE_PARAM_IDS);
 

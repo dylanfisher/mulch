@@ -15,7 +15,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { Instrument, createInstrument } from "@/app/facade";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
-import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { EffectRack } from "@/ui/EffectRack";
 import type { RackBeat } from "@/ui/ParameterBeat";
 import { GrownRows } from "@/ui/GrownRows";
@@ -138,5 +137,5 @@ export const drawingOf = (plugin: { icon: ComponentType }): string => {
   return svg.slice(svg.indexOf(">") + 1, svg.lastIndexOf("</svg>"));
 };
 
-/** The pool an automator draws from: every entry that says how it is turned down to nothing. */
-export const POOL = EFFECTS.filter((effect) => isGrowable(effect));
+/** The pool an automator draws from, as the registry states it once (0374). */
+export { POOL } from "@/audio/effects/registry";
