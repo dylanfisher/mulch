@@ -9,7 +9,7 @@
  *   src/lib/playerBed.ts. The picture itself → src/ui/PlayerGround.tsx, and the door the period
  *   sits behind → src/ui/PlayerBed.tsx.
  */
-import { PLAYER_SCOPE_LABEL } from "./copy.ts";
+import { PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "./copy.ts";
 import type { PlayerBedReach, PlayerBedWay } from "./playerBed.ts";
 import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
 
@@ -19,7 +19,7 @@ import { PLAYER_SCOPE_LANDINGS } from "./playerScope.ts";
  * the reason the scope's sentence and the written row's are said on their eyebrows (0080, 0188,
  * 0191, 0217): a canvas is not a thing a pointer can rest on or a keyboard can reach.
  */
-export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. Option-click anywhere on it to keep that ground, or to let a kept one go. Shift-drag to mark the zone the ground stays inside, and shift-click to clear it back to the whole sound.`;
+export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. With the ${PLAYER_LABEL} off, dragging moves the loop itself. Option-click anywhere on it to keep that ground, or to let a kept one go. Shift-drag to mark the zone the ground stays inside, and shift-click to clear it back to the whole sound.`;
 
 /**
  * The zone a hand marked, as the two edges it is dragged by and the sentence over them. Not a dial

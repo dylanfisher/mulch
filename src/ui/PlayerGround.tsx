@@ -3,7 +3,8 @@
  *   marked on it, the bed the song opens on drawn as the block a drag carries along the file, and
  *   the grounds the pattern's own moves reach next drawn ahead of it (0191), and the ones a hand
  *   kept marked where they fall (0194). One `deck.player` per gesture, carrying the whole spec,
- *   like every other control on this card (0089).
+ *   like every other control on this card (0089) — or, while nothing is walking, one `deck.loop`:
+ *   the loop is the ground then, and the drag moves it a loop-length at a time (0370).
  * @instead What a bed is, and where an offset lands on a real buffer → src/lib/playerBed.ts. Which
  *   bed a point names, the grounds ahead, and what keeping one does to the list →
  *   src/lib/playerGround.ts. The row those kept ones are counted on → src/ui/PlayerBeds.tsx. The
@@ -72,9 +73,9 @@ export function PlayerGround({
 }: {
   instrument: Instrument;
   deck: DeckId;
-  /** The spec the picture is of, or null while the module holds none — which is a strip drawn
-   *  with the source and the loop on it and nothing moved, the way every dial on this card is
-   *  drawn before it is turned on (0121, 0173). */
+  /** The spec the picture is of, or null while nothing is walking — which is a strip drawn with
+   *  the source and the loop on it and nothing moved. Not a refused strip: with no walk to carry
+   *  the window off the loop, the loop is the ground, and the plain drag moves it (0370). */
   player: PlayerSpec | null;
   /** The loop the ground is measured from: the window at bed zero. Null is a yard with nothing to
    *  read, and there is no picture to draw. */
@@ -105,12 +106,14 @@ export function PlayerGround({
   );
   /** The ground the song opens on — the block a drag carries. Drawn even at bed zero, where it
    *  sits exactly on the loop's own window: it is the thing a hand takes hold of, and one that
-   *  appeared only once the pattern had moved would be a control nobody could find (0121). */
+   *  appeared only once the pattern had moved would be a control nobody could find (0121). And
+   *  drawn with nothing walking, on the loop itself: that is the ground then, and it is what the
+   *  drag moves (0370). */
   const opens = useMemo(
     () =>
-      loop === null || player === null
+      loop === null
         ? null
-        : blockOf(loop, duration, player.bed * PLAYER_SLOTS, zone),
+        : blockOf(loop, duration, player === null ? 0 : player.bed * PLAYER_SLOTS, zone),
     [loop, duration, player, zone],
   );
   /** And the grounds a hand kept, marked wherever they fall on the source: the song comes back to
@@ -163,10 +166,23 @@ export function PlayerGround({
    *  boundary once and reports a pointer move a hundred times. */
   const write = useCallback(
     (bed: number) => {
-      if (player === null || bed === player.bed) return;
+      // Nothing walking, so there is no window to carry off the loop: the loop itself goes to the
+      // bed the hand reached, by the same fold and the same `deck.loop` the plant press writes a
+      // stood ground back with (0185, 0370, src/ui/PlayerCard.tsx). Unzoned, because the loop is
+      // (the argument `home` makes above). Unchanged is unsent, the way a bed is — and the loop
+      // moved is bed zero again, so a drag that stops moving stops sending.
+      if (player === null) {
+        if (loop === null || bed === 0) return;
+        const span = loop.out - loop.in;
+        const stood = bedGround(loop.in, span, duration, bed * PLAYER_SLOTS, null);
+        if (stood.in === loop.in) return;
+        instrument.send({ t: "deck.loop", deck, in: stood.in, out: stood.in + span });
+        return;
+      }
+      if (bed === player.bed) return;
       patch({ bed });
     },
-    [patch, player],
+    [deck, duration, instrument, loop, patch, player],
   );
   /** And the other gesture on the picture: one ground kept, or let go. An Option press rather than
    *  a plain one because the plain one is the drag, and what a hand does most here is move the
@@ -215,10 +231,13 @@ export function PlayerGround({
   );
   const onDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (disabled || player === null || loop === null || event.button !== 0) return;
+      if (disabled || loop === null || event.button !== 0) return;
       // The modifiers are read before the drag begins, so neither of the other two gestures moves
       // the window the press landed on: three gestures on one picture, and the plain drag is the
-      // one a hand makes most (0194, 0318).
+      // one a hand makes most (0194, 0318). The two modified ones author the spec — a kept ground
+      // and a zone are the walk's — so with nothing walking they are gestures with nothing to
+      // write, where the plain drag has the loop itself (0370).
+      if (player === null && (event.altKey || event.shiftKey)) return;
       if (event.altKey) {
         keep(reach(event.currentTarget, event.clientX));
         return;

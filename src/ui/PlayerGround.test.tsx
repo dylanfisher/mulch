@@ -70,10 +70,12 @@ import { PLAYER_BED_ROUND } from "@/lib/playerBed";
 import { PLAYER_GROUND_AHEAD } from "@/lib/playerGround";
 import { PlayerGround } from "@/ui/PlayerGround";
 
-/** The one thing this surface asks the instrument for, and it has nothing to hand over here: the
- *  peaks are painted on a canvas this file stubs, so what is asserted is the blocks over it. */
-// oxlint-disable-next-line no-unsafe-type-assertion -- the one member the surface reads
-const instrument = { peaks: () => null } as unknown as Instrument;
+/** The two things this surface asks the instrument for: the peaks, which are painted on a canvas
+ *  this file stubs so what is asserted is the blocks over it, and the one command it sends
+ *  itself — the loop moved, while nothing is walking (0370). */
+const sent = vi.fn<Instrument["send"]>();
+// oxlint-disable-next-line no-unsafe-type-assertion -- the two members the surface reads
+const instrument = { peaks: () => null, send: sent } as unknown as Instrument;
 
 const PLAYER: PlayerSpec = { seed: 5, ...PLAYER_DEFAULTS };
 
@@ -85,12 +87,14 @@ const LOOP = { in: 1, out: 2 };
  * press its root answers. Called, because what a press does with the bed it names is this
  * surface's own — the same stand-in a part's row is drawn through (src/ui/PlayerGridPick.test.tsx).
  */
-const drawn = (over: Partial<PlayerSpec> = {}, loop: typeof LOOP | null = LOOP) => {
+const drawn = (over: Partial<PlayerSpec> | null = {}, loop: typeof LOOP | null = LOOP) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
+  sent.mockClear();
   const element = PlayerGround({
     instrument,
     deck: "a",
-    player: { ...PLAYER, ...over },
+    // Null is a strip over nothing walking: no spec, or one the switch stands off over (0370).
+    player: over === null ? null : { ...PLAYER, ...over },
     loop,
     duration: 10,
     patch,
@@ -203,6 +207,31 @@ describe("the ground as a strip", () => {
     const held = drawn({ bed: 5 });
     held.press(60);
     expect(held.patch).not.toHaveBeenCalled();
+  });
+
+  /**
+   * And with nothing walking — no spec, or one the switch stands off over — the strip is not
+   * refused: there is no window to carry off the loop, so the loop itself goes to the bed the
+   * press landed in, one loop-length at a time and by the same command a plant writes (0370). The
+   * block a hand takes hold of is drawn on the loop, because that is the ground then.
+   */
+  it("moves the loop itself where nothing is walking", () => {
+    const { patch, press, sweep, flick, markup } = drawn(null);
+    expect(lefts(markup)).toEqual(["10%", "10%"]);
+    // Flicked rather than pressed, so each gesture is let go of before the next begins.
+    flick(60, 60);
+    expect(sent.mock.calls).toEqual([[{ t: "deck.loop", deck: "a", in: 6, out: 7 }]]);
+    expect(patch).not.toHaveBeenCalled();
+    // A press on the loop's own window is bed zero, and bed zero is where the loop already is.
+    sent.mockClear();
+    flick(12, 12);
+    expect(sent).not.toHaveBeenCalled();
+    // The two modified gestures author the walk's own spec — a kept ground, a zone — and there is
+    // none to write, so they are refused where the plain drag is not.
+    press(60, true);
+    sweep(20, [40, 60], { shiftKey: true });
+    expect(sent).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
   });
 
   /**

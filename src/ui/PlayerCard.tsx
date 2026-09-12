@@ -619,7 +619,10 @@ export function PlayerCard({
                     grounds its next moves reach ahead of it — dragged a loop-length at a time,
                     which writes the very field the dial under it turns (0191). What the dials say
                     in numbers, this says in one place; a hand asking "move the ground until it
-                    sounds good" is asking a question no dial answers (0191). */}
+                    sounds good" is asking a question no dial answers (0191). Never refused: with
+                    the switch off there is no window to carry off the loop, so what the drag
+                    moves is the loop — the one thing on this fold that is the deck's and not the
+                    walk's, which is why the dials beside it stay refused and this does not (0370). */}
                 <PlayerGround
                   instrument={instrument}
                   deck={deck}
@@ -627,7 +630,6 @@ export function PlayerCard({
                   loop={state.loop}
                   duration={state.duration}
                   patch={patch}
-                  disabled={off}
                 />
                 {/* The bed first, because the three rows of words beside the dial after it are
                     all measured from it: a reach is from here, a way is away from here and
