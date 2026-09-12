@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AUTOMATION_REARM_SECS } from "./transport";
+import type { HoldEdge } from "./effects/contract";
 import type { EffectRack } from "./effects/rack";
 import { createMasterEffects } from "./masterEffects";
 
@@ -21,6 +22,8 @@ const NOWHERE = {} as AudioNode;
 const fakeRack = () => {
   const calls = { pumps: 0, bypassed: [] as [string, boolean][] };
   let growing = false;
+  /** What the rack answers the next `holds` with — a case sets it, the tick hands it up. */
+  let asking: HoldEdge[] = [];
   const rack: EffectRack = {
     input: NOWHERE,
     add: () => 0,
@@ -39,7 +42,10 @@ const fakeRack = () => {
     setBounds: () => {},
     dismissGrown: () => false,
     pumping: () => growing,
-    holds: () => 0,
+    holds: (_until, out) => {
+      for (const [at, edge] of asking.entries()) out[at] = edge;
+      return asking.length;
+    },
     holding: () => false,
     resetHolds: () => {},
     setTempo: () => {},
@@ -51,7 +57,12 @@ const fakeRack = () => {
     reconnect: () => {},
     dispose: () => {},
   };
-  return { rack, calls, grows: (now: boolean) => (growing = now) };
+  return {
+    rack,
+    calls,
+    grows: (now: boolean) => (growing = now),
+    asks: (edges: HoldEdge[]) => (asking = edges),
+  };
 };
 
 /**
@@ -126,5 +137,35 @@ describe("the clock a rack with no transport keeps", () => {
     // The first tick after the close is the one that clears the interval, and it arms nothing.
     expect(calls.pumps).toBe(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// The rack with no transport hands its asks up whole, on the tick, to whoever the host said (0371).
+describe("the rests a rack with no transport asks for", () => {
+  it("hands every ask gathered on a tick to the listener, and none on a quiet tick", () => {
+    const { rack, grows, asks } = fakeRack();
+    const { ctx } = fakeContext();
+    const master = createMasterEffects(ctx, rack);
+    const heard: (readonly HoldEdge[])[] = [];
+    master.onHolds((edges) => {
+      heard.push([...edges]);
+    });
+
+    grows(true);
+    master.addEffect("l1", "lull", {});
+    asks([
+      { t: "hold", at: 2 },
+      { t: "release", at: 3, jump: 0 },
+    ]);
+    master.armAutomation();
+    expect(heard).toEqual([
+      [
+        { t: "hold", at: 2 },
+        { t: "release", at: 3, jump: 0 },
+      ],
+    ]);
+    asks([]);
+    master.armAutomation();
+    expect(heard).toHaveLength(1);
   });
 });

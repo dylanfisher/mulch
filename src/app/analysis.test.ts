@@ -170,3 +170,26 @@ describe("the analysis host", () => {
     }
   });
 });
+
+describe("what a caller hears back from the analysis host", () => {
+  it("is called once the answer is on the deck, and not for an answer that went stale", () => {
+    const host = harness();
+    const heard: number[] = [];
+    host.analyzer.request("a", samples(), 48_000, () => {
+      heard.push(host.analysis("a")?.bpm ?? 0);
+    });
+    host.reply(analyzed(host.requestId(0)));
+    expect(heard).toEqual([120]);
+
+    // A second request supersedes the first: only the second's answer is heard, and only once.
+    host.analyzer.request("a", samples(), 48_000, () => {
+      heard.push(-1);
+    });
+    host.analyzer.request("a", samples(), 48_000, () => {
+      heard.push(host.analysis("a")?.bpm ?? 0);
+    });
+    host.reply(analyzed(host.requestId(1)));
+    host.reply(analyzed(host.requestId(2)));
+    expect(heard).toEqual([120, 120]);
+  });
+});

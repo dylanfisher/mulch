@@ -26,6 +26,7 @@ import {
   DECK_PARAM_IDS,
   effectAutomationParamIds,
   paramIn,
+  soundingBpm,
 } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
@@ -207,6 +208,9 @@ const RENDER_CAPACITY_INTERVAL_SECS = 0.5;
 // delegation into the voice and peaks maps this one closure owns. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
+/** The beat the rack under all the yards counts on: the shared clock as one beat, or none. */
+const masterTempo = (sync: number | null): number => (sync === null ? 0 : 60 / sync);
+
 export function createAudioEngine(
   ctx: BaseAudioContext,
   store: SessionStore,
@@ -323,6 +327,37 @@ export function createAudioEngine(
   const rackAt = (deck: RackId): RackHost => (deck === null ? master.effects : voice(deck));
 
   /**
+   * The beat a yard is sounding at, pushed down to its rack: its analysis at the rate its own
+   * knobs read it, or nought with no analysis yet. Read off the store rather than carried here,
+   * because the store is where both halves already are (0371).
+   */
+  const refreshTempo = (deck: DeckId): void => {
+    const held = deckIn(store.getState().decks, deck);
+    voice(deck).setTempo(soundingBpm(held.analysis, held.params));
+  };
+
+  // The master's asks, fanned out to every yard that is playing: one draw, the same instants on
+  // every yard, and a yard started after the tick catches the next rest rather than this one. A
+  // release reaches every voice and is refused by the ones not resting (0371).
+  master.effects.onHolds((edges) => {
+    for (const edge of edges) {
+      for (const held of voices.values()) {
+        if (edge.t === "hold") {
+          if (held.planned()) held.holdAt(edge.at);
+        } else {
+          held.releaseAt(edge.at, edge.jump);
+        }
+      }
+    }
+  });
+
+  /** The last asker on the master switched off or gone: every yard resting for it is let go. */
+  const releaseUnasked = (): void => {
+    if (master.effects.holding()) return;
+    for (const held of voices.values()) held.releaseNow();
+  };
+
+  /**
    * What a command that halts a voice knows the moment it returns. Only a *start* takes a
    * lookahead to become true, so a stop needs no report to be honest — and it cannot wait for
    * one: a transport still inside its lookahead has nothing to report, which is the window a
@@ -342,7 +377,11 @@ export function createAudioEngine(
     patchDeck(store, deck, { playing: false, paused: null });
     // After the voice already has it: the measurement is about this buffer, and nothing waits
     // for the answer. Superseding a request for this deck is the analyzer's own business.
-    analyzer?.request(deck, channelsOf(decoded.buffer), decoded.buffer.sampleRate);
+    analyzer?.request(deck, channelsOf(decoded.buffer), decoded.buffer.sampleRate, () => {
+      refreshTempo(deck);
+    });
+    // Nought until the answer lands: the request above cleared what the deck was told.
+    refreshTempo(deck);
     return decoded.buffer.duration;
   };
 
@@ -439,6 +478,7 @@ export function createAudioEngine(
       // And the rack that is no yard's, for the reason a voice gets it: the clock is the
       // session's, and an instance in the master rack paces itself by it like any other (0097).
       master.effects.setSync(next);
+      master.effects.setTempo(masterTempo(next));
     },
     setGround: (next) => {
       ground = next;
@@ -454,6 +494,9 @@ export function createAudioEngine(
         return;
       }
       voice(deck).setParam(instance, param, value);
+      // A deck's own knob may be its rate, which moves the beat its rack counts on; the store
+      // already holds the value, because the reducer writes it before it reaches here.
+      if (instance === null) refreshTempo(deck);
     },
     setAutomation: (deck, instance, param, lane, base) => {
       if (deck === null) {
@@ -468,6 +511,7 @@ export function createAudioEngine(
         : voice(deck).addEffect(instance, effect, values),
     setEffectBypass: (deck, instance, bypassed) => {
       rackAt(deck).setEffectBypass(instance, bypassed);
+      if (deck === null) releaseUnasked();
     },
     setEffectBounds: (deck, instance, bounds) => {
       rackAt(deck).setEffectBounds(instance, bounds);
@@ -475,6 +519,7 @@ export function createAudioEngine(
     dismissGrown: (deck, instance, place) => rackAt(deck).dismissGrown(instance, place),
     removeEffect: (deck, instance) => {
       rackAt(deck).removeEffect(instance);
+      if (deck === null) releaseUnasked();
     },
     reorderEffects: (deck, order) => {
       rackAt(deck).reorderEffects(order);
@@ -648,6 +693,7 @@ export function createAudioEngine(
           // voice is — the chain boundary allows exactly one signal path (docs/boundaries.md).
           restoreMaster(master.effects, store.getState().master.effects, session.master.effects);
           master.effects.setSync(session.sync);
+          master.effects.setTempo(masterTempo(session.sync));
           // The restored session's clock is this host's from here: a voice added after the swap
           // reads it, and nothing else remembers what the replaced session was jumping on.
           sync = session.sync;

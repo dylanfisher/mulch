@@ -17,18 +17,26 @@ import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 import { GEN_SECS } from "@/lib/waveform";
+import { LOOKAHEAD_SECS } from "@/audio/transport";
 
 const SAMPLE_RATE = 48_000;
 
 const fakeNode = () => ({ connect: (to: unknown) => to, disconnect: () => {} });
 
-const fakeParam = () => ({
-  value: 0,
-  cancelScheduledValues: () => {},
-  cancelAndHoldAtTime: () => {},
-  setValueAtTime: () => {},
-  linearRampToValueAtTime: () => {},
-});
+const fakeParam = () => {
+  const param = {
+    value: 0,
+    cancelScheduledValues: () => {},
+    cancelAndHoldAtTime: () => {},
+    setValueAtTime: () => {},
+    // A ramp lands where it was aimed: the one reading of a parameter's own value the graph
+    // makes is the lull's roll, which reads the chance off its lane's target.
+    linearRampToValueAtTime: (value: number) => {
+      param.value = value;
+    },
+  };
+  return param;
+};
 
 const fakeBuffer = (channels: number, length: number, sampleRate: number) => {
   const data = Array.from({ length: channels }, () => new Float32Array(length));
@@ -63,6 +71,7 @@ function fakeContext(): BaseAudioContext {
         release: fakeParam(),
       }),
     createWaveShaper: () => Object.assign(fakeNode(), { curve: null, oversample: "none" }),
+    createConstantSource: () => Object.assign(fakeNode(), { offset: fakeParam(), start: () => {} }),
     createBuffer: fakeBuffer,
     // What an import is decoded through. The bytes say how many frames come back, so a test can
     // hand the host the empty decode a truncated or headers-only file produces.
@@ -291,5 +300,43 @@ describe("an import that decodes to nothing", () => {
     await expect(
       engine.sourcePeaks({ blobId: "empty" }, () => Promise.resolve(new Blob([]))),
     ).rejects.toThrow("no frames");
+  });
+});
+
+// The rack under all the yards resting them: one draw on the master's lull, every playing yard
+// held on the same instant, and every one let go when the lull is switched off (0371).
+describe("a lull on the master", () => {
+  it("rests every playing yard on the same instant, and lets go of them when bypassed", () => {
+    const { instrument, engine } = fixture();
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌱", name: "Second Yard" });
+    instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine", hz: 220 } });
+    instrument.send({ t: "effect.add", deck: null, id: "l1", effect: "lull" });
+    // At every chance, two seconds in, for a minute — past the horizon, so no release is laid.
+    for (const [param, value] of [
+      ["lull.chance", 1],
+      ["lull.gapLeast", 2],
+      ["lull.gapMost", 2],
+      ["lull.least", 60],
+      ["lull.most", 60],
+    ] as const) {
+      instrument.send({ t: "param.set", deck: null, instance: "l1", param, value });
+    }
+    instrument.send({ t: "deck.play", deck: "a" });
+    instrument.send({ t: "deck.play", deck: "b" });
+
+    engine.armAutomation();
+    // Both transports re-posted their plans carrying the one instant the master asked for.
+    for (const reporter of reporters) {
+      expect(reporter.plans.at(-1)).toMatchObject({ until: 2, resume: true });
+    }
+
+    // Switched off on the master, the rest is let go on every yard: a release under a plan of
+    // its own, at the lookahead — which is the rest's own instant, because a release cannot come
+    // before the stop it releases, and the clock here has not reached it.
+    instrument.send({ t: "effect.bypass", deck: null, instance: "l1", bypassed: true });
+    for (const reporter of reporters) {
+      expect(reporter.plans.at(-1)).toMatchObject({ startTime: 2, resume: false });
+    }
+    expect(LOOKAHEAD_SECS).toBeLessThan(2);
   });
 });

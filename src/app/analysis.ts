@@ -30,7 +30,13 @@ export type Analyzer = {
    * Measure what this deck just loaded. Supersedes anything still in flight for it, and clears
    * what the deck was previously told: the old answer describes a buffer that has gone.
    */
-  request(deck: DeckId, channels: readonly Float32Array[], sampleRate: number): void;
+  request(
+    deck: DeckId,
+    channels: readonly Float32Array[],
+    sampleRate: number,
+    /** Called once the answer has landed on the deck — what a voice reads its tempo off (0371). */
+    analyzed?: () => void,
+  ): void;
   /**
    * This deck's request is about a buffer nothing holds any more — a restored graph, or a deck
    * that has been removed. Forgets the request id; the deck row is the caller's business, and by
@@ -69,6 +75,8 @@ export function createAnalyzer(
   /** Which deck asked for a request id, and which id each deck is currently waiting on. */
   const owner = new Map<number, DeckId>();
   const live = new Map<DeckId, number>();
+  /** What each deck's caller asked to hear when its answer lands, if anything. */
+  const settled = new Map<DeckId, () => void>();
   let issued = 0;
 
   const drop = (deck: DeckId): void => {
@@ -76,6 +84,7 @@ export function createAnalyzer(
     if (previous === undefined) return;
     live.delete(deck);
     owner.delete(previous);
+    settled.delete(deck);
     // Correctness is the identity check below; this only saves the work.
     port.post({ t: "cancel", requestId: previous });
   };
@@ -99,6 +108,10 @@ export function createAnalyzer(
     patchDeck(store, deck, { analysis });
     // The candidates themselves stay on probe(); the log carries the tempo and how many (0025).
     emit({ t: "deck.analyzed", deck, bpm: analysis.bpm, onsets: analysis.onsets.length });
+    // After the deck holds it, so what the caller reads back is the answer and not the wait.
+    const analyzed = settled.get(deck);
+    settled.delete(deck);
+    analyzed?.();
   });
 
   port.listenFailure((detail) => {
@@ -110,11 +123,12 @@ export function createAnalyzer(
   });
 
   return {
-    request: (deck, channels, sampleRate) => {
+    request: (deck, channels, sampleRate, analyzed) => {
       drop(deck);
       const requestId = ++issued;
       owner.set(requestId, deck);
       live.set(deck, requestId);
+      if (analyzed !== undefined) settled.set(deck, analyzed);
       patchDeck(store, deck, { analysis: null });
       port.post({ t: "analyze", requestId, sampleRate, channels: [...channels] });
     },

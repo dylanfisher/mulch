@@ -40,6 +40,9 @@ const fakeMaster = () => {
   const master: MasterEffects = {
     input: NOWHERE,
     held: () => [...held],
+    setTempo: () => {},
+    holding: () => false,
+    onHolds: () => {},
     addEffect: (id, effect) => {
       calls.push(`add:${id}:${effect}`);
       held.push(id);

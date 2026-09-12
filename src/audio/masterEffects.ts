@@ -15,7 +15,7 @@ import type { GrowthBounds } from "@/lib/effectGrowth";
 import { asEffectParam } from "./chain";
 import { scheduleAutomation } from "./ramp";
 import type { EffectRack } from "./effects/rack";
-import type { EffectInstanceId } from "./effects/contract";
+import type { EffectInstanceId, HoldEdge } from "./effects/contract";
 import type { DeckPeek } from "./deckPeek";
 import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import { paramKey, type AutomationParamId, type EffectParamValues, type ParamId } from "./params";
@@ -56,6 +56,19 @@ export type MasterEffects = {
   ): void;
   endGesture(): void;
   setSync(sync: number | null): void;
+  /**
+   * The beat this rack counts on, in bpm, or nought: there is no one tempo under all the yards,
+   * so the host hands down the session's shared clock as a beat, or nothing (0097, 0371).
+   */
+  setTempo(bpm: number): void;
+  /** Whether anything running here asks the transport for holds at all. */
+  holding(): boolean;
+  /**
+   * Who hears the rests this rack asks for. A rack with no transport of its own hands every ask
+   * up, and the host fans it out to every yard that is playing: one draw, every yard on the same
+   * instants (0371). Called on the arming tick with the edges gathered up to the horizon.
+   */
+  onHolds(listener: (edges: readonly HoldEdge[]) => void): void;
   /** Arm the horizon from wherever the clock stands, for the host that has no interval — the
    *  offline render, which runs with nothing on the main thread listening (0071). */
   armAutomation(): void;
@@ -85,6 +98,9 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
   const lanes = new Map<string, HeldLane>();
   /** The arming tick, running exactly while there is a lane or a run to lay ahead of the clock. */
   let rearm: ReturnType<typeof setInterval> | null = null;
+  let onHolds: ((edges: readonly HoldEdge[]) => void) | null = null;
+  /** The rack's asks, gathered on the tick and handed up whole (0371). */
+  const asks: HoldEdge[] = [];
 
   /**
    * Every cycle of every held lane that begins inside the horizon and has not been armed yet —
@@ -138,6 +154,10 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
     }
     armLanes();
     rack.pump(ctx.currentTime, AUTOMATION_HORIZON_SECS);
+    // Gathered on the same horizon the yards lay theirs on, and handed up rather than applied:
+    // this rack has no transport, so the host is the one that knows which yards are playing.
+    const asked = rack.holds(ctx.currentTime + AUTOMATION_HORIZON_SECS, asks);
+    if (asked > 0) onHolds?.(asks.slice(0, asked));
   }
 
   /**
@@ -218,6 +238,13 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
     },
     setSync: (sync) => {
       rack.setSync(sync);
+    },
+    setTempo: (bpm) => {
+      rack.setTempo(bpm);
+    },
+    holding: () => rack.holding(),
+    onHolds: (listener) => {
+      onHolds = listener;
     },
     armAutomation: () => {
       armAhead();
