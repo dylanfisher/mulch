@@ -5,7 +5,7 @@
  *   the owning plugin in src/audio/effects/.
  */
 import { createEffectRack } from "./effects/rack";
-import type { EffectInstanceId, GrownEffect } from "./effects/contract";
+import type { EffectInstanceId, GrownEffect, HoldEdge } from "./effects/contract";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
@@ -132,6 +132,14 @@ export type DeckChain = {
   setSync(sync: number | null): void;
   /** Whether anything in the rack has a pump, so a deck ticks only where it must. */
   pumping(): boolean;
+  /** Every edge the rack asks of this deck's transport up to `until`, in rack order (0371). */
+  holds(until: number, out: HoldEdge[]): number;
+  /** Whether anything running in the rack asks for holds at all. */
+  holding(): boolean;
+  /** The transport moved by hand at `at`, told down to whatever counts towards a hold. */
+  resetHolds(at: number): void;
+  /** The yard's sounding beat, pushed down to whatever rounds onto it. */
+  setTempo(bpm: number): void;
   dispose(): void;
 };
 
@@ -295,6 +303,14 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       effects.setSync(sync);
     },
     pumping: () => effects.pumping(),
+    holds: (until, out) => effects.holds(until, out),
+    holding: () => effects.holding(),
+    resetHolds: (at) => {
+      effects.resetHolds(at);
+    },
+    setTempo: (bpm) => {
+      effects.setTempo(bpm);
+    },
     meters: (out) => {
       effects.meters(out);
     },

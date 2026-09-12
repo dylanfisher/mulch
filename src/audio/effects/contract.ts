@@ -11,6 +11,11 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import type { GrowthBounds } from "@/lib/effectGrowth";
+import type { HoldEdge } from "@/lib/lull";
+
+// Re-exported with the instance surface that names it, so a rack or a chain reading asks needs no
+// second import for the shape of one (0371).
+export type { HoldEdge };
 import { assertDurableText } from "@/lib/guards";
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
 import type { DriftDimension, DriftGeometry } from "@/lib/moire";
@@ -151,6 +156,28 @@ export type EffectInstance<Param extends string = string> = {
    * one an export would not reproduce (0204).
    */
   pump?(now: number, horizon: number): void;
+  /**
+   * Every hold and release this instance asks of the transport whose instant falls at or before
+   * `until` and has not been asked yet, written into `out` from index 0; answers how many. An
+   * effect may **ask** the transport and never touch it: it holds no handle on the voice, the
+   * rack gathers the asks, and the voice schedules each edge ahead on its own source — the same
+   * way the player's steps are laid — so a hand's play, pause, stop or seek always wins (0371).
+   * Called at the pump's cadence and bound by the pump's rule: a function of the ticks covered,
+   * never of when it was called (0204). Present only on a plugin that rests the transport.
+   */
+  holds?(until: number, out: HoldEdge[]): number;
+  /**
+   * The transport moved by hand at `at` — played, paused, stopped or seeked — so whatever this
+   * instance was counting towards counts again from there. Required exactly of a plugin binding
+   * `holds`, because a rest scheduled before the hand moved is one the hand refused (0371).
+   */
+  resetHolds?(at: number): void;
+  /**
+   * The beat the yard this rack belongs to is sounding at, in bpm, or nought where none was
+   * found. Pushed down like `setSync` below and for the same reason: a plugin that rounds a length
+   * onto the beat needs the number, and this tier may not read the session's analysis.
+   */
+  setTempo?(bpm: number): void;
   /**
    * The session's shared clock in seconds, or null where each yard keeps its own time. Pushed down
    * rather than read up: this tier may not import the session (docs/map.md), and a plugin that

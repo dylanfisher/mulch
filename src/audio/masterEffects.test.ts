@@ -39,6 +39,10 @@ const fakeRack = () => {
     setBounds: () => {},
     dismissGrown: () => false,
     pumping: () => growing,
+    holds: () => 0,
+    holding: () => false,
+    resetHolds: () => {},
+    setTempo: () => {},
     setParam: () => {},
     endGesture: () => {},
     automationTarget: () => {

@@ -11,6 +11,7 @@
 // which the plugin it already holds can answer instead.
 import type { EffectParamValues } from "@/audio/params";
 import type { GrowthBounds } from "@/lib/effectGrowth";
+import type { HoldEdge } from "@/lib/lull";
 import type {
   Effect,
   EffectInstance,
@@ -86,6 +87,18 @@ export type EffectRack = {
   dismissGrown(instance: EffectInstanceId, place: EffectInstanceId): boolean;
   /** Whether anything held and running has a pump at all — so a deck ticks only where it must. */
   pumping(): boolean;
+  /**
+   * Every edge the running instances ask of the transport up to `until`, gathered into `out`
+   * from index 0 in rack order; answers how many. Skips a bypassed one, for the reason `pump`
+   * does. Two instances asking is two asks, and which the transport honours is its own rule.
+   */
+  holds(until: number, out: HoldEdge[]): number;
+  /** Whether anything held and running asks the transport for holds at all. */
+  holding(): boolean;
+  /** The transport moved by hand at `at`, told to every instance that counts towards a hold. */
+  resetHolds(at: number): void;
+  /** The yard's sounding beat, handed to every instance that rounds onto it. */
+  setTempo(bpm: number): void;
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
   setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
   /**
@@ -112,6 +125,8 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
   const rebuilds = new Map<EffectInstanceId, ReadonlySet<string>>();
   /** Built, parameterised and held — just not a link in the chain below (0023). */
   const bypassed = new Set<EffectInstanceId>();
+  /** One instance's asks at a time, gathered into the caller's list (see `holds`). */
+  const asked: HoldEdge[] = [];
   /**
    * The instances holding a `rebuild` move that has not been built yet, and the (instance,
    * parameter) the last move of any kind was about. A run of moves on the same pair is a drag: it
@@ -313,9 +328,35 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     dismissGrown: (id, place) => held(id).dismiss?.(place) ?? false,
     pumping: () => {
       for (const [id, instance] of instances) {
-        if (instance.pump !== undefined && !bypassed.has(id)) return true;
+        if (bypassed.has(id)) continue;
+        // An instance asking for holds is laid ahead on the same tick a pump is (0371).
+        if (instance.pump !== undefined || instance.holds !== undefined) return true;
       }
       return false;
+    },
+    holds: (until, out) => {
+      let n = 0;
+      for (const [id, instance] of instances) {
+        if (instance.holds === undefined || bypassed.has(id)) continue;
+        const written = instance.holds(until, asked);
+        for (let i = 0; i < written; i++) {
+          const edge = asked[i];
+          if (edge !== undefined) out[n++] = edge;
+        }
+      }
+      return n;
+    },
+    holding: () => {
+      for (const [id, instance] of instances) {
+        if (instance.holds !== undefined && !bypassed.has(id)) return true;
+      }
+      return false;
+    },
+    resetHolds: (at) => {
+      for (const instance of instances.values()) instance.resetHolds?.(at);
+    },
+    setTempo: (bpm) => {
+      for (const instance of instances.values()) instance.setTempo?.(bpm);
     },
     // O(1) and no longer a registry question: the instance is named, so nothing has to work out
     // which of two delays a `delay.time` belongs to (0030).
