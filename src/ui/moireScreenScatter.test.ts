@@ -8,10 +8,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ALPHABETS, GLYPH_COUNT, markWeight } from "@/lib/moireAlphabets";
 import { markAt } from "@/lib/moireGlyph";
-import { moireRow as row } from "@/lib/moireRow";
 import type { SceneSpecks } from "@/lib/moireScene";
 import { YARD_SCENE_REST } from "@/lib/yardScene";
-import { painterOn, type Painted, tileOf } from "@/ui/moireCanvasPainted";
+import { painterOn, type Painted } from "@/ui/moireCanvasPainted";
+import { ROWS, tileOf } from "@/ui/moireCanvasReadings";
 import { PER_PIXEL } from "@/lib/moireScreenCells";
 import { SCATTER_SPAN, scatterInk, scatterLattice } from "@/lib/moireScreenScatter";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
@@ -24,9 +24,6 @@ const paintedOn = painterOn((name, value) => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
 
 /** The fine cell every case below reads in blocks of, in device pixels, and a block of it. */
 const CELL = 10;

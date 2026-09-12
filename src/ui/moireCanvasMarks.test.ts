@@ -19,15 +19,13 @@
 // cap that would ask for a split is 800. Same decision.
 // oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { ALPHABETS, GLYPH_COUNT, GLYPH_GRID, markWeight } from "@/lib/moireAlphabets";
 import { GLYPH_PUSH, markAt } from "@/lib/moireGlyph";
 import { type SceneName, sceneRepeat } from "@/lib/moireScene";
-import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
-import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
-import { type LookName, type LookTerms } from "@/lib/moireLook";
-import { painterOn, type Painted, PRODUCT, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
+import { YARD_SCENE_REST } from "@/lib/yardScene";
+import { painterOn, type Painted, PRODUCT, type StubGlobal } from "@/ui/moireCanvasPainted";
+import { look, ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
 import {
   bandFloor,
   bitPx,
@@ -37,43 +35,23 @@ import {
   STAMP_PICTURE_DRAWS,
 } from "@/ui/moireCanvasMarks";
 import { shapeRest } from "@/ui/moireShape";
-import type { MoireLook } from "@/ui/moireLooks";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 import { CELL_DECAY, CELL_PUSHES, type MoireCellPush, pushedRows } from "@/ui/moireCellPush";
 import { type MoireCellSpark, SPARK_CELLS, sparkCells } from "@/ui/moireCellSpark";
 // oxlint-enable import/max-dependencies
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
-const paintedOn = painterOn((name, value) => {
+const stubGlobal: StubGlobal = (name, value) => {
   vi.stubGlobal(name, value);
-});
+};
+const paintedOn = painterOn(stubGlobal);
+
+/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
+const paintingOf = yardPainterOn(stubGlobal);
 
 afterEach(() => {
   vi.unstubAllGlobals();
   resetTuning();
-});
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-
-/** The screen's own tile out of one painting: the one surface a beat cell wide (`beatPx`). */
-const tileOf = (painted: Painted): Uint8ClampedArray => tileFrom(painted, beatPx(gridPitchPx(2)));
-
-/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
-function paintingOf(yard: Readonly<YardScene>, looks: readonly MoireLook[] = []): Painted {
-  vi.stubGlobal("devicePixelRatio", 2);
-  return paintedOn(200, 128, ROWS, 2, 20, { yard, looks });
-}
-
-/** One look of a standing rack, arrived — the shape `rackLooks` answers with. */
-const look = (name: LookName, terms: LookTerms): MoireLook => ({
-  key: name,
-  look: name,
-  presence: 1,
-  at: 1,
-  terms,
-  held: 0,
-  waited: 0,
 });
 
 /**

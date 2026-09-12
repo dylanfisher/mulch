@@ -10,8 +10,8 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { moireRow as row } from "@/lib/moireRow";
-import { baked, installHereScreenPort, painterOn, tileOf } from "@/ui/moireCanvasPainted";
+import { installHereScreenPort, painterOn } from "@/ui/moireCanvasPainted";
+import { baked, ROWS, tileOf } from "@/ui/moireCanvasReadings";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -23,9 +23,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   installHereScreenPort();
 });
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
 
 /**
  * One painting in `alphabet`, on a two-pixel display. `deep` is the canvas's own height, which the

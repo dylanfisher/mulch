@@ -15,14 +15,12 @@ import { beatInk, beatLattice, beatTilePx } from "@/lib/moireScreenBeat";
 import { PER_PIXEL } from "@/lib/moireScreenCells";
 import { moireRow as row } from "@/lib/moireRow";
 import {
-  baked,
-  claiming,
   forgetScreenTiles,
   installHereScreenPort,
   painterOn,
   type Painted,
-  tileOf,
 } from "@/ui/moireCanvasPainted";
+import { baked, claiming, ROWS, tileOf } from "@/ui/moireCanvasReadings";
 import { beatPx, gridPitchPx, rowPitchPx, tilePx } from "@/lib/moireScreenFilm";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
@@ -39,9 +37,6 @@ afterEach(() => {
 
 /** A rack whose tail is leaning the lattice nowhere, which is where every case here paints. */
 const STILL = { blown: 1, lean: 0, veer: 0 };
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
 
 /**
  * And the rows a case about the crawl paints with: one row whose fold lands in the crawl's own

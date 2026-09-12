@@ -45,8 +45,8 @@ import { DOUBLE_CEILING, doubleAmount, doubleZoom } from "@/lib/moireDouble";
 import { squashCeiling, squashFloor } from "@/lib/moireSquash";
 import { GRAIN_TILE } from "@/lib/moireGrain";
 import { moireRow as row } from "@/lib/moireRow";
-import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
-import type { MoireLook } from "@/ui/moireLooks";
+import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { baked, look } from "@/ui/moireCanvasReadings";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {
@@ -55,21 +55,6 @@ const paintedOn = painterOn((name, value) => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-});
-
-/**
- * One look of a standing rack, arrived — the shape `rackLooks` answers with (src/ui/moireLooks.ts).
- * Built here rather than read off a rack of instances because what these cases are about is the
- * draw, and a knob's own range is the reading's case and not the painter's.
- */
-const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireLook => ({
-  key,
-  look: name,
-  presence: 1,
-  at: 1,
-  terms,
-  held: 0,
-  waited: 0,
 });
 
 /**
@@ -306,8 +291,8 @@ describe("the chain of passes", () => {
     // paler strip.
     const two = settled({
       looks: [
-        look("echoes", { spacing: 1, count: 1, fade: 1 }, "one"),
-        look("echoes", { spacing: 1, count: 1, fade: 1 }, "two"),
+        look("echoes", { spacing: 1, count: 1, fade: 1 }, 1, "one"),
+        look("echoes", { spacing: 1, count: 1, fade: 1 }, 1, "two"),
       ],
       wind: { blown: 1, lean: 0, veer: 1 },
     });
@@ -701,8 +686,8 @@ describe("the chain of passes", () => {
     const stacked = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
       looks: [
         look("blocks", { block: 0, levels: 0 }),
-        look("blocks", { block: 0, levels: 0 }, "second"),
-        look("bloom", { amount: 1, radius: 1 }, "after"),
+        look("blocks", { block: 0, levels: 0 }, 1, "second"),
+        look("bloom", { amount: 1, radius: 1 }, 1, "after"),
       ],
     });
     const shared = stacked.surfaces[at]?.drew ?? [];

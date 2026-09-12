@@ -1,33 +1,20 @@
 /**
  * @role Tests the screen the picture is filmed off: that its two grids beat rather than crossing
  *   into a plain mesh, that it splits the caller's ink into three channels and names no colour of
- *   its own, that every motion in it belongs to a parameter, and that not one of them moves when
- *   the picture does not.
+ *   its own, and that the three lattices diverge without a seam in the tile.
+ * @instead Every motion of the screen, and that none of them moves when the picture does not →
+ *   src/ui/moireScreenMotion.test.ts. The scene's own ramp, read through the screen →
+ *   src/ui/moireScreenGround.test.ts. Both split out of this file at the 800-line hard cap (0045),
+ *   and all three paint through the one recorder in src/ui/moireScreenPainted.ts. The terms
+ *   themselves, with nothing painted → src/ui/moireScreenTerms.test.ts.
  */
-// Every case here stands on the same two pitches and the same tile, so splitting the file would
-// separate assertions about one screen. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
-// One dependency over: the yard's own reading is what the painter now films a scene through, and
-// every case here paints one — importing it through another module would be a second name for it
-// (0007, principle 1).
 // oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import {
-  DRIFT_DISPERSE_REACH,
-  DRIFT_FRINGE_REACH,
-  DRIFT_REST,
-  type MoireRow,
-  type ScreenInk,
-} from "@/lib/moire";
-import { fractalStopsRest } from "@/lib/moireFractal";
-import { SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib/moireScene";
+import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH, DRIFT_REST } from "@/lib/moire";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
-import { type YardScene, YARD_SCENE_REST } from "@/lib/yardScene";
-import { paintMoire } from "@/ui/moireCanvas";
-import { arrivedInk, PRODUCT, resolvedInk } from "@/ui/moireCanvasPainted";
+import { PRODUCT } from "@/ui/moireCanvasPainted";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
-import { bandTurns, termTurns, SCREEN_TERMS } from "@/ui/moireScreen";
+import { bandTurns } from "@/ui/moireScreen";
 import {
   beatPx,
   blobKeep,
@@ -39,177 +26,13 @@ import {
   rowPitchPx,
   tilePx,
 } from "@/lib/moireScreenFilm";
-import { sceneHue } from "@/lib/moireScreenCells";
-import { screenInkRest, inkTravelInto, DRIFT_INK_SECS } from "@/ui/moireScreenInk";
-import { leanCells } from "@/lib/moireLattice";
-import { type MoireShape, shapeRest } from "@/ui/moireShape";
-import { tintRest } from "@/ui/moireTint";
-
+import { screenInkRest } from "@/ui/moireScreenInk";
 import { moireRow as row } from "@/lib/moireRow";
-import { claiming } from "@/ui/moireCanvasPainted";
-
-/** Where the painter put the screen for one fill: the whole matrix, not just how far it rolled. */
-type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
-
-/** How far along the crawl's own axis one painting placed the screen. */
-const crawledTo = (painting: { moves: Move[] }): number => painting.moves[0]?.e ?? 0;
-
-/**
- * A colour no other painting in this file asked for. The painter holds its tiles by what they are
- * of rather than by who asked, which is the point of that cache and would otherwise leave one test
- * reading the tile another one built.
- */
-let asked = 0;
-const nextColor = (): string => `the token the theme resolved ${(asked += 1)}`;
-
-/**
- * The tile the painter builds its screen in: a stand-in whose context is real enough for `inkOf` to
- * read a colour back out of it, which is how the painter learns what a token resolved to without
- * parsing one, and which keeps the pixels it was handed so a test can read the screen itself.
- */
-function tileStub() {
-  let written: ImageData | null = null;
-  let drawn: { width: number; height: number } | null = null;
-  // One per `createElement`, because the painter asks for two: the tile, and the single pixel it
-  // reads a colour back through. A stub shared between them would let one resize the other.
-  const create = () => {
-    const canvas = {
-      width: 0,
-      height: 0,
-      // Enough of a context to be any of the three surfaces the painter now asks `createElement`
-      // for: the screen's tile, the one pixel a colour is read back through, and the surface the
-      // rows' product is built on — which is the one that needs a pattern and a composite mode.
-      getContext: () => ({
-        fillStyle: "",
-        globalAlpha: 1,
-        globalCompositeOperation: "source-over",
-        clearRect: () => {},
-        fillRect: () => {},
-        setTransform: () => {},
-        createPattern: () => ({ setTransform: () => {} }),
-        drawImage: () => {},
-        getImageData(): { data: Uint8ClampedArray } {
-          return { data: Uint8ClampedArray.from(resolvedInk(this.fillStyle)) };
-        },
-        createImageData: (w: number, h: number) => ({
-          width: w,
-          height: h,
-          data: new Uint8ClampedArray(w * h * 4),
-        }),
-        putImageData: (field: ImageData) => {
-          written = field;
-          drawn = canvas;
-        },
-      }),
-    };
-    return canvas;
-  };
-  return { create, taken: () => written, tile: () => drawn };
-}
-
-/**
- * The painter run against a canvas of `width` × `height` device pixels, recording the tile it
- * built, the pixels it wrote into it, where it put the screen, and what every fill was made with.
- *
- * `ink` is where the picture's ink stands, for the cases about the travel itself; every other case
- * paints through the ink these rows have already arrived at, which is the picture they claim. And
- * `wind` is how far the rack behind it has blown the field, in turns of one cell: nowhere for every
- * case but the wind's own, which is the picture a dry rack draws (0267). `color` is a token no other
- * painting asked for unless a case names one, which is how the wind's own case paints twice through
- * one tile.
- *
- * Two patterns come out of one context now — the picture's grating and this screen — so each gets
- * its own recorder rather than one shared: a test that could not tell them apart would read the
- * rows' aim as the screen's placement. The painter asks for the grating first, because a canvas
- * that cannot make one draws no picture and must lay no ink down at all.
- */
-// The recorder and the painting it records are one function: every stub here writes into the tally
-// the painting below reads back, and a helper holding half of them would hand a case a recorder
-// with nothing recorded in it. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-function paintedOn(
-  width: number,
-  height: number,
-  rows: readonly MoireRow[],
-  ink?: ScreenInk,
-  wind = 0,
-  color = nextColor(),
-  yard: Readonly<YardScene> = YARD_SCENE_REST,
-  shape: Readonly<MoireShape> = shapeRest(),
-) {
-  const { create, taken, tile } = tileStub();
-  const made: { moves: Move[]; pattern: unknown }[] = [];
-  const recorder = () => {
-    const moves: Move[] = [];
-    const pattern = { setTransform: (matrix: Move) => moves.push({ ...matrix }) };
-    made.push({ moves, pattern });
-    return pattern;
-  };
-  const inks: unknown[] = [];
-  const context = {
-    fillStyle: "" as unknown,
-    globalAlpha: 1,
-    globalCompositeOperation: "source-over",
-    clearRect: () => {},
-    setTransform: () => {},
-    createPattern: recorder,
-    // The product, cut out of the screen in one go: what it holds is the picture and is asserted
-    // in `moireCanvas.test.ts`; here it only has to happen.
-    drawImage: () => inks.push(PRODUCT),
-    fillRect(): void {
-      inks.push(this.fillStyle);
-    },
-  };
-  // The painter reaches for a size and a 2d context and nothing else, the way
-  // src/ui/DebugConsole.test.tsx stands in for a collection its own caller only iterates.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  const canvas = { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
-  vi.stubGlobal("document", { createElement: create });
-  // The channels arrive the way the browser hands them over — resolved, one per token — so the
-  // painter is tested naming tokens and never colours (0130).
-  vi.stubGlobal("getComputedStyle", () => ({
-    getPropertyValue: (token: string) => `the ${token} the theme resolved`,
-  }));
-  // Nothing scattering behind it: what a shatter does to the field is cut in `moireCanvas.test.ts`
-  // and nothing here is about it (0269).
-  paintMoire(
-    canvas,
-    rows,
-    20,
-    color,
-    0,
-    0,
-    fractalStopsRest(),
-    0,
-    ink ?? arrivedInk(rows),
-    { blown: 1, lean: wind, veer: 1 },
-    0,
-    [],
-    shape,
-    tintRest(),
-    // Every case but the scene's own paints the meadow, which is seed heads since 0334: a ramp of
-    // the leaf dark, the hot ink, its own tan, the lit leaf and a pale sky, warm for four stops of
-    // the five (`YARD_SCENE_REST`, src/lib/yardScene.ts, 0329).
-    yard,
-    [],
-    [],
-    "marks",
-    null,
-    false,
-  );
-  // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
-  // the surface the rows' product is built on, which is a canvas of its own (P93).
-  const [screen] = made;
-  return {
-    tile: tile(),
-    written: taken(),
-    // The screen's own placement, which is what every test here is about. The grating's aims
-    // belong to the picture and are asserted in `moireCanvas.test.ts`.
-    moves: screen?.moves ?? [],
-    screen: screen?.pattern,
-    inks,
-  };
-}
+import { screenPainterOn } from "@/ui/moireScreenPainted";
+/** The recorder, bound to this file's own way of stubbing a global (src/ui/moireScreenPainted.ts). */
+const paintedOn = screenPainterOn((name, value) => {
+  vi.stubGlobal(name, value);
+});
 
 // The stand-in document and display live for exactly the one test that asks for them.
 afterEach(() => {
@@ -217,7 +40,7 @@ afterEach(() => {
   resetTuning();
 });
 
-// One flat list of the screen's cases (0007).
+// One flat list of the lattice's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("moireScreen", () => {
   it("beats two grids a pixel apart into a lattice of blobs", () => {
@@ -364,160 +187,6 @@ describe("moireScreen", () => {
     expect(ghosts(1), "a saturated picture stands no ghost").toBeGreaterThan(0);
   });
 
-  it("gives each of the screen's motions a parameter of its own, and none to no one", () => {
-    // The system the motions hang off: a parameter owns exactly one of them, picked by the same
-    // fold that already picks its waveform, so a rack of them drives all four against each other
-    // (0128). Every term is reachable — a term no fold can claim is a motion that never happens.
-    for (const term of SCREEN_TERMS) {
-      expect(termTurns([claiming(term)], term)).toBeCloseTo(0.25, 10);
-      // And nobody else's: a row in one term's slice moves that term and no other.
-      for (const other of SCREEN_TERMS)
-        if (other !== term) expect(termTurns([claiming(term)], other)).toBe(0);
-    }
-    // No row in a term's slice leaves it still — the honest answer, not a fall back to some other
-    // row's phase, because nothing is automating it (principle 5).
-    for (const term of SCREEN_TERMS) expect(termTurns([], term)).toBe(0);
-    // The reference row is skipped whatever it folds to: it already owns the band's roll (0126).
-    expect(termTurns([row({ period: 4, phase: 1, reference: true })], SCREEN_TERMS[0])).toBe(0);
-    // P146: and so is a row with no depth of its own, whatever slot it folds into. The field's own
-    // row is a reading spread over the picture and belongs to no parameter, so it may not turn one
-    // of the four motions a parameter owns — a yard nobody is automating would otherwise breathe
-    // because it is playing (0128, 0213).
-    for (const term of SCREEN_TERMS) {
-      expect(termTurns([claiming(term, { depth: 0 })], term)).toBe(0);
-      // And it does not stand in front of a row that does own the term, either.
-      expect(termTurns([claiming(term, { depth: 0 }), claiming(term)], term)).toBeCloseTo(0.25, 10);
-    }
-  });
-
-  it("moves the screen on the picture's own phases and holds every one of them where it stops", () => {
-    // The whole of 0040 for the whole of the screen, and the failure this step most invites: four
-    // more motions is four more chances to reach for a wall clock. Paint twice with nothing moved
-    // and the matrix has to be the same matrix, cell for cell.
-    vi.stubGlobal("devicePixelRatio", 2);
-    // The three sub-pixel motions rest at nought since 0346; what is read here is the mechanism.
-    setTuning("screen.turn", 0.006);
-    setTuning("screen.breath", 0.5);
-    setTuning("screen.shear", 0.02);
-    const rows = [
-      ...SCREEN_TERMS.map((term) => claiming(term)),
-      row({ period: 3, phase: 2, reference: true }),
-    ];
-    const first = paintedOn(200, 64, rows).moves;
-    vi.stubGlobal("devicePixelRatio", 2);
-    expect(paintedOn(200, 64, rows).moves).toEqual(first);
-    // And it is moving: with every term claimed, no cell is left at rest.
-    const [placed] = first;
-    expect(placed?.e).not.toBe(0);
-    expect(placed?.f).not.toBe(0);
-    expect(placed?.b).not.toBe(0);
-    expect(placed?.a).not.toBe(1);
-  });
-
-  it("leans the whole screen by the rack's tail, in whole cells, and bakes nothing to do it", () => {
-    // The fourteenth step of the block: the one travel the lattice makes across the picture is the
-    // walk's ground (`crawlCells`, src/ui/moireCrawl.ts), so what the standing rack's tail buys is
-    // a lean of a few marks along that same axis and never a travel of its own — a second one-way
-    // drift with no ground under it would be two motions with one name (0267). A lean on any other
-    // cell of the matrix would be a second motion, and one in the tile's key would be a
-    // picture-sized bake per frame (0129).
-    vi.stubGlobal("devicePixelRatio", 2);
-    const pitch = gridPitchPx(2);
-    const rows = [claiming("crawl"), row({ period: 4, phase: 1, reference: true })];
-    const colour = nextColor();
-    const still = paintedOn(200, 64, rows, undefined, 0, colour);
-    vi.stubGlobal("devicePixelRatio", 2);
-    const blown = paintedOn(200, 64, rows, undefined, 2, colour);
-    const held = still.moves[0];
-    const moved = blown.moves[0];
-    // Exactly the cells it says, on the crawl's own axis: the reading is whole cells of the marks
-    // before it arrives here, so the lattice lands where 0346 says without being rounded twice.
-    expect((moved?.e ?? 0) - (held?.e ?? 0)).toBe(2 * pitch);
-    for (const cell of ["a", "b", "c", "d", "f"] as const)
-      expect(moved?.[cell]).toBeCloseTo(held?.[cell] ?? 0, 10);
-    // And the second painting wrote no tile at all: the first one's answered it, because the wind
-    // is a term on the transform and touches nothing the tile is keyed by.
-    expect(still.tile).toBeDefined();
-    expect(blown.tile).toBeNull();
-  });
-
-  it("leans the crawl toward the louder of the output's two sides, and bakes nothing to do it", () => {
-    // The eleventh step of the block: the output's two sides reach the picture, and the crawl is
-    // the one travel the lattice makes across it — so the lattice is pulled toward the side the
-    // sound is louder on, in whole cells of the marks and on no other cell of the matrix.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const pitch = gridPitchPx(2);
-    const rows = [claiming("crawl"), row({ period: 4, phase: 1, reference: true })];
-    const colour = nextColor();
-    const panned = (sides: number) => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      return paintedOn(200, 64, rows, undefined, 0, colour, YARD_SCENE_REST, {
-        ...shapeRest(),
-        sidesCells: leanCells(sides, 0),
-      });
-    };
-    const even = panned(0);
-    const left = panned(1);
-    const right = panned(-1);
-    // Toward the louder side: the left pulls the lattice back along the axis and the right pushes
-    // it on, by the same distance either way.
-    expect(crawledTo(left)).toBeLessThan(crawledTo(even));
-    expect(crawledTo(right)).toBeGreaterThan(crawledTo(even));
-    expect(crawledTo(even) - crawledTo(left)).toBeCloseTo(crawledTo(right) - crawledTo(even), 10);
-    // By whole cells of the marks, like every other motion of the lattice since 0346.
-    expect((crawledTo(even) - crawledTo(left)) % pitch).toBeCloseTo(0, 10);
-    // And by more than one of them: a lean of a single cell is inside the swing the crawl already
-    // has and would not read as a side at all.
-    expect(crawledTo(even) - crawledTo(left)).toBeGreaterThan(pitch);
-    // The cells are whole where they are read and not where they are spent, so what the crawl is
-    // handed is exactly what it leans by (`leanCells`, src/lib/moireLattice.ts).
-    expect(crawledTo(even) - crawledTo(left)).toBe(leanCells(1, 0) * pitch);
-    // And on that one cell of the matrix and no other: a lean on any of the rest would be a second
-    // motion rather than the crawl's own.
-    for (const cell of ["a", "b", "c", "d", "f"] as const)
-      expect(left.moves[0]?.[cell]).toBeCloseTo(even.moves[0]?.[cell] ?? 0, 10);
-    // And no tile at all: the sides are a term on the transform and touch nothing the tile is keyed
-    // by, so a mix panned all day bakes nothing (0129).
-    expect(even.tile).not.toBeNull();
-    expect(left.tile).toBeNull();
-    expect(right.tile).toBeNull();
-  });
-
-  it("sweeps the lattice through square rather than around it", () => {
-    // Where the effect actually is: the blobs only reach full size as the turn passes through
-    // zero. A turn that never reached it would draw one fixed hatch and never a blob.
-    vi.stubGlobal("devicePixelRatio", 2);
-    setTuning("screen.turn", 0.006);
-    const leans = [0, 0.25, 0.5, 0.75].map(
-      (turns) =>
-        paintedOn(200, 64, [claiming("turn", { period: 1, phase: turns })]).moves[0]?.b ?? 0,
-    );
-    expect(Math.min(...leans)).toBeLessThan(0);
-    expect(Math.max(...leans)).toBeGreaterThan(0);
-    expect(leans.some((lean) => lean === 0)).toBe(true);
-  });
-
-  it("leans the whole lattice once, and places the screen once however many rows there are", () => {
-    // The lean is now a skew on the tile rather than a tilt under each row: no row is drawn on its
-    // own any more, so there is nothing for a per-row lean to be under (0128 amended). What that
-    // buys is the cost 0128 called its one exception — a `setTransform` and a `fillStyle` per row
-    // drawn — so the screen is placed exactly once whatever a yard holds.
-    vi.stubGlobal("devicePixelRatio", 2);
-    // In one strip, so what is counted is the rows and not the strips of a gust.
-    setTuning("wind.strips", 1);
-    setTuning("screen.shear", 0.02);
-    const others = [row({ period: 3, phase: 1 }), row({ period: 5, phase: 4 })];
-    const leaned = paintedOn(200, 64, [claiming("shear"), ...others]).moves;
-    expect(leaned).toHaveLength(1);
-    vi.stubGlobal("devicePixelRatio", 2);
-    const flat = paintedOn(200, 64, others).moves;
-    expect(flat).toHaveLength(1);
-    // Owned, the lattice leans; owned by nobody it is square, which is the honest answer and not a
-    // fall back to some other row's phase (principle 5).
-    expect(leaned[0]?.c).not.toBeCloseTo(flat[0]?.c ?? 0, 10);
-    expect(flat[0]?.c).toBeCloseTo(-(flat[0]?.b ?? 0), 10);
-  });
-
   // P102: the picture answered to knob positions in one hue whatever a yard was playing. Colour is
   // something an effect turns now (0141), and these are the two dimensions that turn it.
   it("stands the three channels apart by what a row claims, and folds them together at nothing", () => {
@@ -584,146 +253,5 @@ describe("moireScreen", () => {
     }
     // And they are three lattices rather than three copies of one, which is what dispersing means.
     expect(new Set(lattices).size).toBe(3);
-  });
-
-  it("reads the scene's own five stops per pixel, and slides the whole field with the travel", () => {
-    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
-    setTuning("glyph.flat", 0);
-    // The fourth crossing of the colour boundary (0141), read along the scene's own ramp (0301,
-    // 0329) — and since 0332 read **per pixel**, so one tile holds both ends of that ramp at once
-    // and the travel is an offset on where the ground already put each pixel.
-    // Through an ink standing at `hue` and not through a claim of it: a claim is spent against the
-    // age and the orbit (`agedHue`), and this case is about where on the ramp a hue is read.
-    const meanOf = (hue: number, channel: number): number => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      const { written } = paintedOn(200, 64, [row({ period: 3, hue })], {
-        ...screenInkRest(),
-        hue,
-      });
-      const pixels = written?.data ?? new Uint8ClampedArray();
-      let total = 0;
-      for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
-      return total / (pixels.length / 4);
-    };
-    // The travel slides the field along its ramp, low end to high: the meadow's is the dark of a
-    // leaf, a hot shadow, its own tan, a straw and a pale sky, in that order (0334), so the one
-    // channel the ramp climbs end to end is the blue the sky stop brings.
-    expect(meanOf(1, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
-    expect(meanOf(DRIFT_REST.hue, 2)).toBeGreaterThan(meanOf(0, 2));
-    expect(meanOf(0.75, 1)).toBeGreaterThan(meanOf(0.25, 1));
-    // And it slides the field and never replaces it. A claim is worth one stop of five (`sceneHue`)
-    // and this ramp is warm for four of them, so the picture is a warm mass at either end of the
-    // travel — the red channel moves a fraction of what the blue does, which is what "the yard's
-    // name is the colour and the claim is an offset on it" comes to when it is measured.
-    const spread = (channel: number): number => Math.abs(meanOf(1, channel) - meanOf(0, channel));
-    expect(spread(0), "the travel repaints the field rather than sliding it").toBeLessThan(
-      spread(2) / 4,
-    );
-    expect(meanOf(0, 0), "the meadow is not warm at the foot of its ramp").toBeGreaterThan(150);
-  });
-
-  it("carries a claim by one stop of the ramp and no further", () => {
-    // A field that is already two hues at full strength has one stop of travel to spend and not
-    // four: the read was the picture's only colour when a scene was read once a tile, and it is an
-    // offset on the ground now (0332). One stop is a quarter of a ramp of five.
-    const stop = 1 / (SCENE_RAMP_STOPS - 1);
-    expect(sceneHue(0.5, 1) - sceneHue(0.5, DRIFT_REST.hue)).toBeCloseTo(stop, 12);
-    expect(sceneHue(0.5, DRIFT_REST.hue) - sceneHue(0.5, 0)).toBeCloseTo(stop, 12);
-    // And where the ground put the pixel is where a picture nobody has claimed a colour for reads.
-    expect(sceneHue(0.2, DRIFT_REST.hue)).toBe(0.2);
-    // Off either end it holds rather than wrapping: a claim past the ramp is the ramp's last stop.
-    expect(sceneHue(0.95, 1)).toBe(1);
-    expect(sceneHue(0.05, 0)).toBe(0);
-  });
-
-  it("reads two places of one tile in two inks, and spends none of the alpha doing it", () => {
-    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
-    setTuning("glyph.flat", 0);
-    // The whole of 0332 in one case: a head is scarlet and the ground between two heads is green,
-    // inside one tile, and the tile's alpha is the film's alone — so a bloom takes exactly as much
-    // of the picture's ink as a meadow does, and `SCREEN_FLOOR` holds for every scene there is.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const readings = SCENE_NAMES.map((scene) => {
-      const { written } = paintedOn(200, 640, [row({ period: 3 })], undefined, 0, nextColor(), {
-        ...YARD_SCENE_REST,
-        scene,
-      });
-      const pixels = written?.data ?? new Uint8ClampedArray();
-      const inks = new Set<string>();
-      for (let at = 0; at < pixels.length; at += 4) {
-        inks.add(`${pixels[at]},${pixels[at + 1]},${pixels[at + 2]}`);
-      }
-      let keep = 0;
-      for (let at = 3; at < pixels.length; at += 4) keep = Math.max(keep, pixels[at] ?? 0);
-      return { scene, inks: inks.size, keep };
-    });
-    const meadow = readings[0]?.keep ?? 0;
-    for (const { scene, inks, keep } of readings) {
-      // Two pixels of one tile in different places on the ground are read in different inks.
-      expect(inks, `${scene} is one ink`).toBeGreaterThan(1);
-      // And every scene stands its marks at the ink the meadow does: the ground reaches the alpha
-      // only as which mark a cell gets (0345), so the top of every scene's alpha is the caller's.
-      expect(keep, `${scene} takes a different share of the ink`).toBeCloseTo(meadow, 12);
-    }
-  });
-
-  it("draws the water darker than the bloom, in its own black and not in the film's alpha", () => {
-    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
-    setTuning("glyph.flat", 0);
-    // A darker water is one token (0333): the deepest stop this instrument held was
-    // `--scene-water-deep` at a lightness of 0.42 and the water the glints stand in is near black,
-    // so the ramp got a floor under its old one. Read as the median pixel of a whole tile, because
-    // a mean is carried by the glints and the blades and what is being said here is what the water
-    // between them is. The RGB is the ramp's alone — the alpha is the film's (0332).
-    const medianOf = (scene: YardScene["scene"]): number => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      const { written } = paintedOn(200, 640, [row({ period: 3 })], undefined, 0, nextColor(), {
-        ...YARD_SCENE_REST,
-        scene,
-      });
-      const pixels = written?.data ?? new Uint8ClampedArray();
-      const lit: number[] = [];
-      for (let at = 0; at < pixels.length; at += 4) {
-        lit.push((pixels[at] ?? 0) + (pixels[at + 1] ?? 0) + (pixels[at + 2] ?? 0));
-      }
-      lit.sort((one, two) => one - two);
-      return lit[Math.floor(lit.length / 2)] ?? 0;
-    };
-    expect(medianOf("water"), "the water is not darker than the bloom").toBeLessThan(
-      medianOf("bloom"),
-    );
-  });
-
-  it("films the picture through the ink the travel has reached and not the one the rows claim", () => {
-    // Read in the scene's own stops: the picture rests part of the way toward one ink since 0366 (`GLYPH_FLAT`).
-    setTuning("glyph.flat", 0);
-    const meanOf = (ink: Readonly<ScreenInk> | undefined, channel: number): number => {
-      vi.stubGlobal("devicePixelRatio", 2);
-      const { written } = paintedOn(200, 64, [row({ period: 3, hue: 1 })], ink);
-      const pixels = written?.data ?? new Uint8ClampedArray();
-      let total = 0;
-      for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
-      return total / (pixels.length / 4);
-    };
-    // The hot ink is the redder of the two, so how far the picture has travelled toward it is how
-    // much red the tile carries. Held at rest, a row claiming it draws the picture it drew before
-    // it claimed anything — the claim is where the travel is *going*, and the tile is keyed by
-    // where it has got to.
-    const partway = screenInkRest();
-    inkTravelInto(
-      partway,
-      [row({ period: 3, hue: 1 })],
-      0,
-      0,
-      0,
-      0,
-      DRIFT_INK_SECS.value / 8,
-      DRIFT_INK_SECS.value,
-    );
-    const held = meanOf(screenInkRest(), 0);
-    const onTheWay = meanOf(partway, 0);
-    const arrived = meanOf(undefined, 0);
-    expect(onTheWay).toBeGreaterThan(held);
-    expect(arrived).toBeGreaterThan(onTheWay);
   });
 });

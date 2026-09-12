@@ -14,7 +14,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { moireRow as row } from "@/lib/moireRow";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
-import { baked, claiming, installHereScreenPort, painterOn } from "@/ui/moireCanvasPainted";
+import { installHereScreenPort, painterOn } from "@/ui/moireCanvasPainted";
+import { baked, claiming } from "@/ui/moireCanvasReadings";
 import { DRIFT_WIND_SECS, windRest, windTravelInto } from "@/ui/moireWind";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */

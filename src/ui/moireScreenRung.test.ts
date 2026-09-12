@@ -27,7 +27,8 @@ import {
 } from "@/lib/moire";
 import { moireRow as row } from "@/lib/moireRow";
 import { beatPx, gridPitchPx } from "@/lib/moireScreenFilm";
-import { arrivedInk, baked, installHereScreenPort, painterOn } from "@/ui/moireCanvasPainted";
+import { arrivedInk, installHereScreenPort, painterOn } from "@/ui/moireCanvasPainted";
+import { baked } from "@/ui/moireCanvasReadings";
 import { HUE_STEPS, stepped, steppedHue } from "@/ui/moireScreenInk";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */

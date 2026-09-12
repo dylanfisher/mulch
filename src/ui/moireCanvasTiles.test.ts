@@ -27,7 +27,6 @@ import {
 import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { moireRow as row } from "@/lib/moireRow";
 import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
-import { emptyMasterPeek } from "@/audio/context";
 import { partVoice, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
@@ -43,7 +42,8 @@ import { NO_GROWN } from "@/ui/moireGrown";
 import { joltRest } from "@/ui/moireJolt";
 import { screenInkRest, stepped } from "@/ui/moireScreenInk";
 import { moireRows, NO_MASTER, refillRows } from "@/ui/moireRows";
-import { baked, painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { ARRIVED, baked, SILENT_MASTER } from "@/ui/moireCanvasReadings";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { shapeRest } from "@/ui/moireShape";
 
@@ -51,24 +51,11 @@ import { LATTICE_GEOMETRY, LATTICE_TILE_PX } from "@/lib/moireLattice";
 import { DRIFT_DISPERSE_REACH } from "@/lib/moire";
 
 /**
- * A read with all the time in the world behind it, which is a ground move that has already finished
- * travelling: the cases here are about the tiles a picture bakes, not about how it got where it is
- * (`easedCentre`, src/lib/moire.ts).
- */
-const ARRIVED = Number.POSITIVE_INFINITY;
-
-/**
  * And where the picture's own structure stands: at rest, and standing on its rest — so nothing here
  * travels and every case reads the structure the picture would draw with nothing having moved
  * (`fractalStopsRest`, src/lib/moireFractal.ts).
  */
 const STOOD = fractalStopsRest();
-
-/**
- * An output with nothing in it: every case here is about what the painter bakes off a yard's own
- * rows, and none of them is about the session's bus.
- */
-const SILENT_MASTER = emptyMasterPeek();
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
 const songPart = (id: string, length: number): SongPart => ({

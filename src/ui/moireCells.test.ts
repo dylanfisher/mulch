@@ -11,20 +11,9 @@ import { describe, expect, it } from "vitest";
 
 import { CELL_TERMS } from "@/lib/moireCells";
 import { DRIFT_STEPS } from "@/lib/moire";
-import { LOOKS, type LookName, type LookTerm, type LookTerms } from "@/lib/moireLook";
-import type { MoireLook } from "@/ui/moireLooks";
+import { LOOKS, type LookTerm } from "@/lib/moireLook";
+import { look } from "@/ui/moireCanvasReadings";
 import { cellsKey, rackCells } from "@/ui/moireCells";
-
-/** One look of a standing rack, arrived — the shape `rackLooks` answers with. */
-const look = (name: LookName, terms: LookTerms = {}, at = 1, key: string = name): MoireLook => ({
-  key,
-  look: name,
-  presence: at,
-  at,
-  terms,
-  held: 0,
-  waited: 0,
-});
 
 // One flat list of the reading's cases (0007).
 // See docs/decisions/0007-reviewed-oversized-functions.md.

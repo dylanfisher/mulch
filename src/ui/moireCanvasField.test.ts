@@ -11,12 +11,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LENS_SLICES, LENS_SPAN, shatterBands, SHATTER_CEILING } from "@/lib/moireGeometry";
-import { type LookName, type LookTerms } from "@/lib/moireLook";
 import { SHARD_REACH } from "@/lib/moireShards";
 import { moireRow as row } from "@/lib/moireRow";
 import { RACK_SHATTER_BAND } from "@/lib/moireSound";
 import { warpShare } from "@/lib/moireWarp";
 import { painterOn, PRODUCT, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
+import { look } from "@/ui/moireCanvasReadings";
 import type { MoireLook } from "@/ui/moireLooks";
 import { shapeRest } from "@/ui/moireShape";
 
@@ -30,21 +30,6 @@ afterEach(() => {
 });
 
 /**
- * One look of a standing rack, arrived — the shape `rackLooks` answers with (src/ui/moireLooks.ts).
- * Built here rather than read off a rack of instances because what these cases are about is the
- * draw, and a knob's own range is the reading's case and not the painter's.
- */
-const look = (name: LookName, terms: LookTerms = {}, key: string = name): MoireLook => ({
-  key,
-  look: name,
-  presence: 1,
-  at: 1,
-  terms,
-  held: 0,
-  waited: 0,
-});
-
-/**
  * The shatter looks whose reading is `share`: whole broken instances and a part of one, because the
  * reading is stated across a band of them and no single instance can reach the top of it.
  */
@@ -52,9 +37,9 @@ const shattering = (share: number, size = 0): MoireLook[] => {
   const sum = RACK_SHATTER_BAND[0] + share * (RACK_SHATTER_BAND[1] - RACK_SHATTER_BAND[0]);
   const whole = Math.floor(sum);
   const looks = Array.from({ length: whole }, (_each, at) =>
-    look("shatter", { share: 1, size }, `whole ${at}`),
+    look("shatter", { share: 1, size }, 1, `whole ${at}`),
   );
-  if (sum > whole) looks.push(look("shatter", { share: sum - whole, size }, "part"));
+  if (sum > whole) looks.push(look("shatter", { share: sum - whole, size }, 1, "part"));
   return looks;
 };
 
@@ -293,7 +278,7 @@ describe("cutField", () => {
     // that reach the screen thrown by the second automator's own table, which is not the first's.
     vi.stubGlobal("devicePixelRatio", 2);
     const twice = paintedOn(128, 64, [row({ period: 4 })], 2, WINDOW, {
-      looks: [look("shards", {}, "x"), look("shards", {}, "y")],
+      looks: [look("shards", {}, 1, "x"), look("shards", {}, 1, "y")],
     });
     expect(twice.elements).toHaveLength(plain.elements.length + 2);
     expect(betweenOf(twice)?.drew.length).toBe((between?.drew.length ?? 0) * 2);

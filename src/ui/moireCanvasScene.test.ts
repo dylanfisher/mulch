@@ -9,7 +9,6 @@
  *   src/lib/scene/.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { TAU } from "@/lib/moire";
 import {
   SCENE_NAMES,
@@ -19,14 +18,13 @@ import {
   sceneCells,
   sceneRepeat,
 } from "@/lib/moireScene";
-import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
-import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
-import { painterOn, type Painted, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
+import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
+import { painterOn, type StubGlobal } from "@/ui/moireCanvasPainted";
+import { ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { termTurns } from "@/ui/moireScreen";
 import { beatPx, gridPitchPx, rowPitchPx } from "@/lib/moireScreenFilm";
-
 /**
  * How many islands of moved cells a tile holds: a flood fill eight ways over the marks, which is
  * what tells one kept thing from a flock of the scene's own — a count of moved cells cannot, two
@@ -56,31 +54,18 @@ function countIslands(marks: readonly boolean[], wide: number): number {
 }
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
-const paintedOn = painterOn((name, value) => {
+const stubGlobal: StubGlobal = (name, value) => {
   vi.stubGlobal(name, value);
-});
+};
+const paintedOn = painterOn(stubGlobal);
+
+/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
+const paintingOf = yardPainterOn(stubGlobal);
 
 afterEach(() => {
   vi.unstubAllGlobals();
   resetTuning();
 });
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-
-/**
- * The screen's own tile out of one painting: the surface a beat cell wide, which is the only one
- * the screen writes a pixel field into (`beatPx`, src/ui/moireScreenTile.ts). Exactly one write, which
- * is the rule the third case below is about — the loop over a tile's pixels runs on a rebuild and
- * never on a frame (0129).
- */
-const tileOf = (painted: Painted): Uint8ClampedArray => tileFrom(painted, beatPx(gridPitchPx(2)));
-
-/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
-function paintingOf(yard: Readonly<YardScene>, high = 128): Painted {
-  vi.stubGlobal("devicePixelRatio", 2);
-  return paintedOn(200, high, ROWS, 2, 20, { yard });
-}
 
 /**
  * A canvas exactly one row beat cell tall: the one height at which the tile written is the tile
@@ -299,7 +284,7 @@ describe("the picture is the field its name says", () => {
     // shade's field is the whole tile and there is one wall to stand a thing at the foot of.
     const wide = beatPx(gridPitchPx(2));
     const of = (detail: string): Uint8ClampedArray =>
-      tileOf(paintingOf(yardScene(`Quiet Heather by the Old Wall${detail}`), WHOLE_TILE));
+      tileOf(paintingOf(yardScene(`Quiet Heather by the Old Wall${detail}`), [], WHOLE_TILE));
     const own = of("");
     // Since 0345 a point is read at the lattice's own scale: a cell a bright point stands in is a
     // mark one step denser, so what is counted is cells whose mark moved — any pixel of the

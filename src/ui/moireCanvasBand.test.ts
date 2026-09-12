@@ -12,7 +12,8 @@ import { MOIRE_CYCLES } from "@/lib/moire";
 import { gratingFloor, gratingPitch, PITCH_SPREAD } from "@/lib/moireGrating";
 import { moireRow as row } from "@/lib/moireRow";
 import { TILE_PX } from "@/ui/moireCanvas";
-import { painterOn, pitchOf, WINDOW } from "@/ui/moireCanvasPainted";
+import { painterOn, WINDOW } from "@/ui/moireCanvasPainted";
+import { pitchOf } from "@/ui/moireCanvasReadings";
 
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
 const paintedOn = painterOn((name, value) => {

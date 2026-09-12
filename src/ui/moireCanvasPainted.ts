@@ -1,16 +1,17 @@
 /**
  * @role The painter's stand-in canvas: `paintMoire` run against a recorder that keeps every fill it
- *   made, every matrix it aimed a grating with and every tile it wrote a pixel field into. Nothing
- *   in production imports this file — it holds the picture's own cases at the 800-line hard cap
- *   without separating them from the canvas they are all made against, the way src/lib/moireRow.ts
- *   holds the rows those same cases are written with.
- * @instead The painter itself → src/ui/moireCanvas.ts. What a row is → src/lib/moire.ts. The rows a
- *   yard actually holds → src/ui/moireRows.ts.
+ *   made, every matrix it aimed a grating with and every tile it wrote a pixel field into, and the
+ *   inks the theme resolves for it. Nothing in production imports this file — it holds the one
+ *   canvas the picture's cases are all painted against, the way src/lib/moireRow.ts holds the rows
+ *   those same cases are written with.
+ * @instead What a case reads back off a painting, and the rows, racks and looks it paints →
+ *   src/ui/moireCanvasReadings.ts. The painter itself → src/ui/moireCanvas.ts. What a row is →
+ *   src/lib/moire.ts. The rows a yard actually holds → src/ui/moireRows.ts.
  */
-// One recorder and the readings every painter case takes through it: a case that reached for half
-// of this would be holding a stand-in with nothing recorded in it, and the readings only mean
-// anything against the painting this file makes. Under the 800-line hard cap and over the warn.
-// See docs/decisions/0007-reviewed-oversized-functions.md.
+// The recorder and the inks it answers a token with, the readings having gone to the file beside
+// this one: a stand-in canvas with every call it records is one function, so what is left over the
+// warn is that function and cannot be split further without handing a case half a recorder. Under
+// the 800-line hard cap. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { ALPHABET_REST, type AlphabetName } from "@/lib/moireAlphabets";
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
@@ -24,26 +25,10 @@ import { type MoireTint, tintRest } from "@/ui/moireTint";
 import { DRIFT_INK_SECS, inkTravelInto, screenInkRest } from "@/ui/moireScreenInk";
 import type { Aim, MoireRow, MoireWind, ScreenInk } from "@/lib/moire";
 import { forgetScreenTiles, installHereScreenPort } from "@/ui/moireScreenHere";
-import { moireRow } from "@/lib/moireRow";
-import { SCREEN_TERMS, type ScreenTerm } from "@/ui/moireScreen";
 
 // Re-exported so a painter case that hands the shop a port of its own reaches it through the same
 // harness its painting comes from, rather than naming a second module for one question.
 export { forgetScreenTiles, installHereScreenPort };
-
-/**
- * A row whose shape lands in the middle of `term`'s slice of the fold, so it claims that motion of
- * the screen and no other (`termTurns`, src/ui/moireScreen.ts, 0128). Here with the painter rather
- * than in any one case's file, because three of them paint rows claiming a term and the fold that
- * picks one is arithmetic nobody should write twice (principle 3).
- */
-export const claiming = (term: ScreenTerm, over: Partial<MoireRow> = {}): MoireRow =>
-  moireRow({
-    period: 4,
-    phase: 1,
-    shape: ((SCREEN_TERMS.indexOf(term) + 0.5) / SCREEN_TERMS.length) * 2 ** 32,
-    ...over,
-  });
 
 // Installed once, where the shop's own module state is: a painter case that paints twice reads the
 // held tile on the second painting exactly as it did before the bake moved off this task, and the
@@ -128,13 +113,6 @@ export const PRODUCT = "the rows' own product";
 
 /** The window every painting a case here is drawn across, in seconds. */
 export const WINDOW = 20;
-
-/**
- * How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with — here
- * rather than in each file that reads one, because a pitch read two ways is two pitches.
- */
-export const pitchOf = (move: Aim | undefined): number =>
-  Math.hypot(move?.a ?? 0, move?.b ?? 0) || Number.NaN;
 
 /** How far a deck reads between two paintings that are two frames, in seconds: one at sixty. */
 const FRAME_SECS = 1 / 60;
@@ -467,24 +445,3 @@ export function painterOn(stubGlobal: StubGlobal) {
 
 /** What one painting recorded. */
 export type Painted = ReturnType<ReturnType<typeof painterOn>>;
-
-/**
- * The one tile `wide` device pixels across that a painting wrote a pixel field into, as its pixels.
- * Here rather than in each of the four files that read it (principle 1), and it throws where a
- * painting wrote no such tile or more than one: either is a case reading a picture it did not paint.
- */
-export function tileOf(painted: Painted, wide: number): Uint8ClampedArray {
-  const written = painted.surfaces.flatMap((surface, at) =>
-    painted.elements[at]?.width === wide ? surface.wrote : [],
-  );
-  if (written.length !== 1) {
-    throw new Error(`A painting wrote ${written.length} tiles ${wide} wide, and not the one.`);
-  }
-  return written[0]?.data ?? new Uint8ClampedArray();
-}
-
-/** How many tiles `wide` device pixels across one painting wrote a pixel field into. */
-export const baked = (painted: Painted, wide: number): number =>
-  painted.surfaces.filter(
-    (surface, at) => surface.wrote.length > 0 && painted.elements[at]?.width === wide,
-  ).length;

@@ -11,14 +11,14 @@
  *   the share's own landing (0339, 0357).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
 import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH } from "@/lib/moire";
 import { SCENE_NAMES, sceneRepeat } from "@/lib/moireScene";
 import { moireRow as row } from "@/lib/moireRow";
 import { resetTuning, setTuning, tunings } from "@/lib/moireTuning";
-import { type YardScene, yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
-import { painterOn, type Painted, resolvedInk, tileOf as tileFrom } from "@/ui/moireCanvasPainted";
+import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
+import { painterOn, resolvedInk, type StubGlobal } from "@/ui/moireCanvasPainted";
+import { ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
 import { screenInkRest } from "@/ui/moireScreenInk";
 import { sceneOf } from "@/lib/scene/scenes";
 import {
@@ -30,28 +30,19 @@ import {
   screenKeep,
   SCREEN_FLOOR,
 } from "@/lib/moireScreenFilm";
-
 /** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
-const paintedOn = painterOn((name, value) => {
+const stubGlobal: StubGlobal = (name, value) => {
   vi.stubGlobal(name, value);
-});
+};
+const paintedOn = painterOn(stubGlobal);
+
+/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
+const paintingOf = yardPainterOn(stubGlobal);
 
 afterEach(() => {
   vi.unstubAllGlobals();
   resetTuning();
 });
-
-/** The rows every painting here is made of: one claiming row, and the deck's own reference. */
-const ROWS = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-
-/** The screen's own tile out of one painting: the one surface a beat cell wide (`beatPx`). */
-const tileOf = (painted: Painted): Uint8ClampedArray => tileFrom(painted, beatPx(gridPitchPx(2)));
-
-/** One painting of a yard reading as `yard`, on a display of two device pixels to the CSS one. */
-function paintingOf(yard: Readonly<YardScene>): Painted {
-  vi.stubGlobal("devicePixelRatio", 2);
-  return paintedOn(200, 128, ROWS, 2, 20, { yard });
-}
 
 /** How bright one pixel of a tile is read, ink alone — which is where the shade is now spent. */
 const brightOf = (pixels: Uint8ClampedArray, at: number): number =>
