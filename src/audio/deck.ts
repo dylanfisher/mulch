@@ -4,9 +4,6 @@
  *   heard of a deck id, which is what keeps `audio` from having to import a tier above it.
  * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
  */
-// A MessagePort's postMessage has no targetOrigin argument — that parameter belongs to
-// window.postMessage, which this file never calls. The rule cannot tell the two apart.
-// oxlint-disable unicorn/require-post-message-target-origin
 // The voice is one closure over one buffer, one chain and one transport, and the length is
 // mostly its delegating surface — each rack method is three lines that add no branch. Splitting
 // it would separate the schedule-ahead state from the methods that read it (0007).
@@ -24,6 +21,7 @@ import type { DeckReport, StopReason } from "./deckReport";
 import { createDeckPlayer } from "./player";
 import type { DeckVoice } from "./deckVoice";
 import { createDeckLanes } from "./deckLanes";
+import { createDeckReporter } from "./deckReporter";
 import type { HoldEdge } from "./effects/contract";
 import {
   AUTOMATION_HORIZON_SECS,
@@ -94,6 +92,9 @@ export function createDeckVoice(
    * Every posted plan carries this id and every report echoes it; a stale echo is dropped.
    */
   let planId = 0;
+  /** Every id ever posted comes off this: a release laid ahead takes one too (0372). */
+  let issued = 0;
+  const mintPlanId = (): number => ++issued;
   /**
    * How many loop boundaries were crossed before the current plan's own anchor. A play resets it
    * to zero; a rate rebase carries the count forward, so `deck.looped` keeps counting up across
@@ -114,13 +115,15 @@ export function createDeckVoice(
    */
   let soundingSince: number | null = null;
   /**
-   * The rest the rack asked for and the transport scheduled: the plan it stops, the instant, and
-   * where the playhead is held from then — read off the plan when the ask arrived, so a hand
-   * pressing play mid-rest resumes exactly where the stop landed (0038, 0372). `held` flips when
-   * the reporter says the stop happened; `release` is the source laid ahead to end it, or null
-   * while the rack has not asked for one yet. Nulled by every hand on the transport (0371).
+   * The rests the rack asked for and the transport scheduled, in order: each the plan it stops,
+   * the instant, and where the playhead is held from then — read off that plan when the ask
+   * arrived, so a hand pressing play mid-rest resumes exactly where the stop landed (0038, 0372).
+   * `held` flips when the reporter says the stop happened; `release` is the source laid ahead to
+   * end it, or null while the rack has not asked for one yet. A queue and not one, because one
+   * tick may lay several rests inside its horizon, each stopping the release before it. Emptied
+   * by every hand on the transport (0371).
    */
-  let rest: {
+  const rests: {
     planId: number;
     at: number;
     pausedAt: number | null;
@@ -131,7 +134,7 @@ export function createDeckVoice(
       plan: PlayPlan;
       current: { source: AudioBufferSourceNode; cancelled: boolean };
     } | null;
-  } | null = null;
+  }[] = [];
   /** The rack's asks, gathered on the tick and spent in order of their instants (0371). */
   const asks: HoldEdge[] = [];
   /**
@@ -155,36 +158,14 @@ export function createDeckVoice(
    */
   const minLoop = (): number => (RENDER_QUANTUM / ctx.sampleRate) * Math.max(1, chain.rate());
 
-  /** What the processor posts back. Its own shape, declared where it is read (see worklets/). */
-  type Reported =
-    | { t: "started"; id: number; at: number; offset: number }
-    | { t: "looped"; id: number; at: number; cycle: number }
-    | { t: "held"; id: number; at: number }
-    | { t: "xrun"; id: number; detail: string }
-    | { t: "synced"; token: number };
-
-  let nextSyncToken = 0;
-  const pendingSyncs = new Map<
-    number,
-    { done: () => void; timeout: ReturnType<typeof setTimeout> }
-  >();
-
-  const onReport = (event: MessageEvent<Reported>) => {
-    const message = event.data;
-    if (message.t === "synced") {
-      const pending = pendingSyncs.get(message.token);
-      if (pending === undefined) return;
-      pendingSyncs.delete(message.token);
-      clearTimeout(pending.timeout);
-      pending.done();
-      return;
-    }
-    // A rest's own reports carry the plan the rest stopped, which the release's plan has
+  /** The port, read through the one reader below and posted down by everything that plans. */
+  const port = createDeckReporter(reporter, (message) => {
+    // A rest's own reports carry the plan the rest stopped, which the release's plan may have
     // already succeeded on this side (0372).
-    if (message.id !== planId && message.id !== rest?.planId) return;
+    if (message.id !== planId && !rests.some((rest) => rest.planId === message.id)) return;
     switch (message.t) {
       case "held":
-        restHeld(message.at);
+        restHeld(message.id, message.at);
         return;
       case "started":
         started = true;
@@ -200,10 +181,7 @@ export function createDeckVoice(
       case "xrun":
         report.xrun(message.detail);
     }
-  };
-  reporter.port.addEventListener("message", onReport);
-  // addEventListener on a port does not imply start(); assigning onmessage would have.
-  reporter.port.start();
+  });
 
   /**
    * Hand the reporter the plan it counts against. `resume` says the source is already running
@@ -213,17 +191,17 @@ export function createDeckVoice(
   function postPlan(resume: boolean): void {
     if (plan === null) return;
     // A plan re-posted under a rest keeps the instant it stops at (0372).
-    const until = rest !== null && rest.planId === planId ? rest.at : undefined;
-    reporter.port.postMessage({ ...plan, id: planId, base: cycleBase, resume, until });
+    const until = rests.find((rest) => rest.planId === planId)?.at;
+    port.post({ ...plan, id: planId, base: cycleBase, resume, until });
   }
 
   /**
    * The reporter says the rest's stop happened: the paused half of a halt, at the instant the
    * stop was scheduled for. The release, if it was laid already, is the plan standing now.
    */
-  function restHeld(at: number): void {
-    const current = rest;
-    if (current === null || current.held) return;
+  function restHeld(id: number, at: number): void {
+    const current = rests[0];
+    if (current === undefined || current.held || current.planId !== id) return;
     current.held = true;
     const stopped = playing;
     playing = null;
@@ -241,8 +219,8 @@ export function createDeckVoice(
   }
 
   /** The release source becomes the transport: what a play does, at an instant already laid. */
-  function takeRelease(release: NonNullable<NonNullable<typeof rest>["release"]>): void {
-    rest = null;
+  function takeRelease(release: NonNullable<(typeof rests)[number]["release"]>): void {
+    rests.shift();
     playing = release.current;
     plan = release.plan;
     planId = release.planId;
@@ -255,16 +233,14 @@ export function createDeckVoice(
     retick();
   }
 
-  /** Every hand on the transport takes the rest with it: the stop, and the release laid ahead. */
-  function cancelRest(): void {
-    const current = rest;
-    if (current === null) return;
-    rest = null;
-    const release = current.release;
-    if (release === null) return;
-    release.current.cancelled = true;
-    release.current.source.stop();
-    release.current.source.disconnect();
+  /** Every hand on the transport takes the rests with it: each stop, and each release laid ahead. */
+  function cancelRests(): void {
+    for (const { release } of rests.splice(0)) {
+      if (release === null) continue;
+      release.current.cancelled = true;
+      release.current.source.stop();
+      release.current.source.disconnect();
+    }
   }
 
   /** Spend `n` of the rack's asks, soonest first; each is refused or taken by the transport. */
@@ -281,36 +257,62 @@ export function createDeckVoice(
   }
 
   function holdAt(at: number): boolean {
-    const current = playing;
     // Only the ordinary pass is rested: a pattern's steps are its own transport, laid ahead by
     // the player, and a stop scheduled on one of them would hold nothing the next step does not
-    // start again (0089, 0372). Nor is a rest laid over a rest.
-    if (current === null || plan === null || player.running() || rest !== null) return false;
-    current.source.stop(at);
-    // The `ended` the scheduled stop fires is the rest's and not a halt: the reporter says when.
-    current.cancelled = true;
-    rest = { planId, at, pausedAt: readsAt(at), held: false, release: null };
-    postPlan(true);
+    // start again (0089, 0372).
+    if (player.running() || buffer === null) return false;
+    const last = rests.at(-1);
+    if (last === undefined) {
+      const current = playing;
+      if (current === null || plan === null) return false;
+      current.source.stop(at);
+      // The `ended` the scheduled stop fires is the rest's and not a halt: the reporter says when.
+      current.cancelled = true;
+      rests.push({ planId, at, pausedAt: readsAt(at), held: false, release: null });
+      postPlan(true);
+      return true;
+    }
+    // A rest over a rest is nothing; a rest after one stops the release laid to end it, which is
+    // the source sounding at that instant — and the reporter is told on the release's own plan,
+    // which it replaces in its queue by the id (0372).
+    const release = last.release;
+    if (release === null || at <= release.at) return false;
+    release.current.source.stop(at);
+    release.current.cancelled = true;
+    rests.push({
+      planId: release.planId,
+      at,
+      pausedAt: playheadAt(at, release.plan, buffer.duration),
+      held: false,
+      release: null,
+    });
+    port.post({
+      ...release.plan,
+      id: release.planId,
+      base: 0,
+      resume: false,
+      until: at,
+    });
     return true;
   }
 
   function releaseAt(at: number, jump: number): boolean {
-    const current = rest;
-    if (current === null || current.release !== null || buffer === null) return false;
+    const current = rests.at(-1);
+    if (current === undefined || current.release !== null || buffer === null) return false;
     const from = current.pausedAt ?? 0;
     // Inside the loop and inside the buffer, the way a seek is kept (0041).
     const offset = clamp(from + jump, loop?.in ?? 0, loop?.out ?? buffer.duration);
     const pass = ordinaryPass(buffer, offset, Math.max(at, current.at));
     const release = {
       at: pass.plan.startTime,
-      planId: planId + 1,
+      planId: mintPlanId(),
       plan: pass.plan,
       current: pass.current,
     };
     current.release = release;
     // Posted now, under the release's own id, so the reporter queues it behind the rest and
     // takes it up at the stop — the release is on the audio thread before its instant (0372).
-    reporter.port.postMessage({ ...release.plan, id: release.planId, base: 0, resume: false });
+    port.post({ ...release.plan, id: release.planId, base: 0, resume: false });
     if (current.held) takeRelease(release);
     return true;
   }
@@ -326,7 +328,7 @@ export function createDeckVoice(
     // And through a rest, where nothing sounds: the release is laid on this same tick, and a
     // rest longer than the horizon would otherwise never be let go of (0372).
     const wanted =
-      (sounding() || rest !== null) &&
+      (sounding() || rests.length > 0) &&
       (lanes.size() > 0 || player.held() !== null || chain.pumping());
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
@@ -371,7 +373,7 @@ export function createDeckVoice(
     // way out of a transport — a stop, a reload, a loop move, the source ending — forgets it, so
     // the position can never outlive the buffer or the loop it was measured against.
     if (reason !== "paused") pausedAt = null;
-    cancelRest();
+    cancelRests();
     const current = playing;
     if (current === null && !player.running()) return;
     // Both before the plan goes: the lane clock is read off it, and every value the release
@@ -384,7 +386,7 @@ export function createDeckVoice(
     // sound — and the pattern goes too: the next play draws it again from the seed (0089).
     player.stop();
     // Invalidates every report still in flight from the plan being halted (see planId above).
-    planId += 1;
+    planId = mintPlanId();
     if (current !== null) {
       // The `ended` listener stays registered and fires anyway — it reads this flag rather than
       // being removed, because a stop() and a natural end can be in flight at the same instant.
@@ -394,7 +396,7 @@ export function createDeckVoice(
     }
     // The chain keeps speed and pitch; what it lets go of is the node they were written onto.
     chain.bindSource(null);
-    reporter.port.postMessage(null);
+    port.post(null);
     // Only a start the reporter confirmed gets a stop: a play cancelled inside the lookahead
     // never sounded, and a `stopped` for it would be an event for a transport that never ran.
     // So that pair logs *nothing* — deliberately: the log records what the instrument did,
@@ -509,7 +511,7 @@ export function createDeckVoice(
       plan = pass.plan;
       playing = pass.current;
     }
-    planId += 1;
+    planId = mintPlanId();
     // The rack counts again from here: a rest scheduled before the hand moved is one it refused,
     // and the play is the one road every restart takes (0371).
     chain.resetHolds(at);
@@ -547,7 +549,7 @@ export function createDeckVoice(
 
     pause: () => {
       // A hand's pause is never let go of by the rack: the release laid ahead goes (0371).
-      cancelRest();
+      cancelRests();
       // Nothing planned is nothing to hold: a pause on a stopped deck is not a way to move the
       // playhead, and one on a paused deck must not disturb where it already is.
       if (!sounding()) return;
@@ -567,7 +569,7 @@ export function createDeckVoice(
       // top of it either way, and a caller is never told the playhead went somewhere it did not.
       const at = startAt(clamp(position, 0, buffer.duration)).offset;
       // A seek under a rest is the hand's: the release laid ahead goes with it (0371).
-      cancelRest();
+      cancelRests();
       // Playing, it is one restart from the new offset — always, unlike a loop move, because the
       // whole gesture is to read somewhere else: both sides of the seam are re-anchored at a
       // start the reporter knows about, at whatever rate it is running (0031). Stopped, it is
@@ -714,7 +716,7 @@ export function createDeckVoice(
       chain.setEffectBypass(instance, bypassed);
       // The last asker switched off lets a standing rest go: a deck resting for an effect nobody
       // is running is a deck that stopped for no reason on the page (0371).
-      if (rest !== null && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
+      if (rests.length > 0 && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
       retick();
     },
 
@@ -723,7 +725,7 @@ export function createDeckVoice(
       // instance is gone (0030).
       lanes.forget(instance);
       chain.removeEffect(instance);
-      if (rest !== null && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
+      if (rests.length > 0 && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
       retick();
     },
 
@@ -755,23 +757,10 @@ export function createDeckVoice(
       lanes.peek(out.automation);
     },
 
-    syncReports: () =>
-      new Promise<void>((done, reject) => {
-        const token = nextSyncToken++;
-        const timeout = setTimeout(() => {
-          pendingSyncs.delete(token);
-          reject(new Error(`audio reporter did not acknowledge sync ${token}`));
-        }, 5_000);
-        pendingSyncs.set(token, { done, timeout });
-        reporter.port.postMessage({ t: "sync", token });
-      }),
+    syncReports: () => port.sync(),
     dispose: () => {
       halt("command");
-      reporter.port.removeEventListener("message", onReport);
-      reporter.port.close();
-      reporter.disconnect();
-      for (const pending of pendingSyncs.values()) clearTimeout(pending.timeout);
-      pendingSyncs.clear();
+      port.dispose();
       lanes.clear();
       retick();
       chain.dispose();

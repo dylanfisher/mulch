@@ -235,3 +235,29 @@ describe("loop-reporter under a rest", () => {
     expect(deck.looped().map(({ cycle }) => cycle)).toEqual([1, 2]);
   });
 });
+
+describe("loop-reporter under several rests", () => {
+  it("takes up queued plans in order, each told its own rest by a re-post under its id", () => {
+    const deck = reporter();
+    deck.plan({ period: 1, rate: 1, until: 2.5 });
+    // The release, then the rest that stops it (the same plan again, carrying its until), then
+    // the release after that — all laid on one tick.
+    deck.plan({ startTime: 4, period: 1, rate: 1, id: 2 });
+    deck.plan({ startTime: 4, period: 1, rate: 1, id: 2, until: 5.5 });
+    deck.plan({ startTime: 7, period: 1, rate: 1, id: 3 });
+    for (const at of [2.6, 4.1, 5.1, 5.6, 7.1, 8.1]) deck.at(at);
+    expect(deck.posted.filter((message) => message.t === "held")).toEqual([
+      { t: "held", id: 1, at: 2.5 },
+      { t: "held", id: 2, at: 5.5 },
+    ]);
+    expect(deck.posted.filter((message) => message.t === "started").map(({ id }) => id)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(deck.looped()).toEqual([
+      { at: 1, cycle: 1 },
+      { at: 2, cycle: 2 },
+      { at: 5, cycle: 1 },
+      { at: 8, cycle: 1 },
+    ]);
+  });
+});

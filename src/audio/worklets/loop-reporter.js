@@ -40,17 +40,20 @@ const MAX_CYCLES_PER_BLOCK = 64;
  *
  * `until`, when present, is the instant the source was told to stop at — a rest the rack asked
  * for and the transport scheduled ahead (0371, 0372). No boundary past it is reported; at it this
- * thread posts `held` once, carrying the instant, and takes up the plan queued behind it, if one
- * is. A plan posted while the standing one has an `until` still to come and beginning at or after
- * it is that queued plan: the release, scheduled ahead on the same tick as the hold, and reported
- * as any other start when its instant arrives.
+ * thread posts `held` once, carrying the instant, and takes up the first plan queued behind it,
+ * if one is. A plan posted while the standing one has an `until` still to come and beginning at
+ * or after it is a queued plan: a release, scheduled ahead on the same tick as the hold, and
+ * reported as any other start when its instant arrives. One tick may queue several — a release,
+ * then the rest that stops it, then the next release — in the order they were posted, and a plan
+ * posted under an id already queued replaces that one: it is the same release, told its own
+ * `until`.
  */
 class LoopReporter extends AudioWorkletProcessor {
   constructor() {
     super();
     this.plan = null;
-    /** The plan taking over at the standing one's `until`, or null (0372). */
-    this.queued = null;
+    /** The plans taking over at each `until` in turn, in the order they were posted (0372). */
+    this.queued = [];
     /** The absolute count, across re-anchorings — the highest boundary already reported. */
     this.cycle = 0;
     this.started = false;
@@ -64,17 +67,23 @@ class LoopReporter extends AudioWorkletProcessor {
       }
       const next = event.data;
       const standing = this.plan;
-      if (
-        next !== null &&
-        standing !== null &&
-        standing.until !== undefined &&
-        next.resume !== true &&
-        next.startTime >= standing.until
-      ) {
-        this.queued = next;
-        return;
+      if (next !== null) {
+        const queuedAt = this.queued.findIndex((plan) => plan.id === next.id);
+        if (queuedAt >= 0) {
+          this.queued[queuedAt] = next;
+          return;
+        }
+        if (
+          standing !== null &&
+          standing.until !== undefined &&
+          next.resume !== true &&
+          next.startTime >= standing.until
+        ) {
+          this.queued.push(next);
+          return;
+        }
       }
-      this.queued = null;
+      this.queued = [];
       this.take(next);
     });
     // addEventListener on a port does not imply start(); assigning onmessage would have.
@@ -144,9 +153,7 @@ class LoopReporter extends AudioWorkletProcessor {
       // Once, at the instant the stop was scheduled for and never the block's: the main thread
       // reads where the playhead is held off this number, and a late one would hold it late.
       this.port.postMessage({ t: "held", id: plan.id, at: plan.until });
-      const queued = this.queued;
-      this.queued = null;
-      this.take(queued);
+      this.take(this.queued.shift() ?? null);
     }
     return true;
   }

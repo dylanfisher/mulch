@@ -151,6 +151,43 @@ describe("a rest on the transport", () => {
     expect(idle.sources[0]?.stopped).toEqual([3]);
   });
 
+  it("lays a second rest from the same tick on the release before it", () => {
+    const held = deck();
+    held.voice.setLoop(1, 3);
+    play(held);
+    held.now(1);
+    expect(held.voice.holdAt(3)).toBe(true);
+    // Over a rest with no release yet, a second hold is nothing.
+    expect(held.voice.holdAt(5)).toBe(false);
+    expect(held.voice.releaseAt(5, 0)).toBe(true);
+    // The next rest stops the release, at its instant, and tells the reporter on that plan.
+    expect(held.voice.holdAt(7)).toBe(true);
+    expect(held.sources[1]?.stopped).toEqual([7]);
+    const release = lastPlan(held.plans);
+    expect(release).toMatchObject({ startTime: 5, until: 7, resume: false });
+    // And the release after that resumes from where the second rest held the playhead: two
+    // seconds of a two-second loop past where the first release began.
+    expect(held.voice.releaseAt(9, 0)).toBe(true);
+    const from = 1 + ((3 - LOOKAHEAD_SECS) % 2);
+    expect(held.sources[2]?.started[0]?.[0]).toBe(9);
+    expect(held.sources[2]?.started[0]?.[1]).toBeCloseTo(from, 9);
+
+    // Each held in turn, on its own plan; a hand's play then takes every rest and release with it.
+    held.now(3.5);
+    held.report({ t: "held", id: release.id - 1, at: 3 });
+    expect(held.stops).toHaveLength(1);
+    expect(held.voice.planned()).toBe(true);
+    held.now(5.1);
+    held.report({ ...release, t: "started", at: 5, offset: from });
+    held.now(7.5);
+    held.report({ t: "held", id: release.id, at: 7 });
+    expect(held.stops).toHaveLength(2);
+    expect(held.stops[1]?.held).toBeCloseTo(from, 9);
+    held.voice.play();
+    expect(held.sources[2]?.stopped).toEqual([undefined]);
+    expect(held.sources).toHaveLength(4);
+  });
+
   it("lets a standing rest go in place at the lookahead when asked to now", () => {
     const held = deck();
     play(held);
