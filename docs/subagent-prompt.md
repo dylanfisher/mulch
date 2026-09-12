@@ -213,6 +213,31 @@ arrives outright) before the read. Read the mean and the swing together, and the
 them. Two readings that agree to the digit are the proof; a pair that disagrees is a fixture that
 has not settled, not a finding.
 
+## Measure at the budget's setting with the harness, not a script of your own
+
+> A performance checkpoint measures through `./scripts/measure` — base and head interleaved at
+> the popped-out setting — and never through a one-off script in a scratchpad.
+
+Five checkpoint agents in one run each rebuilt the same harness by hand — two worktrees with a
+dev server apiece, per-function accumulators compiled into both trees and stripped before the
+gate, the popped window, the focus return — at 56 to 187 minutes each, half the run's cost. The
+harness holds what those runs learned: the CDP Profiler wedges the renderer with a 5120-pixel
+picture up, so it counts with in-page accumulators; the tuning registry is reached through
+`globalThis` and never by importing `moireTuning.ts` a second time, which on a dev server builds
+an empty registry and moves nothing; headless SwiftShader is not evidence (0344); and the human
+works on this machine while it runs, so after every launch and every pop-out it hands focus back
+to the app that was frontmost. Add an instrument to the harness when a checkpoint needs one; do
+not fork it.
+
+## A checkpoint decision is a hundred lines
+
+> A checkpoint's decision records the verdict, the budget's four numbers at base and head, and the
+> ledger — about a hundred lines. The per-run tables live in the report at its path.
+
+One run's checkpoint decisions ran to 254 and 184 lines and its plan grew fivefold in a block;
+AGENTS.md's rule is "as long as the decision is and not a line longer". A reader wants the verdict
+and the two numbers that made it, and can open the report for the nine runs behind them.
+
 ## Interleave base and head
 
 > When attributing a regression, alternate the runs — `BASE`, `HEAD`, `BASE`, `HEAD` — never all

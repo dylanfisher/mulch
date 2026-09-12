@@ -67,10 +67,11 @@ SwiftShader lied about the last jank (0344) and is not evidence here. _The numbe
 the picture is the cause of; the frame loop's rAF gap p95 under 20 ms and nothing over 50 ms; a
 tile bake under 4 ms mean and 8 ms worst; and on the instrument's page beside the popped picture,
 a knob drag on the dev server (0307's proof, 480 moves at 60 a second) drops no frame. _The
-method:_ a one-off headed Playwright script in the scratchpad, never committed — the strip's
-pop-out button, `context.newCDPSession` with `Profiler.setSamplingInterval(500)`, self time by
-`functionName url:line` and inclusive time by file, a `longtask` observer and a rAF-gap histogram
-— run in the foreground, base and head interleaved three times each per subagent-prompt.md. _What
+method:_ `./scripts/measure`, the committed harness — base stood up in a worktree on a dev server
+of its own, head on the working tree, the strip's pop-out button, in-page per-function
+accumulators (the CDP Profiler wedges the renderer at this size, 0353), a `longtask` observer and
+a rAF-gap histogram — run in the foreground, base and head interleaved three times each per
+subagent-prompt.md, focus handed back to the human's app after every launch. _What
 a checkpoint may do that a step may not:_ revisit a refusal an earlier step made, on the numbers
 (a per-frame `getImageData`, a bake below device resolution, a rebake held back a frame), add or
 retarget a scenario under scripts/smoke.d/ so a cost it fixed stays fixed as a boolean, and open a
