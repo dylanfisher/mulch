@@ -22,15 +22,12 @@ import { buildDeckChain, type DeckChain } from "./chain";
 import type { DeckPeek } from "./deckPeek";
 import type { DeckReport, StopReason } from "./deckReport";
 import { createDeckPlayer } from "./player";
-import type { EffectInstanceId } from "./effects/contract";
 import type { DeckVoice } from "./deckVoice";
-import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
-import { paramKey, type AutomationParamId } from "./params";
+import { createDeckLanes } from "./deckLanes";
 import {
   AUTOMATION_HORIZON_SECS,
   AUTOMATION_REARM_SECS,
   LOOKAHEAD_SECS,
-  MAX_AUTOMATION_CYCLES,
   RENDER_QUANTUM,
 } from "./transport";
 import type { Loop } from "@/lib/timeline";
@@ -116,35 +113,12 @@ export function createDeckVoice(
    */
   let soundingSince: number | null = null;
   /**
-   * The lanes this deck is holding, each with the manual value it falls back to. Held rather
-   * than scheduled on arrival: a lane has a period and a phase of its own, and only a playing
-   * deck has a clock to lay them against (0035).
+   * The lanes this deck is holding and the clock they ride, which follows this transport: frozen
+   * at every halt, released at every start (0035, 0040). Read off the plan standing here.
    */
-  const lanes = new Map<
-    string,
-    {
-      instance: EffectInstanceId | null;
-      param: AutomationParamId;
-      points: readonly AutomationPoint[];
-      base: number;
-      /** Its own period: the gesture's length. Zero for a lane that never moved. */
-      span: number;
-      /** When its counting began, on the lane clock below — the instant it was recorded (0035). */
-      anchor: number;
-      /** The next cycle of this lane to schedule, counted from `anchor`. */
-      armed: number;
-    }
-  >();
+  const lanes = createDeckLanes(ctx, chain, () => plan?.startTime ?? null);
   /** The tick that keeps the lanes armed ahead of the clock, running only while they sound. */
   let rearm: ReturnType<typeof setInterval> | null = null;
-  /**
-   * What the lane clock reads while it is frozen, or null while it runs with the transport. Lane
-   * time advances only while the deck sounds: a pause or a stop freezes every lane exactly where
-   * it stands and the next play carries it on from there, so the transport moves the waveform
-   * and never the gesture (0040). Only `laneNow() - anchor` is ever read, so the number itself
-   * means nothing beyond how far apart two readings are.
-   */
-  let laneHeldAt: number | null = ctx.currentTime;
 
   /**
    * The shortest loop this context can report a boundary for. See RENDER_QUANTUM. Derived
@@ -211,77 +185,6 @@ export function createDeckVoice(
   }
 
   /**
-   * The lane clock: the audio clock while the transport is sounding, and the reading it was frozen
-   * at while it is not (0040). Never behind the source — inside the lookahead nothing sounds yet,
-   * so nothing has advanced, and arming from `currentTime` there would lay a cycle down before the
-   * first sample of it could be heard.
-   */
-  function laneNow(): number {
-    if (laneHeldAt !== null) return laneHeldAt;
-    // The two move together: `halt` is the only place a plan is torn down and it freezes the lane
-    // clock, `start` is the only place one is built and it releases it. Running without one is a
-    // bug in that pairing, and a silent `currentTime` here would be drift nobody could find.
-    if (plan === null) throw new Error("lane clock running with no transport");
-    return Math.max(ctx.currentTime, plan.startTime);
-  }
-
-  /**
-   * Freeze the lanes where they stand. Every halt comes through here, so the phase a pause is
-   * holding is the same phase a stop, a reload or a loop move holds (0040).
-   */
-  function holdLanes(): void {
-    laneHeldAt ??= laneNow();
-  }
-
-  /**
-   * Carry every lane over the gap the transport was silent for: the anchors move by exactly that
-   * gap, so each lane's phase at `at` is the phase the halt froze it at, and cycle counting picks
-   * up mid-cycle rather than starting the gesture again (0040).
-   */
-  function releaseLaneClock(at: number): void {
-    if (laneHeldAt === null) throw new Error("lane clock released twice");
-    const gap = at - laneHeldAt;
-    for (const lane of lanes.values()) lane.anchor += gap;
-    laneHeldAt = null;
-  }
-
-  /**
-   * Schedule every cycle of every held lane that begins inside the horizon and has not been armed
-   * yet. A lane repeats on its own length — the gesture's, not the loop's — from the anchor it
-   * has carried since it was recorded, so two lanes of different lengths drift against each other
-   * and against the waveform, and the same lane keeps its phase across a loop change, a rate
-   * change, a pause and a stop (0035, 0040).
-   */
-  function armLanes(): void {
-    if (plan === null || lanes.size === 0) return;
-    const from = laneNow();
-    for (const lane of lanes.values()) {
-      if (lane.span <= 0) {
-        // A lane that never moved has no cycle to repeat: one schedule, from here, and no more.
-        if (lane.armed > 0) continue;
-        lane.armed = 1;
-        chain.setAutomation(lane.instance, lane.param, lane.points, lane.base, from);
-        continue;
-      }
-      // The cycle the clock is already inside is the one to arm first, so a lane released
-      // mid-cycle is heard from where that cycle has reached rather than at the next one, and a
-      // lane that has been held through a long stop never lays its history out again.
-      const current = Math.floor((from - lane.anchor) / lane.span);
-      if (lane.armed < current) lane.armed = current;
-      const wanted = Math.min(
-        lane.armed + MAX_AUTOMATION_CYCLES,
-        Math.floor((from + AUTOMATION_HORIZON_SECS - lane.anchor) / lane.span) + 1,
-      );
-      // Ascending, and each cycle replaces only what was scheduled from its own start, so arming
-      // the next one never disturbs the one currently sounding.
-      for (; lane.armed < wanted; lane.armed++) {
-        const origin = lane.anchor + lane.armed * lane.span;
-        chain.setAutomation(lane.instance, lane.param, lane.points, lane.base, origin);
-      }
-    }
-  }
-
-  /**
    * Start or stop the arming tick, which runs exactly while there are lanes and a transport to
    * play them. Offline it never fires — a render has no main thread listening — so the offline
    * host calls `armAutomation` at the same cadence from inside the render instead.
@@ -289,7 +192,7 @@ export function createDeckVoice(
   function retick(): void {
     // A rack that grows something of its own is a third reason to keep ticking, beside the lanes
     // and the pattern: its population is laid ahead on the same horizon they are (0204).
-    const wanted = sounding() && (lanes.size > 0 || player.held() !== null || chain.pumping());
+    const wanted = sounding() && (lanes.size() > 0 || player.held() !== null || chain.pumping());
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
     rearm = wanted ? setInterval(armAhead, AUTOMATION_REARM_SECS * 1000) : null;
@@ -302,19 +205,11 @@ export function createDeckVoice(
 
   /** Both things armed ahead of the clock, on the one tick that keeps them there. */
   function armAhead(): void {
-    armLanes();
+    lanes.arm();
     player.arm();
     // Laid across the same horizon, from the same clock, on the same tick — which is what makes an
     // export of this session the performance it would have given (0071, 0204).
     chain.pumpEffects(ctx.currentTime, AUTOMATION_HORIZON_SECS);
-  }
-
-  /** Give every automated parameter back to its manual value. What stopping sounds like. */
-  function releaseLanes(): void {
-    for (const lane of lanes.values()) {
-      lane.armed = 0;
-      chain.setParam(lane.instance, lane.param, lane.base, ctx.currentTime);
-    }
   }
 
   /**
@@ -342,8 +237,8 @@ export function createDeckVoice(
     if (current === null && !player.running()) return;
     // Both before the plan goes: the lane clock is read off it, and every value the release
     // cancels was scheduled against the plan being torn down.
-    holdLanes();
-    releaseLanes();
+    lanes.hold();
+    lanes.reset();
     playing = null;
     plan = null;
     // Every step still ahead of the clock goes with the pass — those are the ones that must not
@@ -471,7 +366,7 @@ export function createDeckVoice(
     started = false;
     postPlan(false);
     // The lanes count again from where the last halt left them, at the first audible sample.
-    releaseLaneClock(at);
+    lanes.release(at);
     armAhead();
     retick();
   }
@@ -636,33 +531,7 @@ export function createDeckVoice(
     },
 
     setAutomation: (instance, param, lane, base) => {
-      const key = paramKey(instance, param);
-      if (lane.length === 0) {
-        lanes.delete(key);
-        // Clearing is heard immediately, playing or not: the parameter is back to being the one
-        // the performer left the knob at.
-        chain.setParam(instance, param, base, ctx.currentTime);
-        retick();
-        return;
-      }
-      // The anchor is the instant the gesture was recorded, on the lane clock, and the lane counts
-      // its own cycles from there for as long as it is held — across loop changes, pauses, stops
-      // and re-plays, none of which advance it (0035, 0040).
-      // The same gesture arriving again is that lane being re-based onto a new manual value or
-      // stretched onto a new span, not a new recording: it keeps the phase it is in the middle
-      // of, and only its schedule is redrawn (0079).
-      const held = lanes.get(key);
-      const rebase = held !== undefined && sameGesture(held.points, lane);
-      lanes.set(key, {
-        instance,
-        param,
-        points: lane,
-        base,
-        span: laneSpan(lane),
-        anchor: rebase ? held.anchor : laneNow(),
-        armed: 0,
-      });
-      armLanes();
+      lanes.set(instance, param, lane, base);
       retick();
     },
 
@@ -684,7 +553,7 @@ export function createDeckVoice(
     removeEffect: (instance) => {
       // Every lane this instance held goes with it: a lane belongs to the instance, and the
       // instance is gone (0030).
-      for (const [key, lane] of lanes) if (lane.instance === instance) lanes.delete(key);
+      lanes.forget(instance);
       retick();
       chain.removeEffect(instance);
     },
@@ -714,22 +583,7 @@ export function createDeckVoice(
       // the cursor, which is armed seconds ahead of it. Nulls for a deck holding no pattern, which
       // is what a card with no song draws from (0157).
       player.peek(ctx.currentTime, out.player);
-      // The same clock the arming lays cycles against, so what a surface paints cannot drift from
-      // what is scheduled — including inside the lookahead, and while the transport is halted,
-      // where it is the phase the lanes are holding and will resume from (0040).
-      const at = laneNow();
-      // Refilled, never cleared: `Map.clear()` throws its backing table away and allocates a
-      // fresh one — 28 bytes a call, measured, on the one read every surface makes every frame
-      // (0070). Overwriting a key that is already there allocates nothing, so the only frame
-      // that pays is the one where a lane actually went away.
-      for (const [key, lane] of lanes) {
-        out.automation.set(key, lane.span <= 0 ? 0 : (at - lane.anchor) % lane.span);
-      }
-      // Every live lane is now in `out`, so `out` holds the lanes and possibly some departed
-      // ones — which is exactly what a bigger size means, and the only case worth walking.
-      if (out.automation.size !== lanes.size) {
-        for (const key of out.automation.keys()) if (!lanes.has(key)) out.automation.delete(key);
-      }
+      lanes.peek(out.automation);
     },
 
     syncReports: () =>
