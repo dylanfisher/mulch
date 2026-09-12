@@ -535,11 +535,15 @@ describe("the lull in the rack", () => {
     expect(rack.holds(5.5, asks)).toBe(1);
     expect(asks[0]).toEqual({ t: "hold", at: 5 });
 
-    // Moved: a knob and a lane are two ways into one AudioParam (0024), and the chance is read
-    // off the lane's own target at the next roll.
+    // Moved: a knob is the ordinary road onto its constant (0049), and the chance is read off the
+    // knob at the next roll — nought here, so the next gap ends in another gap.
     rack.setParam("l1", "lull.chance", 0, 3);
     expect(required(constants, 1).offset.ramps).toEqual([[0, 3 + PARAM_RAMP_SECS]]);
-    expect(rack.automationTarget("l1", "lull.chance")).toBe(required(constants, 1).offset);
+    // The rest already standing still owes its release; after it, no roll hits.
+    expect(rack.holds(60, asks)).toBe(1);
+    expect(asks[0]?.t).toBe("release");
+    expect(rack.holds(60, asks)).toBe(0);
+    rack.setParam("l1", "lull.chance", 1, 3);
 
     // Bypassed: the switch means not running, so nothing is asked and nothing is holding.
     rack.setBypass("l1", true);

@@ -169,7 +169,6 @@ describe("parameter registry", () => {
       "shift.detune",
       "shift.window",
       "shift.mix",
-      "lull.chance",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -219,10 +218,12 @@ describe("parameter registry", () => {
       "auto.crush",
       "auto.sway",
       "auto.shift",
-      // And the lull's, which are the shape of a run of rests and not gestures over one: its seed
-      // says which run this is, its lengths are ranges the draws fall inside, and its grid is a
-      // choice between two clocks (0373). Only its chance is performed.
+      // And the whole of the lull, which performs rather than being performed, for the automator's
+      // reason: its seed says which run this is, its chance is read at each roll off the knob, its
+      // lengths are ranges the draws fall inside, and its grid is a choice between two clocks
+      // (0371, 0373).
       "lull.seed",
+      "lull.chance",
       "lull.least",
       "lull.most",
       "lull.gapLeast",

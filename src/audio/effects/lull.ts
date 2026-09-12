@@ -55,7 +55,8 @@ const params = [
     seeded: true,
   },
   /** The odds a gap ends in a rest rather than another gap. None never rests; one rests after
-   * every gap. This entry's own presence, so a lull at no chance is a lull nobody hears. */
+   * every gap. Read at each roll off the knob and never off a lane: the roll is taken ahead of the
+   * rest it decides, on the pump, and a lane's value there is neither the knob's nor the rest's. */
   {
     id: "lull.chance",
     label: "Chance",
@@ -63,7 +64,6 @@ const params = [
     max: 1,
     default: 0.5,
     precision: 2,
-    automation: "linear",
   },
   /** The shortest a rest may hold the deck, in seconds. */
   {
@@ -146,14 +146,17 @@ export const lullEffect = defineEffect({
   label: "Lull",
   width: "half",
   face: "knobs",
-  // Absent at a chance of nothing, and absent exactly: no roll can hit, so no rest is ever asked
-  // for, and the gain the audio passes through stands at one whatever the other dials say (0202).
-  presence: { param: "lull.chance", silent: 0 },
+  // There or not, and nothing to fade it by: a lull is heard in what the transport does and never
+  // in what passes through it, and a chance of resting is not a level — the automator's answer,
+  // for the automator's reason (0202, 0371). What a hand turns down to nothing is the Chance.
+  presence: {
+    none: "a lull is heard in what the transport does, and a chance of resting is not a level to fade",
+  },
   icon: PauseIcon,
   drift: "gap",
   geometry: "linear",
   // The longest rest is the cycle this effect works over, so Rest To is the row's period; Chance
-  // is how much of the signal it takes at all, which is the reading every presence has. The
+  // is how much of the signal it takes at all, which is the reading a presence has elsewhere. The
   // shortest rest is how finely that cycle is cut, beside its own period. The shortest gap is how
   // abruptly a rest arrives after the last — what `bend` is. Skip is how far each resume is drawn
   // from every other, which is the three channels of ink no longer one lattice (0141). And the
@@ -213,10 +216,10 @@ export const lullEffect = defineEffect({
     let bpm = 0;
     const onBeat = (): boolean => held["lull.grid"] >= 1;
     const grid = (): LullGrid => (onBeat() ? { bpm, sync } : null);
-    // The chance is read at each roll off the lane's own AudioParam, so a lane on it is heard at
-    // the next chance rather than at the next redraw. Read at the pump and not at the roll's own
-    // instant ahead of it, which is the one reading here a lane can move between two cadences.
-    const chance = (): number => bindings["lull.chance"].target.value;
+    // The chance is read at each roll off the knob, the way every other dial here is: the roll is
+    // taken on the pump, ahead of the rest it decides, and the knob is the one value that is the
+    // same on both pump cadences (0204). Not a rebuild, so a move is heard at the next roll.
+    const chance = (): number => held["lull.chance"];
     const spec = () => ({
       chance,
       rest: ordered(held["lull.least"], held["lull.most"]),
