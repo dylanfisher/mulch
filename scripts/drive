@@ -70,6 +70,15 @@ import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 
+// The machine's fault is declared once, beside the browser half that reads the same flag and
+// prints the same sentence (0376). It is the only thing this transport takes from there.
+import {
+  AUDIO_DEVICE_ERROR,
+  audioDeviceGone,
+  clockIsStopped,
+  clockReading,
+} from "./smoke.d/audioDevice.js";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const args = process.argv.slice(2);
@@ -285,10 +294,18 @@ page.on("pageerror", (error) => note(`page error: ${error.message}`));
 // idle rather than broken. Remember that it happened so settle() can name the machine instead of
 // letting a bare timeout stack read as a failure of whatever change is being gated.
 let audioDeviceLost = false;
+let deviceReportedLost;
+/** Settles the moment Chromium says so, so a wait on the clock can stop being a wait (0376). */
+const deviceLost = new Promise((reported) => {
+  deviceReportedLost = reported;
+});
 page.on("console", (message) => {
   if (message.type() !== "error") return;
   const text = message.text();
-  if (text.includes("AudioContext encountered an error")) audioDeviceLost = true;
+  if (text.includes(AUDIO_DEVICE_ERROR)) {
+    audioDeviceLost = true;
+    deviceReportedLost();
+  }
   note(`page console.error: ${text}`);
 });
 
@@ -441,8 +458,8 @@ async function settle(maxAt) {
     // The clock passing `at` is necessary but not sufficient — the envelope still has to
     // be delivered, and the page's own pump runs on an interval. pump() drains everything
     // due synchronously, so the predicate both waits and delivers; pumping twice is a no-op.
-    try {
-      await page.waitForFunction(
+    const reached = page
+      .waitForFunction(
         (t) => {
           if (window.mulch.stats().at < t) return false;
           window.mulch.pump();
@@ -450,18 +467,30 @@ async function settle(maxAt) {
         },
         maxAt,
         { timeout: 60_000 },
+      )
+      .then(
+        () => true,
+        () => false,
       );
-    } catch {
+    // The minute is for a clock that is slow. A clock whose device Chromium has just said it lost
+    // is not slow, it is stopped — so read it once the loss is reported, and if it has not moved
+    // over that read, stop waiting for what cannot arrive. Six runs go at once, so the minute was
+    // paid six times over for a fact the first read already had (0376). A clock still moving when
+    // the loss lands wins nothing here and the full minute stands.
+    const stoppedAt = deviceLost
+      .then(() => clockIsStopped(page))
+      .then((at) => (at === null ? new Promise(() => {}) : at))
+      .catch(() => new Promise(() => {}));
+    const outcome = await Promise.race([reached, stoppedAt]);
+    if (outcome !== true) {
       // A bare Playwright timeout says only that 60s passed, which reads as "this change broke
       // the clock" whatever actually happened. Say where the clock stopped, and name the audio
       // device when it was the device — that is the machine, and no change under test can fix it.
-      const at = await page.evaluate(() => window.mulch.stats().at).catch(() => null);
-      const stopped = at === null ? "the page stopped answering" : `the clock stopped at ${at}s`;
+      const stopped =
+        outcome === false ? await clockReading(page) : `the clock stopped at ${outcome}s`;
       die(
         audioDeviceLost
-          ? `the audio device is gone — ${stopped}, short of ${maxAt}s, after Chromium reported it lost the ` +
-              `output device. This is the machine and not the change under test: nothing that plays will ` +
-              `advance until audio comes back.`
+          ? audioDeviceGone(stopped, maxAt)
           : `${stopped}, short of the ${maxAt}s this was waiting for`,
       );
     }

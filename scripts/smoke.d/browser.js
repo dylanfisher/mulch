@@ -4,6 +4,7 @@
  * Mulcher card. The page itself is opened by ./page.js, which ./scripts/profile opens the same way.
  */
 import { archive } from "./archive.js";
+import { AudioDeviceGone, audioDeviceGone, stoppedByDevice } from "./audioDevice.js";
 import { automation } from "./automation.js";
 import { clips } from "./clips.js";
 import { cropLoop } from "./crop.js";
@@ -233,11 +234,16 @@ const reportPageFailure = async (page, what, error) => {
  */
 const runLane = async (root, lane) => {
   const session = await openPage(root);
-  const { page, browser, url, bytes } = session;
+  const { page, browser, url, bytes, deviceLost } = session;
   const claims = [];
   let ran = 0;
 
   try {
+    // Before a lane plays anything: if the machine's clock has stopped under it, every wait in
+    // every scenario below is a wait on a clock that is not moving, and the lane's own first
+    // failure would be a puzzle about the change under test rather than about the machine (0376).
+    const stopped = await stoppedByDevice(page, deviceLost);
+    if (stopped !== null) throw new AudioDeviceGone(audioDeviceGone(stopped));
     await page.locator('input[aria-label="Import Audio for Yard A"]').setInputFiles({
       name: "generated.wav",
       mimeType: "audio/wav",
@@ -264,6 +270,19 @@ const runLane = async (root, lane) => {
       }
     });
   } catch (error) {
+    // The device can also go away mid-lane, and then whatever the lane stopped on — a wait that
+    // expired, an assertion that read a deck holding nothing — is the machine wearing the
+    // costume of a defect. Say the one thing that is true, and print no page: a probe of a page
+    // whose clock is stopped repeats it in three hundred lines (0376). The clock is read here
+    // exactly as it is before the lane starts, and for the same reason: an error Chromium printed
+    // once is not a clock that stopped, and a failure blamed on a live device is a reader sent to
+    // look at their sound card instead of at the diff — a hosted runner that ran out of clock
+    // (0330) included.
+    if (error instanceof AudioDeviceGone) return { claims, error };
+    const stoppedAt = await stoppedByDevice(page, deviceLost);
+    if (stoppedAt !== null) {
+      return { claims, error: new AudioDeviceGone(audioDeviceGone(stoppedAt)) };
+    }
     if (isHostedTimeout(error)) {
       await reportPageFailure(page, `the ${lane.name} lane ran out of clock`, error);
       const left = lane.scenarios.length - ran;
@@ -293,7 +312,12 @@ const runLane = async (root, lane) => {
  */
 export const browserSmoke = async (root) => {
   const lanes = await Promise.all(LANES.map((lane) => runLane(root, lane)));
-  const failed = lanes.find((lane) => lane.error !== undefined);
+  // The machine first, whichever lane happened to be holding it: a lane that stopped on something
+  // of its own while the clock was stopping under all three is not the cause, and raising it would
+  // send a reader to a page nobody printed (0376).
+  const failed =
+    lanes.find((lane) => lane.error instanceof AudioDeviceGone) ??
+    lanes.find((lane) => lane.error !== undefined);
   if (failed !== undefined) throw failed.error;
   return lanes.flatMap((lane) =>
     lane.cutShort === undefined ? lane.claims : lane.claims.concat(lane.cutShort),

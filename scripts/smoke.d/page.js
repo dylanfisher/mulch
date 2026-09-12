@@ -6,6 +6,7 @@
 import { chromium } from "playwright";
 
 import { encodeWav } from "../../src/lib/wav.ts";
+import { watchAudioDevice } from "./audioDevice.js";
 import { WAIT_MS } from "./harness.js";
 
 /**
@@ -29,6 +30,9 @@ export const openPage = async (root) => {
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage();
   page.setDefaultTimeout(WAIT_MS);
+  // Attached before the page is navigated: Chromium reports a lost output device as the app
+  // creates its context, which is over before this call returns (0376).
+  const deviceLost = watchAudioDevice(page);
   await page.addInitScript(() => {
     window.__MULCH_DRIVE__ = true;
   });
@@ -49,6 +53,7 @@ export const openPage = async (root) => {
     browser,
     url,
     bytes,
+    deviceLost,
     close: async () => {
       await browser.close();
       await server.close();

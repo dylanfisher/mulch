@@ -6,6 +6,7 @@
  * measuring on (plan §3).
  */
 import { PLAYER_DEFAULTS } from "../../src/lib/playerCharacter.ts";
+import { AudioDeviceGone, audioDeviceGone, stoppedByDevice } from "./audioDevice.js";
 import { fail, liveCount, report } from "./harness.js";
 import { openPage } from "./page.js";
 
@@ -39,9 +40,14 @@ const POLL_MS = 100;
  */
 export const reversedBuffers = async (root) => {
   const session = await openPage(root);
-  const { page } = session;
+  const { page, deviceLost } = session;
   const cdp = await page.context().newCDPSession(page);
   try {
+    // A copy is minted by a landing the scheduler runs, so a clock stopped under this page counts
+    // nought and fails as a leak that is not there. Ask the machine first, in the words every
+    // other page of the browser half uses (0376).
+    const stopped = await stoppedByDevice(page, deviceLost);
+    if (stopped !== null) throw new AudioDeviceGone(audioDeviceGone(stopped));
     await page.evaluate(() => {
       window.mulch.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
     });

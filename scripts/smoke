@@ -36,6 +36,7 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES } from "../src/lib/wav.ts";
 import { GEN_SECS } from "../src/lib/waveform.ts";
+import { AudioDeviceGone } from "./smoke.d/audioDevice.js";
 import { browserSmoke } from "./smoke.d/browser.js";
 import { browserClaims } from "./smoke.d/harness.js";
 import { reversedBuffers } from "./smoke.d/reversed.js";
@@ -141,6 +142,9 @@ const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, reversed, 
     // lose, for one failure. The sentinel fails the run where the browser claims are read.
     browserSmoke(ROOT).catch((error) => ({
       failed: String(error.message ?? error).split("\n")[0],
+      // The machine, not a lane: the sentinel says so, because there is no page printed above to
+      // send a reader to and the sentence already holds the whole cause (0376).
+      deviceGone: error instanceof AudioDeviceGone,
     })),
   ]);
 
@@ -444,7 +448,11 @@ if (reversed?.failed !== undefined) {
   fail(`reversed-buffer smoke: ${reversed.failed}`, reversed.evidence);
 }
 if (browserRun?.failed !== undefined) {
-  fail(`browser smoke: ${browserRun.failed} — the failing lane's ring and probe are printed above`);
+  fail(
+    browserRun.deviceGone
+      ? `browser smoke: ${browserRun.failed}`
+      : `browser smoke: ${browserRun.failed} — the failing lane's ring and probe are printed above`,
+  );
 }
 claims.push(...browserClaims, ...browserRun);
 
