@@ -128,7 +128,9 @@ if (!configured) {
 // one without crossing a tier. Tests may instantiate a seam directly; production may not.
 const GRAPH_CALLERS = {
   createMasterBus: ["src/audio/context.ts", "src/app/engine.ts"],
-  createDeckVoice: ["src/audio/deck.ts", "src/app/engine.ts"],
+  // And the test harness every transport case is driven against, which is a test double and
+  // not a second graph: a module so two files of cases can share it (src/audio/deckHarness.ts).
+  createDeckVoice: ["src/audio/deck.ts", "src/app/engine.ts", "src/audio/deckHarness.ts"],
   buildDeckChain: ["src/audio/chain.ts", "src/audio/deck.ts"],
   // The automator is the one entry that holds a rack of its own — the same chain, one level in,
   // on the same context and disposed by the instance holding it. Not a second graph beside the

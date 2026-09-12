@@ -16,8 +16,8 @@ import {
 } from "@/lib/timeline";
 import { MIN_LANE_SPAN, stretchLane } from "@/lib/automation";
 import { TONE_REF_HZ } from "@/lib/waveform";
-import { createDeckVoice } from "./deck";
-import { destination, fakeContext, type Call } from "./deckDouble";
+import { deck } from "./deckHarness";
+import type { Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { effectParamDefaults, paramKey } from "./params";
 import { LANE_SEAM_SECS, PARAM_RAMP_SECS } from "./ramp";
@@ -30,47 +30,6 @@ import {
 } from "./transport";
 
 /** One deck voice on a fake graph, plus the port the worklet would report over. */
-export function deck() {
-  const { compressors, context, gainCalls, gainLogs, now, sources } = fakeContext();
-  let listener: ((event: MessageEvent<unknown>) => void) | null = null;
-  /** Every plan the transport posted, in order — `null` for a stop (src/audio/deck.ts). */
-  const plans: unknown[] = [];
-  const reporter = {
-    port: {
-      addEventListener: (_type: string, next: (event: MessageEvent<unknown>) => void) => {
-        listener = next;
-      },
-      removeEventListener: () => {},
-      start: () => {},
-      postMessage: (message: unknown) => plans.push(message),
-      close: () => {},
-    },
-    disconnect: () => {},
-  };
-  const report = (message: unknown): void => {
-    // oxlint-disable-next-line no-unsafe-type-assertion -- the handler reads only `data`
-    listener?.({ data: message } as MessageEvent<unknown>);
-  };
-  /** Every stop the transport reported, with what it left held (0038). */
-  const stops: { reason: string; held: number | null }[] = [];
-  const voice = createDeckVoice(
-    context,
-    destination(),
-    // oxlint-disable-next-line no-unsafe-type-assertion -- only the port and disconnect are used
-    reporter as unknown as AudioWorkletNode,
-    {
-      started: () => {},
-      looped: () => {},
-      stopped: (reason, held) => {
-        stops.push({ reason, held });
-      },
-      xrun: () => {},
-    },
-  );
-  // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
-  voice.load({ duration: 4 } as AudioBuffer);
-  return { compressors, gainCalls, gainLogs, now, voice, report, plans, sources, stops };
-}
 
 /** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */
 // Either hold opens a cycle, and which one it is says only where the origin fell against the

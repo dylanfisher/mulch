@@ -12,10 +12,11 @@ import { cycleTimeAt, type PlayPlan } from "@/lib/timeline";
 type Reported =
   | { t: "started"; id: number; at: number; offset: number }
   | { t: "looped"; id: number; at: number; cycle: number }
+  | { t: "held"; id: number; at: number }
   | { t: "xrun"; id: number; detail: string };
 
 /** The plan message: the shared PlayPlan, plus the reporter's own bookkeeping (src/audio/deck.ts). */
-type Plan = PlayPlan & { id: number; base: number; resume: boolean };
+type Plan = PlayPlan & { id: number; base: number; resume: boolean; until?: number };
 
 /** The clock the processor reads. A worklet's `currentTime` is a global, so a test moves this. */
 let clock = 0;
@@ -176,5 +177,61 @@ describe("loop-reporter", () => {
     deck.plan({ period: 1e-6, rate: 1 });
     deck.at(1);
     expect(deck.posted.some((message) => message.t === "xrun")).toBe(true);
+  });
+});
+
+// A rest scheduled ahead, from this side of the seam: the stop's instant is where the counting
+// ends and the held is posted, and the plan queued behind it is taken up there (0372).
+describe("loop-reporter under a rest", () => {
+  it("posts held once at the rest's own instant, and no boundary past it", () => {
+    const deck = reporter();
+    deck.plan({ period: 1, rate: 1, until: 2.5 });
+    deck.at(2.4);
+    expect(deck.looped().map(({ cycle }) => cycle)).toEqual([1, 2]);
+    // The block that crosses the rest reports the held with the scheduled instant, not the
+    // block's, and the boundary at 3 never comes.
+    deck.at(2.6);
+    deck.at(3.1);
+    deck.at(5);
+    expect(deck.looped().map(({ cycle }) => cycle)).toEqual([1, 2]);
+    expect(deck.posted.filter((message) => message.t === "held")).toEqual([
+      { t: "held", id: 1, at: 2.5 },
+    ]);
+  });
+
+  it("queues a plan beginning at or after the rest and takes it up there", () => {
+    const deck = reporter();
+    deck.plan({ period: 1, rate: 1, until: 2.5 });
+    // The release, laid ahead on the same tick as the hold: queued rather than standing, so the
+    // rest's own boundaries and held still come.
+    deck.plan({ startTime: 4, period: 1, rate: 1, id: 2 });
+    deck.at(2.4);
+    expect(deck.looped().map(({ cycle }) => cycle)).toEqual([1, 2]);
+    deck.at(2.6);
+    expect(deck.posted.filter((message) => message.t === "held")).toHaveLength(1);
+    // Nothing from the queued plan before its own start; its start and its own count after.
+    deck.at(3.9);
+    expect(deck.posted.filter((message) => message.t === "started")).toHaveLength(1);
+    deck.at(4.1);
+    deck.at(5.1);
+    expect(deck.posted.filter((message) => message.t === "started").map(({ id }) => id)).toEqual([
+      1, 2,
+    ]);
+    expect(deck.looped()).toEqual([
+      { at: 1, cycle: 1 },
+      { at: 2, cycle: 2 },
+      { at: 5, cycle: 1 },
+    ]);
+  });
+
+  it("replaces the standing plan for one beginning before the rest, and for a null", () => {
+    const deck = reporter();
+    deck.plan({ period: 1, rate: 1, until: 2.5 });
+    // A hand's play inside the rest's lead: not a release, so it stands at once and the rest goes.
+    deck.plan({ startTime: 1, period: 1, rate: 1, id: 2 });
+    deck.at(2.6);
+    deck.at(3.1);
+    expect(deck.posted.filter((message) => message.t === "held")).toEqual([]);
+    expect(deck.looped().map(({ cycle }) => cycle)).toEqual([1, 2]);
   });
 });

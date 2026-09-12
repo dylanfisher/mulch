@@ -37,11 +37,20 @@ const MAX_CYCLES_PER_BLOCK = 64;
  * `id` names the plan: this thread's clock runs ahead of the main thread's, so a report can be
  * in flight when the plan it describes is halted over there — every message echoes the id, and
  * the main thread drops echoes of a plan it no longer holds (../deck.ts).
+ *
+ * `until`, when present, is the instant the source was told to stop at — a rest the rack asked
+ * for and the transport scheduled ahead (0371, 0372). No boundary past it is reported; at it this
+ * thread posts `held` once, carrying the instant, and takes up the plan queued behind it, if one
+ * is. A plan posted while the standing one has an `until` still to come and beginning at or after
+ * it is that queued plan: the release, scheduled ahead on the same tick as the hold, and reported
+ * as any other start when its instant arrives.
  */
 class LoopReporter extends AudioWorkletProcessor {
   constructor() {
     super();
     this.plan = null;
+    /** The plan taking over at the standing one's `until`, or null (0372). */
+    this.queued = null;
     /** The absolute count, across re-anchorings — the highest boundary already reported. */
     this.cycle = 0;
     this.started = false;
@@ -53,18 +62,40 @@ class LoopReporter extends AudioWorkletProcessor {
         this.port.postMessage({ t: "synced", token: event.data.token });
         return;
       }
-      this.plan = event.data;
-      const resume = event.data !== null && event.data.resume === true;
-      this.cycle = resume ? this.cycle : 0;
-      this.started = resume ? this.started : false;
+      const next = event.data;
+      const standing = this.plan;
+      if (
+        next !== null &&
+        standing !== null &&
+        standing.until !== undefined &&
+        next.resume !== true &&
+        next.startTime >= standing.until
+      ) {
+        this.queued = next;
+        return;
+      }
+      this.queued = null;
+      this.take(next);
     });
     // addEventListener on a port does not imply start(); assigning onmessage would have.
     this.port.start();
   }
 
+  /** Make `next` the standing plan, keeping the started fact and the count only on a resume. */
+  take(next) {
+    this.plan = next;
+    const resume = next !== null && next.resume === true;
+    this.cycle = resume ? this.cycle : 0;
+    this.started = resume ? this.started : false;
+  }
+
   process() {
     const plan = this.plan;
     if (plan === null) return true;
+    // A boundary is counted up to the rest and no further: the source stops there, so a cycle
+    // the arithmetic would put past it is one nothing played (0372).
+    const resting = plan.until !== undefined && currentTime >= plan.until;
+    const clock = resting ? plan.until : currentTime;
 
     // `currentTime` is the start of this block, so a boundary is reported within one render
     // quantum of it — but the time reported is the exact one arithmetic gives, never the
@@ -78,7 +109,7 @@ class LoopReporter extends AudioWorkletProcessor {
       // The main thread reads the same plan as a remainder (playheadAt in src/lib/timeline.ts,
       // which a worklet cannot import) and as this same floor division (`cyclesAt`). Change the
       // plan's shape and change both. Wall becomes buffer time once, here, by the plan's rate.
-      const progress = plan.phase + Math.max(0, currentTime - plan.startTime) * plan.rate;
+      const progress = plan.phase + Math.max(0, clock - plan.startTime) * plan.rate;
       const completed = plan.base + Math.floor(progress / plan.period);
       // A block can legitimately owe more than one cycle — a loop just over a quantum long
       // lands two in a block that ran late — so this catches up rather than reporting a count.
@@ -108,6 +139,14 @@ class LoopReporter extends AudioWorkletProcessor {
           cycle: this.cycle,
         });
       }
+    }
+    if (resting) {
+      // Once, at the instant the stop was scheduled for and never the block's: the main thread
+      // reads where the playhead is held off this number, and a late one would hold it late.
+      this.port.postMessage({ t: "held", id: plan.id, at: plan.until });
+      const queued = this.queued;
+      this.queued = null;
+      this.take(queued);
     }
     return true;
   }

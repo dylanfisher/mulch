@@ -32,6 +32,23 @@ export type DeckVoice = {
   /** Stops and holds the playhead where it is, so the next play carries on from there (0038). */
   pause(): void;
   /**
+   * A rest the rack asked for: stop the ordinary source at `at`, hold the playhead where it will
+   * be then, and answer whether it was taken — a deck with nothing playing, one walking a pattern
+   * or one already resting refuses (0371, 0372). Scheduled on the source and reported by the
+   * reporter at its instant, never timed from the main thread.
+   */
+  holdAt(at: number): boolean;
+  /**
+   * The rest's end: a source started at `at` from where the hold left the playhead, moved by
+   * `jump` seconds and kept inside the loop. Refused with no rest standing, or one already given
+   * its release. Laid ahead the way the hold was, so a render is sample-exact (0372).
+   */
+  releaseAt(at: number, jump: number): boolean;
+  /** Let a standing rest go at the lookahead, in place — what a bypass owes it (0371). */
+  releaseNow(): void;
+  /** The yard's sounding beat, in bpm, or nought — pushed down to the rack (0371). */
+  setTempo(bpm: number): void;
+  /**
    * Move the playhead to `position` seconds into the buffer, clamped to it. Stopped, it is where
    * the next play begins; playing, the transport is rescheduled from there without stopping being
    * asked for. Returns where the playhead was actually put (0041).

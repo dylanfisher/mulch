@@ -24,6 +24,7 @@ import type { DeckReport, StopReason } from "./deckReport";
 import { createDeckPlayer } from "./player";
 import type { DeckVoice } from "./deckVoice";
 import { createDeckLanes } from "./deckLanes";
+import type { HoldEdge } from "./effects/contract";
 import {
   AUTOMATION_HORIZON_SECS,
   AUTOMATION_REARM_SECS,
@@ -113,6 +114,27 @@ export function createDeckVoice(
    */
   let soundingSince: number | null = null;
   /**
+   * The rest the rack asked for and the transport scheduled: the plan it stops, the instant, and
+   * where the playhead is held from then — read off the plan when the ask arrived, so a hand
+   * pressing play mid-rest resumes exactly where the stop landed (0038, 0372). `held` flips when
+   * the reporter says the stop happened; `release` is the source laid ahead to end it, or null
+   * while the rack has not asked for one yet. Nulled by every hand on the transport (0371).
+   */
+  let rest: {
+    planId: number;
+    at: number;
+    pausedAt: number | null;
+    held: boolean;
+    release: {
+      at: number;
+      planId: number;
+      plan: PlayPlan;
+      current: { source: AudioBufferSourceNode; cancelled: boolean };
+    } | null;
+  } | null = null;
+  /** The rack's asks, gathered on the tick and spent in order of their instants (0371). */
+  const asks: HoldEdge[] = [];
+  /**
    * The lanes this deck is holding and the clock they ride, which follows this transport: frozen
    * at every halt, released at every start (0035, 0040). Read off the plan standing here.
    */
@@ -137,6 +159,7 @@ export function createDeckVoice(
   type Reported =
     | { t: "started"; id: number; at: number; offset: number }
     | { t: "looped"; id: number; at: number; cycle: number }
+    | { t: "held"; id: number; at: number }
     | { t: "xrun"; id: number; detail: string }
     | { t: "synced"; token: number };
 
@@ -156,10 +179,18 @@ export function createDeckVoice(
       pending.done();
       return;
     }
-    if (message.id !== planId) return;
+    // A rest's own reports carry the plan the rest stopped, which the release's plan has
+    // already succeeded on this side (0372).
+    if (message.id !== planId && message.id !== rest?.planId) return;
     switch (message.t) {
+      case "held":
+        restHeld(message.at);
+        return;
       case "started":
         started = true;
+        // A release's start spends the held position the hold left; an ordinary start already
+        // had it spent by the halt before it (0038, 0372).
+        pausedAt = null;
         soundingSince = message.at;
         report.started(message.at, message.offset);
         return;
@@ -181,7 +212,107 @@ export function createDeckVoice(
    */
   function postPlan(resume: boolean): void {
     if (plan === null) return;
-    reporter.port.postMessage({ ...plan, id: planId, base: cycleBase, resume });
+    // A plan re-posted under a rest keeps the instant it stops at (0372).
+    const until = rest !== null && rest.planId === planId ? rest.at : undefined;
+    reporter.port.postMessage({ ...plan, id: planId, base: cycleBase, resume, until });
+  }
+
+  /**
+   * The reporter says the rest's stop happened: the paused half of a halt, at the instant the
+   * stop was scheduled for. The release, if it was laid already, is the plan standing now.
+   */
+  function restHeld(at: number): void {
+    const current = rest;
+    if (current === null || current.held) return;
+    current.held = true;
+    const stopped = playing;
+    playing = null;
+    plan = null;
+    if (stopped !== null) stopped.source.disconnect();
+    chain.bindSource(null);
+    // The lanes freeze where the stop found them and not where the report did (0040, 0372).
+    lanes.hold(at);
+    lanes.reset();
+    pausedAt = current.pausedAt;
+    if (started) report.stopped("paused", current.pausedAt);
+    started = false;
+    soundingSince = null;
+    if (current.release !== null) takeRelease(current.release);
+  }
+
+  /** The release source becomes the transport: what a play does, at an instant already laid. */
+  function takeRelease(release: NonNullable<NonNullable<typeof rest>["release"]>): void {
+    rest = null;
+    playing = release.current;
+    plan = release.plan;
+    planId = release.planId;
+    cycleBase = 0;
+    started = false;
+    // The held position stands until the release actually starts: a hand's play before then
+    // resumes from it, and not from the top (0038).
+    lanes.release(release.at);
+    chain.bindSource(release.current.source);
+    retick();
+  }
+
+  /** Every hand on the transport takes the rest with it: the stop, and the release laid ahead. */
+  function cancelRest(): void {
+    const current = rest;
+    if (current === null) return;
+    rest = null;
+    const release = current.release;
+    if (release === null) return;
+    release.current.cancelled = true;
+    release.current.source.stop();
+    release.current.source.disconnect();
+  }
+
+  /** Spend `n` of the rack's asks, soonest first; each is refused or taken by the transport. */
+  function applyAsks(n: number): void {
+    // The slice is a copy of this tick's asks, and it is the copy that is sorted.
+    // oxlint-disable-next-line unicorn/no-array-sort
+    const edges = asks.slice(0, n).sort((a, b) => a.at - b.at);
+    for (const edge of edges) {
+      // A pump that arrives late schedules into the past otherwise, which is a stop at once.
+      const at = Math.max(edge.at, ctx.currentTime + LOOKAHEAD_SECS);
+      if (edge.t === "hold") holdAt(at);
+      else releaseAt(at, edge.jump);
+    }
+  }
+
+  function holdAt(at: number): boolean {
+    const current = playing;
+    // Only the ordinary pass is rested: a pattern's steps are its own transport, laid ahead by
+    // the player, and a stop scheduled on one of them would hold nothing the next step does not
+    // start again (0089, 0372). Nor is a rest laid over a rest.
+    if (current === null || plan === null || player.running() || rest !== null) return false;
+    current.source.stop(at);
+    // The `ended` the scheduled stop fires is the rest's and not a halt: the reporter says when.
+    current.cancelled = true;
+    rest = { planId, at, pausedAt: readsAt(at), held: false, release: null };
+    postPlan(true);
+    return true;
+  }
+
+  function releaseAt(at: number, jump: number): boolean {
+    const current = rest;
+    if (current === null || current.release !== null || buffer === null) return false;
+    const from = current.pausedAt ?? 0;
+    // Inside the loop and inside the buffer, the way a seek is kept (0041).
+    const offset = clamp(from + jump, loop?.in ?? 0, loop?.out ?? buffer.duration);
+    const pass = ordinaryPass(buffer, offset, Math.max(at, current.at));
+    const release = {
+      at: pass.plan.startTime,
+      planId: planId + 1,
+      plan: pass.plan,
+      current: pass.current,
+    };
+    current.release = release;
+    // Posted now, under the release's own id, so the reporter queues it behind the rest and
+    // takes it up at the stop — the release is on the audio thread before its instant (0372).
+    reporter.port.postMessage({ ...release.plan, id: release.planId, base: 0, resume: false });
+    if (current.held) takeRelease(release);
+    return true;
   }
 
   /**
@@ -192,7 +323,11 @@ export function createDeckVoice(
   function retick(): void {
     // A rack that grows something of its own is a third reason to keep ticking, beside the lanes
     // and the pattern: its population is laid ahead on the same horizon they are (0204).
-    const wanted = sounding() && (lanes.size() > 0 || player.held() !== null || chain.pumping());
+    // And through a rest, where nothing sounds: the release is laid on this same tick, and a
+    // rest longer than the horizon would otherwise never be let go of (0372).
+    const wanted =
+      (sounding() || rest !== null) &&
+      (lanes.size() > 0 || player.held() !== null || chain.pumping());
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
     rearm = wanted ? setInterval(armAhead, AUTOMATION_REARM_SECS * 1000) : null;
@@ -210,6 +345,9 @@ export function createDeckVoice(
     // Laid across the same horizon, from the same clock, on the same tick — which is what makes an
     // export of this session the performance it would have given (0071, 0204).
     chain.pumpEffects(ctx.currentTime, AUTOMATION_HORIZON_SECS);
+    // What the rack asks of this transport, gathered on the same horizon and scheduled ahead
+    // the way the lanes and the steps are (0371).
+    applyAsks(chain.holds(ctx.currentTime + AUTOMATION_HORIZON_SECS, asks));
   }
 
   /**
@@ -233,6 +371,7 @@ export function createDeckVoice(
     // way out of a transport — a stop, a reload, a loop move, the source ending — forgets it, so
     // the position can never outlive the buffer or the loop it was measured against.
     if (reason !== "paused") pausedAt = null;
+    cancelRest();
     const current = playing;
     if (current === null && !player.running()) return;
     // Both before the plan goes: the lane clock is read off it, and every value the release
@@ -312,7 +451,11 @@ export function createDeckVoice(
    * left the playhead. Returns the plan both readers count against — cycle counts on the audio
    * thread (loop-reporter.js) and the remainder as peek()'s position, both from lib/timeline.ts.
    */
-  function ordinaryPass(held: AudioBuffer, resumeAt: number | undefined, at: number): PlayPlan {
+  function ordinaryPass(
+    held: AudioBuffer,
+    resumeAt: number | undefined,
+    at: number,
+  ): { plan: PlayPlan; current: { source: AudioBufferSourceNode; cancelled: boolean } } {
     const source = ctx.createBufferSource();
     source.buffer = held;
     source.connect(chain.input);
@@ -336,17 +479,17 @@ export function createDeckVoice(
     );
 
     source.start(at, offset);
-    playing = current;
     // One plan, two readers, both from src/lib/timeline.ts: cycle counts on the audio thread
     // (loop-reporter.js) and the remainder as peek()'s position. A play anchors it with nothing
     // behind it — a rate rebase (0031) and a resume mid-loop (0038) give `phase` a value.
-    return {
+    const laid: PlayPlan = {
       startTime: at,
       offset: loop === null ? offset : loop.in,
       period: loop === null ? 0 : loop.out - loop.in,
       rate: chain.rate(),
       phase,
     };
+    return { plan: laid, current };
   }
 
   function start(resumeAt?: number): void {
@@ -360,8 +503,16 @@ export function createDeckVoice(
     // hands back the one plan the reporter counts boundaries against. Null is a deck with no
     // pattern — or one whose loop has no grid to jump around — and it plays the ordinary way.
     // A jumping play begins at the top of the pattern, so a held position is not resumed into it.
-    plan = player.begin(buffer, loop, at, chain.rate()) ?? ordinaryPass(buffer, resumeAt, at);
+    plan = player.begin(buffer, loop, at, chain.rate());
+    if (plan === null) {
+      const pass = ordinaryPass(buffer, resumeAt, at);
+      plan = pass.plan;
+      playing = pass.current;
+    }
     planId += 1;
+    // The rack counts again from here: a rest scheduled before the hand moved is one it refused,
+    // and the play is the one road every restart takes (0371).
+    chain.resetHolds(at);
     cycleBase = 0;
     started = false;
     postPlan(false);
@@ -395,6 +546,8 @@ export function createDeckVoice(
     },
 
     pause: () => {
+      // A hand's pause is never let go of by the rack: the release laid ahead goes (0371).
+      cancelRest();
       // Nothing planned is nothing to hold: a pause on a stopped deck is not a way to move the
       // playhead, and one on a paused deck must not disturb where it already is.
       if (!sounding()) return;
@@ -413,6 +566,8 @@ export function createDeckVoice(
       // next start actually uses are one number: a point the loop does not cover lands at the
       // top of it either way, and a caller is never told the playhead went somewhere it did not.
       const at = startAt(clamp(position, 0, buffer.duration)).offset;
+      // A seek under a rest is the hand's: the release laid ahead goes with it (0371).
+      cancelRest();
       // Playing, it is one restart from the new offset — always, unlike a loop move, because the
       // whole gesture is to read somewhere else: both sides of the seam are re-anchored at a
       // start the reporter knows about, at whatever rate it is running (0031). Stopped, it is
@@ -427,6 +582,15 @@ export function createDeckVoice(
     },
 
     planned: () => sounding(),
+    holdAt,
+    releaseAt,
+    releaseNow: () => {
+      // In place and at the lookahead, which is where a hand's play would resume it.
+      releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
+    },
+    setTempo: (bpm) => {
+      chain.setTempo(bpm);
+    },
 
     setLoop: (inSecs, outSecs) => {
       // The tier above refuses a loop on an empty deck and says so on the log; reaching here
@@ -548,14 +712,19 @@ export function createDeckVoice(
     dismissGrown: (instance, place) => chain.dismissGrown(instance, place),
     setEffectBypass: (instance, bypassed) => {
       chain.setEffectBypass(instance, bypassed);
+      // The last asker switched off lets a standing rest go: a deck resting for an effect nobody
+      // is running is a deck that stopped for no reason on the page (0371).
+      if (rest !== null && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
+      retick();
     },
 
     removeEffect: (instance) => {
       // Every lane this instance held goes with it: a lane belongs to the instance, and the
       // instance is gone (0030).
       lanes.forget(instance);
-      retick();
       chain.removeEffect(instance);
+      if (rest !== null && !chain.holding()) releaseAt(ctx.currentTime + LOOKAHEAD_SECS, 0);
+      retick();
     },
 
     reorderEffects: (order) => {

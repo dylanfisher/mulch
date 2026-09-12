@@ -33,10 +33,12 @@ export type DeckLanes = {
    */
   now(): number;
   /**
-   * Freeze the lanes where they stand. Every halt comes through here, so the phase a pause is
-   * holding is the same phase a stop, a reload or a loop move holds (0040).
+   * Freeze the lanes where they stand — or, given `at`, where they stood at that instant, which
+   * is how a rest scheduled ahead and reported after the fact holds the phase its own instant
+   * had rather than the one the report arrived at (0372). Every halt comes through here, so the
+   * phase a pause is holding is the same phase a stop, a reload or a loop move holds (0040).
    */
-  hold(): void;
+  hold(at?: number): void;
   /**
    * Carry every lane over the gap the transport was silent for: the anchors move by exactly that
    * gap, so each lane's phase at `at` is the phase the halt froze it at, and cycle counting picks
@@ -132,8 +134,8 @@ export function createDeckLanes(
 
   return {
     now,
-    hold: () => {
-      heldAt ??= now();
+    hold: (at) => {
+      heldAt ??= at ?? now();
     },
     release: (at) => {
       if (heldAt === null) throw new Error("lane clock released twice");
