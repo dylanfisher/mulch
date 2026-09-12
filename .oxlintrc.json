@@ -29,7 +29,10 @@
     "react/rules-of-hooks": "error",
     "no-empty": ["error", { "allowEmptyCatch": false }],
     "max-lines": ["warn", { "max": 400 }],
-    "no-underscore-dangle": ["error", { "allow": ["__MULCH_DRIVE__", "__MULCH_LONG_TASKS__"] }],
+    "no-underscore-dangle": [
+      "error",
+      { "allow": ["__MULCH_DRIVE__", "__MULCH_LONG_TASKS__", "__MULCH_MEASURE__"] }
+    ],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
 
     "react/react-in-jsx-scope": "off",
@@ -94,10 +97,11 @@
       }
     },
     {
-      // The profiler's comparison reads runs back out of a JSONL file on disk, so every record it
-      // judges arrives as `any` and stays one — the same shape the smoke's fixtures are in, for the
-      // same reason: there is no type at the boundary because the boundary is a file.
-      "files": ["scripts/profile.d/**"],
+      // The profiler's comparison reads runs back out of a JSONL file on disk, and the measuring
+      // harness's reads them back out of a page, so every record either one judges arrives as `any`
+      // and stays one — the same shape the smoke's fixtures are in, for the same reason: there is no
+      // type at the boundary because the boundary is a file or an evaluate.
+      "files": ["scripts/profile.d/**", "scripts/measure.d/**"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",

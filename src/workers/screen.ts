@@ -19,10 +19,13 @@ export type ScreenBakeRequest = {
   order: ScreenBake;
   /** Every tunable the page has moved off its rest: this registry hears no slider of its own. */
   tunings: Record<string, number>;
+  /** Whether the page is measuring, and so whether this reply is worth a clock (src/lib/measure.ts). */
+  measure: boolean;
 };
 
 export type ScreenBakeResult =
-  | { t: "baked"; key: string; tile: ImageBitmap }
+  /** `bakeMs` is nought unless the request asked for it — the loop's own wall clock, on this side. */
+  | { t: "baked"; key: string; tile: ImageBitmap; bakeMs: number }
   | { t: "failed"; key: string; detail: string };
 
 // The worker global. `lib` carries DOM and WebWorker together for the whole project, so `self`
@@ -46,10 +49,14 @@ function bake(request: ScreenBakeRequest): void {
     return;
   }
   const field = ink.createImageData(width, height);
+  // Timed here and recorded there: a cost declared in this realm is one the page could never read
+  // back, so what crosses is the span and the one accumulator for it is the shop's (0375).
+  const at = request.measure ? performance.now() : 0;
   screenField(order, field.data);
   ink.putImageData(field, 0, 0);
+  const bakeMs = request.measure ? performance.now() - at : 0;
   const tile = surface.transferToImageBitmap();
-  self.postMessage({ t: "baked", key, tile }, [tile]);
+  self.postMessage({ t: "baked", key, tile, bakeMs }, [tile]);
 }
 
 self.addEventListener("message", (event: MessageEvent<ScreenBakeRequest>) => {

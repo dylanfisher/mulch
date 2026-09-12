@@ -1,0 +1,774 @@
+#!/usr/bin/env node
+// The block's performance checkpoint, as a harness instead of as a script rebuilt by hand. Five
+// checkpoints in one run (0353, 0354, 0358, 0365, 0369) each stood two trees up, opened a headed
+// browser on a large popped-out picture, and compiled the same accumulators into the same five
+// functions — between 56 and 187 minutes apiece, for one set of numbers each. This is that setting,
+// once, so the next checkpoint measures through it and adds an instrument to it rather than
+// forking it (0375).
+//
+//   ./scripts/measure --base c99336b              base and head, three interleaved runs each
+//   ./scripts/measure --base c99336b --runs 1     one of each, for a quick read
+//   ./scripts/measure --base c99336b --bake       and a fourth phase that forces rebakes
+//   ./scripts/measure --base HEAD~1 --out ./runs  the per-run JSON somewhere you can keep it
+//
+// What it measures is docs/plan.md §1's budget at the setting that paragraph states: the picture
+// popped out (0138) into 2560 × 1440 CSS pixels at two device pixels each, the rack
+// scripts/smoke.d/drift.js stands up on two yards, a walk playing, headed Chromium on the real GPU,
+// eight seconds of settle and then an eight-second window; then 0307's 480-move knob drag; then,
+// under --bake, one tunable on the stamp's key walked three times a second, because nothing rebakes
+// at the budget's own setting and a bake with no sample has no number (0365, 0369).
+//
+//   --base SHA        the commit to measure against, stood up in a worktree of its own (required)
+//   --runs N          how many runs of each tree, interleaved base/head then head/base (default 3)
+//   --head-port P     put the harness's own dev server for the working tree on this port
+//   --out DIR         where the per-run JSON lands (default the system temp directory)
+//   --bake            add the rebake phase
+//   --knob NAME       which knob the drag is on (default the panner's Position)
+//   --deadline SECS   move the deadline (default 900, 0 removes it)
+//
+// Three things this harness does not do, each of them a cost some checkpoint already paid:
+//
+// **It does not use the CDP Profiler.** With the picture up at this size `Profiler.start` wedges the
+// renderer and does not return inside four minutes, while an ordinary evaluate on the same page
+// comes back in 45 ms (0353). Attribution is the in-page accumulators instead — src/lib/measure.ts,
+// compiled into the app and costing a boolean test a call while nobody is measuring.
+//
+// **It does not import src/lib/moireTuning.ts into the page.** A dev server serves an edited module
+// at a timestamped URL, so that import builds a second, empty registry and moves nothing: checkpoint
+// C lost two interleaved pairs to it before the logs said "no tunings registered" (0365). The
+// registry is reached through `window.__MULCH_MEASURE__`, which is the app's own.
+//
+// **It does not touch a server it did not start.** Both dev servers are this process's, on ports of
+// their own with cache directories of their own, closed on every exit path including the deadline;
+// the human's 5173 is never looked at. Nothing here may hang, for the reason nothing in
+// scripts/drive may (0036): it dies at its clock naming the stage it was in.
+//
+// It judges nothing beyond printing the budget's four numbers per tree, and it exits 0 whatever it
+// finds, exactly as ./scripts/profile does and for the reason 0051 gives. It is never in the gate.
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { chromium } from "playwright";
+
+import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, PLAYER_LABEL, yardLabel } from "../src/lib/copy.ts";
+import { GEN_SECS } from "../src/lib/waveform.ts";
+import { budgetVerdicts, gapRead, spread } from "./measure.d/stats.js";
+import { watchLongTasks } from "./smoke.d/longTasks.js";
+import { cell, table, verdictLine } from "./measure.d/tables.js";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const args = process.argv.slice(2);
+/** A bad argument, before anything is owned: nothing to let go of, so this may leave where it stands. */
+const die = (message) => {
+  console.error(`measure: ${message}`);
+  process.exit(1);
+};
+/**
+ * A run that cannot go on. It throws rather than exits, because `process.exit` runs neither the
+ * top-level `finally` nor a signal handler — a bare one here would leave a worktree in the repo's
+ * own `git worktree list`, two dev servers listening and a headed browser open.
+ */
+const stop = (message) => {
+  throw new Error(message);
+};
+const note = (message) => console.error(`measure: ${message}`);
+const sleep = (ms) => new Promise((slept) => setTimeout(slept, ms));
+const flag = (name) => {
+  const at = args.indexOf(name);
+  if (at === -1) return false;
+  args.splice(at, 1);
+  return true;
+};
+const option = (name) => {
+  const at = args.indexOf(name);
+  if (at === -1) return undefined;
+  const [, value] = args.splice(at, 2);
+  if (value === undefined) die(`${name} needs a value`);
+  return value;
+};
+
+const baking = flag("--bake");
+const baseOption = option("--base");
+const runsOption = option("--runs");
+const portOption = option("--head-port");
+const outOption = option("--out");
+const knob = option("--knob") ?? "Position";
+const deadlineOption = option("--deadline");
+const unknown = args.find((argument) => argument.startsWith("-"));
+if (unknown) die(`unknown flag: ${unknown}`);
+if (args.length > 0) die(`unexpected argument: ${args[0]}`);
+if (baseOption === undefined) die("--base SHA is what this measures against; there is no default");
+
+const RUNS = runsOption === undefined ? 3 : Number(runsOption);
+if (!(RUNS > 0)) die(`--runs needs a positive count: ${runsOption}`);
+const HEAD_PORT = portOption === undefined ? 0 : Number(portOption);
+if (!(HEAD_PORT >= 0)) die(`--head-port needs a port: ${portOption}`);
+// Said rather than discovered: a dev server on 5173 is the human's by convention across this repo,
+// and the one rule every harness here keeps is that it never touches a server it did not start.
+if (HEAD_PORT === 5173) die("5173 is the human's dev server — pick a port this run can own");
+const DEADLINE_SECS = deadlineOption === undefined ? 900 : Number(deadlineOption);
+if (!(DEADLINE_SECS >= 0)) die(`--deadline needs seconds: ${deadlineOption}`);
+const OUT = outOption === undefined ? mkdtempSync(join(tmpdir(), "mulch-measure-")) : outOption;
+mkdirSync(OUT, { recursive: true });
+
+const git = (...argv) => execFileSync("git", argv, { cwd: ROOT, encoding: "utf8" }).trim();
+let BASE;
+try {
+  BASE = git("rev-parse", "--short", baseOption);
+} catch {
+  die(`--base names no commit: ${baseOption}`);
+}
+
+/** The setting, from docs/plan.md §1. Every number here is that paragraph's. */
+const VIEWPORT = { width: 2560, height: 1440 };
+const DENSITY = 2;
+const SETTLE_MS = 8_000;
+const WINDOW_MS = 8_000;
+/** 0307's proof: 480 moves at sixty a second, which is the drag the budget's fourth number is of. */
+const DRAG_MOVES = 480;
+const DRAG_HZ = 60;
+/** How far the knob is dragged either way, in CSS pixels off its own centre. */
+const DRAG_REACH = 14;
+/**
+ * The rebake driver, and the one tunable it walks. `jolt.secs` is on the stamp's key, so moving it
+ * is a rung of the ink's own ladder and a fresh tile; a rack parameter moves no field of that key
+ * and produced zero rebakes when checkpoint B tried one (0358).
+ */
+const BAKE_TUNING = "jolt.secs";
+/** How long a loop each yard carries: a walk's sixteen landings, inside a generated source's length. */
+const LOOP_SECS = Math.min(2, GEN_SECS - 1);
+const BAKE_HZ = 3;
+
+// ---- the deadline, and the reaping every exit path shares ----
+
+let stage = "starting up";
+const at = (next) => {
+  stage = next;
+};
+/** Everything this run owns, in the order it must be let go of. Emptied by `reap`, which is idempotent. */
+const owned = { browsers: new Set(), caches: new Set(), servers: new Set(), worktree: null };
+
+async function reap() {
+  for (const browser of owned.browsers) await browser.close().catch(() => {});
+  owned.browsers.clear();
+  for (const server of owned.servers) await server.close().catch(() => {});
+  owned.servers.clear();
+  for (const cache of owned.caches) rmSync(cache, { force: true, recursive: true });
+  owned.caches.clear();
+  if (owned.worktree !== null) {
+    const held = owned.worktree;
+    owned.worktree = null;
+    try {
+      git("worktree", "remove", "--force", held);
+    } catch {
+      rmSync(held, { force: true, recursive: true });
+    }
+    try {
+      git("worktree", "prune");
+    } catch {
+      /* A prune that cannot run leaves a stale record and nothing worse. */
+    }
+  }
+}
+
+// A hand on Ctrl-C is an exit path like any other, and the one that would otherwise leave a
+// worktree, two dev servers and a headed browser behind for a human to find and unpick.
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    console.error(`measure: ${signal} while ${stage}`);
+    void Promise.race([reap(), sleep(10_000)]).then(() => process.exit(1));
+  });
+}
+
+if (DEADLINE_SECS > 0) {
+  setTimeout(() => {
+    console.error(`measure: deadline of ${DEADLINE_SECS}s reached while ${stage}`);
+    // Bounded: something is already stuck, so the tidying must not be what hangs.
+    void Promise.race([reap(), sleep(10_000)]).then(() => process.exit(1));
+  }, DEADLINE_SECS * 1_000).unref();
+}
+
+// ---- focus: the human is working on this machine while this runs ----
+
+/**
+ * Which application was in front before the first browser opened. Every headed launch takes focus
+ * and every pop-out takes it again, so it is handed straight back — the windows stay visible and
+ * unoccluded, because a browser Chromium thinks is hidden throttles its frames and the whole
+ * measurement with them. Only the focus goes back.
+ */
+const frontmost = () => {
+  try {
+    return execFileSync(
+      "osascript",
+      ["-e", "tell application \"System Events\" to get name of first process whose frontmost is true"],
+      { encoding: "utf8" },
+    ).trim();
+  } catch {
+    return null;
+  }
+};
+const HUMAN_APP = frontmost();
+const handBack = () => {
+  if (HUMAN_APP === null) return;
+  try {
+    execFileSync("osascript", ["-e", `tell application "${HUMAN_APP}" to activate`]);
+  } catch {
+    /* A machine that will not hand focus back is not a reason to stop measuring. */
+  }
+};
+
+// ---- the two trees ----
+
+/**
+ * One dev server of this run's own, on a port and a cache directory nothing else shares. The cache
+ * goes to a temp directory and never beside the tree: vite's default is `node_modules/.vite`, which
+ * the human's own server on 5173 is already using, and a directory of its own inside the repo would
+ * be an untracked pile the gate then tries to format.
+ */
+async function serve(root, port, label) {
+  at(`starting a dev server for ${label}`);
+  const cacheDir = mkdtempSync(join(tmpdir(), `mulch-measure-${label}-cache-`));
+  owned.caches.add(cacheDir);
+  const vite = await import("vite");
+  const server = await vite.createServer({
+    root,
+    cacheDir,
+    logLevel: "warn",
+    server: { port, strictPort: port !== 0 },
+  });
+  await server.listen();
+  owned.servers.add(server);
+  const url = server.resolvedUrls?.local[0];
+  if (url === undefined) stop(`vite reported no local URL for ${label}`);
+  note(`${label} is served at ${url}`);
+  return url;
+}
+
+async function standBase() {
+  at(`standing ${BASE} up in a worktree`);
+  const dir = mkdtempSync(join(tmpdir(), "mulch-measure-base-"));
+  rmSync(dir, { force: true, recursive: true });
+  git("worktree", "add", "--detach", dir, BASE);
+  owned.worktree = dir;
+  // Symlinked rather than installed: the lockfile at the base commit is this one or near enough,
+  // and an install per run would cost more than the whole measurement.
+  symlinkSync(join(ROOT, "node_modules"), join(dir, "node_modules"), "dir");
+  return serve(dir, 0, "base");
+}
+
+// ---- the page: the budget's own setting, stood up the same way in both trees ----
+
+/** The rack scripts/smoke.d/drift.js stands up, per yard, in the order that file adds it. */
+const RACK = [
+  { effect: "eq" },
+  { effect: "panner" },
+  { effect: "sway", param: "sway.mix", value: 1 },
+  { effect: "automator", param: "auto.stays", value: 5 },
+  { effect: "automator", param: "auto.stays", value: 5 },
+  { effect: "reverb", param: "reverb.wet", value: 1 },
+];
+
+async function standRack(page) {
+  at("loading a source on both yards");
+  // The second yard is added first: a page opens with one, and the budget's setting is two.
+  await page.evaluate((decks) => {
+    window.mulch.send({ t: "deck.add", deck: "b", emoji: "🌾", name: "Measure" });
+    for (const deck of decks) {
+      window.mulch.send({ t: "deck.load", deck, source: { gen: "click-train", hz: 8 } });
+    }
+  }, ["a", "b"]);
+  await page.waitForFunction(
+    () => window.mulch.probe().decks.a.duration > 0 && window.mulch.probe().decks.b.duration > 0,
+  );
+  // A loop, because a yard without one draws no mulcher card at all (0159, 0171) and the walk is
+  // what the budget's setting plays. Two seconds is the walk's own sixteen landings (0358).
+  at("looping both yards");
+  await page.evaluate(
+    ({ decks, secs }) => {
+      for (const deck of decks) window.mulch.send({ t: "deck.loop", deck, in: 0, out: secs });
+    },
+    { decks: ["a", "b"], secs: LOOP_SECS },
+  );
+  at("standing the rack up on two yards");
+  await page.evaluate(
+    ({ decks, rack }) => {
+      for (const deck of decks) {
+        for (const [index, entry] of rack.entries()) {
+          const id = `measure-${deck}-${index}`;
+          window.mulch.send({ t: "effect.add", deck, id, effect: entry.effect });
+          if (entry.param !== undefined) {
+            window.mulch.send({
+              t: "param.set",
+              deck,
+              instance: id,
+              param: entry.param,
+              value: entry.value,
+            });
+          }
+        }
+      }
+    },
+    { decks: ["a", "b"], rack: RACK },
+  );
+  await page.waitForFunction(
+    (held) =>
+      window.mulch.probe().decks.a.effects.length >= held &&
+      window.mulch.probe().decks.b.effects.length >= held,
+    RACK.length,
+  );
+}
+
+/**
+ * Yard A's mulcher on, so a walk is really playing: the switch mints the spec, because a full one is
+ * the player module's own vocabulary and this file has no business writing one out (0173). An
+ * arrangement is drawn for it, or no part stands and no landing lands.
+ */
+async function startWalk(page) {
+  at("turning yard A's mulcher on");
+  const card = page.getByLabel(`${yardLabel("a")} ${PLAYER_LABEL}`);
+  await card
+    .locator('[data-slot="player-heading"]')
+    .getByLabel(`Enable ${PLAYER_LABEL} on ${yardLabel("a")}`)
+    .click();
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player !== null);
+  await page.evaluate(() => {
+    const player = window.mulch.probe().decks.a.player;
+    window.mulch.send({
+      t: "deck.player",
+      deck: "a",
+      player: { ...player, arrange: 1, bedEvery: 8, bedReach: "bed" },
+    });
+    for (const deck of ["a", "b"]) window.mulch.send({ t: "deck.play", deck });
+  });
+  at("waiting for the walk to land");
+  await page.waitForFunction(() => window.mulch.peek("a").player.step !== null, undefined, {
+    timeout: 30_000,
+  });
+}
+
+/**
+ * The picture out of the page and into a window, through the strip's own pop-out button — the
+ * gesture the budget names, and the one scripts/smoke.d/drift.js asserts the shape of.
+ */
+async function popOut(page) {
+  at("popping the picture out");
+  const strip = page.getByLabel(`${yardLabel("a")} ${MOIRE_STRIP}`);
+  await strip.scrollIntoViewIfNeeded();
+  await strip.click();
+  const picture = page.getByLabel(driftTitle("a"));
+  await picture.waitFor();
+  const opening = page.context().waitForEvent("page");
+  await picture.getByRole("button", { name: MOIRE_POP_OUT }).click();
+  const popped = await opening;
+  await popped.waitForLoadState("domcontentloaded");
+  await popped.locator("canvas").first().waitFor();
+  handBack();
+  return popped;
+}
+
+// ---- the instruments, all in-page and all the same code in both trees ----
+
+/**
+ * The rAF-gap histogram and the long-task observer, on the opener: the picture in the popped window
+ * is drawn by the opener's one frame loop (src/ui/popupWindow.ts), so this is where the gaps are.
+ * Both are reset rather than rebuilt, so a window is what happened inside it.
+ */
+async function watchFrames(page) {
+  await page.evaluate(() => {
+    const held = { gaps: [], last: performance.now(), started: performance.now() };
+    window.__MULCH_MEASURED__ = held;
+    const tick = () => {
+      const now = performance.now();
+      held.gaps.push(now - held.last);
+      held.last = now;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  // The observer the smoke already installs, imported rather than written a third time: it is the
+  // same five lines in scripts/smoke.d/longTasks.js and in scripts/profile, and this would have
+  // been the third (principle 3). A phase empties `__MULCH_LONG_TASKS__` the way it empties the
+  // gaps.
+  await watchLongTasks({ page });
+}
+
+/**
+ * The draw count, wrapped onto the popped realm's own 2D prototype — the one instrument that is the
+ * same in every tree whatever its source says, because it is not in the source at all. `wide` is a
+ * draw covering half the picture or more, which is what "a picture-sized draw" means (0353).
+ */
+async function watchDraws(popped) {
+  await popped.evaluate(() => {
+    const held = { calls: 0, drawImage: 0, clearRect: 0, wide: 0 };
+    window.__MULCH_DRAWN__ = held;
+    const proto = CanvasRenderingContext2D.prototype;
+    for (const name of Object.getOwnPropertyNames(proto)) {
+      const described = Object.getOwnPropertyDescriptor(proto, name);
+      if (name === "constructor" || typeof described?.value !== "function") continue;
+      const original = described.value;
+      proto[name] = function measured(...passed) {
+        held.calls += 1;
+        let across = 0;
+        let down = 0;
+        if (name === "drawImage") {
+          held.drawImage += 1;
+          if (passed.length === 9) [across, down] = [passed[7], passed[8]];
+          else if (passed.length === 5) [across, down] = [passed[3], passed[4]];
+          else [across, down] = [passed[0]?.width ?? 0, passed[0]?.height ?? 0];
+        } else if (name === "fillRect" || name === "clearRect") {
+          if (name === "clearRect") held.clearRect += 1;
+          [across, down] = [passed[2], passed[3]];
+        }
+        if (across * down * 2 >= this.canvas.width * this.canvas.height) held.wide += 1;
+        return original.apply(this, passed);
+      };
+    }
+  });
+}
+
+/** Empty every instrument and turn the app's own accumulators on. A phase starts here. */
+async function openWindowOn(page, popped) {
+  await page.evaluate(() => {
+    const held = window.__MULCH_MEASURED__;
+    held.gaps.length = 0;
+    window.__MULCH_LONG_TASKS__.length = 0;
+    held.last = performance.now();
+    held.started = performance.now();
+    window.__MULCH_MEASURE__?.on(true);
+  });
+  await popped.evaluate(() => {
+    const held = window.__MULCH_DRAWN__;
+    held.calls = 0;
+    held.drawImage = 0;
+    held.clearRect = 0;
+    held.wide = 0;
+  });
+}
+
+/** What every instrument holds, as one reading. */
+async function readWindow(page, popped) {
+  const frames = await page.evaluate(() => {
+    const held = window.__MULCH_MEASURED__;
+    return {
+      gaps: [...held.gaps],
+      tasks: [...window.__MULCH_LONG_TASKS__],
+      secs: (performance.now() - held.started) / 1_000,
+      costs: window.__MULCH_MEASURE__?.read() ?? null,
+    };
+  });
+  const draws = await popped.evaluate(() => ({ ...window.__MULCH_DRAWN__ }));
+  return {
+    gaps: gapRead(frames.gaps, frames.secs),
+    secs: frames.secs,
+    longTasks: {
+      count: frames.tasks.length,
+      worstMs: frames.tasks.length === 0 ? 0 : Math.max(...frames.tasks),
+    },
+    costs: frames.costs,
+    draws,
+  };
+}
+
+// ---- the three phases ----
+
+async function stillWindow(page, popped) {
+  at(`settling for ${SETTLE_MS / 1_000}s`);
+  await page.waitForTimeout(SETTLE_MS);
+  await openWindowOn(page, popped);
+  at(`the budget's ${WINDOW_MS / 1_000}s window`);
+  await page.waitForTimeout(WINDOW_MS);
+  return readWindow(page, popped);
+}
+
+/**
+ * 0307's drag. The moves are paced against a clock rather than slept between, and what actually
+ * landed is reported: a move is a round trip to the browser, so a drag that could not keep sixty a
+ * second says so in `movesPerSec` instead of quietly pricing a slower gesture (0369).
+ */
+async function knobDrag(page, popped) {
+  at(`finding the ${knob} knob`);
+  // The first of its name in the page's own order, which is yard A's: the rack above stands one
+  // panner on each yard, so scoping further would be a selector this file has to keep in step
+  // with the card's own label.
+  const dial = page.getByRole("slider", { name: knob, exact: true }).first();
+  await dial.waitFor({ timeout: 15_000 });
+  await dial.scrollIntoViewIfNeeded();
+  const box = await dial.boundingBox();
+  if (box === null) stop(`the ${knob} knob has no box to drag`);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const stood = await dial.getAttribute("aria-valuenow");
+  await openWindowOn(page, popped);
+  at(`dragging ${knob} ${DRAG_MOVES} times`);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  const started = Date.now();
+  for (let move = 0; move < DRAG_MOVES; move += 1) {
+    const due = started + (move * 1_000) / DRAG_HZ;
+    const owed = due - Date.now();
+    if (owed > 0) await sleep(owed);
+    await page.mouse.move(x, y + (move % 2 === 0 ? -DRAG_REACH : DRAG_REACH));
+  }
+  const spanMs = Date.now() - started;
+  await page.mouse.up();
+  // Loud rather than quietly cheap: a drag the dial never heard is a window of the page doing
+  // nothing, and it would read as a gesture that cost nothing at all.
+  const moved = await dial.getAttribute("aria-valuenow");
+  if (moved === stood) stop(`the drag on ${knob} wrote nothing, so it priced no gesture`);
+  const read = await readWindow(page, popped);
+  await page.mouse.move(0, 0);
+  return { ...read, moves: DRAG_MOVES, spanMs, movesPerSec: (DRAG_MOVES * 1_000) / spanMs };
+}
+
+/**
+ * The rebake phase. Nothing rebakes at the budget's own setting — checkpoint C and step 18 both read
+ * zero bakes in every window — so a bake is priced under a driver instead: one tunable on the
+ * stamp's key, walked three times a second through the app's own registry.
+ */
+async function bakeWindow(page, popped) {
+  await openWindowOn(page, popped);
+  at(`walking ${BAKE_TUNING} for ${WINDOW_MS / 1_000}s`);
+  const walked = await page.evaluate(
+    ({ hz, id, ms }) =>
+      new Promise((done) => {
+        const opening = window.__MULCH_MEASURE__;
+        if (opening === undefined || !opening.ids().includes(id)) {
+          done(null);
+          return;
+        }
+        let step = 0;
+        const every = setInterval(() => {
+          step += 1;
+          opening.tune(id, 0.5 + (step % 8) * 0.5);
+        }, 1_000 / hz);
+        setTimeout(() => {
+          clearInterval(every);
+          done(step);
+        }, ms);
+      }),
+    { hz: BAKE_HZ, id: BAKE_TUNING, ms: WINDOW_MS },
+  );
+  // A tree with no measuring opening cannot be walked at all, and a window of no length is not a
+  // reading: the phase is absent, and every cell of it says so.
+  if (walked === null) return null;
+  const read = await readWindow(page, popped);
+  return { ...read, walked };
+}
+
+// ---- one run of one tree ----
+
+async function measureTree(tree, url, run) {
+  at(`launching a browser for ${tree}`);
+  const browser = await chromium.launch({
+    headless: false,
+    args: ["--mute-audio", "--autoplay-policy=no-user-gesture-required"],
+  });
+  owned.browsers.add(browser);
+  try {
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: DENSITY });
+    // The same flag scripts/drive sets, before any module runs: it is what attaches the
+    // instrument and the measuring opening on a build where DEV code is stripped.
+    await context.addInitScript(() => {
+      window.__MULCH_DRIVE__ = true;
+    });
+    const page = await context.newPage();
+    page.on("pageerror", (error) => note(`${tree} page error: ${error.message}`));
+    at(`loading ${url}`);
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 60_000 });
+    handBack();
+    await standRack(page);
+    await startWalk(page);
+    const popped = await popOut(page);
+    await watchFrames(page);
+    await watchDraws(popped);
+    const still = await stillWindow(page, popped);
+    const drag = await knobDrag(page, popped);
+    const bake = baking ? await bakeWindow(page, popped) : null;
+    const record = { tree, sha: tree === "base" ? BASE : "working tree", run, still, drag, bake };
+    const path = join(OUT, `${tree}-${run}.json`);
+    writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+    note(`${tree} run ${run} written to ${path}`);
+    return record;
+  } finally {
+    at(`closing ${tree}'s browser`);
+    owned.browsers.delete(browser);
+    await browser.close().catch(() => {});
+    handBack();
+  }
+}
+
+// ---- printing ----
+
+const say = (line) => console.log(line);
+
+function phaseRows(runs, pick) {
+  // A phase a tree could not run at all is dropped rather than read as a window of nought.
+  const per = (of) => spread(runs.map(pick).filter((one) => one !== null), of);
+  return {
+    fps: per((one) => one.gaps.fps),
+    p50: per((one) => one.gaps.p50),
+    p95: per((one) => one.gaps.p95),
+    maxMs: per((one) => one.gaps.maxMs),
+    over20: per((one) => one.gaps.over20),
+    over50: per((one) => one.gaps.over50),
+    tasks: per((one) => one.longTasks.count),
+    worstTask: per((one) => one.longTasks.worstMs),
+    paint: per((one) => one.costs?.paintMoire?.meanMs ?? null),
+    paintings: per((one) => one.costs?.paintMoire?.calls ?? null),
+    stamp: per((one) => one.costs?.stampMarks?.meanMs ?? null),
+    cut: per((one) => one.costs?.cutField?.meanMs ?? null),
+    read: per((one) => one.costs?.readMarks?.meanMs ?? null),
+    tint: per((one) => one.costs?.tintThrough?.meanMs ?? null),
+    bakes: per((one) => one.costs?.screenBake?.calls ?? null),
+    bakeMean: per((one) => one.costs?.screenBake?.meanMs ?? null),
+    bakeWorst: per((one) => one.costs?.screenBake?.worstMs ?? null),
+    // The popped canvas is cleared once a painting (`paintMoire`), so this is the *picture's* own
+    // count — the one denominator the draw rates may use, and the one both trees can give whatever
+    // their source says. `paintings` below is every canvas the opener drew, the strips included.
+    pictures: per((one) => one.draws.clearRect),
+    calls: per((one) => one.draws.calls),
+    drawImage: per((one) => one.draws.drawImage),
+    wide: per((one) => one.draws.wide),
+    // Only the drag has one; every other phase asks for nothing and the cell says so.
+    movesPerSec: per((one) => one.movesPerSec ?? null),
+  };
+}
+
+function frameRows(one, other, extra = []) {
+  const row = (label, key, digits) => [label, cell(one[key], digits), cell(other[key], digits)];
+  return [
+    row("frames a second", "fps", 1),
+    row("rAF gap p50", "p50", 1),
+    row("rAF gap p95", "p95", 1),
+    row("rAF gap worst", "maxMs", 1),
+    row("gaps over 20 ms", "over20", 0),
+    row("gaps over 50 ms", "over50", 0),
+    row("long tasks", "tasks", 0),
+    row("longest task, ms", "worstTask", 0),
+    ...extra.map(([label, key, digits]) => row(label, key, digits)),
+    row("paintings, every canvas", "paintings", 0),
+    row("paintings of the picture", "pictures", 0),
+    row("paint mean, ms, any canvas", "paint", 3),
+    row("readMarks mean, ms", "read", 4),
+    row("cutField mean, ms", "cut", 3),
+    row("stampMarks mean, ms", "stamp", 3),
+    row("tintThrough mean, ms", "tint", 4),
+    row("bakes", "bakes", 0),
+    row("bake mean, ms", "bakeMean", 1),
+    row("bake worst, ms", "bakeWorst", 1),
+    row("2D calls, the window", "calls", 0),
+    row("2D calls a painting", "callsPer", 1),
+    row("drawImage, the window", "drawImage", 0),
+    row("drawImage a painting", "drawImagePer", 1),
+    row("picture-sized draws", "wide", 0),
+    row("picture-sized a painting", "widePer", 2),
+  ];
+}
+
+/**
+ * The draw counts come back as totals over a phase, and a painting is what a reader compares
+ * against — two trees paint a different number of times in one window, so the totals are not quite
+ * each other's neighbours. Both are printed: the total is the reading every tree can give, and the
+ * rate is the one that means something, which a tree with no measuring hook cannot say at all.
+ */
+function perPainting(rows) {
+  const paint = rows.pictures;
+  const over = paint === null || paint.median === 0 ? null : paint.median;
+  const share = (held) =>
+    held === null || over === null
+      ? null
+      : { ...held, median: held.median / over, min: held.min / over, max: held.max / over };
+  return {
+    ...rows,
+    callsPer: share(rows.calls),
+    drawImagePer: share(rows.drawImage),
+    widePer: share(rows.wide),
+  };
+}
+
+async function main() {
+  note(`base ${BASE} against the working tree, ${RUNS} run${RUNS === 1 ? "" : "s"} of each`);
+  const baseUrl = await standBase();
+  const headUrl = await serve(ROOT, HEAD_PORT, "head");
+  const taken = { base: [], head: [] };
+  for (let run = 1; run <= RUNS; run += 1) {
+    // Interleaved, and alternated within the pair: machine load drifts across a run, so a
+    // sequential comparison measures the drift (docs/subagent-prompt.md).
+    const order = run % 2 === 1 ? ["base", "head"] : ["head", "base"];
+    for (const tree of order) {
+      taken[tree].push(await measureTree(tree, tree === "base" ? baseUrl : headUrl, run));
+    }
+  }
+
+  at("printing");
+  const columns = [`base (${BASE})`, "head (working tree)"];
+  const still = {
+    base: perPainting(phaseRows(taken.base, (run) => run.still)),
+    head: perPainting(phaseRows(taken.head, (run) => run.still)),
+  };
+  const drag = {
+    base: perPainting(phaseRows(taken.base, (run) => run.drag)),
+    head: perPainting(phaseRows(taken.head, (run) => run.drag)),
+  };
+  for (const line of table(
+    `the budget's window — ${WINDOW_MS / 1_000}s after ${SETTLE_MS / 1_000}s of settle, nothing touched`,
+    columns,
+    frameRows(still.base, still.head),
+  )) {
+    say(line);
+  }
+  for (const line of table(
+    `the drag — ${DRAG_MOVES} moves on ${knob}, asked at ${DRAG_HZ} a second`,
+    columns,
+    frameRows(drag.base, drag.head, [["moves a second, landed", "movesPerSec", 1]]),
+  )) {
+    say(line);
+  }
+  if (baking) {
+    const bake = {
+      base: perPainting(phaseRows(taken.base, (run) => run.bake)),
+      head: perPainting(phaseRows(taken.head, (run) => run.bake)),
+    };
+    for (const line of table(
+      `the bake — ${BAKE_TUNING} walked ${BAKE_HZ} times a second for ${WINDOW_MS / 1_000}s`,
+      columns,
+      frameRows(bake.base, bake.head),
+    )) {
+      say(line);
+    }
+  }
+
+  say("");
+  for (const tree of ["base", "head"]) {
+    say(
+      verdictLine(
+        tree === "base" ? `base (${BASE})` : "head",
+        budgetVerdicts(
+          taken[tree],
+          taken[tree].map((run) => run.drag),
+        ),
+      ),
+    );
+  }
+  say("");
+  note(`the runs are in ${OUT}`);
+  note("nothing here is judged further and nothing here fails: read it (0051).");
+}
+
+try {
+  await main();
+} catch (error) {
+  // Said in this script's own voice and with the stage it was in, the way the deadline says it:
+  // a stack trace from inside Playwright names no stage and reads as a crash rather than as a run
+  // that could not go on.
+  console.error(`measure: ${error instanceof Error ? error.message : String(error)} — while ${stage}`);
+  process.exitCode = 1;
+} finally {
+  at("shutting down");
+  await reap();
+}

@@ -100,6 +100,7 @@ import { boldestRow, stepped } from "@/ui/moireScreenInk";
 import type { MoireShape } from "@/ui/moireShape";
 import { type MoireTint, tintThrough } from "@/ui/moireTint";
 import { tunable } from "@/lib/moireTuning";
+import { costEnd, costStart, CUT_COST, READ_COST, STAMP_COST, TINT_COST } from "@/ui/moireCost";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -676,7 +677,9 @@ export function paintMoire(
   boxField(field, ink, cell);
   // And that same reading taken into the stamp's own grid, beside the box that made it: what it
   // says is laid over the picture once the cut has been (`readMarks`, src/ui/moireCanvasMarks.ts).
+  const readAt = costStart();
   const marks = readMarks(canvas, field, cell, color, pushes, shape.sides, sparks, alphabet);
+  costEnd(READ_COST, readAt);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   // The rectangle is filled inside it now, in as many vertical strips as the yard's own gust needs
@@ -703,16 +706,22 @@ export function paintMoire(
   context.globalCompositeOperation = "destination-out";
   // Handed the stops the pass above roamed to, because the tear an automator makes reads the
   // structure off the plane the picture already stands on and never off a second one (0296).
+  const cutAt = costStart();
   cutField(context, field, rows, looks, shape, wind.veer, sounding, roamed);
+  costEnd(CUT_COST, cutAt);
   context.globalCompositeOperation = "source-over";
   // And the same product laid back over the picture as marks: the cut is holes in a lattice, and
   // this is the rows written in that lattice's own alphabet where they are strong, so a row going
   // by is a run of marks rather than a run of holes.
+  const stampAt = costStart();
   if (marks !== null) stampMarks(context, marks, cell);
+  costEnd(STAMP_COST, stampAt);
   // And the band of the ramp washed over what is left, through the ink and never over the window
   // the gratings agree on: after the cut, so the colour lies on the picture and not on the ground
   // the cut takes back out (`tintThrough`, src/ui/moireTint.ts, 0302).
+  const tintAt = costStart();
   tintThrough(canvas, context, color, tinting, yard);
+  costEnd(TINT_COST, tintAt);
   // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
   // because a halted yard is painted on a commit and not on a frame (0144).
   endPainting();

@@ -45,7 +45,9 @@ const orderAt = (hue: number, wide = WIDE): ScreenBake => ({
 /** The worker, standing in: every bake asked for is kept, and answered only when a case says so. */
 function heldPort(): { port: ScreenPort; asked: ScreenBakeRequest[]; answer: () => void } {
   const asked: ScreenBakeRequest[] = [];
-  let reply: ((result: { t: "baked"; key: string; tile: ImageBitmap }) => void) | null = null;
+  let reply:
+    | ((result: { t: "baked"; key: string; tile: ImageBitmap; bakeMs: number }) => void)
+    | null = null;
   return {
     asked,
     port: {
@@ -60,7 +62,7 @@ function heldPort(): { port: ScreenPort; asked: ScreenBakeRequest[]; answer: () 
     answer: () => {
       const next = asked.shift();
       if (next === undefined) return;
-      reply?.({ t: "baked", key: next.order.key, tile: tileNamed(next.order.key) });
+      reply?.({ t: "baked", key: next.order.key, tile: tileNamed(next.order.key), bakeMs: 0 });
     },
   };
 }

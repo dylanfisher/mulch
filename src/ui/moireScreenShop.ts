@@ -13,9 +13,11 @@
  */
 import { screenOffThread, screenWorkerPort, type ScreenPort } from "@/app/screen";
 import { hold } from "@/lib/hold";
+import { measuringCosts } from "@/lib/measure";
 import { bands, type ScreenBake } from "@/lib/moireScreenField";
 import { subscribeTuning, tuningChanges } from "@/lib/moireTuning";
 import { frameStamp, paced } from "@/ui/frame";
+import { BAKE_COST, costSpend } from "@/ui/moireCost";
 
 /** What a screen is filled through: a canvas this thread baked, or a bitmap the worker sent back. */
 export type ScreenTileImage = HTMLCanvasElement | ImageBitmap;
@@ -137,6 +139,9 @@ function screenPort(): ScreenPort | null {
   made.listen((result) => {
     flying.delete(result.key);
     if (result.t === "baked") {
+      // Only a span that was actually timed: a bake asked before this window began carries a
+      // nought, and booking that would read as a bake that cost nothing rather than as no sample.
+      if (result.bakeMs > 0) costSpend(BAKE_COST, result.bakeMs);
       const size = sizes.get(result.key);
       sizes.delete(result.key);
       if (size !== undefined) {
@@ -167,7 +172,7 @@ function askWorker(order: ScreenBake): boolean {
   const asked = screenPort();
   if (asked === null) return false;
   sizes.set(order.key, { width: order.width, height: order.height });
-  asked.bake({ t: "bake", order, tunings: tuningChanges() });
+  asked.bake({ t: "bake", order, tunings: tuningChanges(), measure: measuringCosts() });
   return true;
 }
 

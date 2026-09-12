@@ -21,6 +21,7 @@ import { createInstrument, type Instrument } from "@/app/facade";
 import { type DrivenResult, renderOffline, type RenderSpec } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
 import { loadWorklets } from "@/audio/worklet";
+import { measureOpening, type MeasureOpening } from "@/lib/measure";
 import { createIndexedDbRepository } from "@/state/repository";
 import { App } from "@/ui/App";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
@@ -51,6 +52,11 @@ declare global {
     /** Set by ./scripts/drive via addInitScript, before any module here runs. */
     __MULCH_DRIVE__?: boolean;
     mulch?: Driven;
+    /**
+     * What ./scripts/measure reads: the picture's own per-function costs, and the tuning registry
+     * this page's modules actually use. Behind the same gate as `mulch`, and for the same reason.
+     */
+    __MULCH_MEASURE__?: MeasureOpening;
   }
 }
 
@@ -131,6 +137,9 @@ async function boot(): Promise<void> {
       exportAudio: (spec) => exportAudio(instrument, spec),
       exportName: () => defaultExportName(instrument.state.getState(), new Date()),
     };
+    // The measuring harness's own opening, beside the instrument's: what it reads is the picture's
+    // cost and the tuning registry, neither of which is a command (src/lib/measure.ts, 0375).
+    window.__MULCH_MEASURE__ = measureOpening();
   }
 }
 

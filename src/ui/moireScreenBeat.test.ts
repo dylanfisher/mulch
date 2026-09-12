@@ -247,7 +247,12 @@ describe("moireScreenBeat", () => {
     const pitch = gridPitchPx(2);
     const cell = rowPitchPx(2);
     // A port that keeps every bake and answers only when this case says so.
-    const answers: ((result: { t: "baked"; key: string; tile: ImageBitmap }) => void)[] = [];
+    const answers: ((result: {
+      t: "baked";
+      key: string;
+      tile: ImageBitmap;
+      bakeMs: number;
+    }) => void)[] = [];
     const asked: string[] = [];
     forgetScreenTiles(() => ({
       bake: (request) => {
@@ -268,8 +273,10 @@ describe("moireScreenBeat", () => {
         if (frame === 0) {
           const key = asked.at(-1) ?? "";
           // The tile is never drawn from, only stood on: what this case reads is the transform.
-          // oxlint-disable-next-line no-unsafe-type-assertion
-          for (const answer of answers) answer({ t: "baked", key, tile: {} as ImageBitmap });
+          for (const answer of answers) {
+            // oxlint-disable-next-line no-unsafe-type-assertion
+            answer({ t: "baked", key, tile: {} as ImageBitmap, bakeMs: 0 });
+          }
           return;
         }
         // And then the rack's fold stands the second lattice, whose tile is never baked at all.

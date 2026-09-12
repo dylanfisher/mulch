@@ -68,6 +68,7 @@ import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
 import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
+import { costEnd, costStart, PAINT_COST } from "@/ui/moireCost";
 import { crawlCells } from "@/ui/moireCrawl";
 import {
   deckLanes,
@@ -442,6 +443,9 @@ function useMoirePicture(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
       pace.current = looksPaintMs(set.looks);
+      // The whole painting's cost, taken where the live one is asked for and nowhere else: a
+      // recorder's painting is a test's and a harness prices what a hand watches (src/lib/measure.ts).
+      const at = costStart();
       paintMoire(
         canvas,
         set.rows,
@@ -464,6 +468,7 @@ function useMoirePicture(
         set.armed,
         set.reversed,
       );
+      costEnd(PAINT_COST, at);
     },
     [refill, yard],
   );

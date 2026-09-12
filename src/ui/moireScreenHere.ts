@@ -24,7 +24,9 @@ import { forgetScreenTiles, screenTileOf } from "@/ui/moireScreenShop";
 export function hereScreenPort(): ScreenPort {
   // A canvas where the worker's reply says `ImageBitmap`: what the shop holds is whatever a 2D
   // context will draw, and jsdom has no bitmaps (`ScreenTileImage`, src/ui/moireScreenShop.ts).
-  let answer: ((result: { t: "baked"; key: string; tile: ImageBitmap }) => void) | null = null;
+  let answer:
+    | ((result: { t: "baked"; key: string; tile: ImageBitmap; bakeMs: number }) => void)
+    | null = null;
   return {
     bake: (request) => {
       applyTunings(request.tunings);
@@ -33,8 +35,9 @@ export function hereScreenPort(): ScreenPort {
       screenField(request.order, pixels);
       const tile = screenTileOf(width, height, pixels);
       if (tile === null) return;
+      // Nought, not a clock: this port bakes in the asking task, so its span is the caller's own.
       // oxlint-disable-next-line no-unsafe-type-assertion
-      answer?.({ t: "baked", key, tile: tile as unknown as ImageBitmap });
+      answer?.({ t: "baked", key, tile: tile as unknown as ImageBitmap, bakeMs: 0 });
     },
     listen: (onResult) => {
       answer = onResult;
