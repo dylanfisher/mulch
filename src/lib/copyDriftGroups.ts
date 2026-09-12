@@ -449,6 +449,18 @@ export const MOIRE_TUNE_GROUPS: readonly TuningGroup[] = [
         hint: "The most of itself a shifted second picture lays over the field.",
       },
       {
+        id: "look.blink",
+        wild: "max",
+        label: "Blink",
+        hint: "The most of the field a lull's blink takes away while it is dark.",
+      },
+      {
+        id: "look.blinkDuty",
+        wild: "max",
+        label: "Blink duty",
+        hint: "The most of each cycle a lull's blink may stand dark for, at every chance.",
+      },
+      {
         id: "look.echo",
         wild: "max",
         label: "Echo",

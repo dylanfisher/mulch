@@ -29,6 +29,7 @@ import { cellBloom } from "@/lib/moireCellBloom";
 import { cellEchoes } from "@/lib/moireCellEchoes";
 import type { CellPass } from "@/lib/moireCells";
 import { doubleLook } from "@/lib/moireDouble";
+import { blinkLook } from "@/lib/moireBlink";
 import { staggerLook } from "@/lib/moirePanner";
 import { echoesLook } from "@/lib/moireEchoes";
 import { shardsLook } from "@/lib/moireShards";
@@ -55,6 +56,7 @@ export const LOOK_NAMES = [
   "squash",
   "double",
   "stagger",
+  "blink",
 ] as const;
 
 export type LookName = (typeof LOOK_NAMES)[number];
@@ -656,6 +658,13 @@ export const LOOKS: Readonly<Record<LookName, Look>> = {
    * field is the Position, on its.
    */
   stagger: staggerLook,
+  /**
+   * Lull's, declared away from here for the band's reason and at the same cap (`blinkLook`,
+   * src/lib/moireBlink.ts): the field going dark and coming back on the deck's own clock, which is
+   * what a rest does to a sound. How much of each cycle is the Chance, the knob this entry's
+   * presence is already read off; how long a cycle is, is the Gap.
+   */
+  blink: blinkLook,
 };
 
 /**

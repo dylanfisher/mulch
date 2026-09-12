@@ -36,6 +36,7 @@ export const DRIFT_PROFILES = [
   "stair",
   "sway",
   "fifth",
+  "gap",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -100,6 +101,28 @@ const STAIR_RISE = 0.12;
  * becomes two — which is a second family and not a deeper cut of this one.
  */
 const SWAY_WANDER = 0.07;
+
+/**
+ * How much of each half of a `gap`'s cycle the crest stands still for, as a share of the whole
+ * cycle: a fifth at the crest and a fifth at the trough, with the cosine run through the three
+ * fifths between. A share of the cycle and not of the half, so the number reads as "how much of
+ * the time is a rest" — which is what the lull is. Under a quarter, so what moves is still most
+ * of the cycle and the wave reads as a crest that stops rather than a square with rounded risers.
+ */
+const GAP_REST = 0.2;
+
+/**
+ * Where a `gap` is in its own cosine at `turn`: held at the crest for `GAP_REST` of the cycle,
+ * run to the trough, held there for as long again, run back. Each half of the cycle is the other
+ * half a half-cycle along, which is what keeps the wave odd about its own middle and its mean
+ * exactly a half, the way every other profile here is.
+ */
+function gapPhase(turn: number): number {
+  const at = wrap(turn, 1);
+  const base = at < 0.5 ? 0 : 0.5;
+  const moving = Math.max(0, at - base - GAP_REST) / (0.5 - GAP_REST);
+  return base + moving * 0.5;
+}
 
 /**
  * The two harmonics a `fifth` is built out of, at `HARMONIC_SHARE` each the way every other pair in
@@ -239,6 +262,13 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // the second, an octave, and these are the second and the third, so the beat between them falls
   // where neither of `twin`'s does and no depth of either is the other (0122).
   fifth: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn, FIFTH_LOWER) + cosTurn(turn, FIFTH_UPPER)),
+  // A crest that stops: the plain cosine read at a phase that stands still at its crest and at its
+  // trough and runs between them, which is the lull drawn as itself — a thing that goes and then
+  // does not. The pair to check is `flat`, which is also a cosine held at both ends: `flat` is the
+  // cosine clipped, so its run between the ends is the cosine's own middle steepened threefold,
+  // while this one's is a whole half-cosine squeezed into the time left, so the two deviate by a
+  // different factor at every turn of the run and no depth of either is the other (0122).
+  gap: (turn) => halfCosine(gapPhase(turn)),
 };
 
 /**
