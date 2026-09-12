@@ -545,12 +545,26 @@ describe("the lull in the rack", () => {
     expect(rack.holds(60, asks)).toBe(0);
     rack.setParam("l1", "lull.chance", 1, 3);
 
-    // Bypassed: the switch means not running, so nothing is asked and nothing is holding.
+    // Bypassed: the switch means not running, so nothing is asked and nothing is holding. And
+    // switched back on, the gap counts again from the clock as it stands, not from the birth.
     rack.setBypass("l1", true);
     expect(rack.holding()).toBe(false);
     expect(rack.holds(60, asks)).toBe(0);
+    Object.assign(context, { currentTime: 10 });
     rack.setBypass("l1", false);
     expect(rack.holding()).toBe(true);
+    expect(rack.holds(13, asks)).toBe(2);
+    expect(asks[0]).toEqual({ t: "hold", at: 12 });
+    expect(asks[1]).toEqual({ t: "release", at: 13, jump: 0 });
+
+    // Redrawn by a knob that rebuilds — which the rack answers for — the run asks first for
+    // everything it laid to be dropped, then lays again from now.
+    expect(rack.setParam("l1", "lull.gapLeast", 1, 10)).toBe(true);
+    expect(rack.setParam("l1", "lull.gapMost", 1, 10)).toBe(true);
+    expect(rack.holds(12, asks)).toBe(3);
+    expect(asks[0]).toEqual({ t: "clear" });
+    expect(asks[1]).toEqual({ t: "hold", at: 11 });
+    expect(asks[2]).toEqual({ t: "release", at: 12, jump: 0 });
 
     // Disposed: the gain leaves the graph and the chain closes over it.
     rack.remove("l1");

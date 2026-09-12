@@ -43,6 +43,7 @@ const fakeMaster = () => {
     setTempo: () => {},
     holding: () => false,
     onHolds: () => {},
+    resetHolds: () => {},
     addEffect: (id, effect) => {
       calls.push(`add:${id}:${effect}`);
       held.push(id);

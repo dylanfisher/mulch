@@ -78,9 +78,11 @@ export type DeckChain = {
   /** Buffer seconds per wall second, from the speed and pitch this chain is holding (0031). */
   rate(): number;
   /** `instance` is null for a deck parameter and the rack entry's id for an effect's (0030). */
-  setParam(instance: EffectInstanceId | null, param: ParamId, value: number, when: number): void;
+  /** Answers whether the move paid for a rebuild where it arrived — never for a deck's own. */
+  setParam(instance: EffectInstanceId | null, param: ParamId, value: number, when: number): boolean;
   /** The hand let go: every rebuild the rack held through the drag is paid for now (P63). */
-  endGesture(): void;
+  /** Answers whether any instance paid for a rebuild it was holding. */
+  endGesture(): boolean;
   /** Schedule one lane against the pass beginning at `origin` — see src/audio/ramp.ts. */
   setAutomation(
     instance: EffectInstanceId | null,
@@ -245,13 +247,11 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     setParam: (instance, param, value, when) => {
       if (instance === null) {
         write(asDeckParam(param), value, when);
-        return;
+        return false;
       }
-      effects.setParam(instance, asEffectParam(param), value, when);
+      return effects.setParam(instance, asEffectParam(param), value, when);
     },
-    endGesture: () => {
-      effects.endGesture();
-    },
+    endGesture: () => effects.endGesture(),
     setAutomation: (instance, param, lane, base, origin) => {
       // Routed exactly the way setParam is: the deck owns its own AudioParams, and every other
       // registry target is the owning plugin's binding on one named instance (0024, 0030).

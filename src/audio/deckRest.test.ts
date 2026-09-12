@@ -188,6 +188,27 @@ describe("a rest on the transport", () => {
     expect(held.sources).toHaveLength(4);
   });
 
+  it("restarts in place when asked to let go of a hold still laid ahead", () => {
+    const held = deck();
+    play(held);
+    held.now(1);
+    held.voice.holdAt(3);
+    held.voice.releaseAt(5, 0);
+
+    held.voice.releaseNow();
+    // The old source goes at once — its scheduled stop cannot be taken back — and so does the
+    // release laid ahead; a fresh pass starts at the lookahead from where the deck was reading.
+    expect(held.sources[0]?.stopped).toEqual([3, undefined]);
+    expect(held.sources[1]?.stopped).toEqual([undefined]);
+    expect(held.sources[2]?.started[0]?.[0]).toBeCloseTo(1 + LOOKAHEAD_SECS, 9);
+    expect(held.sources[2]?.started[0]?.[1]).toBeCloseTo(1, 9);
+    expect(lastPlan(held.plans).until).toBeUndefined();
+    // And nothing to let go of is nothing done.
+    const before = held.sources.length;
+    held.voice.releaseNow();
+    expect(held.sources).toHaveLength(before);
+  });
+
   it("lets a standing rest go in place at the lookahead when asked to now", () => {
     const held = deck();
     play(held);

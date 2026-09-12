@@ -20,7 +20,7 @@ import type { GroundClock } from "@/audio/playerVoice";
 import { createMasterBus } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckVoice } from "@/audio/deck";
-import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectInstanceId, HoldEdge } from "@/audio/effects/contract";
 import {
   DECK_AUTOMATION_PARAM_IDS,
   DECK_PARAM_IDS,
@@ -29,6 +29,7 @@ import {
   soundingBpm,
 } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
+import { LOOKAHEAD_SECS } from "@/audio/transport";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
@@ -208,6 +209,19 @@ const RENDER_CAPACITY_INTERVAL_SECS = 0.5;
 // delegation into the voice and peaks maps this one closure owns. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
+/**
+ * One of the master's edges handed to one voice: a hold only to a yard that is playing, a release
+ * to every yard — refused by the ones not resting — and a clear as a restart in place (0371).
+ */
+const spend = (held: DeckVoice, edge: HoldEdge): void => {
+  if (edge.t === "clear") held.releaseNow();
+  else if (edge.t === "hold") {
+    if (held.planned()) held.holdAt(edge.at);
+  } else {
+    held.releaseAt(edge.at, edge.jump);
+  }
+};
+
 /** The beat the rack under all the yards counts on: the shared clock as one beat, or none. */
 const masterTempo = (sync: number | null): number => (sync === null ? 0 : 60 / sync);
 
@@ -336,20 +350,29 @@ export function createAudioEngine(
     voice(deck).setTempo(soundingBpm(held.analysis, held.params));
   };
 
+  const anyPlanned = (): boolean => [...voices.values()].some((held) => held.planned());
+
+  /**
+   * The master's edges laid ahead and not yet reached, oldest first: what a yard that starts
+   * playing between two ticks is handed, so it joins the rests the others already hold rather
+   * than waiting a horizon for the next. A clear empties it; every tick prunes what has passed.
+   */
+  const laid: HoldEdge[] = [];
+
   // The master's asks, fanned out to every yard that is playing: one draw, the same instants on
   // every yard, and a yard started after the tick catches the next rest rather than this one. A
-  // release reaches every voice and is refused by the ones not resting (0371).
+  // release reaches every voice and is refused by the ones not resting; a clear restarts every
+  // yard that has a rest laid, in place (0371).
   master.effects.onHolds((edges) => {
+    const now = ctx.currentTime;
+    const kept = laid.findIndex((edge) => edge.t === "clear" || edge.at >= now);
+    laid.splice(0, kept < 0 ? laid.length : kept);
     for (const edge of edges) {
-      for (const held of voices.values()) {
-        if (edge.t === "hold") {
-          if (held.planned()) held.holdAt(edge.at);
-        } else {
-          held.releaseAt(edge.at, edge.jump);
-        }
-      }
+      if (edge.t === "clear") laid.length = 0;
+      else laid.push(edge);
+      for (const held of voices.values()) spend(held, edge);
     }
-  });
+  }, anyPlanned);
 
   /** The last asker on the master switched off or gone: every yard resting for it is let go. */
   const releaseUnasked = (): void => {
@@ -429,7 +452,21 @@ export function createAudioEngine(
     },
     play: (deck) => {
       unlock();
-      voice(deck).play();
+      // The first yard to play is what the master's rests count from: a hand's play resets a
+      // yard's own rack the same way, and the master lays nothing while nothing plays (0371).
+      const first = !anyPlanned();
+      const started = voice(deck);
+      started.play();
+      if (first) {
+        master.effects.resetHolds(ctx.currentTime + LOOKAHEAD_SECS);
+        master.effects.armAutomation();
+        return;
+      }
+      // A yard joining others already playing joins the rests they hold: every edge laid ahead
+      // is handed to it, and a release whose hold it missed is refused by it (0371).
+      for (const edge of laid) {
+        if (edge.t !== "clear" && edge.at >= ctx.currentTime) spend(started, edge);
+      }
     },
     stop: (deck) => {
       voice(deck).stop();

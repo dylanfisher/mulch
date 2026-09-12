@@ -310,6 +310,10 @@ describe("a lull on the master", () => {
     const { instrument, engine } = fixture();
     instrument.send({ t: "deck.add", deck: "b", emoji: "🌱", name: "Second Yard" });
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine", hz: 220 } });
+    // Both playing before the lull arrives: the master lays nothing while nothing plays, and
+    // each knob below redraws the run and arms it at once.
+    instrument.send({ t: "deck.play", deck: "a" });
+    instrument.send({ t: "deck.play", deck: "b" });
     instrument.send({ t: "effect.add", deck: null, id: "l1", effect: "lull" });
     // At every chance, two seconds in, for a minute — past the horizon, so no release is laid.
     for (const [param, value] of [
@@ -321,8 +325,6 @@ describe("a lull on the master", () => {
     ] as const) {
       instrument.send({ t: "param.set", deck: null, instance: "l1", param, value });
     }
-    instrument.send({ t: "deck.play", deck: "a" });
-    instrument.send({ t: "deck.play", deck: "b" });
 
     engine.armAutomation();
     // Both transports re-posted their plans carrying the one instant the master asked for.
@@ -330,13 +332,13 @@ describe("a lull on the master", () => {
       expect(reporter.plans.at(-1)).toMatchObject({ until: 2, resume: true });
     }
 
-    // Switched off on the master, the rest is let go on every yard: a release under a plan of
-    // its own, at the lookahead — which is the rest's own instant, because a release cannot come
-    // before the stop it releases, and the clock here has not reached it.
+    // Switched off on the master, every yard is let go: a restart in place at the lookahead,
+    // under a plan of its own with no rest on it, because a stop already scheduled on a source
+    // cannot be taken back and only a new source plays past it.
     instrument.send({ t: "effect.bypass", deck: null, instance: "l1", bypassed: true });
     for (const reporter of reporters) {
-      expect(reporter.plans.at(-1)).toMatchObject({ startTime: 2, resume: false });
+      const last = reporter.plans.at(-1);
+      expect(last).toMatchObject({ startTime: LOOKAHEAD_SECS, resume: false, until: undefined });
     }
-    expect(LOOKAHEAD_SECS).toBeLessThan(2);
   });
 });

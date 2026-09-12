@@ -43,6 +43,12 @@ function nextOf(cursor: ReturnType<typeof createLull>): number {
 
 const isRelease = (edge: HoldEdge): edge is HoldEdge & { t: "release" } => edge.t === "release";
 
+/** An edge's instant: a cursor lays holds and releases and never a clear, which is the plugin's. */
+const instantOf = (edge: HoldEdge): number => {
+  if (edge.t === "clear") throw new Error("a cursor never clears");
+  return edge.at;
+};
+
 // The cursor's whole contract in one block: the same list at two cadences, the roll, the skip, the
 // reset — each case is a few lines and the block is their count. See 0007.
 // oxlint-disable-next-line max-lines-per-function
@@ -59,12 +65,12 @@ describe("a lull's edges", () => {
     let last = 0;
     for (const [i, edge] of edges.entries()) {
       expect(edge.t).toBe(i % 2 === 0 ? "hold" : "release");
-      const length = edge.at - last;
+      const length = instantOf(edge) - last;
       if (edge.t === "hold") expect(length).toBeGreaterThanOrEqual(3);
       if (edge.t === "hold") expect(length).toBeLessThanOrEqual(4);
       if (edge.t === "release") expect(length).toBeGreaterThanOrEqual(1);
       if (edge.t === "release") expect(length).toBeLessThanOrEqual(2);
-      last = edge.at;
+      last = instantOf(edge);
     }
   });
 
@@ -123,7 +129,7 @@ describe("a lull's edges", () => {
     expect(cursor.nextAt()).toBe(first);
     const out: HoldEdge[] = [];
     expect(cursor.edges(10, out)).toBeGreaterThanOrEqual(2);
-    expect(out[0]?.at).toBe(first);
+    expect(out[0] === undefined ? null : instantOf(out[0])).toBe(first);
   });
 });
 
@@ -142,7 +148,9 @@ describe("a lull on the beat", () => {
     const edges = pumped(cursor, 100, 4);
     expect(edges.length).toBeGreaterThan(10);
     for (const edge of edges)
-      expect(Math.abs(edge.at / 0.5 - Math.round(edge.at / 0.5))).toBeLessThan(1e-9);
+      expect(Math.abs(instantOf(edge) / 0.5 - Math.round(instantOf(edge) / 0.5))).toBeLessThan(
+        1e-9,
+      );
   });
 
   it("lays nothing on a yard whose beat was never found", () => {
@@ -161,10 +169,10 @@ describe("a lull on the beat", () => {
     const edges = pumped(cursor, 500, 4);
     let last = 0;
     for (const edge of edges) {
-      const length = edge.at - last;
+      const length = instantOf(edge) - last;
       if (edge.t === "hold") expect(length).toBeLessThanOrEqual(LULL_GAP_MAX + 1e-9);
       if (edge.t === "release") expect(length).toBeGreaterThanOrEqual(LULL_REST_MIN - 1e-9);
-      last = edge.at;
+      last = instantOf(edge);
     }
     expect(LULL_GAP_MIN).toBeLessThan(LULL_REST_MAX);
   });

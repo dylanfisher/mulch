@@ -230,15 +230,15 @@ export const lullEffect = defineEffect({
       createLull(spec(), mulberry32(held["lull.seed"]), ctx.currentTime, grid());
     let cursor = draw();
     /**
-     * A release owed to the transport: the cursor was redrawn while it held the deck, and the
-     * new cursor knows nothing of that rest. Asked for at the next pump, at once — the voice
-     * clamps an instant already past forward to its lookahead.
+     * A clear owed to the transport: the cursor was redrawn, so every instant the old one gave
+     * out — a rest laid ahead, a rest holding the deck now — is nobody's, and the new run counts
+     * from here. Asked for first at the next pump, which the rebuild that redrew it arms at once.
      */
-    let owed = false;
+    let cleared = false;
     const drawn: HoldEdge[] = [];
 
     function redraw(): void {
-      if (cursor.resting()) owed = true;
+      cleared = true;
       cursor = draw();
     }
 
@@ -256,9 +256,9 @@ export const lullEffect = defineEffect({
       endGesture: redraw,
       holds: (until, out) => {
         let n = 0;
-        if (owed) {
-          out[n++] = { t: "release", at: 0, jump: 0 };
-          owed = false;
+        if (cleared) {
+          out[n++] = { t: "clear" };
+          cleared = false;
         }
         const count = cursor.edges(until, drawn);
         for (let i = 0; i < count; i++) {
@@ -268,7 +268,8 @@ export const lullEffect = defineEffect({
         return n;
       },
       resetHolds: (at) => {
-        owed = false;
+        // A hand's reset already dropped everything the old run laid.
+        cleared = false;
         cursor.reset(at);
       },
       // The clocks a beat is counted on reach the run through the same redraw a knob does, and

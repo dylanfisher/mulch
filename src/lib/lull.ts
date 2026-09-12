@@ -23,9 +23,14 @@ export const LULL_SKIP_MAX = 10;
 
 /**
  * One edge the transport is asked for: a hold at an instant, or a release at one carrying how far
- * the playhead resumes from where it was held — signed, and nought for "where it was".
+ * the playhead resumes from where it was held — signed, and nought for "where it was". Or a
+ * clear: every rest the asker had laid is dropped, because it was redrawn and the instants it
+ * gave out are no longer its own — the transport restarts in place where a stop already stands.
  */
-export type HoldEdge = { t: "hold"; at: number } | { t: "release"; at: number; jump: number };
+export type HoldEdge =
+  | { t: "hold"; at: number }
+  | { t: "release"; at: number; jump: number }
+  | { t: "clear" };
 
 export type LullSpec = {
   /** Read at each roll rather than copied, so a lane on it is heard at the next chance. */

@@ -49,8 +49,8 @@ const fakeRack = () => {
     holding: () => false,
     resetHolds: () => {},
     setTempo: () => {},
-    setParam: () => {},
-    endGesture: () => {},
+    setParam: () => false,
+    endGesture: () => false,
     automationTarget: () => {
       throw new Error("no case here arms a lane against a target");
     },
@@ -99,23 +99,28 @@ describe("the clock a rack with no transport keeps", () => {
     const { ctx } = fakeContext();
     const master = createMasterEffects(ctx, rack);
 
+    // An add arms at once, so an instance that asks for rests counts its first gap from now
+    // (0371), and the tick arms again after it.
     grows(true);
     master.addEffect("auto", "automator", {});
-    vi.advanceTimersByTime(TICK_MS);
     expect(calls.pumps).toBe(1);
+    vi.advanceTimersByTime(TICK_MS);
+    expect(calls.pumps).toBe(2);
 
-    // Bypassed: the rack is skipping it, so there is nothing to lay ahead. The tick only notices
-    // at the next write, which is what the second add below is.
+    // Bypassed: the rack is skipping it, so there is nothing to lay ahead on the tick. Each write
+    // still arms once, and the tick only notices at the next write, which is the second add.
     grows(false);
     master.setEffectBypass("auto", true);
     master.addEffect("eq", "eq", {});
+    expect(calls.pumps).toBe(4);
     vi.advanceTimersByTime(TICK_MS);
-    expect(calls.pumps).toBe(1);
+    expect(calls.pumps).toBe(4);
 
     grows(true);
     master.setEffectBypass("auto", false);
+    expect(calls.pumps).toBe(5);
     vi.advanceTimersByTime(TICK_MS);
-    expect(calls.pumps).toBe(2);
+    expect(calls.pumps).toBe(6);
   });
 
   /**
@@ -130,12 +135,12 @@ describe("the clock a rack with no transport keeps", () => {
     grows(true);
     master.addEffect("auto", "automator", {});
     vi.advanceTimersByTime(TICK_MS);
-    expect(calls.pumps).toBe(1);
+    expect(calls.pumps).toBe(2);
 
     held.state = "closed";
     vi.advanceTimersByTime(TICK_MS * 4);
     // The first tick after the close is the one that clears the interval, and it arms nothing.
-    expect(calls.pumps).toBe(1);
+    expect(calls.pumps).toBe(2);
     expect(vi.getTimerCount()).toBe(0);
   });
 });
@@ -147,9 +152,13 @@ describe("the rests a rack with no transport asks for", () => {
     const { ctx } = fakeContext();
     const master = createMasterEffects(ctx, rack);
     const heard: (readonly HoldEdge[])[] = [];
-    master.onHolds((edges) => {
-      heard.push([...edges]);
-    });
+    let playing = false;
+    master.onHolds(
+      (edges) => {
+        heard.push([...edges]);
+      },
+      () => playing,
+    );
 
     grows(true);
     master.addEffect("l1", "lull", {});
@@ -157,6 +166,10 @@ describe("the rests a rack with no transport asks for", () => {
       { t: "hold", at: 2 },
       { t: "release", at: 3, jump: 0 },
     ]);
+    // Nothing plays, so nothing is spent: the same asks are still there for the first yard.
+    master.armAutomation();
+    expect(heard).toEqual([]);
+    playing = true;
     master.armAutomation();
     expect(heard).toEqual([
       [

@@ -64,11 +64,15 @@ export type MasterEffects = {
   /** Whether anything running here asks the transport for holds at all. */
   holding(): boolean;
   /**
-   * Who hears the rests this rack asks for. A rack with no transport of its own hands every ask
-   * up, and the host fans it out to every yard that is playing: one draw, every yard on the same
-   * instants (0371). Called on the arming tick with the edges gathered up to the horizon.
+   * Who hears the rests this rack asks for, and whether anyone is playing to hear them. A rack
+   * with no transport of its own hands every ask up, and the host fans it out to every yard that
+   * is playing: one draw, every yard on the same instants (0371). Gathered on the arming tick up
+   * to the horizon, and only while `playing` says a yard is — a run spent while nothing plays
+   * would be rests nobody heard and a first rest a whole horizon away.
    */
-  onHolds(listener: (edges: readonly HoldEdge[]) => void): void;
+  onHolds(listener: (edges: readonly HoldEdge[]) => void, playing: () => boolean): void;
+  /** The rests count again from `at`: what the first yard to play tells this rack (0371). */
+  resetHolds(at: number): void;
   /** Arm the horizon from wherever the clock stands, for the host that has no interval — the
    *  offline render, which runs with nothing on the main thread listening (0071). */
   armAutomation(): void;
@@ -98,7 +102,8 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
   const lanes = new Map<string, HeldLane>();
   /** The arming tick, running exactly while there is a lane or a run to lay ahead of the clock. */
   let rearm: ReturnType<typeof setInterval> | null = null;
-  let onHolds: ((edges: readonly HoldEdge[]) => void) | null = null;
+  let onHolds: { listener: (edges: readonly HoldEdge[]) => void; playing: () => boolean } | null =
+    null;
   /** The rack's asks, gathered on the tick and handed up whole (0371). */
   const asks: HoldEdge[] = [];
 
@@ -156,8 +161,9 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
     rack.pump(ctx.currentTime, AUTOMATION_HORIZON_SECS);
     // Gathered on the same horizon the yards lay theirs on, and handed up rather than applied:
     // this rack has no transport, so the host is the one that knows which yards are playing.
+    if (onHolds === null || !onHolds.playing()) return;
     const asked = rack.holds(ctx.currentTime + AUTOMATION_HORIZON_SECS, asks);
-    if (asked > 0) onHolds?.(asks.slice(0, asked));
+    if (asked > 0) onHolds.listener(asks.slice(0, asked));
   }
 
   /**
@@ -180,15 +186,18 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
     // at all: it is imported from inside it (0203).
     addEffect: (instance, effect, values) => {
       const at = rack.add(instance, effectById(effect), values);
-      // The rack it joined may grow, and this one may be the first that does.
+      // The rack it joined may grow, and this one may be the first that does — and one that asks
+      // for rests is armed now, so its first gap is not a whole tick long (0371).
       retick();
+      armAhead();
       return at;
     },
     setEffectBypass: (instance, bypassed) => {
       rack.setBypass(instance, bypassed);
       // The switch is what puts a growing instance back in the signal path, and this rack has no
-      // play or stop to notice that at (`retick`).
+      // play or stop to notice that at (`retick`); one that asks for rests is armed at once.
       retick();
+      armAhead();
     },
     setEffectBounds: (instance, bounds) => {
       rack.setBounds(instance, bounds);
@@ -205,7 +214,8 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
       rack.reorder(next);
     },
     setParam: (instance, param, value) => {
-      rack.setParam(instance, asEffectParam(param), value, ctx.currentTime);
+      // A rebuilt run is laid from now: armed here rather than a tick later (0371).
+      if (rack.setParam(instance, asEffectParam(param), value, ctx.currentTime)) armAhead();
     },
     setAutomation: (instance, param, lane, base) => {
       const key = paramKey(instance, param);
@@ -234,7 +244,7 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
       retick();
     },
     endGesture: () => {
-      rack.endGesture();
+      if (rack.endGesture()) armAhead();
     },
     setSync: (sync) => {
       rack.setSync(sync);
@@ -243,8 +253,11 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
       rack.setTempo(bpm);
     },
     holding: () => rack.holding(),
-    onHolds: (listener) => {
-      onHolds = listener;
+    onHolds: (listener, playing) => {
+      onHolds = { listener, playing };
+    },
+    resetHolds: (at) => {
+      rack.resetHolds(at);
     },
     armAutomation: () => {
       armAhead();

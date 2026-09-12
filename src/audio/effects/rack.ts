@@ -99,12 +99,16 @@ export type EffectRack = {
   resetHolds(at: number): void;
   /** The yard's sounding beat, handed to every instance that rounds onto it. */
   setTempo(bpm: number): void;
-  /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
-  setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
+  /**
+   * The value lookup is the pair: which instance, and which of its plugin's parameters (0030).
+   * Answers whether the move paid for the rebuild of an instance that asks for rests (`build`).
+   */
+  setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): boolean;
   /**
    * The hand let go: every instance holding a rebuild does it now, once. See `owing` below.
+   * Answers whether any that asks for rests did.
    */
-  endGesture(): void;
+  endGesture(): boolean;
   /**
    * The bound AudioParam a held instance's automatable parameter moves. Throws when the rack does
    * not hold that instance, or when the plugin declared automation and bound no target (0024).
@@ -137,15 +141,20 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
   const owing = new Set<EffectInstanceId>();
   let lastMove: string | null = null;
 
-  /** Pay for what an instance is holding, or say the plugin declared what it did not bind. */
-  const build = (id: EffectInstanceId): void => {
-    if (!owing.delete(id)) return;
+  /**
+   * Pay for what an instance is holding, or say the plugin declared what it did not bind. Answers
+   * whether an instance that asks for rests was rebuilt: its run is laid from now, so whoever
+   * ticks arms at once rather than a tick later (0371).
+   */
+  const build = (id: EffectInstanceId): boolean => {
+    if (!owing.delete(id)) return false;
     const instance = instances.get(id);
-    if (instance === undefined) return;
+    if (instance === undefined) return false;
     if (instance.endGesture === undefined) {
       throw new Error(`effect declares a rebuild parameter and binds no endGesture: ${id}`);
     }
     instance.endGesture();
+    return instance.holds !== undefined;
   };
 
   const reconnect = (): void => {
@@ -210,10 +219,14 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       return order.length - 1;
     },
     setBypass: (id, off) => {
-      held(id);
+      const instance = held(id);
       if (bypassed.has(id) === off) return;
       if (off) bypassed.add(id);
       else bypassed.delete(id);
+      // Switched back on, an instance that asks for rests counts its gap again from now: the
+      // edges it drew while it was off are instants that have gone, and a hand's play resets it
+      // the same way (0371).
+      if (!off) instance.resetHolds?.(ctx.currentTime);
       rewire(() => {
         if (off) bypassed.delete(id);
         else bypassed.add(id);
@@ -365,14 +378,16 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       const move = `${id}\u0000${param}`;
       const continues = move === lastMove;
       lastMove = move;
-      if (rebuilds.get(id)?.has(param) !== true) return;
+      if (rebuilds.get(id)?.has(param) !== true) return false;
       owing.add(id);
-      if (!continues) build(id);
+      return !continues && build(id);
     },
     endGesture: () => {
       // `build` deletes the id it just paid for, which a Set iteration takes in its stride.
-      for (const id of owing) build(id);
+      let built = false;
+      for (const id of owing) built = build(id) || built;
       lastMove = null;
+      return built;
     },
     automationTarget: (id, param) => {
       const target = held(id).automationTarget?.(param);

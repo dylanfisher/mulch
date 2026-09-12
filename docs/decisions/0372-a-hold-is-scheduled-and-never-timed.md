@@ -20,5 +20,9 @@ as any other start when its instant comes. The main thread does the paused half 
 `held` arrives, holding the playhead at the position it read off the plan when the ask was taken,
 and freezes the lanes at the stop's own instant rather than the report's.
 
-**A rest keeps the tick running.** A release may fall past the horizon — a minute's rest — so a
-voice goes on arming through a rest it would otherwise stop ticking under.
+**A rest keeps the tick running, and a tick may lay several.** A release may fall past the horizon
+— a minute's rest — so a voice goes on arming through a rest it would otherwise stop ticking under;
+and one horizon may hold several rests, each a stop on the release laid before it, so the voice
+keeps them as a queue and the reporter queues the plans behind a rest in order. A hold the tick
+arrived too late for is not taken — laid now it would be a blip and not a rest — while a late
+release is clamped forward, because a held deck is owed one.
