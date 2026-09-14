@@ -831,6 +831,54 @@ The step leaves one boolean: `PICTURE_FILL_COVER` (src/ui/moireTint.ts), nine pi
 frame — the screen's ink once and at most one more per coloured row — read off the painter's own
 recorder, clipped to the picture, in src/ui/moireTint.test.ts.
 
+### Block: a yard is sequenced
+
+A hand wants to play many yards over minutes rather than seconds: fade one in over two minutes,
+hold it, fade it out and rest it, while another breathes on its own count — a higher-order level
+outside the yard's own gain, which stays the hand's (docs/TODO.md, 2026-09-13). This block lands
+that as one durable shape and one view: a **sequence** on the deck, a run of steps (in, play, out,
+rest, each whole seconds) read as one level between nought and one that a `fade` gain after the
+fader is scaled by, riding the lane clock so a pause holds it and a stop rewinds it; and a
+**sequencer mode** in the header under which every yard is drawn folded with its sequence in the
+header's slack ([0379](decisions/0379-a-yards-sequence-is-a-fade-over-its-own-gain.md)).
+
+**Layout, before the first step.** The shape and its maths are src/lib/deckSequence.ts — the
+type, the bounds, `sequenceLevelAt`, `sequenceRamps` and the one validator `assertSequence`, the
+`player`'s pattern (src/lib/playerWire.ts). The node is one gain in `buildDeckChain`; the clock is
+the lane clock's anchor in src/audio/deckLanes.ts. The mode is src/ui/sequencerMode.ts, the
+theme's pattern; the row is src/ui/DeckSequencerRow.tsx, its own file because src/ui/Deck.tsx is
+at its waivers (0007), keyed off a declared face and not a branch (0205).
+
+**Step 1 — the shape and its maths (0379).** _Durable shape moved:_ none. src/lib/deckSequence.ts
+and its test; the decision. **Outcome wanted:** a level at any instant and the ramps of any window,
+each a function of the steps and the instant alone. **Tests that must fail first:** a window laid
+four seconds at a time carries the same edges as one laid whole (0204); the gate refuses a kind
+nobody declared, a fractional second, a sixty-fifth step. **Refused:** a level other than nought
+or one at a step's ends; a parameter.
+
+**Step 2 — the yard holds a sequence.** _Durable shape moved:_ `SessionDeck.sequence`, a list,
+empty by default; stored sessions without it are discarded (0026). `deck.sequence` on the wire and
+in history, a restore stage, the stored fixture. **Tests that must fail first:** through
+`createInstrument`, the command lands, undoes, survives a snapshot round-trip, and rides a
+duplicate and a clip. **Refused:** a migration; a clip that leaves it behind.
+
+**Step 3 — the chain fades.** _Durable shape moved:_ none. The `fade` gain, `armSequence` laying
+`sequenceRamps` on the arming tick, the anchor on the lane clock that `release` shifts and a stop
+rewinds, `fade` and `sequenceAt` on the peek. **Tests that must fail first:** the ramps a window
+lays are exactly `sequenceRamps`; a pause holds `sequenceAt` and a stop rewinds it; a render of
+in–play–out matches the level curve. **Refused:** a hold asked of the transport; a restart on a
+sequence edit.
+
+**Step 4 — the mode and the face.** _Durable shape moved:_ none. The header toggle, the face
+record in the card, the row. **Tests that must fail first:** in the sequence face the source
+picker, the capture button and the body are absent and grip, duplicate and remove present; one
+edit sends one whole-list `deck.sequence`. **Refused:** a palette entry; session state for the
+mode; a hand-edited primitive.
+
+**Step 5 — looked at.** _Durable shape moved:_ none. A shot of the instrument with the mode on and
+a headed run that writes in–play–out, plays, and reads the fade rise and fall. No new browser
+scenario in the gate (0012).
+
 ---
 
 ## 2. Rules for every feature

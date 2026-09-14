@@ -28,6 +28,18 @@
   pixels that slowly move around - it's not exciting at all. spark should invoke the idea of bright randomness,
   excitement, etc.
 
+- decks should have a mute option
+- ability to name or tag decks, e.g. low end, high end, etc.
+
+- ability to live record session?
+
+- when popping open visualizer there's a underlying solid color, like orange, before the grid fills in. this should
+  be avoided.
+
+- add a way to completely disable visualizer for slow computers, free up space. interview me about other ways to
+  add a low resource mode when e.g. many items are are automated over 7+ decks. ask if collapsing a deck frees
+  up resources (e.g. we don't have to draw the knob moving.)
+
 - increase mulcher burst timing to be up to 8 or 16 seconds. if a burst needs to wrap around a loop to satisfy
   the length requirement it should do that, rather than get cut off at the end.
 
@@ -46,7 +58,13 @@
 
 - play/pause effect, kinda like scatter
 
+- panner slice rate knob should change to adjust band and time. refactor how this effect works. i imagine it
+  more like pop effect width, how it expands the soundstage.
+
 - if possible, make it so pressing stop when already stops clears all noise (feedback, etc.)
+
+- some sort of effect, or post-effect chain that takes the sound input and "flattens" it, and allows cutting
+  up the processed sound.
 
 - randomize button next to yard seed input
 
