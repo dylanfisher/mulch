@@ -854,30 +854,41 @@ and its test; the decision. **Outcome wanted:** a level at any instant and the r
 each a function of the steps and the instant alone. **Tests that must fail first:** a window laid
 four seconds at a time carries the same edges as one laid whole (0204); the gate refuses a kind
 nobody declared, a fractional second, a sixty-fifth step. **Refused:** a level other than nought
-or one at a step's ends; a parameter.
+or one at a step's ends; a parameter. _Landed_ 2026-09-13 as
+[0379](decisions/0379-a-yards-sequence-is-a-fade-over-its-own-gain.md): src/lib/deckSequence.ts, thirteen
+cases.
 
 **Step 2 — the yard holds a sequence.** _Durable shape moved:_ `SessionDeck.sequence`, a list,
 empty by default; stored sessions without it are discarded (0026). `deck.sequence` on the wire and
 in history, a restore stage, the stored fixture. **Tests that must fail first:** through
 `createInstrument`, the command lands, undoes, survives a snapshot round-trip, and rides a
-duplicate and a clip. **Refused:** a migration; a clip that leaves it behind.
+duplicate and a clip. **Refused:** a migration; a clip that leaves it behind. _Landed_ 2026-09-13: `deck.sequence` on the wire, in history under one key per yard, a stage after the
+player, the fixture; src/app/deckSequence.test.ts.
 
 **Step 3 — the chain fades.** _Durable shape moved:_ none. The `fade` gain, `armSequence` laying
 `sequenceRamps` on the arming tick, the anchor on the lane clock that `release` shifts and a stop
 rewinds, `fade` and `sequenceAt` on the peek. **Tests that must fail first:** the ramps a window
 lays are exactly `sequenceRamps`; a pause holds `sequenceAt` and a stop rewinds it; a render of
 in–play–out matches the level curve. **Refused:** a hold asked of the transport; a restart on a
-sequence edit.
+sequence edit. _Landed_ 2026-09-13: `fadeAlong` on the chain, the anchor on the lane clock, `fade` and `sequenceAt` on
+the peek; src/audio/deckSequence.test.ts, and scripts/smoke.d/renderSequence.js — halfway up a fade
+reads 5.9dB under level, past the end silence, two renders to the byte. A flatten renders at one and
+keeps the sequence.
 
 **Step 4 — the mode and the face.** _Durable shape moved:_ none. The header toggle, the face
 record in the card, the row. **Tests that must fail first:** in the sequence face the source
 picker, the capture button and the body are absent and grip, duplicate and remove present; one
 edit sends one whole-list `deck.sequence`. **Refused:** a palette entry; session state for the
-mode; a hand-edited primitive.
+mode; a hand-edited primitive. _Landed_ 2026-09-13: src/ui/sequencerMode.ts, src/ui/SequencerToggle.tsx, src/ui/DeckSequencerRow.tsx,
+src/lib/copySequence.ts; the card's face cases in src/ui/DeckSequenceFace.test.tsx, because
+src/ui/Deck.test.tsx stood at the hard cap.
 
 **Step 5 — looked at.** _Durable shape moved:_ none. A shot of the instrument with the mode on and
 a headed run that writes in–play–out, plays, and reads the fade rise and fall. No new browser
-scenario in the gate (0012).
+scenario in the gate (0012). _Landed_ 2026-09-13: a scratch Playwright run on the dev server read the fade at 0.17, 0.34, 0.51, 0.68,
+0.84 and 1.00 over a three-second fade in, a stop rewound it to nought, the row's add sent the
+command, and the view off drew the yard whole again; the render smoke is the one browser scenario
+added, in the render lane.
 
 ---
 
