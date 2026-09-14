@@ -1,22 +1,22 @@
 /**
- * @role One yard's sequence, in the header's slack under the sequencer view: the yard's own
- *   play/pause at the head, then the run of steps as a profile with a cursor riding it at wherever
- *   the fade has reached, and under it one row per step — its kind as a picker, its length as a
- *   dial, and the press that takes it out — with the press that adds one on the end. Every edit
- *   sends the whole run as one `deck.sequence`, the way a lane is sent whole (0024, 0379).
- * @instead The maths of the profile and the level → src/lib/deckSequence.ts. The fade's live
- *   position comes from peek() on src/app/facade.ts, never from a clock of this component's own.
- *   The lane preview whose cursor this copies → src/ui/AutomationPreview.tsx. The play toggle is
- *   the transport's own, sending the same command → src/ui/DeckTransport.tsx.
+ * @role One yard's run under the sequencer view, drawn the width of the yard in two lines: the
+ *   picture of the run, and under it the strip that edits it — one chip per step, holding its
+ *   kind as a picker, its length as a reading a hand presses to type, and the press that takes it
+ *   out — with the press that adds one on the end. Every edit sends the whole run as one
+ *   `deck.sequence`, the way a lane is sent whole (0024, 0379). And the yard's own play/pause,
+ *   which the header draws beside its name under this view.
+ * @instead The picture and its cursor → src/ui/DeckSequenceTimeline.tsx. The maths of the run →
+ *   src/lib/deckSequence.ts. The play toggle is the transport's own, sending the same command →
+ *   src/ui/DeckTransport.tsx.
  */
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { ACTION_TOOLTIPS } from "@/lib/copy";
 import {
+  readSequenceSecs,
   SEQUENCE_ADD_LABEL,
   SEQUENCE_ADD_TOOLTIP,
-  SEQUENCE_EMPTY,
   SEQUENCE_LABEL,
   SEQUENCE_SECS_LABEL,
   SEQUENCE_SECS_TOOLTIP,
@@ -32,9 +32,6 @@ import {
   SEQUENCE_STEPS_MAX,
   type SequenceStep,
   type SequenceStepKind,
-  sequenceLevelAt,
-  sequencePhaseSecs,
-  sequenceSpanSecs,
 } from "@/lib/deckSequence";
 import type { DeckId } from "@/state/store";
 import { playToggleCommand } from "@/ui/actions";
@@ -46,15 +43,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/components/select";
-import { useOnFrame } from "@/ui/frame";
-import { ACTION_ICONS } from "@/ui/icons";
-import { Knob } from "@/ui/Knob";
 import { Toggle } from "@/ui/components/toggle";
+import { DeckSequenceTimeline } from "@/ui/DeckSequenceTimeline";
+import { ACTION_ICONS } from "@/ui/icons";
+import { KnobReadout } from "@/ui/KnobReadout";
 import { Says } from "@/ui/Says";
-
-/** The profile's viewBox. Small on purpose: it says the shape of the run, not its every second. */
-const PROFILE_WIDTH = 100;
-const PROFILE_HEIGHT = 16;
 
 /** A step a hand adds: a minute of playing, which is what most of a run is. */
 const ADDED_STEP: SequenceStep = { kind: "play", secs: 60 };
@@ -65,28 +58,48 @@ const KIND_ITEMS = SEQUENCE_STEP_KINDS.map((kind) => ({
   label: SEQUENCE_STEP_LABELS[kind],
 }));
 
-/** How far the length dial travels for its whole range: three and a half doublings a sweep. */
-const SECS_TRAVEL_PX = Math.log2(SEQUENCE_SECS_MAX / SEQUENCE_SECS_MIN) * 30;
+/** The column a length reading holds, so `0:05` and `59:59` sit in one width. */
+const SECS_COLUMN = { minWidth: "5ch" };
 
-/** The run as a path: the level at nought, then at every step's edge — a straight line each. */
-function profilePath(steps: DeckSequence): string {
-  const span = sequenceSpanSecs(steps);
-  if (span === 0) return "";
-  const point = (at: number): string =>
-    `${(at / span) * PROFILE_WIDTH} ${(1 - sequenceLevelAt(steps, at)) * PROFILE_HEIGHT}`;
-  let at = 0;
-  const parts = [`M${point(0)}`];
-  for (const step of steps) {
-    // Just inside the edge, so a rest after a fade in is read as the drop it is and not as the
-    // level the next step begins at.
-    at += step.secs;
-    parts.push(`L${point(at - 1e-6)}`, `L${point(at)}`);
-  }
-  return parts.join(" ");
+/**
+ * The yard's play/pause, drawn beside its name under the sequencer: the one toggle Space, the
+ * palette and the transport send, so a press here means what a press there means (P41).
+ * Controlled by the session — `pressed` is read off the yard (src/ui/DeckTransport.tsx).
+ */
+export function SequencePlayToggle({
+  instrument,
+  deck,
+  playing,
+  loaded,
+}: {
+  instrument: Instrument;
+  deck: DeckId;
+  playing: boolean;
+  /** Whether the yard has anything to play: an empty one offers no play, as its transport does. */
+  loaded: boolean;
+}) {
+  const onPlayToggle = useCallback(() => {
+    instrument.send(playToggleCommand(deck));
+  }, [instrument, deck]);
+  const PlayIcon = playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
+  return (
+    <Says what={playing ? ACTION_TOOLTIPS.pause : ACTION_TOOLTIPS.play}>
+      <Toggle
+        size="sm"
+        variant="outline"
+        pressed={playing}
+        onPressedChange={onPlayToggle}
+        disabled={!loaded}
+      >
+        <PlayIcon data-icon="inline-start" />
+        {playing ? "Pause" : "Play"}
+      </Toggle>
+    </Says>
+  );
 }
 
-/** One step's row: its kind, its length, and the press that takes it out. */
-function StepRow({
+/** One step's chip: its kind, its length, and the press that takes it out — one box, one edge. */
+function StepChip({
   step,
   index,
   onKind,
@@ -117,12 +130,14 @@ function StepRow({
   const remove = useCallback(() => {
     onRemove(index);
   }, [index, onRemove]);
+  const readout = useRef<HTMLOutputElement>(null);
   const ordinal = `${SEQUENCE_LABEL} ${index + 1}`;
   return (
-    <div className="flex items-center gap-1" data-slot="sequence-step">
+    <div className="flex h-7 items-center border border-input" data-slot="sequence-step">
       <Says what={SEQUENCE_STEP_TOOLTIPS[step.kind]}>
         <Select value={step.kind} onValueChange={onValueChange} items={KIND_ITEMS}>
-          <SelectTrigger size="sm" aria-label={`${ordinal} Kind`}>
+          {/* The chip draws the one edge; the picker inside it draws none of its own. */}
+          <SelectTrigger size="sm" className="border-0" aria-label={`${ordinal} Kind`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -134,22 +149,22 @@ function StepRow({
           </SelectContent>
         </Select>
       </Says>
-      <Knob
-        size="xs"
-        label={SEQUENCE_SECS_LABEL}
-        name={`${ordinal} ${SEQUENCE_SECS_LABEL}`}
-        says={SEQUENCE_SECS_TOOLTIP}
-        value={step.secs}
-        min={SEQUENCE_SECS_MIN}
-        max={SEQUENCE_SECS_MAX}
-        step={1}
-        curve="log"
-        travelPx={SECS_TRAVEL_PX}
-        format={sequenceSecsLabel}
-        defaultValue={ADDED_STEP.secs}
-        onChange={onChange}
-        animate={false}
-      />
+      <Says what={SEQUENCE_SECS_TOOLTIP}>
+        <KnobReadout
+          readout={readout}
+          aria-label={`${ordinal} ${SEQUENCE_SECS_LABEL}`}
+          className="type-readout tabular-nums"
+          style={SECS_COLUMN}
+          value={step.secs}
+          min={SEQUENCE_SECS_MIN}
+          max={SEQUENCE_SECS_MAX}
+          step={1}
+          format={sequenceSecsLabel}
+          parse={readSequenceSecs}
+          onChange={onChange}
+          disabled={false}
+        />
+      </Says>
       <Says what={ACTION_TOOLTIPS.remove}>
         <Button size="icon-xs" variant="ghost" aria-label={`Remove ${ordinal}`} onClick={remove}>
           <ACTION_ICONS.remove />
@@ -159,34 +174,18 @@ function StepRow({
   );
 }
 
-// One picture and one list, and the four edits that write the list: the length is the row's whole
-// surface rather than a judgement of its own. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
 export function DeckSequencerRow({
   instrument,
   deck,
   steps,
   playing,
-  loaded,
 }: {
   instrument: Instrument;
   deck: DeckId;
   steps: DeckSequence;
-  /** Whether the yard is playing, which is the only time the fade's cursor moves (0040). */
+  /** Whether the yard is playing, which is the only time the picture's cursor moves (0040). */
   playing: boolean;
-  /** Whether the yard has anything to play: an empty one offers no play, as its transport does. */
-  loaded: boolean;
 }) {
-  const span = sequenceSpanSecs(steps);
-  const path = useMemo(() => profilePath(steps), [steps]);
-
-  // The one toggle Space, the palette and the transport send, so a press here means what a press
-  // there means (P41). Controlled by the session: `pressed` is read off the yard (DeckTransport).
-  const onPlayToggle = useCallback(() => {
-    instrument.send(playToggleCommand(deck));
-  }, [instrument, deck]);
-  const PlayIcon = playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
-
   /** The whole run, sent whole, and the gesture over where it lands (0024, 0067). */
   const send = useCallback(
     (next: DeckSequence) => {
@@ -202,27 +201,17 @@ export function DeckSequencerRow({
     [send, steps],
   );
   /**
-   * A dial's moves are one gesture: each sends the run, and the boundary is the pointer coming up
-   * on the list below, which is where every dial's release bubbles to (0067). Without the end a
-   * pick a moment later would join the drag's entry and one undo would take back both. A nudge
-   * from the keyboard has no such boundary here and is bounded by history's own idle backstop.
+   * A length is typed and committed once, so it is one edit and one gesture like a pick: whole
+   * seconds, which is what the run holds (src/lib/deckSequence.ts), rounded here rather than
+   * refused at the wire.
    */
   const onSecs = useCallback(
     (index: number, next: number) => {
-      // Whole seconds, which is what the run holds (src/lib/deckSequence.ts): the dial steps by
-      // one, and a value typed into its readout is rounded here rather than refused at the wire.
       const secs = Math.round(next);
-      instrument.send({
-        t: "deck.sequence",
-        deck,
-        steps: steps.map((step, at) => (at === index ? { kind: step.kind, secs } : step)),
-      });
+      send(steps.map((step, at) => (at === index ? { kind: step.kind, secs } : step)));
     },
-    [instrument, deck, steps],
+    [send, steps],
   );
-  const endGesture = useCallback(() => {
-    instrument.send({ t: "gesture.end" });
-  }, [instrument]);
   const onRemove = useCallback(
     (index: number) => {
       send(steps.filter((_step, at) => at !== index));
@@ -233,99 +222,34 @@ export function DeckSequencerRow({
     send([...steps, ADDED_STEP]);
   }, [send, steps]);
 
-  /**
-   * The cursor, painted from the fade's own position once a frame and never through state
-   * (boundary 6, 0070): a frame that would repeat the last paint writes nothing.
-   */
-  const cursor = useRef<HTMLDivElement>(null);
-  const painted = useRef<{ x: number; opacity: string | null }>({ x: Number.NaN, opacity: null });
-  const paintCursor = useCallback(() => {
-    const element = cursor.current;
-    if (element === null) return;
-    const last = painted.current;
-    if (span === 0) {
-      if (last.opacity === "0") return;
-      element.style.opacity = "0";
-      last.opacity = "0";
-      return;
-    }
-    const at = sequencePhaseSecs(steps, instrument.peek(deck).sequenceAt);
-    const x = at / span;
-    if (last.opacity === "1" && x === last.x) return;
-    element.style.left = `${x * 100}%`;
-    element.style.opacity = "1";
-    last.x = x;
-    last.opacity = "1";
-  }, [deck, instrument, span, steps]);
-  useOnFrame(paintCursor, playing && span > 0);
-  // And once in the commit, so a halted yard's cursor stands where its fade is holding (0040).
-  useLayoutEffect(paintCursor);
-
   return (
-    <div className="flex min-w-0 flex-1 items-start gap-3 self-center" data-slot="sequence">
-      {/* At the head of the row, where a hand reaches first: the fade counts from this press. */}
-      <Says what={playing ? ACTION_TOOLTIPS.pause : ACTION_TOOLTIPS.play}>
-        <Toggle
-          size="sm"
-          variant="outline"
-          className="shrink-0"
-          pressed={playing}
-          onPressedChange={onPlayToggle}
-          disabled={!loaded}
-        >
-          <PlayIcon data-icon="inline-start" />
-          {playing ? "Pause" : "Play"}
-        </Toggle>
-      </Says>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="relative h-4 w-full" aria-label={SEQUENCE_LABEL}>
-          <svg
-            className="size-full"
-            viewBox={`0 0 ${PROFILE_WIDTH} ${PROFILE_HEIGHT}`}
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path d={path} className="fill-none stroke-primary" vectorEffect="non-scaling-stroke" />
-          </svg>
-          <div
-            ref={cursor}
-            data-slot="sequence-playhead"
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-primary opacity-0"
+    <div className="flex flex-col gap-2" data-slot="sequence">
+      <DeckSequenceTimeline instrument={instrument} deck={deck} steps={steps} playing={playing} />
+      <div className="flex flex-wrap items-center gap-2">
+        {steps.map((step, index) => (
+          <StepChip
+            // Steps have no identity of their own: the run is a list and its position is its name.
+            // oxlint-disable-next-line react/no-array-index-key
+            key={index}
+            step={step}
+            index={index}
+            onKind={onKind}
+            onSecs={onSecs}
+            onRemove={onRemove}
           />
-        </div>
-        <div
-          className="flex flex-wrap items-center gap-2"
-          onPointerUp={endGesture}
-          onLostPointerCapture={endGesture}
-        >
-          {steps.length === 0 && (
-            <span className="type-readout text-muted-foreground">{SEQUENCE_EMPTY}</span>
-          )}
-          {steps.map((step, index) => (
-            <StepRow
-              // Steps have no identity of their own: the run is a list and its position is its name.
-              // oxlint-disable-next-line react/no-array-index-key
-              key={index}
-              step={step}
-              index={index}
-              onKind={onKind}
-              onSecs={onSecs}
-              onRemove={onRemove}
-            />
-          ))}
-          <Says what={SEQUENCE_ADD_TOOLTIP}>
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              aria-label={SEQUENCE_ADD_LABEL}
-              disabled={steps.length >= SEQUENCE_STEPS_MAX}
-              onClick={add}
-            >
-              <ACTION_ICONS.add />
-            </Button>
-          </Says>
-        </div>
+        ))}
+        <Says what={SEQUENCE_ADD_TOOLTIP}>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={SEQUENCE_ADD_LABEL}
+            disabled={steps.length >= SEQUENCE_STEPS_MAX}
+            onClick={add}
+          >
+            <ACTION_ICONS.add data-icon="inline-start" />
+            Step
+          </Button>
+        </Says>
       </div>
     </div>
   );

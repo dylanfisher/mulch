@@ -44,7 +44,7 @@ import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
 import { DeckRemove } from "@/ui/DeckRemove";
-import { DeckSequencerRow } from "@/ui/DeckSequencerRow";
+import { DeckSequencerRow, SequencePlayToggle } from "@/ui/DeckSequencerRow";
 import { useSequencerMode } from "@/ui/sequencerMode";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
@@ -448,15 +448,20 @@ export function Deck({
           )}
         </h2>
         {face === "sequence" ? (
-          // The sequencer's face: the run of steps in the slack the source, the readout and the
-          // reading stood in, so a whole session of yards reads as one column of runs (0379).
-          <DeckSequencerRow
-            instrument={instrument}
-            deck={deck}
-            steps={shown.sequence}
-            playing={state.playing}
-            loaded={state.duration > 0}
-          />
+          // The sequencer's face: the yard's play beside its name, and the run itself drawn the
+          // width of the yard under the header, so a whole session of yards reads as one column
+          // of runs (0379).
+          <>
+            <SequencePlayToggle
+              instrument={instrument}
+              deck={deck}
+              playing={state.playing}
+              loaded={state.duration > 0}
+            />
+            {/* The slack the readout takes on the other face, so the yard's own group of buttons
+                keeps its place at the edge under either. */}
+            <span className="flex-1" />
+          </>
         ) : (
           <>
             {/* What this yard is playing and how to change it, at the top of the yard where a reader
@@ -563,6 +568,15 @@ export function Deck({
         </Says>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
       </header>
+
+      {face === "sequence" && (
+        <DeckSequencerRow
+          instrument={instrument}
+          deck={deck}
+          steps={shown.sequence}
+          playing={state.playing}
+        />
+      )}
 
       {collapsed || face === "sequence" ? null : (
         <>

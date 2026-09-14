@@ -26,9 +26,14 @@ vi.mock("react", async (importOriginal) => {
 import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
-import { SEQUENCE_ADD_LABEL, SEQUENCE_EMPTY, sequenceSecsLabel } from "@/lib/copySequence";
+import {
+  readSequenceSecs,
+  SEQUENCE_ADD_LABEL,
+  SEQUENCE_EMPTY,
+  sequenceSecsLabel,
+} from "@/lib/copySequence";
 import type { DeckSequence } from "@/lib/deckSequence";
-import { DeckSequencerRow } from "@/ui/DeckSequencerRow";
+import { DeckSequencerRow, SequencePlayToggle } from "@/ui/DeckSequencerRow";
 
 const BREATH: DeckSequence = [
   { kind: "in", secs: 120 },
@@ -92,23 +97,19 @@ function findStep(node: ReactNode, index: number): StepProps | null {
 const row = (steps: DeckSequence) => {
   const instrument = createInstrument(manualClock(), () => silentEngine());
   const sent = vi.spyOn(instrument, "send");
-  const element = DeckSequencerRow({ instrument, deck: "a", steps, playing: false, loaded: true });
+  const element = DeckSequencerRow({ instrument, deck: "a", steps, playing: false });
   return { element, sent, markup: renderToStaticMarkup(element) };
 };
 
 describe("the sequence row", () => {
   it("plays and pauses the yard through the one toggle the transport sends", () => {
-    const { element, sent, markup } = row(BREATH);
-    expect(markup).toContain(">Play<");
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    const sent = vi.spyOn(instrument, "send");
+    const element = SequencePlayToggle({ instrument, deck: "a", playing: false, loaded: true });
+    expect(renderToStaticMarkup(element)).toContain(">Play<");
     findPressable(element)?.onPressedChange?.();
     expect(sent).toHaveBeenLastCalledWith({ t: "deck.play.toggle", deck: "a" });
-    const paused = DeckSequencerRow({
-      instrument: createInstrument(manualClock(), () => silentEngine()),
-      deck: "a",
-      steps: BREATH,
-      playing: true,
-      loaded: true,
-    });
+    const paused = SequencePlayToggle({ instrument, deck: "a", playing: true, loaded: true });
     expect(renderToStaticMarkup(paused)).toContain(">Pause<");
   });
 
@@ -119,7 +120,7 @@ describe("the sequence row", () => {
     expect(markup).not.toContain("Sequence 1");
   });
 
-  it("draws a picker, a dial in minutes and a remove per step, and the profile", () => {
+  it("draws a picker, a length in minutes and a remove per step, and the picture", () => {
     const { markup } = row(BREATH);
     for (const ordinal of [1, 2, 3]) {
       expect(markup).toContain(`aria-label="Sequence ${ordinal} Kind"`);
@@ -129,9 +130,11 @@ describe("the sequence row", () => {
     expect(markup).toContain(sequenceSecsLabel(120));
     expect(sequenceSecsLabel(120)).toBe("2:00");
     expect(sequenceSecsLabel(5)).toBe("0:05");
-    // The profile is one path with a point per edge; the empty run draws none.
+    // The picture is a band per step, as wide as the step is long, under one path with a point
+    // per edge; the empty run draws neither.
+    expect(markup).toContain('style="width:25%"');
     expect(markup).toMatch(/<path d="M0 16 L[^"]+"/u);
-    expect(row([]).markup).toContain('<path d=""');
+    expect(row([]).markup).not.toContain('data-slot="sequence-playhead"');
   });
 
   it("sends the whole run for a pick, an add and a remove, each a gesture of its own", () => {
@@ -158,11 +161,24 @@ describe("the sequence row", () => {
     ]);
   });
 
-  it("sends the run on every move of a length dial, whole seconds, and no gesture end", () => {
+  it("sends the run once for a typed length, whole seconds, as a gesture of its own", () => {
     const { element, sent } = row(BREATH);
     findStep(element, 2)?.onSecs(2, 90.4);
     expect(sent.mock.calls).toEqual([
       [{ t: "deck.sequence", deck: "a", steps: [BREATH[0], BREATH[1], { kind: "out", secs: 90 }] }],
+      [{ t: "gesture.end" }],
     ]);
+  });
+
+  it("reads a typed length as minutes and seconds, as seconds, or as minutes alone", () => {
+    expect(readSequenceSecs("2:30")).toBe(150);
+    expect(readSequenceSecs(" 0:05 ")).toBe(5);
+    expect(readSequenceSecs("150")).toBe(150);
+    expect(readSequenceSecs("2m")).toBe(120);
+    expect(readSequenceSecs("1.5m")).toBe(90);
+    // A hand that has not finished is refused, not read as nought (P5).
+    expect(readSequenceSecs("")).toBeUndefined();
+    expect(readSequenceSecs("2:")).toBeUndefined();
+    expect(readSequenceSecs("soon")).toBeUndefined();
   });
 });

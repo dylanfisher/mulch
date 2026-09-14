@@ -4,7 +4,8 @@
  *   dial. Beside src/lib/copy.ts rather than in it because that file is at the hard cap (0045,
  *   the reason src/lib/copySongs.ts is where it is).
  * @instead What a sequence *is*, and the bound each length sits under → src/lib/deckSequence.ts.
- *   The row itself → src/ui/DeckSequencerRow.tsx. The one sentence the header's switch says, keyed
+ *   The row itself → src/ui/DeckSequencerRow.tsx, and the picture of the run →
+ *   src/ui/DeckSequenceTimeline.tsx. The one sentence the header's switch says, keyed
  *   with the icon vocabulary → `ACTION_TOOLTIPS.sequencer` in src/lib/copy.ts.
  */
 import type { SequenceStepKind } from "./deckSequence.ts";
@@ -31,10 +32,10 @@ export const SEQUENCE_STEP_TOOLTIPS: Record<SequenceStepKind, string> = {
   rest: "Hold the yard silent for this long. It goes on playing underneath, so it comes back wherever its loop has got to.",
 };
 
-/** The length dial beside each step, and the sentence on it. */
+/** The length reading on each step, and the sentence on it. */
 export const SEQUENCE_SECS_LABEL = "Length";
 export const SEQUENCE_SECS_TOOLTIP =
-  "How long this step takes, from a second to an hour. The whole run counts from the yard's own play: pause holds it, stop rewinds it, and past its last step it goes round again from the top.";
+  "How long this step takes, from a second to an hour: press it to type another, as minutes and seconds or as seconds alone. The whole run counts from the yard's own play: pause holds it, stop rewinds it, and past its last step it goes round again from the top.";
 
 /** The press that puts a step on the end of the run, and the one that takes a step out. */
 export const SEQUENCE_ADD_LABEL = "Add Step";
@@ -52,4 +53,20 @@ export const sequenceSecsLabel = (secs: number): string => {
   const minutes = Math.floor(whole / 60);
   const seconds = whole % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
+
+/**
+ * A typed length read back into seconds: `2:30` as minutes and seconds, `150` as seconds alone,
+ * `2m` as minutes. Anything else is a hand that has not finished, and is refused rather than
+ * read as nought (src/ui/KnobReadout.tsx).
+ */
+export const readSequenceSecs = (text: string): number | undefined => {
+  const trimmed = text.trim().toLowerCase();
+  const clock = /^(\d+):(\d{1,2})$/u.exec(trimmed);
+  if (clock !== null) return Number(clock[1]) * 60 + Number(clock[2]);
+  const minutes = /^(\d+(?:\.\d+)?)m$/u.exec(trimmed);
+  if (minutes !== null) return Number(minutes[1]) * 60;
+  if (trimmed === "") return undefined;
+  const secs = Number(trimmed);
+  return Number.isFinite(secs) ? secs : undefined;
 };
