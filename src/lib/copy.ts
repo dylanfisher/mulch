@@ -315,6 +315,8 @@ export const ACTION_TOOLTIPS = {
   randomize:
     "Draw every knob on this effect somewhere new, across the whole range each of them has. One press, one undo — what it was is one step back.",
   collapse: "Fold this section away, or open it again.",
+  sequencer:
+    "Draw every yard folded, with its sequence in place of its source: fades in and out and rests over minutes, on top of the yard's own gain. Off draws the yards whole again; the sequences play either way.",
   apply: "Put this clip's settings onto a yard.",
   move: "Take this effect off this rack and put it on another one. It keeps its settings, its lanes and whether it is running — nothing is copied, and it lands at the end of the rack it goes to.",
   goTo: "Scroll to this yard.",

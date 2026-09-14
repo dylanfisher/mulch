@@ -44,6 +44,8 @@ import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
 import { DeckRemove } from "@/ui/DeckRemove";
+import { DeckSequencerRow } from "@/ui/DeckSequencerRow";
+import { useSequencerMode } from "@/ui/sequencerMode";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
 import { useRackBeat } from "@/ui/ParameterBeat";
@@ -236,6 +238,13 @@ export function Deck({
    * (`nextDeckId`) opens the way every new yard does.
    */
   const [collapsed, setCollapsed] = useState(false);
+  /**
+   * Which face the card wears: its own, or the sequencer's, under which it is drawn folded with
+   * its sequence where its source and readout were, and the fold above is left where it stands so
+   * leaving the view puts the yard back the way it was (0205, 0379). A view preference like the
+   * fold — the header's switch, and nothing durable.
+   */
+  const face = useSequencerMode() ? "sequence" : "play";
   /** The rack's own fold, held above the fold that renders it so it survives one (P64). */
   const rackFold = useHeld(false);
   /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
@@ -416,81 +425,102 @@ export function Deck({
             name is what the heading says (P73); the negative margin pulls that padded word back
             into line with the panel's own edge. */}
         <h2 className="shrink-0">
-          <Says what={ACTION_TOOLTIPS.collapse}>
-            <Toggle
-              size="sm"
-              className="-ml-2.5"
-              pressed={collapsed}
-              onPressedChange={setCollapsed}
-            >
-              <span className="type-title">
-                <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
-              </span>
-              <FoldCaret />
-            </Toggle>
-          </Says>
+          {face === "sequence" ? (
+            // Under the sequencer every yard is folded and none opens, so the heading is a heading
+            // and not a fold: the same words, with no caret to turn (0379).
+            <span className="type-title">
+              <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
+            </span>
+          ) : (
+            <Says what={ACTION_TOOLTIPS.collapse}>
+              <Toggle
+                size="sm"
+                className="-ml-2.5"
+                pressed={collapsed}
+                onPressedChange={setCollapsed}
+              >
+                <span className="type-title">
+                  <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
+                </span>
+                <FoldCaret />
+              </Toggle>
+            </Says>
+          )}
         </h2>
-        {/* What this yard is playing and how to change it, at the top of the yard where a reader
+        {face === "sequence" ? (
+          // The sequencer's face: the run of steps in the slack the source, the readout and the
+          // reading stood in, so a whole session of yards reads as one column of runs (0379).
+          <DeckSequencerRow
+            instrument={instrument}
+            deck={deck}
+            steps={shown.sequence}
+            playing={state.playing}
+          />
+        ) : (
+          <>
+            {/* What this yard is playing and how to change it, at the top of the yard where a reader
             starts: one control for the generators and the import both, so the source is said once
             and said where the yard's name is rather than in the first row of its body (P98). */}
-        <SourcePicker
-          deck={deck}
-          current={loaded?.gen ?? null}
-          blobId={blobId}
-          onPick={onSource}
-          onImport={receiveFile}
-        />
-        {/* Right of the picker, where the source is named: the pitch is the one thing a load
+            <SourcePicker
+              deck={deck}
+              current={loaded?.gen ?? null}
+              blobId={blobId}
+              onPick={onSource}
+              onImport={receiveFile}
+            />
+            {/* Right of the picker, where the source is named: the pitch is the one thing a load
             carries beyond its kind, so it reads as part of that choice rather than as a control
             of the transport. A generator whose default frequency is zero has none at all
             (src/lib/waveform.ts) — noise and silence ignore an hz, so the yard does not offer one,
             and neither does a tone, whose pitch is the knob on the transport row (0110). Its
             length is not asked for at all any more: every drawn source is one length its kind
             declares (P127). */}
-        {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
-          <LoadField
-            id={`${deck}-hz`}
-            name="Freq"
-            value={hz}
-            min={0}
-            step={GEN_HZ_STEP}
-            valid={isGenHz}
-            onCommit={onHz}
-          />
-        )}
-        {/* Titled as well as truncated: a refusal that names the codec is a sentence longer than
+            {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+              <LoadField
+                id={`${deck}-hz`}
+                name="Freq"
+                value={hz}
+                min={0}
+                step={GEN_HZ_STEP}
+                valid={isGenHz}
+                onCommit={onHz}
+              />
+            )}
+            {/* Titled as well as truncated: a refusal that names the codec is a sentence longer than
             the header row, and the half that says why is the half that falls off it. */}
-        {importError !== null && (
-          <span
-            className="min-w-0 truncate type-body text-destructive"
-            role="alert"
-            title={importError}
-          >
-            {importError}
-          </span>
-        )}
-        <span
-          className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
-          title={readout(name, state)}
-        >
-          {readout(name, state)}
-        </span>
-        {/* Beside the name, where a hand reads it: the picture is a reading of that name and of
+            {importError !== null && (
+              <span
+                className="min-w-0 truncate type-body text-destructive"
+                role="alert"
+                title={importError}
+              >
+                {importError}
+              </span>
+            )}
+            <span
+              className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
+              title={readout(name, state)}
+            >
+              {readout(name, state)}
+            </span>
+            {/* Beside the name, where a hand reads it: the picture is a reading of that name and of
             nothing else, so what it was read as is said next to it rather than anywhere the name
             is not (0329). The same sentence is in the tuning panel's Scene card. */}
-        <Reading name={name} />
-        {/* Folded, the yard's whole body is gone and the drift with it — so the picture moves
+            <Reading name={name} />
+            {/* Folded, the yard's whole body is gone and the drift with it — so the picture moves
             into the slack this header already has, between the readout and the group of buttons,
             and a shut yard still says what it is doing. Open, it is drawn full width down below
             where the thing it is about is. */}
-        {collapsed && (
-          <StripFollowing
-            instrument={instrument}
-            deck={deck}
-            state={shown}
-            name={name}
-            className="min-w-0 flex-1 self-center"
-          />
+            {collapsed && (
+              <StripFollowing
+                instrument={instrument}
+                deck={deck}
+                state={shown}
+                name={name}
+                className="min-w-0 flex-1 self-center"
+              />
+            )}
+          </>
         )}
         {/* The grip, first of the yard's own group: the drag that moves this yard among the
             others, and the arrow keys on it, which are the keyboard path and the one
@@ -506,16 +536,20 @@ export function Deck({
             <ACTION_ICONS.reorder />
           </Button>
         </Says>
-        <Says what={ACTION_TOOLTIPS.capture}>
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            aria-label={`Capture ${yardLabel(deck)}`}
-            onClick={capture}
-          >
-            <ACTION_ICONS.capture />
-          </Button>
-        </Says>
+        {/* Not under the sequencer: a clip is the yard's whole setting, and that face shows none
+            of it. The grip, the copy and the remove stay, because a run is still arranged (0379). */}
+        {face === "play" && (
+          <Says what={ACTION_TOOLTIPS.capture}>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label={`Capture ${yardLabel(deck)}`}
+              onClick={capture}
+            >
+              <ACTION_ICONS.capture />
+            </Button>
+          </Says>
+        )}
         <Says what={ACTION_TOOLTIPS.duplicate}>
           <Button
             size="icon-xs"
@@ -529,7 +563,7 @@ export function Deck({
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
       </header>
 
-      {collapsed ? null : (
+      {collapsed || face === "sequence" ? null : (
         <>
           {/* Above the peaks, not below them: the transport and the knobs are what a hand reaches
           for, and a waveform that grows pushes them off the screen otherwise (P32). */}

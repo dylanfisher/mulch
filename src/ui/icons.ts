@@ -41,6 +41,7 @@ import { ProhibitIcon } from "@phosphor-icons/react/Prohibit";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
 import { StackSimpleIcon } from "@phosphor-icons/react/StackSimple";
+import { StepsIcon } from "@phosphor-icons/react/Steps";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
@@ -99,6 +100,9 @@ export const ACTION_ICONS = {
   // One picture for the fold, not two: the toggle reports which way it is pointing through
   // `aria-pressed`, and the caret turns with it (0055).
   collapse: CaretUpIcon,
+  // A run of steps climbing: what a sequence is, and not the waveform beside it, which is what a
+  // yard plays rather than how it is played through over minutes (0379).
+  sequencer: StepsIcon,
   // Drawing a new seed, which is not copying anything: the copy icon said a second one was being
   // made, and what happens is that one pattern becomes a different pattern (0089, P74).
   reseed: ShuffleIcon,
