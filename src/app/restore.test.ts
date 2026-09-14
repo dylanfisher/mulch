@@ -106,6 +106,7 @@ describe("restoration command order", () => {
         songs: [],
         cast: PLAYER_CAST_MAX,
       },
+      sequence: [{ kind: "in", secs: 60 }],
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
     activateDeck(store, "b");
@@ -139,6 +140,11 @@ describe("restoration command order", () => {
     // The player is last of the stages and after the loop, because a jump is a move inside the
     // loop's own grid and there is no grid before one (0089).
     expect(firstLoop).toBeLessThan(kinds.indexOf("deck.player"));
+    // The sequence rides nothing else and comes last of all; a yard with none sends no stage (0379).
+    expect(kinds.indexOf("deck.player")).toBeLessThan(kinds.indexOf("deck.sequence"));
+    expect(commands.filter(({ t }) => t === "deck.sequence")).toEqual([
+      { t: "deck.sequence", deck: "a", steps: [{ kind: "in", secs: 60 }] },
+    ]);
     expect(commands.filter(({ t }) => t === "deck.player")).toEqual([
       {
         t: "deck.player",

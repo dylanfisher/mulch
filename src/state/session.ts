@@ -13,6 +13,7 @@
 // kinds of thing a stored session holds. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
+import { assertSequence, type DeckSequence } from "@/lib/deckSequence";
 import { assertGround, assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
 import type { SessionGround } from "@/lib/sessionGround";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
@@ -107,6 +108,8 @@ export type SessionDeck = {
   loop: Loop | null;
   /** The jump pattern, or null for a deck that plays its loop straight (0089). */
   player: PlayerSpec | null;
+  /** The fade the deck is played through over minutes: a run of steps, or empty for none (0379). */
+  sequence: DeckSequence;
 };
 
 /** A clip's opaque identity — minted by whoever captures it, never derived from its contents. */
@@ -291,6 +294,7 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
     source: sourceProjection(current.source),
     loop: current.loop === null ? null : { ...current.loop },
     player: playerProjection(current.player),
+    sequence: current.sequence.map((step) => ({ kind: step.kind, secs: step.secs })),
   };
 };
 
@@ -443,7 +447,11 @@ function validateRack(value: unknown, at: string): void {
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 function validateDeck(value: unknown, at: string): void {
   const stored = objectAt(value, at);
-  exactKeys(stored, ["params", "automation", "drawn", "effects", "source", "loop", "player"], at);
+  exactKeys(
+    stored,
+    ["params", "automation", "drawn", "effects", "source", "loop", "player", "sequence"],
+    at,
+  );
 
   const params = objectAt(stored.params, `${at}.params`);
   exactKeys(params, DECK_PARAM_IDS, `${at}.params`);
@@ -466,6 +474,8 @@ function validateDeck(value: unknown, at: string): void {
   // loop: a pattern needs a grid to *run* on, which the transport decides pass by pass, and a
   // deck whose loop was cleared would otherwise store a session that no longer validates (0089).
   assertPlayer(stored.player, `${at}.player`);
+  // The same arrangement for the sequence: one validator, shared with the wire (0379).
+  assertSequence(stored.sequence, `${at}.sequence`);
 }
 
 /**

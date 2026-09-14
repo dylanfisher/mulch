@@ -69,6 +69,9 @@ export function fakeBuffer(secs: number, sampleRate = 48_000): AudioBuffer {
   return buffer as unknown as AudioBuffer;
 }
 
+/** How many gains the chain builds before a pattern's first step builds its own (0089, 0379). */
+export const PRE_PLAYER_GAINS = 3;
+
 /** A context with only what buildDeckChain and the transport ask of one. */
 // One fake graph: every factory the chain reaches for is part of the same object. See 0007.
 // oxlint-disable-next-line max-lines-per-function
@@ -76,8 +79,9 @@ export function fakeContext() {
   /** The deck fader is the first gain the chain builds, and where the gain lane lands. */
   const gainCalls: Call[] = [];
   /**
-   * Every gain in creation order. The chain builds two — the deck fader and the rack's input —
-   * and each player step builds one fader of its own after that, so a step's seams are the log
+   * Every gain in creation order. The chain builds `PRE_PLAYER_GAINS` — the deck fader, the
+   * sequence's fade and the rack's input — and each player step builds one fader of its own after
+   * that, so a step's seams are the log
    * at `PRE_PLAYER_GAINS + its own index` (0089) — on a pattern that sparks nothing. A sparking
    * landing builds a second gain for its companion's level, so the stride is two and a step's
    * seams are at `PRE_PLAYER_GAINS + 2 × its own index` (P123).

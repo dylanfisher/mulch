@@ -140,6 +140,13 @@ export type DeckChain = {
   holding(): boolean;
   /** The transport moved by hand at `at`, told down to whatever counts towards a hold. */
   resetHolds(at: number): void;
+  /**
+   * Lay the sequence's fade along `ramps` — the level pinned at the first instant and a straight
+   * line to each after it — onto the one gain after the fader that the sequence is heard through.
+   * Everything scheduled from the first instant on is replaced, so a window laid on every tick
+   * overlaps the last without a seam, and one point is a level held from then on (0379).
+   */
+  fadeAlong(ramps: readonly (readonly [value: number, at: number])[]): void;
   /** The yard's sounding beat, pushed down to whatever rounds onto it. */
   setTempo(bpm: number): void;
   dispose(): void;
@@ -150,8 +157,13 @@ export type DeckChain = {
 // oxlint-disable-next-line max-lines-per-function
 export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): DeckChain {
   const gain = ctx.createGain();
+  // The sequence's own gain, after the fader and before the pan: a level between nought and one
+  // the yard is played through over minutes, on top of whatever `deck.gain` says and never in
+  // its place. Not a declared parameter — nothing durable names it and no knob reaches it; the
+  // transport lays it from the deck's sequence on the arming tick (0379).
+  const fade = ctx.createGain();
   const pan = ctx.createStereoPanner();
-  gain.connect(pan).connect(destination);
+  gain.connect(fade).connect(pan).connect(destination);
   const effects = createEffectRack(ctx, gain);
 
   // A dead-end tap, not a link in the chain: pan still connects straight to the destination, so
@@ -305,6 +317,17 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     resetHolds: (at) => {
       effects.resetHolds(at);
     },
+    fadeAlong: (ramps) => {
+      const first = ramps[0];
+      if (first === undefined) throw new Error("a fade is laid through at least one point");
+      // Pinned by hand rather than cancel-and-held, for the reason every ramp here is (0102).
+      fade.gain.cancelScheduledValues(first[1]);
+      fade.gain.setValueAtTime(first[0], first[1]);
+      for (let index = 1; index < ramps.length; index++) {
+        const [value, at] = ramps[index]!;
+        fade.gain.linearRampToValueAtTime(value, at);
+      }
+    },
     setTempo: (bpm) => {
       effects.setTempo(bpm);
     },
@@ -314,6 +337,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     dispose: () => {
       effects.dispose();
       gain.disconnect();
+      fade.disconnect();
       pan.disconnect();
       meter.disconnect();
     },

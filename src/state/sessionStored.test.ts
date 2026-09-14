@@ -82,6 +82,7 @@ const STORED_DECK = {
   source: null,
   loop: null,
   player: null,
+  sequence: [],
 };
 
 /** One stored clip, written by hand — the shape capture writes and apply reads back (0027). */
@@ -151,6 +152,7 @@ const STORED_CLIP = {
       songs: [],
       cast: PLAYER_CAST_MAX,
     },
+    sequence: [],
   },
 };
 
@@ -383,6 +385,17 @@ describe("stored clips", () => {
     expect(() =>
       validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, player: { seed: -1 } } }))),
     ).toThrow(/expected/u);
+    // And the sequence, through the one validator the wire comes through (0379).
+    expect(() =>
+      validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, sequence: null } }))),
+    ).toThrow(/sequence is not a list/u);
+    expect(() =>
+      validateSession(
+        withClips(clip({ deck: { ...STORED_CLIP.deck, sequence: [{ kind: "in", secs: 0 }] } })),
+      ),
+    ).toThrow(/sequence\[0\] secs is outside/u);
+    const { sequence: _sequence, ...unsequenced } = STORED_CLIP.deck;
+    expect(() => validateSession(withClips(clip({ deck: unsequenced })))).toThrow(/expected \[/u);
   });
 
   /**

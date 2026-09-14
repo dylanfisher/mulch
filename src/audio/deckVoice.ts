@@ -7,6 +7,7 @@
  * @instead The transport that fills it → src/audio/deck.ts. The per-frame read it writes into →
  *   src/audio/deckPeek.ts.
  */
+import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { AutomationPoint } from "@/lib/automation";
 import type { GrowthBounds } from "@/lib/effectGrowth";
@@ -66,6 +67,11 @@ export type DeckVoice = {
    * moving its numbers re-arms the pass (0089, P67). `setSync` holds the session's clock (0097).
    */
   setPlayer(player: PlayerSpec | null): void;
+  /**
+   * Hold the sequence the deck is played through, or none when empty. Never a restart: a sequence
+   * moved is re-armed on the pass that is up, the way a lane is (0379).
+   */
+  setSequence(steps: DeckSequence): void;
   /** Hear one part of the song on its own until it is handed back with null: a transport state,
    *  never an edit (0041, 0190). A property for the reason `setSync` is one — it is handed on as
    *  the pass's own function. */

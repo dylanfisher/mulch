@@ -2,6 +2,7 @@
  * @role The event union — every state change and audio milestone, stamped with a gapless
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
+import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { StopReason } from "@/audio/deckReport";
 import type { ParamId } from "@/audio/params";
@@ -41,6 +42,8 @@ export type EventBody =
   // The player as it was actually held — the whole spec, or null for one that was switched off.
   // The seed is in it, which is what makes the log enough to replay the performance (0089).
   | { t: "deck.player.changed"; deck: DeckId; player: PlayerSpec | null }
+  // The sequence as it was actually held — every step, or none (0379).
+  | { t: "deck.sequence.changed"; deck: DeckId; steps: DeckSequence }
   // Audio the instrument minted rather than the user imported: which region of what the deck was
   // holding, and the blob those bytes now live under. The `deck.loaded` just before it is the
   // deck picking the new source up through the ordinary path (0047).

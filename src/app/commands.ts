@@ -6,6 +6,7 @@
 // many kinds of thing the instrument can be told about, not how much this file decides. The rule
 // has no per-site form, so this is the only shape the waiver can take (0007).
 // oxlint-disable import/max-dependencies
+import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { SessionGround } from "@/lib/sessionGround";
 import type { SongPartId } from "@/lib/playerSong";
@@ -62,6 +63,9 @@ export type DurableEditCommand =
   // than one per field: the spec is a single durable record like `loop`, and a pattern half moved
   // is a pattern nobody asked for (0089).
   | { t: "deck.player"; deck: DeckId; player: PlayerSpec | null }
+  // The whole sequence at once, empty for none: a fade over minutes is one durable run of steps,
+  // and a step moved on its own would be a sequence nobody asked for (0379).
+  | { t: "deck.sequence"; deck: DeckId; steps: DeckSequence }
   // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
   // rack entry for an effect's, because a rack may hold two delays (0030). `deck` is a rack
   // address, and null is the master's — which holds no parameter of its own, so a null deck with

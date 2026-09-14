@@ -38,6 +38,19 @@ export function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runti
 }
 
 /**
+ * The whole sequence a deck is played through, held and handed to the graph — one command
+ * carrying every step, the way the player is carried (0379). No refusal for an unloaded deck: a
+ * sequence is a fade over whatever comes to play, and a yard may be sequenced before it is fed.
+ */
+export function setSequence(cmd: Extract<Command, { t: "deck.sequence" }>, rt: Runtime): void {
+  const engine = audio(rt, cmd.t);
+  if (engine === null) return;
+  engine.setSequence(cmd.deck, cmd.steps);
+  patchDeck(rt.store, cmd.deck, { sequence: cmd.steps });
+  rt.bus.emit({ t: "deck.sequence.changed", deck: cmd.deck, steps: cmd.steps });
+}
+
+/**
  * The session's shared jump clock. Validated here rather than in `assertGroupedEdit`, because a
  * group's guard proves every command names a deck and this one names none: the clock belongs to
  * the session, so it is a durable edit of its own (0097, src/app/wire.ts).

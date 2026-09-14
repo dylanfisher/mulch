@@ -48,7 +48,14 @@ import type { Command } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
-import { armPlayer, setPlayer, setSharedGround, setSyncClock, soloPlayer } from "./deckPlayer";
+import {
+  armPlayer,
+  setPlayer,
+  setSequence,
+  setSharedGround,
+  setSyncClock,
+  soloPlayer,
+} from "./deckPlayer";
 import {
   addEffect,
   boundEffect,
@@ -650,6 +657,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.player":
       setPlayer(cmd, rt);
+      return;
+    case "deck.sequence":
+      setSequence(cmd, rt);
       return;
     case "deck.playerSolo":
       soloPlayer(cmd, rt);

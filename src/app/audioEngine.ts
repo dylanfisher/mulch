@@ -10,6 +10,7 @@
 // One import per durable shape the contract names, which is what a contract is: the count tracks
 // how many kinds of thing a host is asked about (0007).
 // oxlint-disable import/max-dependencies
+import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
 import type { SessionGround } from "@/lib/sessionGround";
@@ -94,6 +95,8 @@ export type Engine = {
   setLoop(deck: DeckId, inSecs: number, outSecs: number): Loop | null;
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
+  /** Hold this deck's sequence — the fade it is played through — or none when empty (0379). */
+  setSequence(deck: DeckId, steps: DeckSequence): void;
   /**
    * Hear one part of this deck's song on its own, over and over, or hand the whole song back with
    * null — answering whether it did. A transport state and not an edit, the way a seek is not

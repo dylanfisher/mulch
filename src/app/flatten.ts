@@ -60,7 +60,10 @@ function flattenSession(session: Session, deck: DeckId): Session {
     ...session,
     activeDeck: deck,
     deckList: session.deckList.filter((entry) => entry.id === deck),
-    decks: { [deck]: { ...deckIn(session.decks, deck), player: null } },
+    // The sequence goes with the jumps, and for the same reason: it is a fade over minutes and a
+    // flatten is one pass of seconds, so the pass is rendered at one and the yard keeps its
+    // sequence to be played through again (0379).
+    decks: { [deck]: { ...deckIn(session.decks, deck), player: null, sequence: [] } },
     clips: [],
     // And the rack that is no yard's, which is a fact about the session and not about this yard
     // (0321). It goes for the reason the deck's own parameters are put back to their defaults
@@ -77,7 +80,12 @@ function flattenEnvelopes(session: Session, deck: DeckId): Command[] {
 }
 
 /** What the yard is left holding: the bytes, at rest, looping the whole of what was rendered. */
-function flattened(blobId: BlobId, secs: number, player: SessionDeck["player"]): SessionDeck {
+function flattened(
+  blobId: BlobId,
+  secs: number,
+  player: SessionDeck["player"],
+  sequence: SessionDeck["sequence"],
+): SessionDeck {
   return {
     // Every one of them at its declared default, and that is the point: the gain, the pan and the
     // read rate are all in the samples now, and leaving any of them where it was would apply it
@@ -93,6 +101,8 @@ function flattened(blobId: BlobId, secs: number, player: SessionDeck["player"]):
     // Kept, alone among them, because it is the one that was not rendered: the pattern jumps
     // around the loop's own grid, and the loop is still there (0089, and `flattenSession`).
     player,
+    // And the sequence, which was rendered at one for the same reason (0379).
+    sequence,
   };
 }
 
@@ -183,7 +193,11 @@ export async function flattenDeck(
   // The ordinary restoration order, as one grouped, undoable durable edit — the same rewrite a
   // clip lands through, so a flatten is not a second way to put a preset on a deck (0027).
   await rt.historyGroup(
-    clipRestorationCommands(cmd.deck, current, flattened(cmd.id, secs, before.player)),
+    clipRestorationCommands(
+      cmd.deck,
+      current,
+      flattened(cmd.id, secs, before.player, before.sequence),
+    ),
   );
   rt.bus.emit({ t: "deck.flattened", deck: cmd.deck, blob: cmd.id, secs });
 }

@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
-import { deck, PLAYER, PRE_PLAYER_GAINS, SLOT, SPAN } from "./player.test";
+import { deck, PLAYER, SLOT, SPAN } from "./player.test";
 import { emptyDeckPeek } from "./deckPeek";
-import { fakeContext } from "./deckDouble";
+import { fakeContext, PRE_PLAYER_GAINS } from "./deckDouble";
 
 /** A jumping deck whose graph is held, so a case can count the gains a landing built as well as
  *  the sources. `jumping` in src/audio/player.test.ts keeps its own context and hands back neither

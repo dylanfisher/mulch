@@ -230,6 +230,36 @@ describe("a bound parameter under a live gesture", () => {
   });
 });
 
+describe("the sequence's fade", () => {
+  it("is laid on the gain after the fader, pinned by hand and ramped point to point", () => {
+    const { context, gainCalls, gainLogs } = fakeContext();
+    const chain = buildDeckChain(context, destination());
+    chain.fadeAlong([
+      [0.5, 2],
+      [1, 4],
+      [1, 6],
+    ]);
+    // The second gain the chain builds, and not the fader: `deck.gain` keeps its own (0379).
+    expect(gainCalls).toEqual([]);
+    expect(gainLogs[1]).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0.5, 2],
+      ["linearRampToValueAtTime", 1, 4],
+      ["linearRampToValueAtTime", 1, 6],
+    ]);
+    // One point is a level held from then on.
+    chain.fadeAlong([[1, 8]]);
+    expect(gainLogs[1]?.slice(-2)).toEqual([
+      ["cancelScheduledValues", 8],
+      ["setValueAtTime", 1, 8],
+    ]);
+    expect(() => {
+      chain.fadeAlong([]);
+    }).toThrow(/at least one point/u);
+    chain.dispose();
+  });
+});
+
 describe("deck meter", () => {
   // The level and the crest are two numbers off one window: a second fetch inside the same tick
   // of the clock is the same 2048 floats copied again and the same loudest sample found again.

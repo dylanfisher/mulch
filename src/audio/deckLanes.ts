@@ -6,6 +6,7 @@
  *   The master's lanes ride the context clock, which never stops → src/audio/masterEffects.ts.
  */
 import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
+import { sequenceLevelAt, sequenceRamps, type DeckSequence } from "@/lib/deckSequence";
 import type { DeckChain } from "./chain";
 import type { EffectInstanceId } from "./effects/contract";
 import { paramKey, type AutomationParamId } from "./params";
@@ -65,6 +66,20 @@ export type DeckLanes = {
   /** Every lane this instance held goes with it: a lane belongs to the instance (0030). */
   forget(instance: EffectInstanceId): void;
   size(): number;
+  /**
+   * Hold the deck's sequence — the fade it is played through — or none when empty, which is heard
+   * at once as a level of one. It counts on this clock from the last rewind, so a pause holds it
+   * where it stands and the next play carries it on, the way every lane is carried (0040, 0379).
+   */
+  setSequence(steps: DeckSequence): void;
+  /** Whether a sequence is held at all, so a deck ticks for one the way it ticks for a lane. */
+  sequenced(): boolean;
+  /** Count the sequence again from the clock's next reading: what a stop does to it (0038). */
+  rewindSequence(): void;
+  /** How far into the sequence the clock stands, in seconds — the fade's playhead. */
+  sequenceAt(): number;
+  /** What the sequence is worth where the clock stands, between nought and one. */
+  fadeLevel(): number;
   /** Where every lane stands in its own cycle, refilled in place and never cleared (0070). */
   peek(out: Map<string, number>): void;
   clear(): void;
@@ -92,6 +107,9 @@ export function createDeckLanes(
    * nothing beyond how far apart two readings are.
    */
   let heldAt: number | null = ctx.currentTime;
+  /** The sequence the deck is played through, and the instant on this clock it counts from. */
+  let sequence: DeckSequence = [];
+  let sequenceAnchor = ctx.currentTime;
 
   function now(): number {
     if (heldAt !== null) return heldAt;
@@ -104,8 +122,17 @@ export function createDeckLanes(
   }
 
   function arm(): void {
-    if (planStart() === null || lanes.size === 0) return;
+    if (planStart() === null) return;
     const from = now();
+    // The sequence's window, laid whole on every tick from where the clock stands: a function of
+    // the window alone, so the offline pump laying it four seconds at a time lays the same ramps
+    // (0204, 0379).
+    if (sequence.length > 0) {
+      chain.fadeAlong(
+        sequenceRamps(sequence, sequenceAnchor, from, from + AUTOMATION_HORIZON_SECS),
+      );
+    }
+    if (lanes.size === 0) return;
     for (const lane of lanes.values()) {
       if (lane.span <= 0) {
         // A lane that never moved has no cycle to repeat: one schedule, from here, and no more.
@@ -141,6 +168,7 @@ export function createDeckLanes(
       if (heldAt === null) throw new Error("lane clock released twice");
       const gap = at - heldAt;
       for (const lane of lanes.values()) lane.anchor += gap;
+      sequenceAnchor += gap;
       heldAt = null;
     },
     arm,
@@ -182,6 +210,20 @@ export function createDeckLanes(
       for (const [key, lane] of lanes) if (lane.instance === instance) lanes.delete(key);
     },
     size: () => lanes.size,
+    setSequence: (steps) => {
+      sequence = steps;
+      // Cleared, it is heard at once whatever the transport is doing: the yard is back to sounding
+      // at whatever its own fader says. Held, it is laid from here if a pass is up, and otherwise
+      // by the release the next play makes.
+      if (steps.length === 0) chain.fadeAlong([[1, ctx.currentTime]]);
+      else arm();
+    },
+    sequenced: () => sequence.length > 0,
+    rewindSequence: () => {
+      sequenceAnchor = now();
+    },
+    sequenceAt: () => now() - sequenceAnchor,
+    fadeLevel: () => sequenceLevelAt(sequence, now() - sequenceAnchor),
     peek: (out) => {
       // The same clock the arming lays cycles against, so what a surface paints cannot drift from
       // what is scheduled — including inside the lookahead, and while the transport is halted,

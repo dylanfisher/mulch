@@ -171,6 +171,9 @@ const STAGES: readonly Stage[] = [
   // sends nothing — a restored deck starts with none, the way it starts with no loop.
   (deck, preset) =>
     preset.player === null ? [] : [{ t: "deck.player", deck, player: preset.player }],
+  // The sequence rides nothing else, so it comes last; empty is a stage that sends nothing (0379).
+  (deck, preset) =>
+    preset.sequence.length === 0 ? [] : [{ t: "deck.sequence", deck, steps: preset.sequence }],
 ];
 
 const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
@@ -452,6 +455,7 @@ export function restoredSessionState(
         paused: null,
         loop: stored.loop === null ? null : { ...stored.loop },
         player: stored.player === null ? null : { ...stored.player },
+        sequence: stored.sequence.map((step) => ({ kind: step.kind, secs: step.secs })),
       };
     }),
     // Carried, not rebuilt from `deckList`: the letters this session drew and then removed live

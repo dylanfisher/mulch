@@ -145,6 +145,7 @@ const DECK_STATE: DeckState = {
   paused: 0,
   loop: null,
   player: null,
+  sequence: [],
 };
 
 /** An inert grip: the yard's own list owns the gesture, and no case here is about it (0111). */

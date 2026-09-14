@@ -507,6 +507,9 @@ export function createAudioEngine(
     setPlayer: (deck, player) => {
       voice(deck).setPlayer(player);
     },
+    setSequence: (deck, steps) => {
+      voice(deck).setSequence(steps);
+    },
     soloPlayer: (deck, part) => voice(deck).soloPlayer(part),
     armPlayer: (deck, part) => voice(deck).armPlayer(part),
     setSync: (next) => {
@@ -689,6 +692,9 @@ export function createAudioEngine(
           // jumping (P164, src/lib/player.ts).
           const player = playerSounding(deckIn(session.decks, deck).player);
           if (player !== null) preparedIn(deck).setPlayer(player);
+          // And the sequence, which rides nothing else (0379).
+          const { sequence } = deckIn(session.decks, deck);
+          if (sequence.length > 0) preparedIn(deck).setSequence(sequence);
         }
         // The clock the whole session jumps on, handed to every prepared voice: it is one fact
         // above the decks rather than one of theirs, and a graph rebuilt without it would leave

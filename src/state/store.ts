@@ -179,6 +179,8 @@ export type DeckState = {
   loop: Loop | null;
   /** The jump pattern this deck plays under, or null for one that plays its loop straight (0089). */
   player: SessionDeck["player"];
+  /** The fade this deck is played through over minutes, or empty for none (0379). */
+  sequence: SessionDeck["sequence"];
 };
 
 export type SessionState = {
@@ -233,6 +235,7 @@ const defaultDeck = (): DeckState => ({
   paused: null,
   loop: null,
   player: null,
+  sequence: [],
 });
 
 export const createSessionStore = () =>

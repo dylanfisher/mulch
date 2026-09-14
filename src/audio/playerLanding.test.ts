@@ -19,7 +19,7 @@ import { PLAYER_SPARK_DELAY_MAX } from "@/lib/playerSpark";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { LOOKAHEAD_SECS } from "./transport";
-import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
+import { destination, fakeBuffer, fakeContext, PRE_PLAYER_GAINS, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
@@ -104,7 +104,6 @@ const PLAYER: PlayerSpec = {
 };
 
 /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
-const PRE_PLAYER_GAINS = 2;
 
 /**
  * One deck voice on a fake graph, already jumping. The voice is built here rather than shared,

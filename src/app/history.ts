@@ -45,7 +45,10 @@ export const gestureOf = (cmd: Command): string | null => {
   ) {
     return `${cmd.deck} ${paramKey(cmd.instance ?? null, cmd.param)}`;
   }
-  return cmd.t === "deck.player" ? `${cmd.deck} player` : null;
+  if (cmd.t === "deck.player") return `${cmd.deck} player`;
+  // And a sequence the same way: one command holds every step, so a dial's drag on one step is
+  // one entry and not one per value (0379).
+  return cmd.t === "deck.sequence" ? `${cmd.deck} sequence` : null;
 };
 
 /**

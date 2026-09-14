@@ -157,6 +157,7 @@ describe("clip capture, rename and delete", () => {
       source: { gen: "sine", hz: 440 },
       loop: { in: 0.25, out: 1 },
       player: null,
+      sequence: [],
     });
     expect(captured.deck.effects.map((entry) => [entry.id, entry.bypassed])).toEqual([
       ["flt", false],

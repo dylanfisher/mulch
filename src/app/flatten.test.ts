@@ -262,6 +262,23 @@ describe("deck.flatten", () => {
     expect(instrument.probe().decks.a!.player).toEqual(JUMPING);
   });
 
+  it("renders the loop without the sequence, and leaves the sequence on the yard", async () => {
+    const { instrument, specs } = fixture();
+    await instrument.ready;
+    await performing(instrument);
+    const breath = [{ kind: "in" as const, secs: 120 }];
+    instrument.send({ t: "deck.sequence", deck: "a", steps: breath });
+    await settle();
+
+    instrument.send({ t: "deck.flatten", deck: "a", id: "flat-1" });
+    await settle();
+
+    // A sequence is a fade over minutes and a flatten is one pass of seconds: the pass is rendered
+    // at one and the yard keeps its sequence to be played through again (0379).
+    expect(kinds(specs[0]!.envelopes)).not.toContain("deck.sequence");
+    expect(instrument.probe().decks.a!.sequence).toEqual(breath);
+  });
+
   // The rack that is no yard's is a fact about the session, not about this yard: baking it into
   // one yard's samples would apply it a second time on playback, and it cannot be taken off
   // afterwards the way the deck's own parameters are — the other yards are still going through it

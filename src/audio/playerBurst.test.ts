@@ -18,14 +18,13 @@ import {
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { createDeckVoice } from "./deck";
-import { destination, fakeContext, type Call } from "./deckDouble";
+import { destination, fakeContext, PRE_PLAYER_GAINS, type Call } from "./deckDouble";
 import { AUTOMATION_REARM_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
 const SPAN = 3.2;
 const SLOT = SPAN / PLAYER_SLOTS;
 /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
-const PRE_PLAYER_GAINS = 2;
 
 /**
  * A plain pattern with nothing drawn under it: one count on every landing, one rate and no wait,

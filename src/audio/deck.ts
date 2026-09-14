@@ -365,7 +365,7 @@ export function createDeckVoice(
     // rest longer than the horizon would otherwise never be let go of (0372).
     const wanted =
       (sounding() || rests.length > 0) &&
-      (lanes.size() > 0 || player.held() !== null || chain.pumping());
+      (lanes.size() > 0 || lanes.sequenced() || player.held() !== null || chain.pumping());
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
     rearm = wanted ? setInterval(armAhead, AUTOMATION_REARM_SECS * 1000) : null;
@@ -508,6 +508,8 @@ export function createDeckVoice(
   return {
     load: (next) => {
       halt("command");
+      // A new source is read from its top, and the sequence counts from there with it (0379).
+      lanes.rewindSequence();
       buffer = next;
       loop = null;
       // The pattern goes with the loop, and for the same reason: both are ranges of a buffer this
@@ -526,6 +528,9 @@ export function createDeckVoice(
 
     stop: () => {
       halt("command");
+      // A stop rewinds the playhead, and the sequence with it: the next play fades in from the
+      // top of its run. A pause holds both where they stand (0038, 0379).
+      lanes.rewindSequence();
     },
 
     pause: () => {
@@ -622,6 +627,10 @@ export function createDeckVoice(
     },
     soloPlayer: player.solo,
     armPlayer: player.armPart,
+    setSequence: (steps) => {
+      lanes.setSequence(steps);
+      retick();
+    },
     setSync: (sync) => {
       player.setSync(sync);
       // The rack counts in it too: an automator paces its own ticks by the clock the yards walk on
@@ -742,6 +751,10 @@ export function createDeckVoice(
       // is what a card with no song draws from (0157).
       player.peek(ctx.currentTime, out.player);
       lanes.peek(out.automation);
+      // The fade off the same clock the lanes are read at, so the cursor a card paints along the
+      // sequence cannot drift from what is scheduled (0379).
+      out.sequenceAt = lanes.sequenceAt();
+      out.fade = lanes.fadeLevel();
     },
 
     syncReports: () => port.sync(),

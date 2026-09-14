@@ -23,7 +23,7 @@ import { PLAYER_RATES } from "@/lib/playerRungs";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
-import { destination, fakeContext, type Call } from "./deckDouble";
+import { destination, fakeContext, PRE_PLAYER_GAINS, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS } from "./transport";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
@@ -149,7 +149,6 @@ export const PLAYER: PlayerSpec = {
   cast: PLAYER_CAST_MAX,
 };
 /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
-export const PRE_PLAYER_GAINS = 2;
 
 export const jumping = (patch: Partial<PlayerSpec> = {}, span = SPAN) => {
   const host = deck();
@@ -159,17 +158,17 @@ export const jumping = (patch: Partial<PlayerSpec> = {}, span = SPAN) => {
   return host;
 };
 
+/** One step's seams, in the order they were scheduled: [starts at, when, over]. */
+const seamsOf = (host: ReturnType<typeof deck>, step: number): Call[] =>
+  (host.gainLogs[PRE_PLAYER_GAINS + step] ?? []).filter(
+    ([method]) => method === "setValueCurveAtTime",
+  );
+
 // The player's whole transport contract: where it may read, that it reads the sequence its seed
 // draws and no other, that every seam is a fade, and that a pattern is armed ahead of the clock
 // the way a lane is (0089).
 // oxlint-disable-next-line max-lines-per-function
 describe("deck player", () => {
-  /** One step's seams, in the order they were scheduled: [starts at, when, over]. */
-  const seamsOf = (host: ReturnType<typeof deck>, step: number): Call[] =>
-    (host.gainLogs[PRE_PLAYER_GAINS + step] ?? []).filter(
-      ([method]) => method === "setValueCurveAtTime",
-    );
-
   it("reads only from the loop's own grid, one slot at a time", () => {
     const host = jumping();
     expect(host.sources.length).toBeGreaterThan(4);

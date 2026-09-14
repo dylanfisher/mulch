@@ -43,6 +43,7 @@ import { renderMaster } from "./renderMaster.js";
 import { renderRack } from "./renderRack.js";
 import { renderShift } from "./renderShift.js";
 import { renderLull } from "./renderLull.js";
+import { renderSequence } from "./renderSequence.js";
 import { renderAutomator } from "./renderAutomator.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
@@ -146,6 +147,7 @@ const LANES = [
       renderTone,
       renderShift,
       renderLull,
+      renderSequence,
       formats,
       dropFile,
       cropLoop,

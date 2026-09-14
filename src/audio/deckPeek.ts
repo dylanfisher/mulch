@@ -83,6 +83,14 @@ export type DeckPeek = {
    */
   sounding: number;
   /**
+   * How far into its sequence the deck stands, in seconds, and what the sequence is worth there
+   * between nought and one — the fade's playhead and its level, read off the lane clock, so a
+   * halted deck reports where its fade is holding and will resume from (0040, 0379). Nought and
+   * one for a deck with no sequence, which sounds at whatever its fader says.
+   */
+  sequenceAt: number;
+  fade: number;
+  /**
    * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty only
    * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
    * where its gesture is parked and where the next play resumes it (0040). This is the whole live
@@ -131,6 +139,8 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meter: 0,
   crest: 0,
   sounding: 0,
+  sequenceAt: 0,
+  fade: 1,
   automation: new Map(),
   meters: new Map(),
   grown: new Map(),
@@ -144,6 +154,8 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.meter = 0;
   out.crest = 0;
   out.sounding = 0;
+  out.sequenceAt = 0;
+  out.fade = 1;
   out.automation.clear();
   out.meters.clear();
   out.grown.clear();
