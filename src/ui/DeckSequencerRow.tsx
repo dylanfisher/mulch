@@ -1,12 +1,13 @@
 /**
- * @role One yard's sequence, in the header's slack under the sequencer view: the run of steps as
- *   a profile with a cursor riding it at wherever the fade has reached, and under it one row per
- *   step — its kind as a picker, its length as a dial, and the press that takes it out — with the
- *   press that adds one on the end. Every edit sends the whole run as one `deck.sequence`, the way
- *   a lane is sent whole (0024, 0379).
+ * @role One yard's sequence, in the header's slack under the sequencer view: the yard's own
+ *   play/pause at the head, then the run of steps as a profile with a cursor riding it at wherever
+ *   the fade has reached, and under it one row per step — its kind as a picker, its length as a
+ *   dial, and the press that takes it out — with the press that adds one on the end. Every edit
+ *   sends the whole run as one `deck.sequence`, the way a lane is sent whole (0024, 0379).
  * @instead The maths of the profile and the level → src/lib/deckSequence.ts. The fade's live
  *   position comes from peek() on src/app/facade.ts, never from a clock of this component's own.
- *   The lane preview whose cursor this copies → src/ui/AutomationPreview.tsx.
+ *   The lane preview whose cursor this copies → src/ui/AutomationPreview.tsx. The play toggle is
+ *   the transport's own, sending the same command → src/ui/DeckTransport.tsx.
  */
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
@@ -36,6 +37,7 @@ import {
   sequenceSpanSecs,
 } from "@/lib/deckSequence";
 import type { DeckId } from "@/state/store";
+import { playToggleCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import {
   Select,
@@ -47,6 +49,7 @@ import {
 import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
+import { Toggle } from "@/ui/components/toggle";
 import { Says } from "@/ui/Says";
 
 /** The profile's viewBox. Small on purpose: it says the shape of the run, not its every second. */
@@ -164,15 +167,25 @@ export function DeckSequencerRow({
   deck,
   steps,
   playing,
+  loaded,
 }: {
   instrument: Instrument;
   deck: DeckId;
   steps: DeckSequence;
   /** Whether the yard is playing, which is the only time the fade's cursor moves (0040). */
   playing: boolean;
+  /** Whether the yard has anything to play: an empty one offers no play, as its transport does. */
+  loaded: boolean;
 }) {
   const span = sequenceSpanSecs(steps);
   const path = useMemo(() => profilePath(steps), [steps]);
+
+  // The one toggle Space, the palette and the transport send, so a press here means what a press
+  // there means (P41). Controlled by the session: `pressed` is read off the yard (DeckTransport).
+  const onPlayToggle = useCallback(() => {
+    instrument.send(playToggleCommand(deck));
+  }, [instrument, deck]);
+  const PlayIcon = playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
 
   /** The whole run, sent whole, and the gesture over where it lands (0024, 0067). */
   const send = useCallback(
@@ -249,54 +262,70 @@ export function DeckSequencerRow({
   useLayoutEffect(paintCursor);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 self-center" data-slot="sequence">
-      <div className="relative h-4 w-full" aria-label={SEQUENCE_LABEL}>
-        <svg
-          className="size-full"
-          viewBox={`0 0 ${PROFILE_WIDTH} ${PROFILE_HEIGHT}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
+    <div className="flex min-w-0 flex-1 items-start gap-3 self-center" data-slot="sequence">
+      {/* At the head of the row, where a hand reaches first: the fade counts from this press. */}
+      <Says what={playing ? ACTION_TOOLTIPS.pause : ACTION_TOOLTIPS.play}>
+        <Toggle
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          pressed={playing}
+          onPressedChange={onPlayToggle}
+          disabled={!loaded}
         >
-          <path d={path} className="fill-none stroke-primary" vectorEffect="non-scaling-stroke" />
-        </svg>
-        <div
-          ref={cursor}
-          data-slot="sequence-playhead"
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-primary opacity-0"
-        />
-      </div>
-      <div
-        className="flex flex-wrap items-center gap-2"
-        onPointerUp={endGesture}
-        onLostPointerCapture={endGesture}
-      >
-        {steps.length === 0 && (
-          <span className="type-readout text-muted-foreground">{SEQUENCE_EMPTY}</span>
-        )}
-        {steps.map((step, index) => (
-          <StepRow
-            // Steps have no identity of their own: the run is a list and its position is its name.
-            // oxlint-disable-next-line react/no-array-index-key
-            key={index}
-            step={step}
-            index={index}
-            onKind={onKind}
-            onSecs={onSecs}
-            onRemove={onRemove}
-          />
-        ))}
-        <Says what={SEQUENCE_ADD_TOOLTIP}>
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            aria-label={SEQUENCE_ADD_LABEL}
-            disabled={steps.length >= SEQUENCE_STEPS_MAX}
-            onClick={add}
+          <PlayIcon data-icon="inline-start" />
+          {playing ? "Pause" : "Play"}
+        </Toggle>
+      </Says>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="relative h-4 w-full" aria-label={SEQUENCE_LABEL}>
+          <svg
+            className="size-full"
+            viewBox={`0 0 ${PROFILE_WIDTH} ${PROFILE_HEIGHT}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
           >
-            <ACTION_ICONS.add />
-          </Button>
-        </Says>
+            <path d={path} className="fill-none stroke-primary" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div
+            ref={cursor}
+            data-slot="sequence-playhead"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-primary opacity-0"
+          />
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-2"
+          onPointerUp={endGesture}
+          onLostPointerCapture={endGesture}
+        >
+          {steps.length === 0 && (
+            <span className="type-readout text-muted-foreground">{SEQUENCE_EMPTY}</span>
+          )}
+          {steps.map((step, index) => (
+            <StepRow
+              // Steps have no identity of their own: the run is a list and its position is its name.
+              // oxlint-disable-next-line react/no-array-index-key
+              key={index}
+              step={step}
+              index={index}
+              onKind={onKind}
+              onSecs={onSecs}
+              onRemove={onRemove}
+            />
+          ))}
+          <Says what={SEQUENCE_ADD_TOOLTIP}>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label={SEQUENCE_ADD_LABEL}
+              disabled={steps.length >= SEQUENCE_STEPS_MAX}
+              onClick={add}
+            >
+              <ACTION_ICONS.add />
+            </Button>
+          </Says>
+        </div>
       </div>
     </div>
   );

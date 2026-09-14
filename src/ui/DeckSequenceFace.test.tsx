@@ -42,10 +42,15 @@ describe("a yard under the sequencer", () => {
     expect(markup).not.toContain(`aria-label="Yard A ${SOURCE_LABEL}"`);
     expect(markup).not.toContain('id="a-hz"');
     expect(markup).not.toContain("Capture Yard A");
-    expect(markup).not.toContain("aria-pressed");
-    // And the body with them: the peaks and the transport.
+    // And the body with them: the peaks, and the transport but for its play.
     expect(markup).not.toContain("Yard A Waveform");
-    expect(markup).not.toContain(">Play<");
+    expect(markup).not.toContain(">Stop<");
+  });
+
+  it("offers the yard's own play at the head of its run", () => {
+    const markup = yard();
+    expect(markup).toContain(">Play<");
+    expect(markup).toContain('aria-pressed="false"');
   });
 
   it("keeps the grip, the copy and the remove", () => {

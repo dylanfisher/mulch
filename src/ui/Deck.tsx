@@ -455,6 +455,7 @@ export function Deck({
             deck={deck}
             steps={shown.sequence}
             playing={state.playing}
+            loaded={state.duration > 0}
           />
         ) : (
           <>

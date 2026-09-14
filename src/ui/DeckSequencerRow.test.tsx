@@ -49,6 +49,19 @@ function findLabelled(node: ReactNode, label: string): Labelled | null {
   return null;
 }
 
+type Pressable = { pressed?: boolean; onPressedChange?: () => void; children?: ReactNode };
+
+/** The props of the first element in this tree that reports a pressed state: the play toggle. */
+function findPressable(node: ReactNode): Pressable | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Pressable>(child)) continue;
+    if (child.props.pressed !== undefined) return child.props;
+    const found = findPressable(child.props.children ?? null);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 type StepProps = {
   index: number;
   children?: ReactNode;
@@ -79,11 +92,26 @@ function findStep(node: ReactNode, index: number): StepProps | null {
 const row = (steps: DeckSequence) => {
   const instrument = createInstrument(manualClock(), () => silentEngine());
   const sent = vi.spyOn(instrument, "send");
-  const element = DeckSequencerRow({ instrument, deck: "a", steps, playing: false });
+  const element = DeckSequencerRow({ instrument, deck: "a", steps, playing: false, loaded: true });
   return { element, sent, markup: renderToStaticMarkup(element) };
 };
 
 describe("the sequence row", () => {
+  it("plays and pauses the yard through the one toggle the transport sends", () => {
+    const { element, sent, markup } = row(BREATH);
+    expect(markup).toContain(">Play<");
+    findPressable(element)?.onPressedChange?.();
+    expect(sent).toHaveBeenLastCalledWith({ t: "deck.play.toggle", deck: "a" });
+    const paused = DeckSequencerRow({
+      instrument: createInstrument(manualClock(), () => silentEngine()),
+      deck: "a",
+      steps: BREATH,
+      playing: true,
+      loaded: true,
+    });
+    expect(renderToStaticMarkup(paused)).toContain(">Pause<");
+  });
+
   it("says the run is empty, and offers the add", () => {
     const { markup } = row([]);
     expect(markup).toContain(SEQUENCE_EMPTY);
