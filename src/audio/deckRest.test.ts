@@ -59,7 +59,7 @@ describe("a rest on the transport", () => {
     expect(held.voice.planned()).toBe(false);
   });
 
-  it("lays the release ahead from the held position, moved by the jump and kept in the loop", () => {
+  it("lays the release ahead from the held position, kept in the loop", () => {
     const held = deck();
     held.voice.setLoop(1, 3);
     play(held);
@@ -68,17 +68,17 @@ describe("a rest on the transport", () => {
     // The loop began at 1 and has run 2.45s of a 2s cycle: held at 1.45.
     const at = 1 + ((2.5 - LOOKAHEAD_SECS) % 2);
 
-    expect(held.voice.releaseAt(4, 0.3)).toBe(true);
+    expect(held.voice.releaseAt(4)).toBe(true);
     expect(held.sources).toHaveLength(2);
     expect(held.sources[1]?.started[0]?.[0]).toBe(4);
-    expect(held.sources[1]?.started[0]?.[1]).toBeCloseTo(at + 0.3, 9);
+    expect(held.sources[1]?.started[0]?.[1]).toBeCloseTo(at, 9);
     // Posted under its own id and not as a resume, so the reporter queues it behind the rest.
     const release = lastPlan(held.plans);
     expect(release.startTime).toBe(4);
     expect(release.resume).toBe(false);
     expect(release.until).toBeUndefined();
     // A second release is refused: the rest already has its end.
-    expect(held.voice.releaseAt(5, 0)).toBe(false);
+    expect(held.voice.releaseAt(5)).toBe(false);
 
     held.now(2.6);
     held.report({ t: "held", id: release.id - 1, at: 2.5 });
@@ -86,17 +86,8 @@ describe("a rest on the transport", () => {
     // The release is the transport now: playing again, from the plan the release laid.
     expect(held.voice.planned()).toBe(true);
     held.now(4.1);
-    held.report({ ...release, t: "started", at: 4, offset: at + 0.3 });
+    held.report({ ...release, t: "started", at: 4, offset: at });
     expect(held.stops).toHaveLength(1);
-
-    // And a jump past the loop's end lands at the top of it, the way a seek does (0041).
-    const far = deck();
-    far.voice.setLoop(1, 3);
-    play(far);
-    far.now(1);
-    far.voice.holdAt(2);
-    far.voice.releaseAt(3, 5);
-    expect(far.sources[1]?.started[0]?.[1]).toBe(1);
   });
 
   it("is taken with a hand's play, which restarts from where the hold left the playhead", () => {
@@ -104,7 +95,7 @@ describe("a rest on the transport", () => {
     play(held);
     held.now(1);
     held.voice.holdAt(3);
-    held.voice.releaseAt(5, 0);
+    held.voice.releaseAt(5);
     held.now(3.5);
     held.report({ t: "held", id: lastPlan(held.plans).id - 1, at: 3 });
 
@@ -125,7 +116,7 @@ describe("a rest on the transport", () => {
     paused.now(3.5);
     paused.report({ t: "held", id: lastPlan(paused.plans).id, at: 3 });
     paused.voice.pause();
-    expect(paused.voice.releaseAt(5, 0)).toBe(false);
+    expect(paused.voice.releaseAt(5)).toBe(false);
     expect(paused.sources).toHaveLength(1);
     expect(positionOf(paused)).toBeCloseTo(3 - LOOKAHEAD_SECS, 9);
 
@@ -133,17 +124,17 @@ describe("a rest on the transport", () => {
     play(stopped);
     stopped.now(1);
     stopped.voice.holdAt(3);
-    stopped.voice.releaseAt(5, 0);
+    stopped.voice.releaseAt(5);
     stopped.voice.stop();
     expect(stopped.sources[1]?.stopped).toEqual([undefined]);
-    expect(stopped.voice.releaseAt(6, 0)).toBe(false);
+    expect(stopped.voice.releaseAt(6)).toBe(false);
     expect(positionOf(stopped)).toBe(0);
   });
 
   it("refuses a hold with nothing playing, over a rest, and a release with none standing", () => {
     const idle = deck();
     expect(idle.voice.holdAt(1)).toBe(false);
-    expect(idle.voice.releaseAt(2, 0)).toBe(false);
+    expect(idle.voice.releaseAt(2)).toBe(false);
     play(idle);
     idle.now(1);
     expect(idle.voice.holdAt(3)).toBe(true);
@@ -159,7 +150,7 @@ describe("a rest on the transport", () => {
     expect(held.voice.holdAt(3)).toBe(true);
     // Over a rest with no release yet, a second hold is nothing.
     expect(held.voice.holdAt(5)).toBe(false);
-    expect(held.voice.releaseAt(5, 0)).toBe(true);
+    expect(held.voice.releaseAt(5)).toBe(true);
     // The next rest stops the release, at its instant, and tells the reporter on that plan.
     expect(held.voice.holdAt(7)).toBe(true);
     expect(held.sources[1]?.stopped).toEqual([7]);
@@ -167,7 +158,7 @@ describe("a rest on the transport", () => {
     expect(release).toMatchObject({ startTime: 5, until: 7, resume: false });
     // And the release after that resumes from where the second rest held the playhead: two
     // seconds of a two-second loop past where the first release began.
-    expect(held.voice.releaseAt(9, 0)).toBe(true);
+    expect(held.voice.releaseAt(9)).toBe(true);
     const from = 1 + ((3 - LOOKAHEAD_SECS) % 2);
     expect(held.sources[2]?.started[0]?.[0]).toBe(9);
     expect(held.sources[2]?.started[0]?.[1]).toBeCloseTo(from, 9);
@@ -193,7 +184,7 @@ describe("a rest on the transport", () => {
     play(held);
     held.now(1);
     held.voice.holdAt(3);
-    held.voice.releaseAt(5, 0);
+    held.voice.releaseAt(5);
 
     held.voice.releaseNow();
     // The old source goes at once — its scheduled stop cannot be taken back — and so does the

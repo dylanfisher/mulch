@@ -10,6 +10,8 @@
 // the whole graph throws at load in the TDZ (0203). What this file needed from it was one lookup,
 // which the plugin it already holds can answer instead.
 import type { EffectParamValues } from "@/audio/params";
+import { scheduleAutomation } from "@/audio/ramp";
+import type { AutomationPoint } from "@/lib/automation";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import type { HoldEdge } from "@/lib/lull";
 import type {
@@ -114,6 +116,19 @@ export type EffectRack = {
    * not hold that instance, or when the plugin declared automation and bound no target (0024).
    */
   automationTarget(instance: EffectInstanceId, param: EffectParamId): AudioParam;
+  /**
+   * One cycle of a lane scheduled onto that target from `origin`, and told to the instance that
+   * asked to be told (`automated`). The one road a cycle takes onto a held instance, so what the
+   * param will do and what the instance believes it will do cannot part (0378).
+   */
+  setAutomation(
+    instance: EffectInstanceId,
+    param: EffectParamId,
+    lane: readonly AutomationPoint[],
+    base: number,
+    origin: number,
+    now: number,
+  ): void;
   reconnect(): void;
   dispose(): void;
 };
@@ -190,6 +205,12 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
   };
 
   reconnect();
+
+  function automationTarget(id: EffectInstanceId, param: EffectParamId): AudioParam {
+    const target = held(id).automationTarget?.(param);
+    if (target === undefined) throw new Error(`effect binds no automation target: ${param}`);
+    return target;
+  }
 
   return {
     input,
@@ -389,10 +410,10 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       lastMove = null;
       return built;
     },
-    automationTarget: (id, param) => {
-      const target = held(id).automationTarget?.(param);
-      if (target === undefined) throw new Error(`effect binds no automation target: ${param}`);
-      return target;
+    automationTarget,
+    setAutomation: (id, param, lane, base, origin, now) => {
+      scheduleAutomation(automationTarget(id, param), lane, base, origin, now);
+      held(id).automated?.(param, lane, base, origin, now);
     },
     reconnect,
     dispose: () => {

@@ -48,6 +48,7 @@ const fakeRack = () => {
     },
     holding: () => false,
     resetHolds: () => {},
+    setAutomation: () => {},
     setTempo: () => {},
     setParam: () => false,
     endGesture: () => false,
@@ -164,7 +165,7 @@ describe("the rests a rack with no transport asks for", () => {
     master.addEffect("l1", "lull", {});
     asks([
       { t: "hold", at: 2 },
-      { t: "release", at: 3, jump: 0 },
+      { t: "release", at: 3 },
     ]);
     // Nothing plays, so nothing is spent: the same asks are still there for the first yard.
     master.armAutomation();
@@ -174,7 +175,7 @@ describe("the rests a rack with no transport asks for", () => {
     expect(heard).toEqual([
       [
         { t: "hold", at: 2 },
-        { t: "release", at: 3, jump: 0 },
+        { t: "release", at: 3 },
       ],
     ]);
     asks([]);

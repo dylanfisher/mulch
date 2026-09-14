@@ -218,7 +218,7 @@ const spend = (held: DeckVoice, edge: HoldEdge): void => {
   else if (edge.t === "hold") {
     if (held.planned()) held.holdAt(edge.at);
   } else {
-    held.releaseAt(edge.at, edge.jump);
+    held.releaseAt(edge.at);
   }
 };
 

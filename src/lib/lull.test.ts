@@ -6,21 +6,22 @@ import { describe, expect, it } from "vitest";
 import {
   beatLength,
   createLull,
-  LULL_GAP_MAX,
-  LULL_GAP_MIN,
-  LULL_REST_MAX,
-  LULL_REST_MIN,
+  LULL_LENGTH_MAX,
+  LULL_LENGTH_MIN,
   type HoldEdge,
   type LullSpec,
 } from "./lull.ts";
 import { mulberry32 } from "./random.ts";
 
-const spec = (over: Partial<LullSpec> = {}): LullSpec => ({
-  chance: () => 1,
-  rest: [1, 2],
-  gap: [3, 4],
-  skip: 0,
-  ...over,
+/** A term from a number or a reader: a number is the same at every instant. */
+const term = (value: number | ((at: number) => number)): ((at: number) => number) =>
+  typeof value === "number" ? () => value : value;
+
+/** A spec from numbers or from readers. */
+const spec = (over: Partial<{ [K in keyof LullSpec]: number | LullSpec[K] }> = {}): LullSpec => ({
+  chance: term(over.chance ?? 1),
+  rest: term(over.rest ?? 2),
+  check: term(over.check ?? 2),
 });
 
 /** Every edge up to `until`, pumped at `step` seconds a time, as one list. */
@@ -41,35 +42,47 @@ function nextOf(cursor: ReturnType<typeof createLull>): number {
   return next;
 }
 
-const isRelease = (edge: HoldEdge): edge is HoldEdge & { t: "release" } => edge.t === "release";
-
 /** An edge's instant: a cursor lays holds and releases and never a clear, which is the plugin's. */
 const instantOf = (edge: HoldEdge): number => {
   if (edge.t === "clear") throw new Error("a cursor never clears");
   return edge.at;
 };
 
-// The cursor's whole contract in one block: the same list at two cadences, the roll, the skip, the
+// The cursor's whole contract in one block: the same list at two cadences, the roll, the check, the
 // reset — each case is a few lines and the block is their count. See 0007.
 // oxlint-disable-next-line max-lines-per-function
 describe("a lull's edges", () => {
   it("are the same list whether the horizon comes in eights or in halves", () => {
-    const coarse = pumped(createLull(spec(), mulberry32(7), 0, null), 120, 8);
-    const fine = pumped(createLull(spec(), mulberry32(7), 0, null), 120, 0.5);
+    const even = spec({ chance: () => 0.5 });
+    const coarse = pumped(createLull(even, mulberry32(7), 0, null), 120, 8);
+    const fine = pumped(createLull(even, mulberry32(7), 0, null), 120, 0.5);
     expect(coarse.length).toBeGreaterThan(10);
     expect(fine).toEqual(coarse);
   });
 
-  it("alternate a hold and a release at even chance, each length inside its range", () => {
-    const edges = pumped(createLull(spec(), mulberry32(3), 0, null), 200, 4);
-    let last = 0;
+  it("rest every other check at every chance, each exactly one rest long", () => {
+    const edges = pumped(createLull(spec(), mulberry32(3), 0, null), 40, 4);
+    expect(edges).toHaveLength(20);
     for (const [i, edge] of edges.entries()) {
       expect(edge.t).toBe(i % 2 === 0 ? "hold" : "release");
+      expect(instantOf(edge)).toBe(2 * (i + 1));
+    }
+  });
+
+  it("rest for one rest where the roll hit, and play on to the next check where it missed", () => {
+    const edges = pumped(createLull(spec({ chance: () => 0.5 }), mulberry32(3), 0, null), 400, 4);
+    const holds = edges.filter((edge) => edge.t === "hold").length;
+    // A hit about half the time, and a check of play after every rest: roughly a third resting.
+    expect(holds).toBeGreaterThan(40);
+    expect(holds).toBeLessThan(100);
+    let resting = false;
+    let last = 0;
+    for (const edge of edges) {
+      expect(edge.t).toBe(resting ? "release" : "hold");
       const length = instantOf(edge) - last;
-      if (edge.t === "hold") expect(length).toBeGreaterThanOrEqual(3);
-      if (edge.t === "hold") expect(length).toBeLessThanOrEqual(4);
-      if (edge.t === "release") expect(length).toBeGreaterThanOrEqual(1);
-      if (edge.t === "release") expect(length).toBeLessThanOrEqual(2);
+      if (resting) expect(length).toBe(2);
+      else expect(length % 2).toBe(0);
+      resting = edge.t === "hold";
       last = instantOf(edge);
     }
   });
@@ -83,20 +96,8 @@ describe("a lull's edges", () => {
     };
     const cursor = createLull(spec({ chance: () => 0 }), counting, 0, null);
     expect(pumped(cursor, 100, 4)).toEqual([]);
-    // Four draws a cycle, a gap of three to four seconds each: at least twenty-five cycles.
-    expect(spent).toBeGreaterThanOrEqual(100);
-    expect(spent % 4).toBe(0);
-  });
-
-  it("carry a jump inside the skip either way, and nought with none", () => {
-    const skipped = pumped(createLull(spec({ skip: 2 }), mulberry32(5), 0, null), 100, 4);
-    const releases = skipped.filter((edge) => isRelease(edge));
-    expect(releases.length).toBeGreaterThan(5);
-    for (const edge of releases) expect(Math.abs(edge.jump)).toBeLessThanOrEqual(2);
-    expect(releases.some((edge) => edge.jump < 0)).toBe(true);
-    expect(releases.some((edge) => edge.jump > 0)).toBe(true);
-    const still = pumped(createLull(spec(), mulberry32(5), 0, null), 100, 4);
-    for (const edge of still.filter((each) => isRelease(each))) expect(edge.jump).toBe(0);
+    // One draw a check, a check every two seconds: fifty checks.
+    expect(spent).toBe(50);
   });
 
   it("read the chance at each roll rather than once", () => {
@@ -106,30 +107,91 @@ describe("a lull's edges", () => {
     chance = 1;
     const out: HoldEdge[] = [];
     expect(cursor.edges(80, out)).toBeGreaterThan(0);
-    expect(out[0]?.t).toBe("hold");
+    expect(out[0]).toEqual({ t: "hold", at: 42 });
   });
 
-  it("count the gap again from a reset, on the draws that follow", () => {
+  it("count the checks again from a reset, on the draws that follow", () => {
     const cursor = createLull(spec(), mulberry32(9), 0, null);
     const out: HoldEdge[] = [];
-    const first = nextOf(cursor);
-    expect(cursor.edges(first, out)).toBe(1);
+    expect(nextOf(cursor)).toBe(2);
+    expect(cursor.edges(2, out)).toBe(1);
     expect(cursor.resting()).toBe(true);
     cursor.reset(50);
     expect(cursor.resting()).toBe(false);
-    const next = nextOf(cursor);
-    expect(next).toBeGreaterThanOrEqual(53);
-    expect(next).toBeLessThanOrEqual(54);
-    expect(cursor.edges(52, out)).toBe(0);
+    expect(nextOf(cursor)).toBe(52);
+    expect(cursor.edges(51, out)).toBe(0);
   });
 
-  it("answer the next edge without moving it", () => {
-    const cursor = createLull(spec(), mulberry32(1), 0, null);
-    const first = cursor.nextAt();
-    expect(cursor.nextAt()).toBe(first);
+  it("check every so many seconds of playing, rest a whole rest on a hit, and count again", () => {
+    const cursor = createLull(spec({ check: 0.5 }), mulberry32(3), 0, null);
+    expect(nextOf(cursor)).toBe(0.5);
+    // A hit at the first check, a rest of two seconds, and the next check half a second after it
+    // — the rest's end, and not a lattice laid from the birth, is what the checks count from.
+    expect(pumped(cursor, 6, 1)).toEqual([
+      { t: "hold", at: 0.5 },
+      { t: "release", at: 2.5 },
+      { t: "hold", at: 3 },
+      { t: "release", at: 5 },
+      { t: "hold", at: 5.5 },
+    ]);
+    // A check shorter than a rest against one longer: a rest a check long is a square wave, and
+    // a check of ten seconds rests the deck a hair every ten.
+    const long = pumped(createLull(spec({ rest: 0.25, check: 10 }), mulberry32(3), 0, null), 30, 5);
+    expect(long).toEqual([
+      { t: "hold", at: 10 },
+      { t: "release", at: 10.25 },
+      { t: "hold", at: 20.25 },
+      { t: "release", at: 20.5 },
+    ]);
+  });
+
+  it("ask every term at the instant it is spent, and never at the pump", () => {
+    const asked: [string, number][] = [];
+    const cursor = createLull(
+      spec({
+        chance: (at) => {
+          asked.push(["chance", at]);
+          return at < 5 ? 0 : 1;
+        },
+        rest: (at) => {
+          asked.push(["rest", at]);
+          return at < 8 ? 1 : 3;
+        },
+        check: (at) => {
+          asked.push(["check", at]);
+          return at < 3 ? 1 : 2;
+        },
+      }),
+      mulberry32(1),
+      0,
+      null,
+    );
+    // Checks at 1, 2, 3 (the check read as one at 0, 1, 2), then 5, 7 (two from 3 on); the chance
+    // hits from 5: a rest of one at 5, let go at 6, the next check at 8 and a rest of three.
+    expect(pumped(cursor, 12, 12)).toEqual([
+      { t: "hold", at: 5 },
+      { t: "release", at: 6 },
+      { t: "hold", at: 8 },
+      { t: "release", at: 11 },
+    ]);
+    expect(asked.filter(([name]) => name === "rest")).toEqual([
+      ["rest", 5],
+      ["rest", 8],
+    ]);
+    expect(asked.filter(([name]) => name === "chance").map(([, at]) => at)).toEqual([
+      1, 2, 3, 5, 8,
+    ]);
+  });
+
+  it("refuse a rest or a check that is no length, and a birth off the clock", () => {
     const out: HoldEdge[] = [];
-    expect(cursor.edges(10, out)).toBeGreaterThanOrEqual(2);
-    expect(out[0] === undefined ? null : instantOf(out[0])).toBe(first);
+    expect(() => createLull(spec({ rest: 0 }), mulberry32(1), 0, null).edges(10, out)).toThrow(
+      RangeError,
+    );
+    expect(() => createLull(spec({ check: 0 }), mulberry32(1), 0, null).nextAt()).toThrow(
+      RangeError,
+    );
+    expect(() => createLull(spec(), mulberry32(1), Number.NaN, null)).toThrow(RangeError);
   });
 });
 
@@ -143,14 +205,21 @@ describe("a lull on the beat", () => {
     expect(() => beatLength(1, 0)).toThrow(RangeError);
   });
 
-  it("lays every edge on a tick of the session clock, each length a multiple of the beat", () => {
-    const cursor = createLull(spec(), mulberry32(4), 0.3, { bpm: 120, sync: 0.5 });
+  it("lays every edge on a tick of the session clock, both lengths rounded onto the beat", () => {
+    const cursor = createLull(spec({ rest: 1.1, check: 0.55 }), mulberry32(4), 0.3, {
+      bpm: 120,
+      sync: 0.5,
+    });
     const edges = pumped(cursor, 100, 4);
     expect(edges.length).toBeGreaterThan(10);
     for (const edge of edges)
       expect(Math.abs(instantOf(edge) / 0.5 - Math.round(instantOf(edge) / 0.5))).toBeLessThan(
         1e-9,
       );
+    // 1.1s rounds onto a beat, checked every half: held for a beat from the first tick past the
+    // first half-beat check.
+    expect(edges[0]).toEqual({ t: "hold", at: 1 });
+    expect(edges[1]).toEqual({ t: "release", at: 2 });
   });
 
   it("lays nothing on a yard whose beat was never found", () => {
@@ -160,20 +229,15 @@ describe("a lull on the beat", () => {
   });
 
   it("keeps a rounded length inside the dial's own range", () => {
-    const cursor = createLull(
-      spec({ rest: [LULL_REST_MIN, LULL_REST_MIN * 1.5], gap: [LULL_GAP_MAX / 1.5, LULL_GAP_MAX] }),
-      mulberry32(6),
-      0,
-      { bpm: 30, sync: null },
-    );
-    const edges = pumped(cursor, 500, 4);
-    let last = 0;
-    for (const edge of edges) {
-      const length = instantOf(edge) - last;
-      if (edge.t === "hold") expect(length).toBeLessThanOrEqual(LULL_GAP_MAX + 1e-9);
-      if (edge.t === "release") expect(length).toBeGreaterThanOrEqual(LULL_REST_MIN - 1e-9);
-      last = instantOf(edge);
-    }
-    expect(LULL_GAP_MIN).toBeLessThan(LULL_REST_MAX);
+    const cursor = createLull(spec({ check: LULL_LENGTH_MIN }), mulberry32(6), 0, {
+      bpm: 30,
+      sync: null,
+    });
+    expect(nextOf(cursor)).toBeGreaterThanOrEqual(LULL_LENGTH_MIN);
+    const long = createLull(spec({ check: LULL_LENGTH_MAX }), mulberry32(6), 0, {
+      bpm: 0.5,
+      sync: null,
+    });
+    expect(nextOf(long)).toBeLessThanOrEqual(LULL_LENGTH_MAX + 1e-9);
   });
 });

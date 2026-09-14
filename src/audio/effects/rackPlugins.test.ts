@@ -509,62 +509,100 @@ describe("the lull in the rack", () => {
     rack.add("l1", effectById("lull"), {
       ...effectParamDefaults("lull", "l1"),
       "lull.chance": 1,
-      "lull.least": 1,
-      "lull.most": 1,
-      "lull.gapLeast": 2,
-      "lull.gapMost": 2,
+      "lull.rest": 2,
+      "lull.every": 2,
     });
 
     // Built: the audio passes through one gain at one; every knob is a parked constant source,
     // started, so the declaration road stays the ordinary one (0049).
     const through = required(gains, 1);
-    expect(constants).toHaveLength(8);
+    expect(constants).toHaveLength(5);
     for (const constant of constants) expect(constant.started).toBe(true);
     expect([...asFakeNode(rack.input).connections]).toEqual([through]);
     expect([...through.connections]).toEqual([destination]);
 
-    // Asked: at every chance and fixed lengths, a hold two seconds in and a release a second
-    // after it, then the next pair — gathered up to the horizon and no further.
+    // Asked: at every chance, checked every two seconds and rested for two, a hold two seconds
+    // in and a release two after it, then the next pair — gathered up to the horizon and no
+    // further.
     expect(rack.holding()).toBe(true);
     expect(rack.pumping()).toBe(true);
     const asks: HoldEdge[] = [];
-    expect(rack.holds(4, asks)).toBe(2);
+    expect(rack.holds(5, asks)).toBe(2);
     expect(asks[0]).toEqual({ t: "hold", at: 2 });
-    expect(asks[1]).toEqual({ t: "release", at: 3, jump: 0 });
-    expect(rack.holds(4, asks)).toBe(0);
-    expect(rack.holds(5.5, asks)).toBe(1);
-    expect(asks[0]).toEqual({ t: "hold", at: 5 });
+    expect(asks[1]).toEqual({ t: "release", at: 4 });
+    expect(rack.holds(5, asks)).toBe(0);
+    expect(rack.holds(6.5, asks)).toBe(1);
+    expect(asks[0]).toEqual({ t: "hold", at: 6 });
 
-    // Moved: a knob is the ordinary road onto its constant (0049), and the chance is read off the
-    // knob at the next roll — nought here, so the next gap ends in another gap.
+    // Moved: a knob is the ordinary road onto its constant (0049), and the chance is read at the
+    // instant of each check — nought from 3 on, so what the run had laid past 3 is dropped, the
+    // transport restarts in place, and no check after it ends in a rest (0378).
     rack.setParam("l1", "lull.chance", 0, 3);
-    expect(required(constants, 1).offset.ramps).toEqual([[0, 3 + PARAM_RAMP_SECS]]);
-    // The rest already standing still owes its release; after it, no roll hits.
+    expect(required(constants, 0).offset.ramps).toEqual([[0, 3 + PARAM_RAMP_SECS]]);
     expect(rack.holds(60, asks)).toBe(1);
-    expect(asks[0]?.t).toBe("release");
+    expect(asks[0]).toEqual({ t: "clear" });
     expect(rack.holds(60, asks)).toBe(0);
+    // Turned back up at the same instant: the checks were spent to the horizon at nought, so
+    // they are walked again from the move — a clear that drops nothing, then the check at 5.
     rack.setParam("l1", "lull.chance", 1, 3);
+    expect(rack.holds(5, asks)).toBe(2);
+    expect(asks[0]).toEqual({ t: "clear" });
+    expect(asks[1]).toEqual({ t: "hold", at: 5 });
 
     // Bypassed: the switch means not running, so nothing is asked and nothing is holding. And
-    // switched back on, the gap counts again from the clock as it stands, not from the birth.
+    // switched back on, the checks count again from the clock as it stands, not from the birth.
     rack.setBypass("l1", true);
     expect(rack.holding()).toBe(false);
     expect(rack.holds(60, asks)).toBe(0);
     Object.assign(context, { currentTime: 10 });
     rack.setBypass("l1", false);
     expect(rack.holding()).toBe(true);
-    expect(rack.holds(13, asks)).toBe(2);
+    expect(rack.holds(14, asks)).toBe(2);
     expect(asks[0]).toEqual({ t: "hold", at: 12 });
-    expect(asks[1]).toEqual({ t: "release", at: 13, jump: 0 });
+    expect(asks[1]).toEqual({ t: "release", at: 14 });
+
+    // Moved on a length — no rebuild, so the rack answers no — the run continues on the same
+    // draws rather than redrawing from the seed: the rest laid at 12 is dropped with a clear, and
+    // from the move on the checks count on the new lengths (0378).
+    expect(rack.setParam("l1", "lull.rest", 1, 10)).toBe(false);
+    expect(rack.setParam("l1", "lull.every", 1, 10)).toBe(false);
+    expect(rack.holds(16, asks)).toBe(7);
+    expect(asks[0]).toEqual({ t: "clear" });
+    expect(asks.slice(1, 7).map((edge) => (edge.t === "clear" ? null : edge.at))).toEqual([
+      11, 12, 13, 14, 15, 16,
+    ]);
+
+    // A lane on the chance is read where the check falls: laid from 20, ahead of every check
+    // spent, as nought for a second and one after, the checks at 17 and 19 hit off the knob, the
+    // one at 21 misses off the lane, and the one at 22 hits off it — told to the instance
+    // through the rack's one road, and dropping nothing, because nothing was spent past it.
+    rack.setAutomation(
+      "l1",
+      "lull.chance",
+      [
+        { at: 0, value: 0 },
+        { at: 1, value: 0 },
+        { at: 1.001, value: 1 },
+        { at: 30, value: 1 },
+      ],
+      1,
+      20,
+      16,
+    );
+    expect(rack.holds(23, asks)).toBe(6);
+    expect(asks.slice(0, 6).map((edge) => (edge.t === "clear" ? null : edge.at))).toEqual([
+      17, 18, 19, 20, 22, 23,
+    ]);
+    expect(asks[4]).toEqual({ t: "hold", at: 22 });
 
     // Redrawn by a knob that rebuilds — which the rack answers for — the run asks first for
     // everything it laid to be dropped, then lays again from now.
-    expect(rack.setParam("l1", "lull.gapLeast", 1, 10)).toBe(true);
-    expect(rack.setParam("l1", "lull.gapMost", 1, 10)).toBe(true);
-    expect(rack.holds(12, asks)).toBe(3);
+    Object.assign(context, { currentTime: 30 });
+    expect(rack.setParam("l1", "lull.seed", 2, 30)).toBe(true);
+    expect(rack.holds(32, asks)).toBe(3);
     expect(asks[0]).toEqual({ t: "clear" });
-    expect(asks[1]).toEqual({ t: "hold", at: 11 });
-    expect(asks[2]).toEqual({ t: "release", at: 12, jump: 0 });
+    expect(asks[1]).toEqual({ t: "hold", at: 31 });
+    expect(asks[2]).toEqual({ t: "release", at: 32 });
 
     // Disposed: the gain leaves the graph and the chain closes over it.
     rack.remove("l1");

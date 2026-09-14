@@ -315,13 +315,12 @@ describe("a lull on the master", () => {
     instrument.send({ t: "deck.play", deck: "a" });
     instrument.send({ t: "deck.play", deck: "b" });
     instrument.send({ t: "effect.add", deck: null, id: "l1", effect: "lull" });
-    // At every chance, two seconds in, for a minute — past the horizon, so no release is laid.
+    // At every chance, checked every five seconds and rested for five: a hold five in, and its
+    // release at ten — past the horizon, so none is laid.
     for (const [param, value] of [
       ["lull.chance", 1],
-      ["lull.gapLeast", 2],
-      ["lull.gapMost", 2],
-      ["lull.least", 60],
-      ["lull.most", 60],
+      ["lull.rest", 5],
+      ["lull.every", 5],
     ] as const) {
       instrument.send({ t: "param.set", deck: null, instance: "l1", param, value });
     }
@@ -329,7 +328,7 @@ describe("a lull on the master", () => {
     engine.armAutomation();
     // Both transports re-posted their plans carrying the one instant the master asked for.
     for (const reporter of reporters) {
-      expect(reporter.plans.at(-1)).toMatchObject({ until: 2, resume: true });
+      expect(reporter.plans.at(-1)).toMatchObject({ until: 5, resume: true });
     }
 
     // Switched off on the master, every yard is let go: a restart in place at the lookahead,

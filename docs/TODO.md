@@ -1,0 +1,78 @@
+- instead of visualizer being one big field related to how the sound is currently playing, it could be a continuously
+  drawing recording of how the sound is playing, so as it plays it draws in a recording of it.
+
+- Add ability to set loop based on beat count
+
+- setting delay to beat mode should change time to only toggle between set beat points
+- duplicate delay effect should also copy the beat toggle
+
+- lull effect should impact the visualizer in such a way that it looks like a gap is drawn in, use empty
+  and negative space in an interesting way.
+- lull effect doesn't appear to work when mulcher is activated
+
+- visualizer effects should always tween between items. right now sometimes the jumps between changes (dry/wet,
+  adding or removing an effect) is jumpy. it should be smoother when possible.
+- double clicking a automated knob should always reset it
+
+- push spark effect more so its like playing an organ of sparks. sparks could harmonize at different octaves.
+
+- which ground should be able to set how it moves without enabling the mulcher
+- refactor the way "the ground" works: TODO
+  - simpler, e.g. loop this many times before moving, etc.
+  - set safe boundary areas where it can jump between
+  - add ability to say something like "jump around in short nudges for some period of jumps, then jump to a completely
+    different area and jump around in nudges"
+- change how spark is visualizer (e.g. it should look like a spark, light up a section, dissolve). it can constantly
+  be moving around visualizer like little bits of light. when multiple sparks his the spark quality (color, shape,
+  area sparked, etc. should be based on that sparked area of the soundwave). currently sparks just look like a couple
+  pixels that slowly move around - it's not exciting at all. spark should invoke the idea of bright randomness,
+  excitement, etc.
+
+- increase mulcher burst timing to be up to 8 or 16 seconds. if a burst needs to wrap around a loop to satisfy
+  the length requirement it should do that, rather than get cut off at the end.
+
+- add a feature to pitch effect that allows setting intervals like a simple keyboard recording
+  so we can automate little melodies
+
+- effect automations need ability to set min/max values for automations
+- effect automator needs a way to set a random 0/1 style value change, so you can do something like toggle between
+  to random states, and set duration of automator to get interesting effects. you could set 1/2/3/4 etc different
+  states on a knob.
+
+- try seeing what it looks like if the visualizer is the background of the entire card.
+
+- in header, add a effects count, and yard count, and any other funny interesting statistics about how the
+  sound is manipulated. push the mulch idea - e.g. the sound is really getting put through a lot of distortion.
+
+- play/pause effect, kinda like scatter
+
+- if possible, make it so pressing stop when already stops clears all noise (feedback, etc.)
+
+- randomize button next to yard seed input
+
+- stacked visualizer view for many decks?
+- master effects should not collapse by default if any effects are present (or better yet, remember collapse
+  state of each deck/module in local browser session)
+
+- add a way to create a visualized artifact for the song, as part of the export audio workflow. kind of like
+  a generative album cover, gif, mp4, etc.
+
+---
+
+- add spark count to mulcher so that a jump can trigger multiple sparks
+- copy YARD_PLACES and YARD_AIRS should have the modifier word generated, too. e.g. by, beneath, along, at, in, etc.
+  for more variability.
+- eq should be named eq/filter in the user facing areas. eq shape should be a dropdown, not knob. default is low pass.
+- add an additional automator draw lane behavior that is in between smooth and pulse, e.g. a smooth curve, but
+  with more variety.
+- add tap to set time on delay. add an option to match on beat (by the 16th, or similar, matching a similar
+  timeframe as is currently available)
+
+---
+
+- the visualizer should use the name of the yard as inspiration for how it looks. see these screenshots for
+  how the visualizer should change. we want it to become more painterly, have different moods, and look more
+  like it was inspired by closeup natural landscapes like fields of color, blades of grass, fields of flowers,
+  wind, etc. this should be gestural, abstract, and interprated into a digital context. we don't want literal.
+  all visualizer parameters should continue to affect whatever scene is playing. the scenes should be modular
+  and easy to add new scenes to, change scenes/params, etc.

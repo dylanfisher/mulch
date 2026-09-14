@@ -254,20 +254,17 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     endGesture: () => effects.endGesture(),
     setAutomation: (instance, param, lane, base, origin) => {
       // Routed exactly the way setParam is: the deck owns its own AudioParams, and every other
-      // registry target is the owning plugin's binding on one named instance (0024, 0030).
-      scheduleAutomation(
-        instance === null
-          ? deckTarget(param)
-          : effects.automationTarget(instance, asEffectParam(param)),
-        lane,
-        base,
-        origin,
-        // The clock the rendering thread has actually reached, which is what decides how the
-        // cycle holds what came before it. Not the lane clock the caller placed `origin` with:
-        // that one is held a lookahead ahead of the thread, and offline the whole horizon is
-        // armed before the render reaches any of it (0102).
-        ctx.currentTime,
-      );
+      // registry target is the owning plugin's binding on one named instance, laid through the
+      // rack so the instance may be told (0024, 0030, 0378). The clock passed is the one the
+      // rendering thread has actually reached, which is what decides how the cycle holds what
+      // came before it. Not the lane clock the caller placed `origin` with: that one is held a
+      // lookahead ahead of the thread, and offline the whole horizon is armed before the render
+      // reaches any of it (0102).
+      if (instance === null) {
+        scheduleAutomation(deckTarget(param), lane, base, origin, ctx.currentTime);
+        return;
+      }
+      effects.setAutomation(instance, asEffectParam(param), lane, base, origin, ctx.currentTime);
     },
     // The registry lookup happens here rather than in the rack, which may not reach the registry
     // at all: it is imported from inside it (0203).

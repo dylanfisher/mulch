@@ -62,16 +62,14 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "scatter.gate": "How far a window replaces the sound passing through, from none to all of it.",
   "scatter.edge": "How quickly a window opens and shuts, in seconds. Short is a click.",
   "scatter.stray": "How much of each of the four knobs above is drawn per window rather than held.",
-  "lull.seed": "Which run of rests this is. Every lull is born with one of its own.",
-  "lull.chance": "The odds a gap ends in a rest rather than another gap. None never rests.",
-  "lull.least": "The shortest a rest holds the deck, in seconds.",
-  "lull.most": "The longest a rest holds the deck, in seconds. A minute at the top.",
-  "lull.gapLeast": "The shortest the deck plays between two chances of a rest, in seconds.",
-  "lull.gapMost": "The longest the deck plays between two chances of a rest, in seconds.",
-  "lull.skip":
-    "How far either way a resume may land from where the rest held it, in seconds. None is exactly there.",
+  "lull.chance":
+    "The odds a check ends in a rest, read at the check. None never rests; one rests at every check.",
+  "lull.rest": "How long a rest holds the deck, in seconds. A minute at the top.",
+  "lull.every":
+    "How long the deck plays between two checks of the chance, in seconds, counted again from every rest's end.",
   "lull.grid":
-    "Which clock the lengths are said on: the wall's, or the yard's beat and the ticks the yards share.",
+    "Which clock the rest is said on: nought is the wall's, one is the yard's beat and the ticks the yards share.",
+  "lull.seed": "Which run of rests this is. Every lull is born with one of its own.",
   "crush.bits":
     "How many bits a sample is rounded onto. One is the sign of the sound and nothing else.",
   "crush.rate": "How often a sample is taken and held, in hertz. Lower is coarser and grittier.",

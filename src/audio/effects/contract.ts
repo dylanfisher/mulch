@@ -11,6 +11,7 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import type { GrowthBounds } from "@/lib/effectGrowth";
+import type { AutomationPoint } from "@/lib/automation";
 import type { HoldEdge } from "@/lib/lull";
 
 // Re-exported with the instance surface that names it, so a rack or a chain reading asks needs no
@@ -112,6 +113,20 @@ export type EffectInstance<Param extends string = string> = {
    * what makes it required, so the rack throws rather than guessing (0024).
    */
   automationTarget?(param: Param): AudioParam;
+  /**
+   * One cycle of a lane, told to the instance as the rack schedules it onto the target above —
+   * the same points, base and origin, and how far the clock has got. Present only on a plugin
+   * that decides something at an instant ahead of the clock and has to know what a lane is worth
+   * there, which no AudioParam answers (src/lib/laneReader.ts, 0378). Never a second road for
+   * the value: the target is still what sounds.
+   */
+  automated?(
+    param: Param,
+    lane: readonly AutomationPoint[],
+    base: number,
+    origin: number,
+    now: number,
+  ): void;
   /**
    * What this effect's graph is doing right now, as one number a meter paints — the compressor's
    * gain reduction in dB is the first. Present only for the plugins that have such a number, and

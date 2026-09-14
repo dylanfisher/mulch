@@ -39,11 +39,11 @@ export type DeckVoice = {
    */
   holdAt(at: number): boolean;
   /**
-   * The rest's end: a source started at `at` from where the hold left the playhead, moved by
-   * `jump` seconds and kept inside the loop. Refused with no rest standing, or one already given
-   * its release. Laid ahead the way the hold was, so a render is sample-exact (0372).
+   * The rest's end: a source started at `at` from where the hold left the playhead, kept inside
+   * the loop. Refused with no rest standing, or one already given its release. Laid ahead the way
+   * the hold was, so a render is sample-exact (0372).
    */
-  releaseAt(at: number, jump: number): boolean;
+  releaseAt(at: number): boolean;
   /** Let a standing rest go at the lookahead, in place — what a bypass owes it (0371). */
   releaseNow(): void;
   /** The yard's sounding beat, in bpm, or nought — pushed down to the rack (0371). */

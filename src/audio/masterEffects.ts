@@ -13,7 +13,6 @@ import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
 import { AUTOMATION_HORIZON_SECS, AUTOMATION_REARM_SECS, MAX_AUTOMATION_CYCLES } from "./transport";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { asEffectParam } from "./chain";
-import { scheduleAutomation } from "./ramp";
 import type { EffectRack } from "./effects/rack";
 import type { EffectInstanceId, HoldEdge } from "./effects/contract";
 import type { DeckPeek } from "./deckPeek";
@@ -117,13 +116,7 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
       if (lane.span <= 0) {
         if (lane.armed > 0) continue;
         lane.armed = 1;
-        scheduleAutomation(
-          rack.automationTarget(lane.instance, lane.param),
-          lane.points,
-          lane.base,
-          from,
-          from,
-        );
+        rack.setAutomation(lane.instance, lane.param, lane.points, lane.base, from, from);
         continue;
       }
       const current = Math.floor((from - lane.anchor) / lane.span);
@@ -134,13 +127,7 @@ export function createMasterEffects(ctx: BaseAudioContext, rack: EffectRack): Ma
       );
       for (; lane.armed < wanted; lane.armed++) {
         const origin = lane.anchor + lane.armed * lane.span;
-        scheduleAutomation(
-          rack.automationTarget(lane.instance, lane.param),
-          lane.points,
-          lane.base,
-          origin,
-          from,
-        );
+        rack.setAutomation(lane.instance, lane.param, lane.points, lane.base, origin, from);
       }
     }
   }

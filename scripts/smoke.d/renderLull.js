@@ -10,7 +10,7 @@ import { fail, report } from "./harness.js";
 
 /** How long the render runs: two rests of a second each, a second of playing before each. */
 const LULL_RENDER_SECS = 4;
-/** The rest and the gap, fixed at one second each so the rests fall where the assertion looks. */
+/** The rest — and so the slot — fixed at one second so the rests fall where the assertion looks. */
 const LULL_SECS = 1;
 /** How far a rest's silence may stand from a whole second: the fingerprint's own window. */
 const LULL_NEAR_SECS = 0.1;
@@ -32,10 +32,7 @@ export const renderLull = async ({ page }) => {
             { t: "effect.add", deck: "a", id: "lull", effect: "lull" },
             { t: "param.set", deck: "a", instance: "lull", param: "lull.seed", value: 7 },
             { t: "param.set", deck: "a", instance: "lull", param: "lull.chance", value: chance },
-            { t: "param.set", deck: "a", instance: "lull", param: "lull.least", value: rest },
-            { t: "param.set", deck: "a", instance: "lull", param: "lull.most", value: rest },
-            { t: "param.set", deck: "a", instance: "lull", param: "lull.gapLeast", value: rest },
-            { t: "param.set", deck: "a", instance: "lull", param: "lull.gapMost", value: rest },
+            { t: "param.set", deck: "a", instance: "lull", param: "lull.rest", value: rest },
             ...(delay
               ? [
                   { t: "effect.add", deck: "a", id: "dly", effect: "delay" },

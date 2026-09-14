@@ -262,7 +262,7 @@ export function createDeckVoice(
         return;
       }
       if (edge.t === "hold") holdAt(edge.at);
-      else releaseAt(edge.at, edge.jump);
+      else releaseAt(edge.at);
     }
   }
 
@@ -321,12 +321,11 @@ export function createDeckVoice(
     start(readsAt(ctx.currentTime + LOOKAHEAD_SECS) ?? pausedAt ?? undefined);
   }
 
-  function releaseAt(at: number, jump: number): boolean {
+  function releaseAt(at: number): boolean {
     const current = rests.at(-1);
     if (current === undefined || current.release !== null || buffer === null) return false;
-    const from = current.pausedAt ?? 0;
     // Inside the loop and inside the buffer, the way a seek is kept (0041).
-    const offset = clamp(from + jump, loop?.in ?? 0, loop?.out ?? buffer.duration);
+    const offset = clamp(current.pausedAt ?? 0, loop?.in ?? 0, loop?.out ?? buffer.duration);
     // Never before the stop it releases, and never in the past: a late release is the opposite
     // of a late hold — a deck held is a deck owed one — so it is clamped forward to the lookahead.
     const pass = ordinaryPass(
