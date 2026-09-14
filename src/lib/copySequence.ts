@@ -34,7 +34,7 @@ export const SEQUENCE_STEP_TOOLTIPS: Record<SequenceStepKind, string> = {
 /** The length dial beside each step, and the sentence on it. */
 export const SEQUENCE_SECS_LABEL = "Length";
 export const SEQUENCE_SECS_TOOLTIP =
-  "How long this step takes, from a second to an hour. The whole run counts from the yard's own play: pause holds it, stop rewinds it, and past its last step the yard stays where that step left it.";
+  "How long this step takes, from a second to an hour. The whole run counts from the yard's own play: pause holds it, stop rewinds it, and past its last step it goes round again from the top.";
 
 /** The press that puts a step on the end of the run, and the one that takes a step out. */
 export const SEQUENCE_ADD_LABEL = "Add Step";

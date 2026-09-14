@@ -32,6 +32,7 @@ import {
   type SequenceStep,
   type SequenceStepKind,
   sequenceLevelAt,
+  sequencePhaseSecs,
   sequenceSpanSecs,
 } from "@/lib/deckSequence";
 import type { DeckId } from "@/state/store";
@@ -235,14 +236,14 @@ export function DeckSequencerRow({
       last.opacity = "0";
       return;
     }
-    const at = Math.min(instrument.peek(deck).sequenceAt, span);
+    const at = sequencePhaseSecs(steps, instrument.peek(deck).sequenceAt);
     const x = at / span;
     if (last.opacity === "1" && x === last.x) return;
     element.style.left = `${x * 100}%`;
     element.style.opacity = "1";
     last.x = x;
     last.opacity = "1";
-  }, [deck, instrument, span]);
+  }, [deck, instrument, span, steps]);
   useOnFrame(paintCursor, playing && span > 0);
   // And once in the commit, so a halted yard's cursor stands where its fade is holding (0040).
   useLayoutEffect(paintCursor);

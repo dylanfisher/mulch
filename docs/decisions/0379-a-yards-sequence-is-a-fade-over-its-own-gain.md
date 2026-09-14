@@ -16,9 +16,9 @@ render of the session is the performance it would have given (0204, 0071).
 
 **It counts on the lane clock, so a pause holds it and a stop rewinds it.** Play begins it at
 nought; a pause freezes it where it stands and the next play carries it on (0040); a stop, which
-rewinds the playhead, rewinds the sequence with it (0038). Past its last step it holds the level
-that step left and touches nothing else — a yard that faded out goes on looping silently — because
-the sequence is a fade and the transport is a hand's.
+rewinds the playhead, rewinds the sequence with it (0038). Past its last step it goes round again
+from the top, for as long as the yard plays, and touches nothing else — a run is a loop like the
+yard under it — because the sequence is a fade and the transport is a hand's.
 
 **A rest is silence and not a hold.** It could have asked the transport for one the lull's way,
 but that is a second asker on the one road 0371 opened, and a rest that held would collide with a

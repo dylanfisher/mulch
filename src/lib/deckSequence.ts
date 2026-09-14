@@ -1,7 +1,8 @@
 /**
  * @role What a yard's sequence is, and what it is worth at an instant: a run of steps — a fade in,
- *   a stretch of playing, a fade out, a rest — each a length in seconds, read as one level between
- *   nought and one that a yard's output is scaled by after its own fader. Pure maths: the level at
+ *   a stretch of playing, a fade out, a rest — each a length in seconds, looped for as long as the
+ *   yard plays, read as one level between nought and one that a yard's output is scaled by after
+ *   its own fader. Pure maths: the level at
  *   an elapsed second, the ramps a window of it is laid as, and the one gate a durable sequence
  *   comes through from the wire or from storage (0379).
  * @instead The node that sounds it → src/audio/chain.ts. The clock it counts on, which holds
@@ -38,25 +39,34 @@ export const sequenceSpanSecs = (steps: DeckSequence): number =>
   steps.reduce((sum, step) => sum + step.secs, 0);
 
 /**
+ * Where in its run a sequence stands at `elapsed` seconds: the run loops, so past its span it is
+ * back at the top. Before it begins — where a lookahead reads — it has not started: `elapsed` as
+ * it came. Nought for no sequence.
+ */
+export function sequencePhaseSecs(steps: DeckSequence, elapsed: number): number {
+  const span = sequenceSpanSecs(steps);
+  if (span === 0 || elapsed < span) return elapsed;
+  return elapsed % span;
+}
+
+/**
  * The level at `elapsed` seconds into the sequence. Before it begins, the first step's own start;
- * past its end, the last step's own end — the sequence never touches the transport, so a yard
- * that has finished fading out goes on looping, silently, until a hand does (0379). One
- * throughout for no sequence.
+ * past its end, round again from the top — the run loops for as long as the yard plays, and
+ * never touches the transport (0379). One throughout for no sequence.
  */
 export function sequenceLevelAt(steps: DeckSequence, elapsed: number): number {
   if (steps.length === 0) return 1;
+  const phase = sequencePhaseSecs(steps, elapsed);
   let at = 0;
   for (const step of steps) {
     const [from, to] = LEVELS[step.kind];
-    if (elapsed < at + step.secs) {
-      const into = Math.max(0, elapsed - at) / step.secs;
+    if (phase < at + step.secs) {
+      const into = Math.max(0, phase - at) / step.secs;
       return from + (to - from) * into;
     }
     at += step.secs;
   }
-  const last = steps.at(-1);
-  if (last === undefined) throw new Error("a sequence with steps has a last one");
-  return LEVELS[last.kind][1];
+  throw new Error("a phase within the span falls inside some step");
 }
 
 /**
@@ -72,12 +82,18 @@ export function sequenceRamps(
   until: number,
 ): [value: number, at: number][] {
   const ramps: [number, number][] = [[sequenceLevelAt(steps, from - origin), from]];
-  let edge = origin;
-  for (const step of steps) {
-    edge += step.secs;
-    if (edge <= from) continue;
-    if (edge >= until) break;
-    ramps.push([sequenceLevelAt(steps, edge - origin), edge]);
+  const span = sequenceSpanSecs(steps);
+  if (span > 0) {
+    // The run loops, so its edges recur every span: start from the pass the window opens in.
+    let edge = origin + Math.max(0, Math.floor((from - origin) / span)) * span;
+    while (edge < until) {
+      for (const step of steps) {
+        edge += step.secs;
+        if (edge <= from) continue;
+        if (edge >= until) break;
+        ramps.push([sequenceLevelAt(steps, edge - origin), edge]);
+      }
+    }
   }
   ramps.push([sequenceLevelAt(steps, until - origin), until]);
   return ramps;

@@ -146,9 +146,12 @@ describe("a sequence on the transport", () => {
     expect(fadeCalls(held)).toEqual(
       laid(sequenceRamps(BREATH, LOOKAHEAD_SECS, 4, 4 + AUTOMATION_HORIZON_SECS)),
     );
-    // Past the end the level stays where the last step left it, and the deck goes on playing.
-    held.now(30);
-    expect(fadeOf(held).level).toBe(0);
+    // Past the end the run has gone round again: thirty from the top is six into its third pass,
+    // playing at one, and the deck goes on playing; twenty-six is two in, half-way up the fade in.
+    held.now(30 + LOOKAHEAD_SECS);
+    expect(fadeOf(held).level).toBe(1);
+    held.now(26 + LOOKAHEAD_SECS);
+    expect(fadeOf(held).level).toBeCloseTo(0.5);
     expect(held.voice.planned()).toBe(true);
   });
 

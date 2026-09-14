@@ -8,6 +8,7 @@ import {
   SEQUENCE_SECS_MAX,
   SEQUENCE_STEPS_MAX,
   sequenceLevelAt,
+  sequencePhaseSecs,
   sequenceRamps,
   sequenceSpanSecs,
   type DeckSequence,
@@ -38,14 +39,24 @@ describe("the level at an instant", () => {
     expect(sequenceLevelAt(BREATH, 15)).toBe(0);
   });
 
-  it("stands at the first step's start before it begins and at the last step's end after", () => {
+  it("stands at the first step's start before it begins, and goes round again after", () => {
     // Before nought is where a lookahead reads; the fade has not started, so nought (0379).
     expect(sequenceLevelAt(BREATH, -2)).toBe(0);
     expect(sequenceLevelAt([{ kind: "out", secs: 2 }], -2)).toBe(1);
-    // Past the end the transport is untouched and the level stays where it was left: a yard that
-    // faded out goes on looping silently, one that faded in goes on at one (0379).
-    expect(sequenceLevelAt(BREATH, 100)).toBe(0);
-    expect(sequenceLevelAt([{ kind: "in", secs: 2 }], 100)).toBe(1);
+    // Past the end the run loops: sixteen is the top again, and a hundred is four seconds into
+    // its seventh pass, playing at one (0379).
+    expect(sequenceLevelAt(BREATH, 16)).toBe(0);
+    expect(sequenceLevelAt(BREATH, 17)).toBeCloseTo(0.25);
+    expect(sequenceLevelAt(BREATH, 100)).toBe(1);
+    expect(sequenceLevelAt([{ kind: "in", secs: 2 }], 3)).toBeCloseTo(0.5);
+  });
+
+  it("is a phase within the span once past it, and untouched before it or for no sequence", () => {
+    expect(sequencePhaseSecs(BREATH, 5)).toBe(5);
+    expect(sequencePhaseSecs(BREATH, 16)).toBe(0);
+    expect(sequencePhaseSecs(BREATH, 37)).toBe(5);
+    expect(sequencePhaseSecs(BREATH, -2)).toBe(-2);
+    expect(sequencePhaseSecs([], 40)).toBe(40);
   });
 
   it("sums the steps for the span", () => {
@@ -72,11 +83,18 @@ describe("the ramps a window is laid as", () => {
     ]);
   });
 
-  it("are two flat pins past the end and for no sequence", () => {
-    expect(sequenceRamps(BREATH, 0, 40, 48)).toEqual([
-      [0, 40],
+  it("carry the edges of every pass, since the run loops", () => {
+    // Begun at nought, a window from forty to forty-eight: the third pass ends at forty-eight,
+    // so the edges inside are its fade out's start at forty and end at forty-four.
+    expect(sequenceRamps(BREATH, 0, 41, 49)).toEqual([
+      [0.75, 41],
+      [0, 44],
       [0, 48],
+      [0.25, 49],
     ]);
+  });
+
+  it("are two flat pins for no sequence", () => {
     expect(sequenceRamps([], 0, 40, 48)).toEqual([
       [1, 40],
       [1, 48],
