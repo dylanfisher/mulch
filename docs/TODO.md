@@ -1,3 +1,9 @@
+- fix move effect from one to another (crashes)
+
+- more ways to use the tone up/down feature in the mulcher (octaves could be set like a sequencer or piano)
+
+- keyboard shortcuts
+
 - instead of visualizer being one big field related to how the sound is currently playing, it could be a continuously
   drawing recording of how the sound is playing, so as it plays it draws in a recording of it.
 

@@ -10,7 +10,7 @@ import type * as ReactTypes from "react";
 // file's complexity. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies, max-lines-per-function
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The three hooks this component calls, made callable outside a renderer so the pad's own handler
@@ -238,6 +238,18 @@ describe("the cast's pad", () => {
  * is; a real pointer on a real element is `scripts/smoke.d/renderPlayer.js`'s to press (plan §4).
  */
 describe("a press on the pad", () => {
+  /**
+   * Every press here is on a pad of its own, and a pad draws its six on the press that needs them
+   * (`Math.random`, 0089). Two presses compared are two casts unless the die is pinned — and
+   * `stutter` drawn low against a middle drawn high round to the same count, which CI saw once.
+   */
+  beforeEach(() => {
+    vi.spyOn(Math, "random").mockReturnValue(0.42);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   /** The six are drawn on the press that needs them, so the draw is a gesture's and not a frame's. */
   const pressed = (x: number, y: number) => {
     const { element, patch } = pad();
