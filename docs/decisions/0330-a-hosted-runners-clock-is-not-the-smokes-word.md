@@ -1,6 +1,6 @@
 # 0330 — A hosted runner's clock is not the smoke's word
 
-**2026-09-09.** A Playwright wait that expires in the browser half is red on a developer's machine
+**2026-09-09. Superseded by [0380](0380-the-browser-smoke-is-the-local-gates-alone.md): the browser half no longer runs on a hosted runner at all.** A Playwright wait that expires in the browser half is red on a developer's machine
 and reported-but-survived on a hosted runner. `isHostedTimeout` (`scripts/smoke.d/harness.js`) is
 the whole of it: `process.env.CI` and an error whose `name` is `TimeoutError`.
 

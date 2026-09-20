@@ -72,8 +72,8 @@ export const clockReading = (page) =>
  * stopped — the one question the browser half asks about the machine, asked the same way by every
  * page that asks it: before a lane starts, after one fails, and by the reversed-buffer page beside
  * them. Both halves matter. The error alone is not a stopped clock, and a page that blames a live
- * device sends a reader to look at their sound card instead of at the diff — a hosted runner that
- * merely ran out of clock (0330) included. A live device pays a boolean and no round trip; a page
+ * device sends a reader to look at their sound card instead of at the diff. A live device pays a
+ * boolean and no round trip; a page
  * past answering reads as null and fails in its own words, as it always did.
  */
 export const stoppedByDevice = async (page, deviceLost) => {

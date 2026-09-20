@@ -19,15 +19,7 @@ jobs:
       # 1Password step here. If that changes, add `1password/install-cli-action@v4`
       # and wrap the run below in `op run --env-file=.env.example --`, with
       # OP_SERVICE_ACCOUNT_TOKEN as the only repo secret — see .env.example.
-      # The pinned Playwright Chromium (the headless host ./scripts/drive boots). Keyed on
-      # the lockfile, which moves on every dependency change, not only the playwright pin —
-      # restore-keys turns those misses into a restore-then-top-up by setup's
-      # `playwright install` rather than a full re-download, and an exact hit skips it.
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: playwright-${{ runner.os }}-
-
+      # No Playwright Chromium here: the browser smoke is the local gate's alone, because a
+      # hosted runner's clock is not the smoke's word (0380). setup and check both read CI.
       - run: ./scripts/setup
       - run: ./scripts/check
