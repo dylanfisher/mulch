@@ -516,7 +516,7 @@ describe("the lull in the rack", () => {
     // Built: the audio passes through one gain at one; every knob is a parked constant source,
     // started, so the declaration road stays the ordinary one (0049).
     const through = required(gains, 1);
-    expect(constants).toHaveLength(5);
+    expect(constants).toHaveLength(6);
     for (const constant of constants) expect(constant.started).toBe(true);
     expect([...asFakeNode(rack.input).connections]).toEqual([through]);
     expect([...through.connections]).toEqual([destination]);
@@ -603,6 +603,34 @@ describe("the lull in the rack", () => {
     expect(asks[0]).toEqual({ t: "clear" });
     expect(asks[1]).toEqual({ t: "hold", at: 31 });
     expect(asks[2]).toEqual({ t: "release", at: 32 });
+
+    // The Loose takes a lane the way the lengths do — a lull throws on a lane it does not read —
+    // and what it draws is under the dial rather than at it: from the move on, a rest and a check
+    // of a second each are drawn somewhere inside their own second (0396).
+    Object.assign(context, { currentTime: 40 });
+    rack.setAutomation(
+      "l1",
+      "lull.loose",
+      [
+        { at: 0, value: 1 },
+        { at: 30, value: 1 },
+      ],
+      1,
+      40,
+      40,
+    );
+    // Read past the instant the lane was laid from, where the reader still answers with the knob.
+    const laid = asks
+      .slice(0, rack.holds(50, asks))
+      .filter((edge) => edge.t !== "clear" && edge.at >= 41);
+    const held = laid.findIndex((edge) => edge.t === "hold");
+    const hold = laid[held];
+    const release = laid[held + 1];
+    if (hold === undefined || release === undefined || hold.t === "clear" || release.t === "clear")
+      throw new Error("the lull laid no rest under a loose lane");
+    expect(release.t).toBe("release");
+    expect(release.at - hold.at).toBeGreaterThan(0);
+    expect(release.at - hold.at).toBeLessThan(1);
 
     // Disposed: the gain leaves the graph and the chain closes over it.
     rack.remove("l1");

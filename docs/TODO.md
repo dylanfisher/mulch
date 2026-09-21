@@ -39,8 +39,6 @@
 
 - try seeing what it looks like if the visualizer is the background of the entire card.
 
-- play/pause effect, kinda like scatter
-
 - panner slice rate knob should change to adjust band and time. refactor how this effect works. i imagine it
   more like pop effect width, how it expands the soundstage.
 

@@ -172,6 +172,7 @@ describe("parameter registry", () => {
       "lull.chance",
       "lull.rest",
       "lull.every",
+      "lull.loose",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the

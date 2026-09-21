@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0396. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0397. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -396,13 +396,28 @@ narrows P164 by exactly those two, and its suite says so. The pins are ten cases
 src/lib/playerCrawl.test.ts, six in the new src/audio/deckCrawl.test.ts, and one retargeted in
 src/ui/PlayerCardSwitch.test.tsx.
 
-**Step 16 — a play/pause effect.** _Durable shape moved:_ none; one registry entry. "play/pause
+**Step 16 — a play/pause effect
+([0396](decisions/0396-a-play-pause-effect-is-the-lull-held-loosely.md), landed).** _Durable shape
+moved:_ none; one knob on an entry that already exists. "play/pause
 effect, kinda like scatter". Scatter's shape (src/audio/effects/scatter.ts) with a gate instead of
 a cut: a seeded schedule of holds and releases asked of the transport the way lull asks (0371), so
 it is lull with a shorter grain and a second knob, or lull grows the knob — decide by reading lull
 first, and if lull grows, this is a step on lull and not a new file. **Tests that must fail
 first:** a render under it is silent exactly on its scheduled holds. **Refused:** two entries
 that rest a transport differently.
+_Landed:_ the lull grows the knob, so there is no new file. Its two lengths already reach a
+hundredth of a second, so the shorter grain was there and what was missing was scatter's Stray:
+every rest exactly as long as its dial is a square wave, and a square wave is a tremolo rather than
+a performance. `lull.loose` is that draw on a lull's two lengths — the dial is the ceiling, the
+knob says how far under it a draw may fall, the length is drawn before the beat rounds it and
+floored at the dial's own bottom — and it takes a lane read at the instant the length it draws is
+spent, reaching the picture as `bend`. The draws are spent whatever it is worth, one per length and
+one per roll, the check's taken when the edge it counts from is laid, so the list stays a function
+of the horizon alone and a knob does not move what a seed promises (0396). That the render is
+silent exactly on its holds is scripts/smoke.d/renderLull.js, which stands untouched because the
+knob's default is nought; the pins are five cases, four in src/lib/lull.test.ts and one retargeted
+in src/audio/effects/rackPlugins.test.ts, which now also proves the lane and the drawn rest through
+the rack.
 
 **Step 17 — the shortcuts the human names.** _Durable shape moved:_ none. "keyboard shortcuts".
 The registry exists (src/ui/shortcuts.ts) and the entry names none, so the step opens by asking
@@ -768,3 +783,16 @@ exactly as a hand dragging the loop there produces one, and every rest the rack 
 with it. And src/audio/deck.ts now stands at exactly its 800-line hard cap: the step's seam there is
 five lines and the prose behind them is in src/audio/deckCrawl.ts, so the next step that touches
 that file splits it rather than shaving anything.
+
+**Step 16 refused a second entry and left the render proof where it stood.** The step offered a new
+file or a knob, and the knob won on the step's own refusal: two entries that rest a transport
+differently cannot both be right about what a yard already resting owes, and the lull's dials reach
+a hundredth of a second, so the "shorter grain" half of the ask needed nothing built. What the knob
+costs is the draw order: a lull now spends a draw on every length as well as every roll, so a lull
+stored before this step lays a different run under the same seed — a shape this build discards
+rather than repairs (0026). The named proof, a render silent exactly on its scheduled holds, is
+scripts/smoke.d/renderLull.js already, and it passes untouched because `lull.loose` defaults to
+nought; a browser take of a _loose_ run would be a new scenario to measure (0012) for a fact the
+cursor's own cases pin, so it was not added. And the knob draws the length down and never up: a
+Loose of one is every rest somewhere under its dial rather than scattered around it, which keeps
+the dial the ceiling a hand sets and leaves "loose either way" to whoever asks for it.

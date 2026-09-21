@@ -22,6 +22,7 @@ const spec = (over: Partial<{ [K in keyof LullSpec]: number | LullSpec[K] }> = {
   chance: term(over.chance ?? 1),
   rest: term(over.rest ?? 2),
   check: term(over.check ?? 2),
+  loose: term(over.loose ?? 0),
 });
 
 /** Every edge up to `until`, pumped at `step` seconds a time, as one list. */
@@ -96,8 +97,9 @@ describe("a lull's edges", () => {
     };
     const cursor = createLull(spec({ chance: () => 0 }), counting, 0, null);
     expect(pumped(cursor, 100, 4)).toEqual([]);
-    // One draw a check, a check every two seconds: fifty checks.
-    expect(spent).toBe(50);
+    // Two draws a check — the length it is counted over and the roll at its end — plus the one
+    // the birth spends on the first length, at a check every two seconds: fifty checks.
+    expect(spent).toBe(101);
   });
 
   it("read the chance at each roll rather than once", () => {
@@ -239,5 +241,103 @@ describe("a lull on the beat", () => {
       sync: null,
     });
     expect(nextOf(long)).toBeLessThanOrEqual(LULL_LENGTH_MAX + 1e-9);
+  });
+});
+
+/**
+ * The Loose, which is the one term that is spent on a length rather than on the roll: every
+ * length drawn under its own dial, the order of the draws unmoved by what it is worth, and a
+ * drawn length still a length at the top of the dial (0396).
+ */
+// The Loose's whole contract in one block, each case a few lines and the block their count, the
+// way the two blocks above are written. See 0007.
+// oxlint-disable-next-line max-lines-per-function
+describe("a lull held loosely", () => {
+  /** How long each edge stood from the one before it. */
+  const lengths = (edges: HoldEdge[]): number[] => {
+    let last = 0;
+    return edges.map((edge) => {
+      const length = instantOf(edge) - last;
+      last = instantOf(edge);
+      return length;
+    });
+  };
+
+  it("draws every length under its dial rather than holding it at the knob", () => {
+    // At nought every rest and every check is exactly the dial, which is the run a lull already
+    // laid: a square wave of twos.
+    const held = lengths(pumped(createLull(spec(), mulberry32(5), 0, null), 40, 4));
+    expect(held.length).toBeGreaterThan(10);
+    for (const length of held) expect(length).toBe(2);
+    // And at the top of the dial each one is drawn somewhere under its own two, never over it and
+    // never nothing: the same schedule, performed rather than counted out.
+    const loose = lengths(pumped(createLull(spec({ loose: 1 }), mulberry32(5), 0, null), 40, 4));
+    expect(loose.length).toBeGreaterThan(10);
+    for (const length of loose) {
+      expect(length).toBeGreaterThanOrEqual(LULL_LENGTH_MIN);
+      expect(length).toBeLessThanOrEqual(2);
+    }
+    expect(new Set(loose.map((length) => length.toFixed(6))).size).toBeGreaterThan(5);
+  });
+
+  it("keeps a drawn length a length at the top of the dial, and lays on past it", () => {
+    // A draw that takes the whole of both dials away would lay every edge on the one it counts
+    // from, and the walk below would never end: floored at the dial's own bottom instead.
+    const most = createLull(spec({ loose: 1 }), () => 1 - Number.EPSILON, 0, null);
+    const edges = pumped(most, 1, 1);
+    expect(edges.length).toBeGreaterThan(90);
+    for (const length of lengths(edges)) expect(length).toBeCloseTo(LULL_LENGTH_MIN, 9);
+  });
+
+  it("lays the same list at two cadences with every length drawn", () => {
+    // The draw a length is taken under is spent when the edge it counts from is laid, never at the
+    // pump that looks ahead, so a horizon in eights and one in halves are the same run (0204).
+    const drawn = spec({ chance: () => 0.5, loose: 1 });
+    const coarse = pumped(createLull(drawn, mulberry32(7), 0, null), 120, 8);
+    const fine = pumped(createLull(drawn, mulberry32(7), 0, null), 120, 0.5);
+    expect(coarse.length).toBeGreaterThan(10);
+    expect(fine).toEqual(coarse);
+  });
+
+  it("spends no draw on a reset, so two writes of one knob lay the run one write does", () => {
+    // Every lane a hand or an automator writes inside the horizon rewalks the cursor, and a drag
+    // writes one a pointer sample: a draw spent there would make the run a function of how often
+    // it was written rather than of the seed (0204, 0396).
+    const walked = (resets: number): HoldEdge[] => {
+      const cursor = createLull(spec({ loose: 1 }), mulberry32(8), 0, null);
+      pumped(cursor, 10, 5);
+      for (let i = 0; i < resets; i++) cursor.reset(10);
+      return pumped(cursor, 40, 5);
+    };
+    expect(walked(1).length).toBeGreaterThan(5);
+    expect(walked(2)).toEqual(walked(1));
+  });
+
+  it("refuses a looseness that is no number, rather than walking on forever", () => {
+    // What a value missing from the instance's own record reads as: found here, where the number
+    // came from, and not as a pump that never passes its horizon (principle 5).
+    const out: HoldEdge[] = [];
+    expect(() =>
+      createLull(spec({ loose: () => Number.NaN }), mulberry32(1), 0, null).edges(10, out),
+    ).toThrow(RangeError);
+  });
+
+  it("asks the Loose at the instant the length it draws is spent", () => {
+    const asked: number[] = [];
+    const cursor = createLull(
+      spec({ check: 0.5, loose: (at) => (asked.push(at), 0) }),
+      mulberry32(3),
+      0,
+      null,
+    );
+    // The first check's length is drawn from the birth, the rest's at the hold it holds from, and
+    // the next check's from the release that ended it — each at the instant it is counted from
+    // and never at the pump (0378).
+    expect(pumped(cursor, 3, 3)).toEqual([
+      { t: "hold", at: 0.5 },
+      { t: "release", at: 2.5 },
+      { t: "hold", at: 3 },
+    ]);
+    expect(asked).toEqual([0, 0.5, 2.5, 3]);
   });
 });

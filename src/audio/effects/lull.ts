@@ -1,5 +1,5 @@
 /**
- * @role The lull plugin: its five parameters and the transparent gain that is its whole graph,
+ * @role The lull plugin: its six parameters and the transparent gain that is its whole graph,
  *   beside the one thing no other entry does — it asks the transport to rest, on a schedule drawn
  *   from its own seed, and the transport holds and releases the deck on the edges it asks for
  *   (0371). On a yard's rack it rests that yard; on the rack under all of them, every playing yard
@@ -30,12 +30,15 @@ import {
 } from "./contract";
 
 /**
- * Five dials: the odds, the length, how often the odds are asked, the clock and the run. The
- * Chance is rolled every Every seconds of playing and a hit rests the deck for exactly one Rest.
- * Both lengths are seconds on one logarithmic dial each and the Grid rounds them onto the beat
- * rather than changing what a dial is (docs/boundaries.md, 0373). A stutter is both turned down.
+ * Six dials: the odds, the length, how often the odds are asked, how loosely each length is held,
+ * the clock and the run. The Chance is rolled every Every seconds of playing and a hit rests the
+ * deck for exactly one Rest. Both lengths are seconds on one logarithmic dial each and the Grid
+ * rounds them onto the beat rather than changing what a dial is (docs/boundaries.md, 0373). A
+ * stutter is both turned down, and the Loose is what keeps that stutter from being a square wave:
+ * every length is drawn under its own dial rather than held at it, the way a scatter's windows are
+ * (0396).
  *
- * The three take lanes, and none of them rebuilds: each is read at the instant the run spends it
+ * The four take lanes, and none of them rebuilds: each is read at the instant the run spends it
  * — off the knob, or off the lane where one rides — through a mirror of what the rack scheduled,
  * because the roll is taken on the pump ahead of the check it decides and a value read now is
  * neither the knob's nor the lane's there (0378). A move continues the run rather than redrawing
@@ -76,6 +79,19 @@ const params = [
     curve: "log",
     automation: "linear",
   },
+  /** How much of each length is drawn per rest rather than held at its dial: nought is every rest
+   * and every check exactly as they are set, and one is each of them anywhere from a hair up to
+   * it. Scatter's Stray, on a lull's two lengths — the knob that turns a square wave of rests into
+   * a performance of them (0396). */
+  {
+    id: "lull.loose",
+    label: "Loose",
+    min: 0,
+    max: 1,
+    default: 0,
+    precision: 2,
+    automation: "linear",
+  },
   /** Which clock the length is said on: nought is the wall's; one is the yard's beat and the
    * session's own ticks, so every rest lands on a division of the beat and on the clock the yards
    * share. A two-step dial and not a picker, the panner's way. */
@@ -105,10 +121,13 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type LullParamId = (typeof params)[number]["id"];
-/** The three the run reads at an instant, which are the three that take a lane. */
-type LullLaneId = Extract<LullParamId, "lull.chance" | "lull.rest" | "lull.every">;
+/** The four the run reads at an instant, which are the four that take a lane. */
+type LullLaneId = Extract<LullParamId, "lull.chance" | "lull.rest" | "lull.every" | "lull.loose">;
 const isLane = (param: LullParamId): param is LullLaneId =>
-  param === "lull.chance" || param === "lull.rest" || param === "lull.every";
+  param === "lull.chance" ||
+  param === "lull.rest" ||
+  param === "lull.every" ||
+  param === "lull.loose";
 
 export const lullEffect = defineEffect({
   id: "lull",
@@ -127,13 +146,16 @@ export const lullEffect = defineEffect({
   // The rest is the cycle this effect works over, so Rest is the row's period; Chance is how much
   // of the signal it takes at all, which is the reading a presence has elsewhere; Every is how
   // finely that cycle is cut, beside its own period, which is what `pitch` is. The Grid is
-  // where the row is anchored: on the wall's clock or on the beat's. And the Seed is which
+  // where the row is anchored: on the wall's clock or on the beat's. The Loose is how far each
+  // length is drawn from the one before it rather than travelling evenly into it, which is what
+  // `bend` is and what the scatter's Edge claims on its own row. And the Seed is which
   // performance this is, so two lulls a seed apart are three channels of ink drawn apart by
   // different amounts (0141).
   driftFrom: [
     { param: "lull.rest", into: "period" },
     { param: "lull.chance", into: "depth" },
     { param: "lull.every", into: "pitch" },
+    { param: "lull.loose", into: "bend" },
     { param: "lull.grid", into: "centre" },
     { param: "lull.seed", into: "disperse" },
   ],
@@ -172,6 +194,7 @@ export const lullEffect = defineEffect({
       "lull.chance": bind(),
       "lull.rest": bind(),
       "lull.every": bind(),
+      "lull.loose": bind(),
       "lull.grid": bind(),
       "lull.seed": bind(),
     };
@@ -182,6 +205,7 @@ export const lullEffect = defineEffect({
       "lull.chance": createLaneReader(values["lull.chance"]),
       "lull.rest": createLaneReader(values["lull.rest"]),
       "lull.every": createLaneReader(values["lull.every"]),
+      "lull.loose": createLaneReader(values["lull.loose"]),
     };
 
     let sync: number | null = null;
@@ -192,6 +216,7 @@ export const lullEffect = defineEffect({
       chance: (at: number) => readers["lull.chance"].at(at),
       rest: (at: number) => readers["lull.rest"].at(at),
       check: (at: number) => readers["lull.every"].at(at),
+      loose: (at: number) => readers["lull.loose"].at(at),
     });
     const draw = (): LullCursor =>
       createLull(spec(), mulberry32(held["lull.seed"]), ctx.currentTime, grid());

@@ -370,6 +370,7 @@ describe("a rest on a yard the mulcher is playing", () => {
       "lull.chance": 1,
       "lull.rest": 5,
       "lull.every": 5,
+      "lull.loose": 0,
       "lull.grid": 0,
       "lull.seed": 1,
     });

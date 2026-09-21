@@ -5,9 +5,11 @@
  *   the beat both lengths are rounded onto a beat's divisions and every edge snapped onto the
  *   session clock. Every term is asked at the instant it is spent — the chance at the check, the
  *   rest at the hold, the check's length at the edge it counts from — so a lane on any of them is
- *   heard where it stands and never where the pump was (0378). Pure maths — no clock, no context,
- *   and no generator of its own: `random` is the caller's, because the order of the draws is the
- *   whole of what a seed promises (0204, 0371).
+ *   heard where it stands and never where the pump was (0378). Both lengths are then drawn under
+ *   their own dials by the looseness, which is what makes a run of rests a performance rather than
+ *   a square wave (0396). Pure maths — no clock, no context, and no generator of its own: `random`
+ *   is the caller's, because the order of the draws is the whole of what a seed promises
+ *   (0204, 0371).
  * @instead The transport that holds and releases on these edges → src/audio/deck.ts. The one
  *   generator a seed is spent through → src/lib/random.ts.
  */
@@ -41,6 +43,12 @@ export type LullSpec = {
   rest: (at: number) => number;
   /** How long the deck plays between two checks, in seconds, at the edge the check counts from. */
   check: (at: number) => number;
+  /**
+   * How much of a length is drawn under its dial rather than held at it, at the instant that
+   * length is spent: nought is every rest and every check exactly the dial, and one is each of
+   * them anywhere from a hair up to it (0396).
+   */
+  loose: (at: number) => number;
 };
 
 /**
@@ -104,16 +112,37 @@ export function createLull(
   /** The instant the standing rest is let go at, or null while the deck plays. */
   let releaseAt: number | null = null;
 
-  // A length that is none would lay every edge on the one it counts from, and `edges` below
-  // would walk that forever: refused where the number came from (principle 5).
-  const length = (secs: number): number => {
+  /**
+   * A length that is none would lay every edge on the one it counts from, and `edges` below
+   * would walk that forever: refused where the number came from (principle 5). What is left is
+   * `secs` as this draw takes it — the dial is the ceiling and the looseness is how far under it
+   * a draw may fall, which is a window's own draw in src/audio/worklets/scatter.js, floored at a
+   * hair so a loose length is still a length. Drawn first and rounded onto the beat after, so a
+   * loose rest lands on a division like every other.
+   */
+  const length = (secs: number, when: number, draw: number): number => {
     if (!(secs > 0)) throw new RangeError(`a lull's lengths are seconds: ${secs}`);
-    if (grid === null) return secs;
-    return clamp(beatLength(secs, grid.bpm), LULL_LENGTH_MIN, LULL_LENGTH_MAX);
+    const loose = spec.loose(when);
+    // A looseness that is no number would draw a length that is no number, and `edges` below would
+    // walk that forever without ever passing the horizon: refused here too (principle 5).
+    if (!Number.isFinite(loose)) throw new RangeError(`a lull's looseness is a number: ${loose}`);
+    const drawn = Math.max(LULL_LENGTH_MIN, secs * (1 - clamp(loose, 0, 1) * draw));
+    if (grid === null) return drawn;
+    return clamp(beatLength(drawn, grid.bpm), LULL_LENGTH_MIN, LULL_LENGTH_MAX);
   };
+  /**
+   * The draw the next check's length is taken under, spent when the edge that check counts from
+   * was laid rather than at the pump that looks ahead — so `next()` below answers the same number
+   * however often it is asked, and the list is a function of the horizon alone (0204). Spent
+   * whatever the looseness is worth, the way the roll is spent at a chance of nought: the order
+   * of the draws is what a seed promises, and a knob does not move it. A reset takes none — the
+   * length this was drawn for is dropped undrawn, so the walk that follows is on the same draws,
+   * which is what keeps the run a function of the seed and not of how often a hand wrote a lane.
+   */
+  let checkDraw = random();
   const snap = (when: number): number => syncedFrom(when, grid?.sync ?? null);
   /** The next edge: the rest's own end while it stands, and otherwise the next check. */
-  const next = (): number => releaseAt ?? snap(at + length(spec.check(at)));
+  const next = (): number => releaseAt ?? snap(at + length(spec.check(at), at, checkDraw));
   const laying = (): boolean => grid === null || grid.bpm > 0;
 
   return {
@@ -131,9 +160,13 @@ export function createLull(
           releaseAt = null;
         } else if (random() < spec.chance(edge)) {
           out[n++] = { t: "hold", at: edge };
-          releaseAt = snap(edge + length(spec.rest(edge)));
+          releaseAt = snap(edge + length(spec.rest(edge), edge, random()));
         }
         at = edge;
+        // The next edge is a check only where no rest stands, so its own draw is taken here and
+        // nowhere else: one draw a length and one a roll, and never one spent on a length the
+        // release ahead of it means nobody asks for.
+        if (releaseAt === null) checkDraw = random();
       }
       return n;
     },

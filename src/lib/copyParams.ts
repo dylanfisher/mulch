@@ -67,6 +67,8 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "lull.rest": "How long a rest holds the deck, in seconds. A minute at the top.",
   "lull.every":
     "How long the deck plays between two checks of the chance, in seconds, counted again from every rest's end.",
+  "lull.loose":
+    "How much of each length is drawn per rest rather than held at its dial. None is every rest alike.",
   "lull.grid":
     "Which clock the rest is said on: nought is the wall's, one is the yard's beat and the ticks the yards share.",
   "lull.seed": "Which run of rests this is. Every lull is born with one of its own.",
