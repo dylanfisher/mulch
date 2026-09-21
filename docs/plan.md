@@ -419,12 +419,6 @@ knob's default is nought; the pins are five cases, four in src/lib/lull.test.ts 
 in src/audio/effects/rackPlugins.test.ts, which now also proves the lane and the drawn rest through
 the rack.
 
-**Step 17 — the shortcuts the human names.** _Durable shape moved:_ none. "keyboard shortcuts".
-The registry exists (src/ui/shortcuts.ts) and the entry names none, so the step opens by asking
-the human for the list — which gestures, which keys — and lands them on the registry with their
-palette rows. **Tests that must fail first:** each named key sends its command and none fires in
-an editable control. **Refused:** a shortcut nobody asked for.
-
 **Step 18 — the picture can be switched off, and the rest is an interview.** _Durable shape
 moved:_ none; the switch is a view preference. "add a way to completely disable visualizer for
 slow computers, free up space. interview me about other ways to add a low resource mode when e.g.
@@ -796,3 +790,11 @@ nought; a browser take of a _loose_ run would be a new scenario to measure (0012
 cursor's own cases pin, so it was not added. And the knob draws the length down and never up: a
 Loose of one is every rest somewhere under its dial rather than scattered around it, which keeps
 the dial the ceiling a hand sets and leaves "loose either way" to whoever asks for it.
+
+**Step 17 waits on the human's list, and this run had no human.** The step's own text opens by
+asking which gestures and which keys, and refuses a shortcut nobody asked for; an autonomous run
+cannot answer that question, and a list invented in its place would be exactly the refused thing. So
+no key was landed, no decision number was spent, and the entry stays in docs/TODO.md. The registry
+(src/ui/shortcuts.ts) and its palette rows are the landing site when the human names the list; the
+step's tests are then the ones its text already states — each named key sends its command and none
+fires in an editable control — and it can be scheduled as a step of its own block.
