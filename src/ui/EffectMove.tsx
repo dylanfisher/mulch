@@ -20,6 +20,7 @@ import { Button } from "@/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -85,24 +86,31 @@ export function EffectMove({
       </Says>
       {/* Opens instantly, for the reason every popup ./scripts/drive clicks does (0056). */}
       <DropdownMenuContent align="end" className={`w-52 ${INSTANT_POPUP}`}>
-        <DropdownMenuLabel>{MOVE_TO_LABEL}</DropdownMenuLabel>
-        {/* The yards as they were drawn — the emoji and the name the session stored with each
-            (0057) — and never the opaque letter, which says nothing a reader could pick from. */}
-        {yards.map((entry) => (
-          <DropdownMenuItem
-            key={entry.id}
-            aria-label={`${MOVE_TO_LABEL} ${entry.name}`}
-            onClick={go(entry.id)}
-          >
-            {`${entry.emoji} ${entry.name}`}
-          </DropdownMenuItem>
-        ))}
-        {/* And the rack that is no yard's under them, which is where it sits on the screen too. */}
-        {deck === null ? null : (
-          <DropdownMenuItem aria-label={`${MOVE_TO_LABEL} ${MASTER_LABEL}`} onClick={go(null)}>
-            {MASTER_LABEL}
-          </DropdownMenuItem>
-        )}
+        {/* The heading and the racks it heads are one group, and the heading is written inside
+            it: a menu label with no group around it throws on the first open, which is a menu
+            that never opens at all — the crash this control was reported for (0381). The same
+            rule src/ui/SourcePicker.tsx's generator heading already follows. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{MOVE_TO_LABEL}</DropdownMenuLabel>
+          {/* The yards as they were drawn — the emoji and the name the session stored with each
+              (0057) — and never the opaque letter, which says nothing a reader could pick from. */}
+          {yards.map((entry) => (
+            <DropdownMenuItem
+              key={entry.id}
+              aria-label={`${MOVE_TO_LABEL} ${entry.name}`}
+              onClick={go(entry.id)}
+            >
+              {`${entry.emoji} ${entry.name}`}
+            </DropdownMenuItem>
+          ))}
+          {/* And the rack that is no yard's under them, which is where it sits on the screen
+              too. */}
+          {deck === null ? null : (
+            <DropdownMenuItem aria-label={`${MOVE_TO_LABEL} ${MASTER_LABEL}`} onClick={go(null)}>
+              {MASTER_LABEL}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

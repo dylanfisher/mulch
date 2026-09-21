@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0381. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0382. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -38,13 +38,22 @@ following its pattern: `localStorage`, no command, nothing durable (§2). A new 
 tag) is a `SessionDeck` field and a command, through history, persistence and restore like any
 other.
 
-**Step 1 — an effect moves between racks without crashing (0381).** _Durable shape moved:_ none.
+**Step 1 — an effect moves between racks without crashing
+([0381](decisions/0381-a-menu-heading-stands-inside-its-group.md), landed).** _Durable shape
+moved:_ none.
 "fix move effect from one to another (crashes)". `effect.move` (src/ui/EffectMove.tsx) expands in
 src/app/effects.ts into a removal and an arrival; reproduce first through `createInstrument`,
 then in the browser, since the crash is most likely in the graph rewire's ordering rather than the
 store's. **Tests that must fail first:** the reproduction, at whichever layer it lands — a move
 between two yards, a move onto the master rack and back, a move of an entry holding lanes. The
 decision records the cause. **Refused:** a guard that swallows the crash; a second way to move.
+_Landed:_ the cause was neither the store nor the rewire — the Move To menu's heading stood
+outside a group, so Base UI threw while the popup rendered and the menu never opened. Every
+reproduction below the UI came back clean — a move between two yards, onto the master and back,
+and one holding lanes, through `createInstrument` and through the real engine over a fake
+context — and the yard-to-yard one, which no suite held, is now a case in
+src/app/effectMaster.test.ts. The fix is one `DropdownMenuGroup`; the browser proof is
+`scripts/smoke.d/moveCard.js`, in the renders lane.
 
 **Step 2 — a duplicated yard's ground moves from the first jump.** _Durable shape moved:_ none.
 "when duplicating a deck, the 'which ground' where it wanders setting doesn't take affect. i have
@@ -261,3 +270,12 @@ different window from the one it is compared against.
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and a
 failing seam-level test before broad UI work. Do not turn the driver into a second application by
 teaching it feature semantics.
+
+## 4. Not taken
+
+**Step 1's crash has no proof below the browser.** The Move To popup is a portal that renders
+nothing outside one, so no colocated Vitest case can watch Base UI throw; what the suite holds is
+the structural rule — every heading inside the group it heads — and the throw itself is caught by
+`scripts/smoke.d/moveCard.js`, which the local gate alone runs (0380). The alternative was an
+error boundary around the menu, which the step refused: a guard there leaves a control that opens
+onto nothing.

@@ -208,6 +208,34 @@ describe("effect.move", () => {
     });
   });
 
+  // Neither end is the master: the reported crash was said of two yards, and this is the layer
+  // it was ruled out at before the browser found it in the menu itself (0381).
+  it("carries an instance from one yard to another, lane and all", async () => {
+    const { instrument, calls, events } = rackInstrument();
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.feedback",
+      points: [
+        { at: 0, value: 0.2 },
+        { at: 1, value: 0.8 },
+      ],
+    });
+
+    instrument.send({ t: "effect.move", from: "a", to: "b", instance: "one", index: 0 });
+    await turns();
+
+    expect(yardOf(instrument)).toEqual([]);
+    expect(instrument.probe().decks.b!.effects.map((entry) => entry.id)).toEqual(["one"]);
+    expect(instrument.probe().decks.b!.effects[0]!.automation["delay.feedback"]).toHaveLength(2);
+    expect(calls.removed).toContainEqual(["a", "one"]);
+    expect(calls.added).toContainEqual(["b", "one", "delay"]);
+    expect(events.filter((event) => event.t === "error")).toEqual([]);
+  });
+
   it("comes back to the rack it left in one undo", async () => {
     const { instrument } = rackInstrument();
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });

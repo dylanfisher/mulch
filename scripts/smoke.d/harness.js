@@ -138,3 +138,22 @@ export const liveCount = async (cdp, expression) => {
     await cdp.send("Runtime.releaseObject", { objectId: result.objectId });
   }
 };
+
+/**
+ * Waits until one rack holds exactly these entries, in this order, named by what each card is of
+ * rather than by instance id — the read every rack gesture ends on.
+ *
+ * Here rather than in the scenario that wrote it, because three of them read it now: what a card
+ * dragged across a row landed in (./dragCard.js), what a card carried to another yard left behind
+ * (./moveCard.js), and the rack ./rack.js edits — whose own wait carries the bypassed ones beside
+ * this join in one condition, so it keeps a spelling of its own.
+ */
+export const rackHolds = (page, deck, effects) =>
+  page.waitForFunction(
+    ({ deck, effects }) =>
+      window.mulch
+        .probe()
+        .decks[deck].effects.map((entry) => entry.effect)
+        .join(",") === effects,
+    { deck, effects },
+  );

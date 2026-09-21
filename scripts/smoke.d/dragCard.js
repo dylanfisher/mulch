@@ -1,5 +1,5 @@
 /** @role One rack card dragged sideways across a row onto the slot its neighbour holds (P48). */
-import { fail, report, settledBox } from "./harness.js";
+import { fail, rackHolds, report, settledBox } from "./harness.js";
 
 /**
  * After the reload, like ./picker.js and for the same reason: this is browser work that cannot be
@@ -45,13 +45,7 @@ export const dragCardAcrossRow = async ({ page }) => {
   const shown = await rack.locator('[data-slot="rack-landing"]').isVisible();
   await page.mouse.up();
 
-  await page.waitForFunction(
-    () =>
-      window.mulch
-        .probe()
-        .decks.a.effects.map((entry) => entry.effect)
-        .join(",") === "panner,eq",
-  );
+  await rackHolds(page, "a", "panner,eq");
   if (!shown) fail("drag smoke: no landing slot was shown while the drag was live");
   report("a rack card dragged sideways across a row landed in its neighbour's slot");
 };

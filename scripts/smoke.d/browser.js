@@ -27,6 +27,7 @@ import { narrowShell } from "./narrow.js";
 import { exportAudioFile, SETTLE_ASK_SECS } from "./exportAudio.js";
 import { exportReleasesSamples } from "./exportRelease.js";
 import { dragCardAcrossRow } from "./dragCard.js";
+import { moveCardBetweenRacks } from "./moveCard.js";
 import { effectPicker } from "./picker.js";
 import { commandPalette } from "./palette.js";
 import { openPage } from "./page.js";
@@ -155,6 +156,7 @@ const LANES = [
       effectPicker,
       rackRowHeights,
       dragCardAcrossRow,
+      moveCardBetweenRacks,
       tooltipCostsNothing,
       typedKnob,
     ],

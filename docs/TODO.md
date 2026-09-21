@@ -1,5 +1,3 @@
-- fix move effect from one to another (crashes)
-
 - more ways to use the tone up/down feature in the mulcher (octaves could be set like a sequencer or piano)
 
 - when duplicating a deck, the "which ground" where it wanders setting doesn't take affect. i have to toggle
