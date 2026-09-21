@@ -179,7 +179,7 @@ run residue bash -c '
 run roles ./scripts/map --check
 
 run format    $BIN/oxfmt --check .
-run lint      $BIN/oxlint
+run lint      ./scripts/lint
 run typecheck $BIN/tsc --noEmit
 run arch      ./scripts/arch
 # The one thing the browser half cannot catch about itself: ./scripts/smoke drives its own

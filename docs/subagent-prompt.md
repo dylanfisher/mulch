@@ -84,7 +84,8 @@ this clause and is about pattern repeats; the decision it wanted does not exist.
 
 ## Watch the test fail
 
-> Revert the source hunks — `git stash push` the source files, or invert the fix — run the test,
+> Revert the source hunks — copy the source files aside and write `git show HEAD:<path>` over
+> them, or invert the fix; never `git stash` in this repo — run the test,
 > keep the command and the failure message for your report, then restore. A test you did not see
 > fail is not proof, and "it would fail" is not an answer.
 
@@ -132,6 +133,19 @@ a durable-shape change can force a scenario to be rewritten around it. That make
 useless as a signal and leaves whoever accepts the step reading diffs by hand: eight calls in that
 run went to confirming that retargeted assertions were still assertions. The check is a grep for
 removed `fail(` lines; your paragraph is what says where to point it.
+
+## A smoke scenario carries its own price
+
+> If your diff adds or extends a scenario under `scripts/smoke.d/`, the report carries the gate's
+> cost of it: interleaved base and head runs of `./scripts/check` (sources swapped by file copy),
+> the two means, and the delta. Over 250 ms it does not land as it is (0012).
+
+The clause above says what you changed under `scripts/`; this one says what it cost. A new
+scenario is the one change a step makes that moves the gate for every step after it, and 0012
+sets the price at 250 ms of the mean. The step that added the first scenario of one run reported
+everything but that number, and the orchestrator's only move was a resend — a whole extra round
+of gate runs for a fact the agent had the tree open to measure. A scenario that is extended in
+place (a second take in an existing file) is measured the same way.
 
 ## Hand the review the diff and the requirement, and nothing else
 

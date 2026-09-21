@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0398. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0399. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under

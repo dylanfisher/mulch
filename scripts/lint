@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# The `lint` step of ./scripts/check: oxlint, with its warnings reported as a delta against HEAD.
+#
+# oxlint prints every soft-cap warning in the tree on every run — 120 lines of max-lines and
+# max-dependencies that were there yesterday — and the errors that actually fail the step sit
+# somewhere in the middle. In one run 140 of 166 gate reads were piped to `tail` because of it,
+# and the errors surfaced one per round. So this prints errors in full, then only the warnings
+# that are not at HEAD, then one line of counts. A new warning fails the step: the rule was
+# already "a gate that passes with new warnings is not a pass" (docs/subagent-prompt.md), and a
+# rule only prose enforces is enforced by nobody. A warning is waived at its site with a reason
+# (0007), never here.
+#
+# Only a file that differs from HEAD can carry a new warning, so the baseline is oxlint over the
+# HEAD version of just those files, rebuilt from the object store into a scratch directory
+# (never `git stash` here). The soft-cap rules are all syntactic, so that run goes without the
+# type-aware rules and without the project behind it. Outside a git checkout (a hosted runner's
+# export) there is no HEAD, so the step is plain oxlint there.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+BIN=node_modules/.bin
+if ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  exec "$BIN/oxlint"
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+"$BIN/oxlint" >"$tmp/head.txt" 2>&1
+rc=$?
+
+# Files changed against HEAD that HEAD also has; a file HEAD lacks has no baseline and every
+# warning in it is new, which is what the comm below says of it.
+changed=$(git diff --name-only HEAD -- src | while read -r f; do git cat-file -e "HEAD:$f" 2>/dev/null && echo "$f"; done)
+: >"$tmp/base.txt"
+if [ -n "$changed" ]; then
+  # shellcheck disable=SC2086
+  git archive HEAD $changed | tar -x -C "$tmp"
+  sed '/"typeAware"/d' .oxlintrc.json >"$tmp/.oxlintrc.json"
+  ( cd "$tmp" && "$PWD/node_modules/.bin/oxlint" -c .oxlintrc.json src >"$tmp/base.txt" 2>&1 ) || true
+fi
+
+# A warning's identity is its file, rule and message with the numbers taken out: the line it
+# sits on and the count it reports both move when a file is edited above it, and neither makes
+# it a different warning. Errors are printed as they come — every one is this change's.
+key() { sed -E 's/^([^:]+):[0-9]+:[0-9]+: warning /\1 warning /; s/[0-9]+/N/g'; }
+grep -v ': warning ' "$tmp/head.txt" | grep -v -E '^Found [0-9]+ warnings? and [0-9]+ errors?\.$|^Finished in |^$'
+grep ': warning ' "$tmp/head.txt" | while IFS= read -r line; do printf '%s\t%s\n' "$(printf '%s' "$line" | key)" "$line"; done | sort >"$tmp/head.keyed"
+cut -f1 "$tmp/head.keyed" >"$tmp/head.keys"
+grep ': warning ' "$tmp/base.txt" | key | sort >"$tmp/base.keys"
+# Warnings in files that did not change are at HEAD by definition; only the changed files'
+# warnings are compared against the baseline run.
+if [ -n "$changed" ]; then
+  printf '%s\n' $changed | sed 's/^/^/; s/$/ warning /' >"$tmp/changed.re"
+  grep -f "$tmp/changed.re" "$tmp/head.keys" >"$tmp/scoped.keys" || true
+else
+  : >"$tmp/scoped.keys"
+fi
+untracked=$(git ls-files --others --exclude-standard src)
+if [ -n "$untracked" ]; then
+  printf '%s\n' $untracked | sed 's/^/^/; s/$/ warning /' >"$tmp/untracked.re"
+  grep -f "$tmp/untracked.re" "$tmp/head.keys" >>"$tmp/scoped.keys" || true
+fi
+sort "$tmp/scoped.keys" | comm -23 - "$tmp/base.keys" >"$tmp/new.keys"
+
+total=$(wc -l <"$tmp/head.keys" | tr -d ' ')
+new=$(wc -l <"$tmp/new.keys" | tr -d ' ')
+if [ "$new" -gt 0 ]; then
+  echo "new warnings, not at HEAD — waive each at its site with a reason (0007) or take it out:"
+  join -t "$(printf '\t')" "$tmp/new.keys" "$tmp/head.keyed" | cut -f2 | sed 's/^/  /'
+fi
+echo "$total warnings, $new new against HEAD"
+
+if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+[ "$new" -eq 0 ]

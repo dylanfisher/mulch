@@ -18,4 +18,21 @@ fi
 # oxfmt first: it rewrites whitespace and line breaks, which is what most lint
 # fixes land in the middle of. Reversed, the formatter would reflow them again.
 "$BIN/oxfmt" .
-"$BIN/oxlint" --fix "$@"
+"$BIN/oxlint" --fix --quiet "$@"
+
+# Then the one thing the gate reports that no tool can repair: a file over the hard line cap
+# fails `arch`, and in one run two files each failed it four times — shaved, failed, shaved,
+# failed, split. The count of every file this change touched is printed here, against both
+# caps from docs/map.md, so the split is planned before the gate runs rather than after it.
+caps=$(grep -oE 'Soft cap [0-9]+ lines per file, hard cap [0-9]+' docs/map.md)
+soft=$(printf '%s' "$caps" | grep -oE '[0-9]+' | sed -n 1p)
+hard=$(printf '%s' "$caps" | grep -oE '[0-9]+' | sed -n 2p)
+if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  { git diff --name-only HEAD -- src; git ls-files --others --exclude-standard src; } | sort -u | while read -r f; do
+    [ -f "$f" ] || continue
+    n=$(wc -l <"$f" | tr -d ' ')
+    if [ "$n" -gt "$hard" ]; then printf '\033[31m%s: %s lines — over the hard cap of %s; split it (arch will fail)\033[0m\n' "$f" "$n" "$hard"
+    elif [ "$n" -gt "$soft" ]; then printf '%s: %s lines — over the soft cap of %s, %s from the hard cap\n' "$f" "$n" "$soft" $((hard - n))
+    fi
+  done
+fi
