@@ -45,9 +45,6 @@
 
 - try seeing what it looks like if the visualizer is the background of the entire card.
 
-- in header, add a effects count, and yard count, and any other funny interesting statistics about how the
-  sound is manipulated. push the mulch idea - e.g. the sound is really getting put through a lot of distortion.
-
 - play/pause effect, kinda like scatter
 
 - panner slice rate knob should change to adjust band and time. refactor how this effect works. i imagine it

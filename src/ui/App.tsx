@@ -34,6 +34,7 @@ import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { MasterRack } from "@/ui/MasterRack";
+import { MulchTally } from "@/ui/MulchTally";
 import { DEV_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
 import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
@@ -216,7 +217,10 @@ function Screen({ instrument }: { instrument: Instrument }) {
           {/* Beside it, and for the same reason: a clock every yard's player reads is one fact
               over the whole session, so it lives on the bar rather than on any one yard (0097). */}
           <SyncClock instrument={instrument} />
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* What the session is putting the sound through, in counts, beside the level it comes
+                out at: the meter says how loud, this says how mulched (0391). */}
+            <MulchTally instrument={instrument} />
             <MasterMeter instrument={instrument} />
             <HistoryControls instrument={instrument} />
           </div>

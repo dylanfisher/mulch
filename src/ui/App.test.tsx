@@ -57,6 +57,32 @@ describe("App", () => {
     expect(headings).toEqual([`${INITIAL_YARD_EMOJI} ${yardLabel("a")}`, `🐝 ${yardLabel("b")}`]);
   });
 
+  /**
+   * The counts of what the session is doing to the sound sit on the header beside the meter, as
+   * one readout rather than four things loose in the row (0391).
+   */
+  it("carries the mulch tally in its header, through an add and a remove", () => {
+    const instrument = createInstrument(manualClock());
+    // Everything before the header closes — `indexOf` rather than `split`, which hands back the
+    // whole document when the boundary is not there and would pass on a readout drawn below it.
+    const header = (): string => {
+      const markup = renderToStaticMarkup(<App instrument={instrument} />);
+      const closed = markup.indexOf("</header>");
+      expect(closed).toBeGreaterThan(0);
+      return markup.slice(0, closed);
+    };
+
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    instrument.send({ t: "effect.add", deck: "b", id: "dly", effect: "delay" });
+    expect(header()).toMatch(/data-count="yards"[\s\S]*?type-readout">2</u);
+    expect(header()).toMatch(/data-count="effects"[\s\S]*?type-readout">1</u);
+
+    instrument.send({ t: "effect.remove", deck: "b", instance: "dly" });
+    instrument.send({ t: "deck.remove", deck: "b" });
+    expect(header()).toMatch(/data-count="yards"[\s\S]*?type-readout">1</u);
+    expect(header()).toMatch(/data-count="effects"[\s\S]*?type-readout">0</u);
+  });
+
   /** The header's routes are a menu now, not two anchors sitting beside the wordmark. */
   it("puts the routes behind a menubar trigger", () => {
     const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);

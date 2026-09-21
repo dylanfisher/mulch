@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0391. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0392. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -269,7 +269,8 @@ The proof is the render the step asked for, in scripts/smoke.d/renderMaster.js: 
 one stop and -120.0dB with two. The pins are five cases — four in src/app/rackRebuild.test.ts, one
 in src/ui/GlobalTransport.test.tsx, plus two there rewritten around a session that is playing.
 
-**Step 11 — the header counts the mulch.** _Durable shape moved:_ none. "in header, add a effects
+**Step 11 — the header counts the mulch
+([0391](decisions/0391-the-header-counts-the-mulch.md), landed).** _Durable shape moved:_ none. "in header, add a effects
 count, and yard count, and any other funny interesting statistics about how the sound is
 manipulated. push the mulch idea - e.g. the sound is really getting put through a lot of
 distortion." The counts are one read of the store beside the meter (src/ui/App.tsx); the words
@@ -277,6 +278,24 @@ are copy in src/lib/copy.ts, drafted plainly and left for the human to tune. Lat
 added to this one readout, not beside it. **Tests that must fail first:** the header's markup
 carries the yard and effect counts and follows an add and a remove. **Refused:** a count that
 needs a peek per frame.
+_Landed:_ one readout on the bar beside the meter, not four things loose in the row:
+src/ui/MulchTally.tsx draws the yards standing, the effect instances over every rack, the
+parameters moving on their own and the deepest chain one yard's sound crosses, with a word grading
+that depth after them (0391). Every number is a fact the store already holds — `tallyMulch`
+(src/state/mulchTally.ts), derived on the read and stored nowhere (0025), the master's instances
+counted with the yards' because the master is a rack (0321), and a session holding no yards graded
+by the master's rack alone rather than reading "untouched" over a full one — so nothing here peeks
+and nothing here runs per frame. The subscription is the four numbers as one string (`mulchKey`, `mulchOfKey`):
+a snapshot has to be its own identity or `useSyncExternalStore` spins, and the `decks` record is
+replaced on every `param.set`, so reading objects would re-render for the whole of a knob drag —
+the shape src/ui/EffectMove.tsx already reads its tags in. The words are src/lib/copyMulch.ts,
+beside src/lib/copy.ts because that file is at the cap (0045), with the two nouns the counts are
+named by read back from `YARD` and `EFFECTS_LABEL` rather than retyped, and the grade a ladder from
+Untouched to Pulverized for a hand to tune. The group the readout joined wraps now rather than
+pushing the row out, which is what the 360px shell asked for (scripts/smoke.d/narrow.js). The pins
+are fourteen cases — eight in src/state/mulchTally.test.ts, five in src/ui/MulchTally.test.tsx and
+one in src/ui/App.test.tsx, the last of them the step's own header markup, read up to the
+header's own close.
 
 **Step 12 — a fold is remembered, and the master's starts open when it is full.** _Durable shape
 moved:_ none — a fold is a view preference (§2). "master effects should not collapse by default if
@@ -560,3 +579,26 @@ the clearing on the next single press, which the review raised and this step dec
 words are "a Stop pressed with nothing playing", and there is nothing for that press to stop. A
 paused yard is the other way round and was fixed — it has a playhead to stop, so Pause then Stop
 is a first Stop (0390).
+
+**Step 11's counting left `src/lib`, its words left `src/lib/copy.ts`, and the header's right-hand
+group learned to wrap.** The step put the read "beside the meter" and the words "in
+src/lib/copy.ts"; neither is where they landed. A tally is a read of `SessionState` and `src/lib`
+may import nothing (docs/map.md's tiers), so `tallyMulch` is a selector in src/state/mulchTally.ts
+— the tier the store is in — and the words are src/lib/copyMulch.ts, since copy.ts stands three
+lines under its hard cap (0045, and the reason copyLoop.ts exists). The readout also made the
+header overflow at 360px: the `narrow` smoke named the `ml-auto` group as the surface running past
+the viewport, so that group and the readout inside it wrap on a second line rather than pushing the
+row out, which is the reflow the shell already claims (P24). A count of bypassed instances was
+drafted and cut: it says a card is switched off, not what the sound is crossing, and the step's own
+refusal is against statistics that cost more than they say (0391). Three review findings landed
+with tests: a list entry with no yard behind it is refused through the store's own `deckIn` rather
+than skipped past, a session holding no yards is graded by the master's rack rather than reading
+"untouched" over a full one, and the header pin now reads up to `</header>` by index and follows a
+remove as well as an add. Three were declined. The header's 4rem scroll reserve at 360px is not
+this step's: `SHELL_HEADER_ROW` has carried `flex-wrap` since P46 and that row is already several
+lines tall at a phone's width, with or without this readout. `lanesIn` stays `Object.keys(...)
+.length` — it runs per store notification rather than per frame, and the loop forms that avoid the
+array need a binding this repo's lint refuses. And the readout is plain text under a `Says` rather
+than a focusable trigger, which is how a readout is written here (src/ui/MoireTuning.tsx,
+src/ui/PlayerCharacter.tsx); what did move is its `aria-label`, deleted because a name on an
+element with no role names nothing, and each number is captioned in the markup already.
