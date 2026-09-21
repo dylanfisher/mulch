@@ -1,7 +1,8 @@
 /**
- * @role The two lists the sketch bench mounts, and the shape of one entry: eight readings of when
- *   the ground shifts under a hand's gesture, and ten directions the drift picture could be
- *   pushed in. The argument lives here and the page that draws it lives next door — split off when
+ * @role The three lists the sketch bench mounts, and the shape of one entry: eight readings of when
+ *   the ground shifts under a hand's gesture, nine directions the drift picture could be pushed
+ *   in, and one look at where that picture sits on a card. The argument lives here and the page
+ *   that draws it lives next door — split off when
  *   the two together passed the file cap, because a list that grew by four entries is not a page
  *   that grew (docs/map.md).
  * @instead The page that mounts these, its nav and its two introductions →
@@ -34,6 +35,7 @@ import {
 } from "@/ui/sketch/drift/SketchDriftScenes";
 import { SketchDriftTerrace } from "@/ui/sketch/drift/SketchDriftTerrace";
 import { SketchDriftTunnel } from "@/ui/sketch/drift/SketchDriftTunnel";
+import { SketchCardGround } from "@/ui/sketch/SketchCardGround";
 import { SketchGroundClock } from "@/ui/sketch/ground/SketchGroundClock";
 import { SketchGroundCut } from "@/ui/sketch/ground/SketchGroundCut";
 import { SketchGroundLadder } from "@/ui/sketch/ground/SketchGroundLadder";
@@ -258,5 +260,27 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "the ground in src/lib/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/lib/scene/scenes.ts.",
     Content: SketchDriftCanopy,
+  },
+];
+
+/**
+ * A third bench with one entry on it, and a different question from the other two: not when the
+ * ground moves and not where the picture goes, but **where the picture sits**. The strip is a band
+ * at the foot of a yard card today (src/ui/MoireStrip.tsx); this draws it as the card's whole
+ * ground with every control read over the top, under one dial for the card's own surface between
+ * the two. A look rather than a direction to build, kept on the bench for a hand to judge — the
+ * card itself is unchanged until somebody says so.
+ */
+export const SKETCH_PLACES: readonly SketchEntry[] = [
+  {
+    id: "card",
+    label: "The Card's Ground",
+    thesis:
+      "The picture under the whole card rather than in a band at its foot: the weave is the yard's own ground and every control on it is read over the top. A rack of six is then six fields and not six strips, and the card's surface is the one thing standing between the picture and the words.",
+    trades:
+      "legibility, at every setting but one. A caption is read against the card's surface, so the veil is the whole argument — at nought the picture wins and the words go, and at one this is the card the instrument already has.",
+    built:
+      "nowhere yet, and nothing in the painter: this is a layout move, the strip mounted behind a card's body rather than under it, so it costs the same bake and the same fill it costs today. It lands as its own step if a hand says so, and until then the card is not touched.",
+    Content: SketchCardGround,
   },
 ];

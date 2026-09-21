@@ -60,8 +60,11 @@ export const INKING_STOPS: Record<SketchInking, readonly SketchStop[]> = {
   ],
 };
 
-/** The canvas is written at the box's own scale: one unit of the field is the picture's height. */
-function paintField(
+/** The canvas is written at the box's own scale: one unit of the field is the picture's height.
+ *  Exported because the card's ground (src/ui/sketch/SketchCardGround.tsx) paints the same field
+ *  in a box of its own shape, and a second pixel loop is two pictures free to read a ramp
+ *  differently (principle 1). */
+export function paintField(
   canvas: HTMLCanvasElement,
   stops: readonly Ink[],
   field: SketchDriftField,

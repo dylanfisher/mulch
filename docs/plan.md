@@ -442,11 +442,28 @@ instrument this step added to the harness rather than forking it (0375), reads 4
 and a 69.6 ms rAF p95 on seven yards against 104.2 and 24.9 ms on two, with the same rack and the
 same walk on each of them.
 
-**Step 19 — the picture as the card's ground, looked at.** _Durable shape moved:_ none. "try
+**Step 19 — the picture as the card's ground, looked at (landed).** _Durable shape moved:_ none.
+"try
 seeing what it looks like if the visualizer is the background of the entire card." An experiment
 and not a feature: a shot, or a headed run, of the strip drawn under the whole yard card with the
 controls over it, kept as a branch or a sketch for the human to look at — landed only if they say
 so, and then as its own step. No new browser scenario (0012).
+_Landed:_ looked at and not built. The sketch bench grew a third list for it — `SKETCH_PLACES` in
+src/ui/sketch/sketchEntries.ts, drawn by src/ui/sketch/SketchCardGround.tsx under the heading
+"Drift: where it sits" at `#/sketch` — where the drift bench's own stand-in weave is painted as the
+whole ground of a stand-in yard card, the card's heading, switch, standing amounts and three folds
+read over the top, and one dial for how much of the card's own surface stands between the two. The
+picture is drawn through the bench's reference ramp and its inks are read off its own chips, so
+nothing about the painter is being argued; the yard's words are read from src/lib/copy.ts,
+src/lib/copyCard.ts and src/lib/copyKnobs.ts rather than re-typed. The shot is
+/tmp/mulch-run/todo-19/page.png with the card cropped out of it at
+/tmp/mulch-run/todo-19/card-ground.png, taken twice through `./scripts/drive --shot … --route
+'#/sketch'` and identical to the pixel between the two readings. No production surface moved:
+src/ui/PlayerCard.tsx and src/ui/MoireStrip.tsx are untouched, the TODO entry stays in
+docs/TODO.md pointing at the sketch, and no decision number was spent because nothing here
+constrains a future change. Landing it as a feature is the human's call, and would be a step of its
+own. The pins are three cases in the new src/ui/sketch/SketchPlaces.test.tsx, plus the bench's own
+registration list in src/ui/sketch/SketchPage.test.tsx.
 
 ---
 
@@ -841,3 +858,18 @@ src/ui/driftTiles.ts are the module's, so a page that has already drawn keeps th
 switching off frees the frames, and only a page booted off frees the memory too.
 None of these is a step yet: each is a different trade between what a glance tells a performer and
 what the frame costs, and that trade is the human's to make.
+
+**Step 19 was looked at through a bench and not through the card.** The step asked for a shot or a
+headed run of the strip under a whole yard card; what it got is a stand-in card on the sketch
+bench, because `src/ui/sketch` may read no store, no command and no graph (0247) and the real
+src/ui/PlayerCard.tsx is nothing but those reads. So the picture under the mock is the bench's
+stand-in weave at a fixed setting rather than a live drift of a playing yard, and the card over it
+is three rows of the real card's words rather than its forty controls — which is enough to judge
+the one question the experiment asks (do the words survive the picture) and not enough to judge how
+a rack of six reads in motion. Drawn through the reference ramp rather than the one-hue inking, on
+the grounds that every shipped scene is read along five stops today, which makes the legibility
+question the harder of the two. Two things were left out and are the human's to ask for if the look
+is worth pursuing: a card at a real card's height, the picture moving under it, and the field at a
+density a drift stage shows — `paintField` reads one unit of the field as the picture's height, so
+the same weave drawn across a card's width is about eleven units rather than the bench box's three,
+and reads finer than the Ramp stage above it.

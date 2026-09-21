@@ -34,6 +34,8 @@
   so we can automate little melodies
 
 - try seeing what it looks like if the visualizer is the background of the entire card.
+  (Drawn, not built: "The Card's Ground" on the sketch bench at `#/sketch`, P19. The card
+  itself is untouched until this is judged.)
 
 - panner slice rate knob should change to adjust band and time. refactor how this effect works. i imagine it
   more like pop effect width, how it expands the soundstage.

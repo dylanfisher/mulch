@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { SCENE_NAMES } from "@/lib/moireScene";
 import { sceneOf } from "@/lib/scene/scenes";
 import { INKING_STOPS } from "@/ui/sketch/SketchDriftStage";
-import { SKETCH_DRIFTS } from "@/ui/sketch/sketchEntries";
+import { SKETCH_DRIFTS, SKETCH_PLACES } from "@/ui/sketch/sketchEntries";
 import { SketchPage } from "@/ui/sketch/SketchPage";
 
 /** The whole bench, rendered once: every case here reads one stage out of the one markup. */
@@ -27,8 +27,12 @@ const markup = renderToStaticMarkup(<SketchPage />);
 function stageOf(id: string, next?: string): string {
   const opens = markup.indexOf(`data-drift="${id}"`);
   expect(opens, `${id} is not mounted`).not.toBe(-1);
-  const closes = next === undefined ? markup.length : markup.indexOf(`id="${next}"`, opens);
-  expect(closes, `${id} is not followed by ${next}`).toBeGreaterThan(opens);
+  // The last entry is bounded by the bench that follows this one rather than by the end of the
+  // page: since the places bench was mounted under it (P19), a slice to the end swallows that
+  // bench's own chips and reads them as the last drift's inks.
+  const after = next ?? SKETCH_PLACES[0]?.id;
+  const closes = after === undefined ? markup.length : markup.indexOf(`id="${after}"`, opens);
+  expect(closes, `${id} is not followed by ${after}`).toBeGreaterThan(opens);
   return markup.slice(opens, closes);
 }
 
@@ -91,6 +95,12 @@ describe("the bench spends colour on a scene, and on nothing else", () => {
    * as the rule it replaces: "no picture but the Ramp draws five chips" banned a further entry from
    * borrowing a palette, and a loop over the four scene names would let one through the moment it
    * was added under any other id (0331).
+   *
+   * It is a rule about **this bench**, and since P19 the page holds another: the card's ground
+   * (src/ui/sketch/SketchCardGround.tsx) reads the reference ramp too, and is not walked here. That
+   * is the point of it — it argues where the picture sits and not which palette it is in, so it
+   * borrows the bench's own inks rather than naming a second five. A third reader of the ramp
+   * anywhere on the page would be the moment to widen this loop past `SKETCH_DRIFTS`.
    */
   it("reads one picture through the reference ramp and every other palette once", () => {
     const reference = namesOf(INKING_STOPS.ramp);

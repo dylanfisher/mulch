@@ -1,14 +1,14 @@
 /**
- * @role The sketch bench at #/sketch — the nav, the two introductions, and the frame it draws each
- *   of the two lists into. Two benches are spent: the grid won how a song is played and is the
+ * @role The sketch bench at #/sketch — the nav, the three introductions, and the frame it draws
+ *   each of the three lists into. Two benches are spent: the grid won how a song is played and is the
  *   card's own section (0275, src/ui/PlayerGrid.tsx), and the switchboard won how the ground moves
  *   and is the fold's own three rows of words (0277, src/ui/PlayerBed.tsx).
- * @instead The two lists themselves, and the shape of one entry → src/ui/sketch/sketchEntries.ts.
+ * @instead The three lists themselves, and the shape of one entry → src/ui/sketch/sketchEntries.ts.
  *   The surface the ground eight argue with → src/ui/PlayerCard.tsx. The picture the drift ten
  *   argue with → src/ui/moireCanvas.ts. The primitives they are drawn out of, on their own page →
  *   src/ui/dev/DevPage.tsx.
  */
-import type { MouseEvent } from "react";
+import { Fragment, type MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
 import { MOIRE_STRIP, PLAYER_GROUP_LABELS, PLAYER_LABEL } from "@/lib/copy";
@@ -17,7 +17,12 @@ import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SKETCH_PER } from "@/ui/sketch/sketchGround";
-import { type SketchEntry, SKETCH_DRIFTS, SKETCH_GROUNDS } from "@/ui/sketch/sketchEntries";
+import {
+  type SketchEntry,
+  SKETCH_DRIFTS,
+  SKETCH_GROUNDS,
+  SKETCH_PLACES,
+} from "@/ui/sketch/sketchEntries";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 
 /**
@@ -39,20 +44,15 @@ export function SketchPage() {
         <div className={SHELL_HEADER_ROW}>
           <Wordmark route="sketch" className="type-title" />
           <span className="type-body text-muted-foreground">{PLAYER_LABEL} sketches</span>
-          <nav className="ml-auto flex flex-wrap items-center gap-3">
-            <SketchLinks entries={SKETCH_GROUNDS} />
-            <span className="type-readout text-muted-foreground" aria-hidden="true">
-              |
-            </span>
-            <SketchLinks entries={SKETCH_DRIFTS} />
-          </nav>
+          <SketchNav />
           <ThemeToggle />
         </div>
       </header>
 
       <main className={cn(SHELL_BODY, "flex flex-col gap-12")}>
         <p className="max-w-3xl type-body text-muted-foreground">
-          Two benches, two questions: when does the ground move, and where does the picture go.
+          Three benches, three questions: when does the ground move, where does the picture go, and
+          where does it sit.
         </p>
         <p className="max-w-3xl type-body text-muted-foreground">
           The first: when does the ground move, and where to. {SKETCH_GROUNDS.length} readings of
@@ -74,6 +74,12 @@ export function SketchPage() {
         <DriftIntro />
 
         <SketchGroup heading={`${MOIRE_STRIP}: where it goes`} entries={SKETCH_DRIFTS} />
+
+        <hr className="border-border" />
+
+        <PlaceIntro />
+
+        <SketchGroup heading={`${MOIRE_STRIP}: where it sits`} entries={SKETCH_PLACES} />
       </main>
     </div>
   );
@@ -93,6 +99,45 @@ function DriftIntro() {
       a pixel loop on this bench and would not be in the painter, where anything per frame is a
       transform or a slice and everything else is a stepped key (0129, 0144).
     </p>
+  );
+}
+
+/**
+ * The third bench, said once above it. One entry and a look rather than a direction: the strip is
+ * a band at the foot of a yard card today, and this is the same weave painted under the whole card
+ * with its controls over the top. Its dial is the card's own surface between the two, so what it
+ * asks is not whether the picture is good but whether the words survive it. Nothing on the real
+ * card moves until a hand says so, and then as a step of its own.
+ */
+function PlaceIntro() {
+  return (
+    <p className="max-w-3xl type-body text-muted-foreground">
+      The third: where the picture sits. The {MOIRE_STRIP} is a band at the foot of a yard card
+      today; here it is the card&apos;s whole ground, with the heading, the switch, the standing
+      amounts and the three folds read over the top and one dial for how much of the card&apos;s own
+      surface stands between them. At one the card is the card the instrument already has, and at
+      nought the picture is the card — the argument is everything in between, and it is judged by
+      reading the words rather than by looking at the weave.
+    </p>
+  );
+}
+
+/** The three benches' links in one row, ruled off from one another — its own function because a
+ *  third bench put the page over the line count a page is allowed. */
+function SketchNav() {
+  return (
+    <nav className="ml-auto flex flex-wrap items-center gap-3">
+      {[SKETCH_GROUNDS, SKETCH_DRIFTS, SKETCH_PLACES].map((entries, index) => (
+        <Fragment key={entries[0]?.id ?? index}>
+          {index === 0 ? null : (
+            <span className="type-readout text-muted-foreground" aria-hidden="true">
+              |
+            </span>
+          )}
+          <SketchLinks entries={entries} />
+        </Fragment>
+      ))}
+    </nav>
   );
 }
 
