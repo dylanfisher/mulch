@@ -117,6 +117,18 @@ export function oneOf<T extends string>(value: unknown, words: readonly T[], at:
   return found;
 }
 
+/**
+ * The same bound for a durable word a hand may leave unsaid — the yard's tag, whose empty string
+ * is a yard nobody has named rather than a missing value (0386). An id, a label or a name goes
+ * through the guard below instead: there is nothing those could be empty *for*.
+ */
+export function assertDurableTextOrEmpty(value: unknown, at: string): asserts value is string {
+  if (typeof value !== "string") throw new TypeError(`${at} is not a string`);
+  if (value.length > DURABLE_TEXT_MAX) {
+    throw new RangeError(`${at} is longer than ${DURABLE_TEXT_MAX} characters`);
+  }
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

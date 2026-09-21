@@ -3,7 +3,8 @@
  *   one line, the input as tall as the buttons beside it, and the whole standing at the top of
  *   its row rather than at the baseline of whatever taller thing shares it (0306).
  * @instead A label stacked over a full-width input, the shape a dialog reads →
- *   src/ui/components/field.tsx. The one field that goes through here → src/ui/LoadField.tsx.
+ *   src/ui/components/field.tsx. The two fields that go through here → src/ui/LoadField.tsx and
+ *   src/ui/DeckTag.tsx.
  */
 import type { ComponentProps } from "react";
 

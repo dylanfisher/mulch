@@ -40,6 +40,7 @@ import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { ProhibitIcon } from "@phosphor-icons/react/Prohibit";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
+import { SpeakerSimpleSlashIcon } from "@phosphor-icons/react/SpeakerSimpleSlash";
 import { StackSimpleIcon } from "@phosphor-icons/react/StackSimple";
 import { StepsIcon } from "@phosphor-icons/react/Steps";
 import { StopIcon } from "@phosphor-icons/react/Stop";
@@ -93,6 +94,9 @@ export const ACTION_ICONS = {
   // where every play button in the instrument starts a whole yard. Two actions, two pictures, so a
   // hand can tell them apart on one row (0055).
   audition: HeadphonesIcon,
+  // The crossed speaker, and not the skip's barred circle beside it: a skip passes over a step
+  // and this stops a yard being heard while it goes on playing. One picture each (0055, 0386).
+  mute: SpeakerSimpleSlashIcon,
   capture: CameraIcon,
   // One yard becoming two. Not the capture camera: capturing takes a picture of a yard to keep,
   // duplicating puts a second one on the screen (0078).

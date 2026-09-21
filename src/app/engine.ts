@@ -517,6 +517,9 @@ export function createAudioEngine(
     setSequence: (deck, steps) => {
       voice(deck).setSequence(steps);
     },
+    setMuted: (deck, muted) => {
+      voice(deck).setMuted(muted);
+    },
     soloPlayer: (deck, part) => voice(deck).soloPlayer(part),
     armPlayer: (deck, part) => voice(deck).armPlayer(part),
     setSync: (next) => {
@@ -700,8 +703,11 @@ export function createAudioEngine(
           const player = playerSounding(deckIn(session.decks, deck).player);
           if (player !== null) preparedIn(deck).setPlayer(player);
           // And the sequence, which rides nothing else (0379).
-          const { sequence } = deckIn(session.decks, deck);
+          const { sequence, muted } = deckIn(session.decks, deck);
           if (sequence.length > 0) preparedIn(deck).setSequence(sequence);
+          // And the mute beside it, which rides nothing else either: a session rendered or put
+          // back with a yard muted is silent on that yard, the way it sounded (0386).
+          if (muted) preparedIn(deck).setMuted(true);
         }
         // The clock the whole session jumps on, handed to every prepared voice: it is one fact
         // above the decks rather than one of theirs, and a graph rebuilt without it would leave

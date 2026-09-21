@@ -42,7 +42,15 @@ import {
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertMotionDrawn, type MotionDrawn } from "@/lib/motion";
 import type { GrowthBound } from "@/lib/effectGrowth";
-import { assertDurableText, exactKeys, finite, flag, isRecord, objectAt } from "@/lib/guards";
+import {
+  assertDurableText,
+  assertDurableTextOrEmpty,
+  exactKeys,
+  finite,
+  flag,
+  isRecord,
+  objectAt,
+} from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
 import {
@@ -110,6 +118,18 @@ export type SessionDeck = {
   player: PlayerSpec | null;
   /** The fade the deck is played through over minutes: a run of steps, or empty for none (0379). */
   sequence: DeckSequence;
+  /**
+   * Whether this yard is heard at all: a scale at the end of its chain, after the meter's tap, so
+   * a muted yard renders silent while its peek goes on moving. Never a stop and never `deck.gain`
+   * — the transport runs and the fader keeps the level a hand set (0386).
+   */
+  muted: boolean;
+  /**
+   * What a hand calls this yard beyond the name it was drawn with — "low end", "tops" — or the
+   * empty string for one nobody has named. Bounded durable text like every other stored word, and
+   * no vocabulary: the words are the hand's (0057, 0386).
+   */
+  tag: string;
 };
 
 /** A clip's opaque identity — minted by whoever captures it, never derived from its contents. */
@@ -295,6 +315,8 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
     loop: current.loop === null ? null : { ...current.loop },
     player: playerProjection(current.player),
     sequence: current.sequence.map((step) => ({ kind: step.kind, secs: step.secs })),
+    muted: current.muted,
+    tag: current.tag,
   };
 };
 
@@ -449,7 +471,18 @@ function validateDeck(value: unknown, at: string): void {
   const stored = objectAt(value, at);
   exactKeys(
     stored,
-    ["params", "automation", "drawn", "effects", "source", "loop", "player", "sequence"],
+    [
+      "params",
+      "automation",
+      "drawn",
+      "effects",
+      "source",
+      "loop",
+      "player",
+      "sequence",
+      "muted",
+      "tag",
+    ],
     at,
   );
 
@@ -476,6 +509,11 @@ function validateDeck(value: unknown, at: string): void {
   assertPlayer(stored.player, `${at}.player`);
   // The same arrangement for the sequence: one validator, shared with the wire (0379).
   assertSequence(stored.sequence, `${at}.sequence`);
+  // And for the two the header holds: a flag and a word, each through the one guard its command
+  // comes through. Neither rides anything else — a yard may be muted with nothing loaded, and a
+  // tag is what a hand calls the yard rather than what it is playing (0386).
+  flag(stored.muted, `${at}.muted`);
+  assertDurableTextOrEmpty(stored.tag, `${at}.tag`);
 }
 
 /**

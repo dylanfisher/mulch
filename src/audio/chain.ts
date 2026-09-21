@@ -147,6 +147,12 @@ export type DeckChain = {
    * overlaps the last without a seam, and one point is a level held from then on (0379).
    */
   fadeAlong(ramps: readonly (readonly [value: number, at: number])[]): void;
+  /**
+   * Heard, or not: the last scale in the chain, ramped like any other level so a mute is not a
+   * click. Above the meter's tap, so a muted yard renders silent and its peek goes on moving —
+   * which is the whole difference between a mute and a stop (0386).
+   */
+  setMuted(muted: boolean): void;
   /** The yard's sounding beat, pushed down to whatever rounds onto it. */
   setTempo(bpm: number): void;
   dispose(): void;
@@ -162,12 +168,19 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   // its place. Not a declared parameter — nothing durable names it and no knob reaches it; the
   // transport lays it from the deck's sequence on the arming tick (0379).
   const fade = ctx.createGain();
+  // The mute, and the last scale in the chain: a yard silenced here is silent everywhere its
+  // sound goes, and the meter below taps the pan *above* it, so a muted yard's peek goes on
+  // moving and its picture with it. Not a declared parameter and never `deck.gain` — the fader
+  // keeps the level a hand set, and unmuting gives that level back (0386).
+  const mute = ctx.createGain();
   const pan = ctx.createStereoPanner();
-  gain.connect(fade).connect(pan).connect(destination);
+  gain.connect(fade).connect(pan).connect(mute).connect(destination);
   const effects = createEffectRack(ctx, gain);
 
-  // A dead-end tap, not a link in the chain: pan still connects straight to the destination, so
-  // the signal the fingerprint measures never passes through this node.
+  // A dead-end tap, not a link in the chain: what the pan feeds the destination through is the
+  // mute alone, so the signal the fingerprint measures never passes through this node. Tapped
+  // above the mute, which is what makes a silenced yard one that still reads its own level
+  // (0386).
   const meter = ctx.createAnalyser();
   meter.fftSize = METER_WINDOW;
   pan.connect(meter);
@@ -328,6 +341,11 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
         fade.gain.linearRampToValueAtTime(value, at);
       }
     },
+    setMuted: (muted) => {
+      // Through the one ramp every level here goes through, from wherever the clock stands: a
+      // step straight to nought is the click this ramp exists to prevent (0102).
+      rampTo(mute.gain, muted ? 0 : 1, ctx.currentTime);
+    },
     setTempo: (bpm) => {
       effects.setTempo(bpm);
     },
@@ -339,6 +357,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       gain.disconnect();
       fade.disconnect();
       pan.disconnect();
+      mute.disconnect();
       meter.disconnect();
     },
   };

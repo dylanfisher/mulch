@@ -10,7 +10,7 @@ import { isBoundableParam, isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertMotionDrawn } from "@/lib/motion";
-import { assertDurableText, finite, flag, isRecord } from "@/lib/guards";
+import { assertDurableText, assertDurableTextOrEmpty, finite, flag, isRecord } from "@/lib/guards";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId, assertRackId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -44,6 +44,8 @@ const COMMAND_HISTORY = {
   "deck.loop.toggle": "group",
   "deck.player": "group",
   "deck.sequence": "group",
+  "deck.mute": "group",
+  "deck.tag": "group",
   "param.set": "group",
   "automation.set": "group",
   "automation.span": "group",
@@ -193,6 +195,14 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
     case "deck.sequence":
       // The same arrangement: one validator for the wire and for storage (src/lib/deckSequence.ts).
       assertSequence(raw.steps, "deck.sequence steps");
+      return;
+    case "deck.mute":
+      flag(raw.muted, "deck.mute muted");
+      return;
+    case "deck.tag":
+      // The one guard the stored shape comes through, so a tag off a JSONL line and one out of
+      // storage are allowed exactly the same words — the empty one included (0386).
+      assertDurableTextOrEmpty(raw.tag, "deck.tag tag");
       return;
     case "param.set":
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))

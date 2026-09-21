@@ -34,9 +34,6 @@
   pixels that slowly move around - it's not exciting at all. spark should invoke the idea of bright randomness,
   excitement, etc.
 
-- decks should have a mute option
-- ability to name or tag decks, e.g. low end, high end, etc.
-
 - ability to live record session?
 
 - add a way to completely disable visualizer for slow computers, free up space. interview me about other ways to

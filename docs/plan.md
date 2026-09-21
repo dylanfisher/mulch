@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0386. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0387. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -143,7 +143,8 @@ one card can be told from each other. Its pins are a case each in src/ui/PlayerS
 src/ui/PlayerCard.test.tsx, and P130's folded-card claim is retargeted rather than dropped: the
 front's die still goes away with the body, and the seed's does not.
 
-**Step 6 — the yard's header: mute, and a name it can be sorted by.** _Durable shape moved:_
+**Step 6 — the yard's header: mute, and a name it can be sorted by
+([0386](decisions/0386-a-mute-is-a-scale-above-the-tap.md), landed).** _Durable shape moved:_
 `SessionDeck.muted`, a boolean, and `SessionDeck.tag`, a short string, both empty by default;
 stored sessions without them are discarded (0026). "decks should have a mute option" — a gain
 already sits at the chain's output (src/audio/chain.ts), so mute is a second scale on it, never on
@@ -152,6 +153,22 @@ deck already carries an emoji and a name (0057), so a tag is one more word drawn
 on the effect-move menu. **Tests that must fail first:** `deck.mute` and `deck.tag` land, undo,
 survive a snapshot round-trip and ride a duplicate; a muted yard renders silent while its peek
 still moves. **Refused:** mute as a stop; a tag vocabulary.
+_Landed:_ the mute is a gain of its own at the end of the chain, and the meter's tap moved above
+it — the pan feeds both, and only the mute reaches what the yard is heard through, so a silenced
+yard goes on reading its own level and drawing its own picture (0386). Never `deck.gain`: the
+fader keeps the level a hand set and the unmute hands it back, and both ramps go through the one
+`rampTo` so neither is a click (0102). Both commands carry the state to be in rather than a
+toggle, which is what lets a press, a replayed line, a clip and a duplicate say the same thing;
+both are restored unconditionally, unlike the loop or the player, because a flag and a word always
+have a value — which is what makes a clip put back over a muted yard unmute it (0027). A flatten
+renders at one and keeps both, since neither is in the samples. The tag is drawn as a field beside
+the yard's name and again on the Move To menu, where a yard now reads "North Willow (low end)"
+through one `taggedLabel` in src/lib/copy.ts. The pins are six cases in src/app/deckHeader.test.ts,
+one in src/audio/chain.test.ts, one in src/app/engine.test.ts for the graph a restore rebuilds,
+three in src/ui/DeckTag.test.tsx, three in src/ui/DeckMute.test.tsx and one in
+src/ui/EffectMove.test.tsx. The mute's control moved out of src/ui/Deck.tsx into
+src/ui/DeckMute.tsx beside src/ui/DeckRemove.tsx, because Deck.test.tsx is at the hard cap and a
+control with a gesture wants a file a test can hold.
 
 **Step 7 — the delay's beat is a setting the dial keeps.** _Durable shape moved:_ none, unless the
 hold turns out to want to be durable — decide in the step and say so. "setting delay to beat mode
@@ -387,3 +404,25 @@ resolves against the seed's own row rather than the heading, which changes nothi
 item in that heading is `h-7`. Both were reported by the review and both were left: neither is a
 duplication or a reachable failure, and principle 4 is the smallest change that solves the
 problem.
+
+**Step 6's mute reaches a rebuilt graph by two roads, and its control left the yard's own file.**
+The restore's stage list sends `deck.mute` like every other durable field, and src/app/engine.ts
+sets it again on each prepared voice — because an undo swaps a session onto voices prepared before
+the swap and replays no commands at all, which is the arrangement the sequence beside it already
+uses (0379). Both were kept rather than picking one: dropping the stage would leave a JSONL replay
+and a clip silent about the mute, and dropping the prepare would leave an undone session muted in
+the store and heard in the graph. The cost is one fact written in two places, held together by the
+case in src/app/engine.test.ts. The mute's Toggle also moved out of src/ui/Deck.tsx into
+src/ui/DeckMute.tsx: src/ui/Deck.test.tsx is at the 800-line hard cap, so a control with a gesture
+in it had nowhere in that file to be pressed from — the split is the one at-the-cap move, not a
+shave. And `taggedLabel` has one caller today, which is a second occurrence and not a third: it is
+in src/lib/copy.ts rather than in the menu because the word it composes is copy, and copy is
+declared there (principle 1). Three of the review's findings landed: the Move To menu reads the
+yards' words as one joined string rather than subscribing to the whole `decks` record, which
+`param.set` replaces per pointer move — the wide read would have re-rendered every card's menu for
+the length of a knob drag; the flatten's two claims got the case that pins them, since the kind
+list alone stayed green with both of them inverted; and the chain's sentence about what the
+fingerprint measures, which the mute had made half false, was rewritten. Two were declined: the
+tag is not drawn under the sequencer face, where the yard's own name is not drawn either, and a
+tag of one space renders as an empty pair of brackets, which a hand can clear and the instrument
+should not quietly rewrite.

@@ -66,6 +66,14 @@ export type DurableEditCommand =
   // The whole sequence at once, empty for none: a fade over minutes is one durable run of steps,
   // and a step moved on its own would be a sequence nobody asked for (0379).
   | { t: "deck.sequence"; deck: DeckId; steps: DeckSequence }
+  // Whether this yard is heard, said as the state to be in rather than as a toggle: a press and a
+  // replayed line say the same thing, which is what lets a restore and a duplicate carry it
+  // through the one stage list every other durable field goes through (0386).
+  | { t: "deck.mute"; deck: DeckId; muted: boolean }
+  // And what a hand calls the yard, the empty string for none. Its own command rather than a
+  // second field on `deck.add`: the name and the emoji are what a yard was drawn with and never
+  // change, and this is a word a hand writes over the life of the session (0057, 0386).
+  | { t: "deck.tag"; deck: DeckId; tag: string }
   // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
   // rack entry for an effect's, because a rack may hold two delays (0030). `deck` is a rack
   // address, and null is the master's — which holds no parameter of its own, so a null deck with

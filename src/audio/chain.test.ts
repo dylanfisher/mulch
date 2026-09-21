@@ -260,6 +260,44 @@ describe("the sequence's fade", () => {
   });
 });
 
+describe("the mute", () => {
+  it("is the last scale in the chain, above the meter's tap, and ramped rather than stepped", () => {
+    const { context, gainCalls, gainLogs, gainNodes, analysers, panners, now } = fakeContext();
+    const out = destination();
+    const chain = buildDeckChain(context, out);
+    // The third gain the chain builds, after the fader and the sequence's fade — and never the
+    // fader itself, which keeps the level a hand set and hands it back on the unmute (0386).
+    const mute = gainNodes[2];
+    const pan = panners[0];
+    const meter = analysers[0];
+    if (mute === undefined || pan === undefined || meter === undefined) {
+      throw new Error("the chain built no mute, panner or meter");
+    }
+    // The pan feeds the mute and the meter; only the mute reaches what the deck is heard through.
+    // Which is the whole difference between a mute and a stop: silence out, and a peek that goes
+    // on moving.
+    expect(pan.connected).toEqual([mute, meter]);
+    expect(mute.connected).toEqual([out]);
+
+    now(2);
+    chain.setMuted(true);
+    expect(gainCalls).toEqual([]);
+    expect(gainLogs[1]).toEqual([]);
+    // Pinned where it stands and ramped from there — the fake's param reads 0 wherever the real
+    // one reads its level, so the pin is the call and not the number in it (0102).
+    expect(gainLogs[2]).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0, 2],
+      ["linearRampToValueAtTime", 0, 2 + PARAM_RAMP_SECS],
+    ]);
+    // And back to one, from wherever the clock stands: unmuting gives the level back (0102).
+    now(5);
+    chain.setMuted(false);
+    expect(gainLogs[2]?.slice(-1)).toEqual([["linearRampToValueAtTime", 1, 5 + PARAM_RAMP_SECS]]);
+    chain.dispose();
+  });
+});
+
 describe("deck meter", () => {
   // The level and the crest are two numbers off one window: a second fetch inside the same tick
   // of the clock is the same 2048 floats copied again and the same loudest sample found again.

@@ -206,6 +206,9 @@ describe("deck.flatten", () => {
       "param.set",
       "effect.bypass",
       "deck.loop",
+      // The two the header holds, sent unconditionally the way a parameter is (0386).
+      "deck.mute",
+      "deck.tag",
       "session.ground",
       "deck.activate",
       "deck.play",
@@ -260,6 +263,28 @@ describe("deck.flatten", () => {
     expect(kinds(specs[0]!.envelopes)).not.toContain("deck.player");
     expect(specs[0]!.secs).toBeCloseTo(1.05, 10);
     expect(instrument.probe().decks.a!.player).toEqual(JUMPING);
+  });
+
+  it("renders the loop unmuted, and leaves the mute and the tag on the yard", async () => {
+    const { instrument, specs } = fixture();
+    await instrument.ready;
+    await performing(instrument);
+    instrument.send({ t: "deck.mute", deck: "a", muted: true });
+    instrument.send({ t: "deck.tag", deck: "a", tag: "low end" });
+    await settle();
+
+    instrument.send({ t: "deck.flatten", deck: "a", id: "flat-1" });
+    await settle();
+
+    // A mute is a state of the desk rather than of the yard's sound: rendering through it would
+    // bake silence into the bytes and leave the yard holding nothing at all (0386).
+    const muting = specs[0]!.envelopes.filter(
+      (input) => !("cmd" in input) && input.t === "deck.mute",
+    );
+    expect(muting).toEqual([expect.objectContaining({ t: "deck.mute", deck: "a", muted: false })]);
+    // And neither fact is in the samples, so the yard is left holding exactly both of them.
+    expect(instrument.probe().decks.a!.muted).toBe(true);
+    expect(instrument.probe().decks.a!.tag).toBe("low end");
   });
 
   it("renders the loop without the sequence, and leaves the sequence on the yard", async () => {

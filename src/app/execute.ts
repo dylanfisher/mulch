@@ -535,6 +535,28 @@ function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtim
   );
 }
 
+/**
+ * Whether the yard is heard. No refusal for an unloaded deck and no stop: the mute is a scale at
+ * the end of the chain, so a yard may be muted before it is fed and goes on running while it is
+ * (0386). Written whether or not a host is attached, unlike the sequence beside it
+ * (src/app/deckPlayer.ts), and deliberately: a restore sends this stage unconditionally, and an
+ * instrument with no host takes the store half of that road alone (src/app/facade.ts), so a
+ * refusal here would drop a mute out of every host-less session put back.
+ */
+function setMute(cmd: Extract<Command, { t: "deck.mute" }>, rt: Runtime): void {
+  assertDeck(rt, cmd.deck);
+  rt.engine?.setMuted(cmd.deck, cmd.muted);
+  patchDeck(rt.store, cmd.deck, { muted: cmd.muted });
+  rt.bus.emit({ t: "deck.mute.changed", deck: cmd.deck, muted: cmd.muted });
+}
+
+/** What a hand calls the yard. Nothing is heard and nothing is asked of the graph (0386). */
+function setTag(cmd: Extract<Command, { t: "deck.tag" }>, rt: Runtime): void {
+  assertDeck(rt, cmd.deck);
+  patchDeck(rt.store, cmd.deck, { tag: cmd.tag });
+  rt.bus.emit({ t: "deck.tag.changed", deck: cmd.deck, tag: cmd.tag });
+}
+
 // The exhaustive command switch is the one dispatch table; splitting it would create another.
 // oxlint-disable-next-line max-lines-per-function
 export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
@@ -660,6 +682,12 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.sequence":
       setSequence(cmd, rt);
+      return;
+    case "deck.mute":
+      setMute(cmd, rt);
+      return;
+    case "deck.tag":
+      setTag(cmd, rt);
       return;
     case "deck.playerSolo":
       soloPlayer(cmd, rt);

@@ -181,6 +181,10 @@ export type DeckState = {
   player: SessionDeck["player"];
   /** The fade this deck is played through over minutes, or empty for none (0379). */
   sequence: SessionDeck["sequence"];
+  /** Whether this yard is heard: a scale at the end of its chain, never a stop (0386). */
+  muted: SessionDeck["muted"];
+  /** What a hand calls this yard beyond its name, or the empty string for none (0386). */
+  tag: SessionDeck["tag"];
 };
 
 export type SessionState = {
@@ -236,6 +240,8 @@ const defaultDeck = (): DeckState => ({
   loop: null,
   player: null,
   sequence: [],
+  muted: false,
+  tag: "",
 });
 
 export const createSessionStore = () =>

@@ -155,6 +155,21 @@ export const MASTER_LABEL = "Master";
 export const MOVE_TO_LABEL = "Move To";
 
 /**
+ * What the word a hand writes on a yard is called, where the field that holds it is labelled.
+ * Titlecase per 0059, and no vocabulary behind it: "low end" and "tops" are the hand's words, so
+ * the instrument offers a field and never a list (0386).
+ */
+export const TAG_LABEL = "Tag";
+
+/**
+ * Anything a yard is named by, wearing the word a hand wrote on that yard — and exactly itself
+ * where nobody has written one. One composition rather than one per list, so the menu that
+ * carries an effect to a yard and anything else that comes to name one read the same (0386).
+ */
+export const taggedLabel = (label: string, tag: string): string =>
+  tag === "" ? label : `${label} (${tag})`;
+
+/**
  * Which rack a control belongs to, said out loud: a yard by its name, and the one that is no
  * yard's by the word above. The one place the two answers meet, so an aria-label never has to ask
  * (principle 1).
@@ -305,6 +320,7 @@ export const ACTION_TOOLTIPS = {
   skip: "Keep this in the list and pass over it. Press again to play it.",
   audition:
     "Hear this part on its own, over and over, so you can shape it while it plays. Press again and the song carries on from it. Nothing is changed — what is heard goes back to the song being held.",
+  mute: "Stop hearing this yard. It goes on playing, and its picture goes on moving — press again and it comes back at the level it was at.",
   capture: "Keep this yard's whole setting as a clip you can put back later.",
   duplicate: "Make a second one with the same settings.",
   reseed:

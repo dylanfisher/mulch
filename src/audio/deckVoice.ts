@@ -54,6 +54,11 @@ export type DeckVoice = {
    * to restart from, and the rack is counted again either way (0383).
    */
   releaseNow(): void;
+  /**
+   * Heard, or not. A scale at the end of the chain and never a stop: the transport goes on
+   * running, so a muted yard is still where it would have been when it is heard again (0386).
+   */
+  setMuted(muted: boolean): void;
   /** The yard's sounding beat, in bpm, or nought — pushed down to the rack (0371). */
   setTempo(bpm: number): void;
   /**

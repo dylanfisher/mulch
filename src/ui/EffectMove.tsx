@@ -13,9 +13,9 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { ACTION_TOOLTIPS, MASTER_LABEL, MOVE_TO_LABEL, rackLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, MASTER_LABEL, MOVE_TO_LABEL, rackLabel, taggedLabel } from "@/lib/copy";
 import { moveEffectCommand } from "@/ui/actions";
-import type { DeckEntry, RackId } from "@/state/store";
+import { deckIn, type DeckEntry, type RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import {
   DropdownMenu,
@@ -29,6 +29,12 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { INSTANT_POPUP } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
+
+/**
+ * The one character a tag cannot hold — an `<input>` will not carry a NUL — so the yards' words
+ * join into one string and come back apart by their places in the list.
+ */
+const TAG_GAP = "\u0000";
 
 /**
  * The menu, shown only where there is somewhere to go: a card on a yard always has the master to
@@ -58,7 +64,26 @@ export function EffectMove({
     read,
     read,
   );
-  const yards = useMemo(() => deckList.filter((entry) => entry.id !== deck), [deckList, deck]);
+  // And the words a hand wrote on those yards, which live on the yards and not on the records
+  // they were drawn with (0057, 0386). Read as one string rather than as the `decks` record: that
+  // record is replaced on every write to any yard, including a `param.set` per pointer move, so
+  // subscribing to it would re-render every card's menu for the whole of a knob drag. A string is
+  // its own identity, so this one wakes only when a tag changes.
+  const readTags = useCallback(() => {
+    const state = instrument.state.getState();
+    return state.deckList.map((entry) => deckIn(state.decks, entry.id).tag).join(TAG_GAP);
+  }, [instrument]);
+  const tags = useSyncExternalStore<string>(instrument.state.subscribe, readTags, readTags);
+  const yards = useMemo(() => {
+    const written = tags.split(TAG_GAP);
+    return deckList
+      .map((entry, at) => ({
+        id: entry.id,
+        label: taggedLabel(entry.name, written[at] ?? ""),
+        emoji: entry.emoji,
+      }))
+      .filter((entry) => entry.id !== deck);
+  }, [deckList, tags, deck]);
   // One press, one command: where a moved instance lands and everything it carries are the
   // reducer's, so this control never sends the removal and the arrival itself (0092, 0320).
   const go = useCallback(
@@ -93,14 +118,16 @@ export function EffectMove({
         <DropdownMenuGroup>
           <DropdownMenuLabel>{MOVE_TO_LABEL}</DropdownMenuLabel>
           {/* The yards as they were drawn — the emoji and the name the session stored with each
-              (0057) — and never the opaque letter, which says nothing a reader could pick from. */}
+              (0057) — and never the opaque letter, which says nothing a reader could pick from.
+              Wearing the word a hand wrote on the yard where there is one, which is the whole
+              point of writing it: a rack of six is picked from by what each is for (0386). */}
           {yards.map((entry) => (
             <DropdownMenuItem
               key={entry.id}
-              aria-label={`${MOVE_TO_LABEL} ${entry.name}`}
+              aria-label={`${MOVE_TO_LABEL} ${entry.label}`}
               onClick={go(entry.id)}
             >
-              {`${entry.emoji} ${entry.name}`}
+              {`${entry.emoji} ${entry.label}`}
             </DropdownMenuItem>
           ))}
           {/* And the rack that is no yard's under them, which is where it sits on the screen

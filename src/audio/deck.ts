@@ -589,6 +589,10 @@ export function createDeckVoice(
     holdAt,
     releaseAt,
     releaseNow,
+    setMuted: (muted) => {
+      chain.setMuted(muted);
+    },
+
     setTempo: (bpm) => {
       chain.setTempo(bpm);
     },

@@ -44,6 +44,10 @@ export type EventBody =
   | { t: "deck.player.changed"; deck: DeckId; player: PlayerSpec | null }
   // The sequence as it was actually held — every step, or none (0379).
   | { t: "deck.sequence.changed"; deck: DeckId; steps: DeckSequence }
+  // Whether the yard is heard, and what a hand calls it: the two facts its header holds, each
+  // said as the state it is now in rather than as the press that changed it (0386).
+  | { t: "deck.mute.changed"; deck: DeckId; muted: boolean }
+  | { t: "deck.tag.changed"; deck: DeckId; tag: string }
   // Audio the instrument minted rather than the user imported: which region of what the deck was
   // holding, and the blob those bytes now live under. The `deck.loaded` just before it is the
   // deck picking the new source up through the ordinary path (0047).

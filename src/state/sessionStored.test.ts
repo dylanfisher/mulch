@@ -83,6 +83,8 @@ const STORED_DECK = {
   loop: null,
   player: null,
   sequence: [],
+  muted: false,
+  tag: "",
 };
 
 /** One stored clip, written by hand — the shape capture writes and apply reads back (0027). */
@@ -153,6 +155,8 @@ const STORED_CLIP = {
       cast: PLAYER_CAST_MAX,
     },
     sequence: [],
+    muted: true,
+    tag: "low end",
   },
 };
 
@@ -258,6 +262,10 @@ describe("stored clips", () => {
         songs: [],
         cast: PLAYER_CAST_MAX,
       },
+      // The two the header holds, which travel in a clip like every other durable field of the
+      // yard: a clip is the whole preset and not the part of it that makes a sound (0027, 0386).
+      muted: true,
+      tag: "low end",
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
     expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);

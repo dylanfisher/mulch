@@ -174,6 +174,13 @@ const STAGES: readonly Stage[] = [
   // The sequence rides nothing else, so it comes last; empty is a stage that sends nothing (0379).
   (deck, preset) =>
     preset.sequence.length === 0 ? [] : [{ t: "deck.sequence", deck, steps: preset.sequence }],
+  // The two the header holds, sent unconditionally the way a parameter is and unlike the loop or
+  // the player above: a flag and a word always have a value, so "not muted" and "no tag" are
+  // states to put a yard in rather than nothing to say. Which is what makes a clip applied over a
+  // muted yard unmute it, instead of leaving the yard wearing a state the clip does not hold
+  // (0027, 0386).
+  (deck, preset) => [{ t: "deck.mute", deck, muted: preset.muted }],
+  (deck, preset) => [{ t: "deck.tag", deck, tag: preset.tag }],
 ];
 
 const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
@@ -456,6 +463,8 @@ export function restoredSessionState(
         loop: stored.loop === null ? null : { ...stored.loop },
         player: stored.player === null ? null : { ...stored.player },
         sequence: stored.sequence.map((step) => ({ kind: step.kind, secs: step.secs })),
+        muted: stored.muted,
+        tag: stored.tag,
       };
     }),
     // Carried, not rebuilt from `deckList`: the letters this session drew and then removed live

@@ -71,6 +71,9 @@ const headings = (node: ReactNode, inside = false): boolean[] =>
     );
   });
 
+// One case per thing the menu says or sends, and the count is the menu's surface rather than
+// anything this block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("carrying a card to another rack", () => {
   it("writes its one heading inside the group of racks it heads", () => {
     expect(headings(menu(twoYards(), "a"))).toEqual([true]);
@@ -84,6 +87,19 @@ describe("carrying a card to another rack", () => {
     // is `effect.reorder`, and the reducer refuses it (0320).
     const own = createInstrument(manualClock()).state.getState().deckList[0]!;
     expect(findLabelled(tree, `${MOVE_TO_LABEL} ${own.name}`)).toBeNull();
+  });
+
+  it("wears the word a hand wrote on a yard beside the name it was drawn with", () => {
+    const instrument = twoYards();
+    instrument.send({ t: "deck.tag", deck: "b", tag: "low end" });
+    const tree = menu(instrument, "a");
+    // The name alone no longer names it: what a hand is picking from is what each yard is for,
+    // which is the whole reason the word is written (0386).
+    expect(findLabelled(tree, `${MOVE_TO_LABEL} North Willow`)).toBeNull();
+    expect(findLabelled(tree, `${MOVE_TO_LABEL} North Willow (low end)`)).not.toBeNull();
+    // And a yard nobody has named reads as exactly itself.
+    instrument.send({ t: "deck.tag", deck: "b", tag: "" });
+    expect(findLabelled(menu(instrument, "a"), `${MOVE_TO_LABEL} North Willow`)).not.toBeNull();
   });
 
   it("sends one effect.move naming both racks and the card it sits on", () => {

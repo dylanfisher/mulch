@@ -33,7 +33,15 @@ const SAMPLE_RATE = 48_000;
 
 const fakeNode = () => ({ connect: (to: unknown) => to, disconnect: () => {} });
 
-const fakeParam = () => {
+/**
+ * Every gain this graph has built, newest last, each with the values it was ramped at in order.
+ * A mute is a scale *left* at nought, so a graph the restore rebuilt is asked where its scales
+ * ended rather than what passed over them on the way — a gain nothing ever ramped is not an
+ * answer either way (0386).
+ */
+const gainAims: number[][] = [];
+
+const fakeParam = (aims: number[] = []) => {
   const param = {
     value: 0,
     cancelScheduledValues: () => {},
@@ -46,6 +54,7 @@ const fakeParam = () => {
     // makes is the lull's roll, which reads the chance off its lane's target.
     linearRampToValueAtTime: (value: number) => {
       param.value = value;
+      aims.push(value);
     },
   };
   return param;
@@ -77,7 +86,11 @@ function fakeContext(): BaseAudioContext {
     sampleRate: SAMPLE_RATE,
     state: "running",
     destination: fakeNode(),
-    createGain: () => Object.assign(fakeNode(), { gain: fakeParam() }),
+    createGain: () => {
+      const aims: number[] = [];
+      gainAims.push(aims);
+      return Object.assign(fakeNode(), { gain: fakeParam(aims) });
+    },
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam() }),
     createAnalyser: () =>
       Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
@@ -228,6 +241,7 @@ const settle = async (): Promise<void> => {
 afterEach(() => {
   reporters.length = 0;
   sources.length = 0;
+  gainAims.length = 0;
   vi.unstubAllGlobals();
 });
 
@@ -439,5 +453,38 @@ describe("the shared ground a restore hands over", () => {
     const after = sources.length;
     instrument.send({ t: "deck.play", deck: "a" });
     expect(leftTheLoop(after)).toBe(true);
+  });
+});
+
+// A yard's mute is a state the graph is in, so a graph the host rebuilds under an undo has to be
+// put back into it — the way the sequence beside it is. Nothing replays the command on that road:
+// the session is swapped whole onto voices prepared before the swap (0386).
+/** How many of this graph's scales were ramped, and left, at nought. */
+const silenced = (): number => gainAims.filter((aims) => aims.at(-1) === 0).length;
+
+describe("a yard that comes back muted", () => {
+  it("is silenced by the graph the restore builds, not only by the session it puts back", async () => {
+    const { instrument } = fixture();
+    // Sent as its own group, which closes the entry the moment it lands: an open gesture spent
+    // after the restore has rewound the store is a ledger question and not this case's (0067).
+    instrument.send({
+      t: "history.group",
+      commands: [{ t: "deck.mute", deck: "a", muted: true }],
+    });
+
+    // Undone: the yard is heard again. Whatever else a rebuilt graph leaves at nought it leaves
+    // there on both roads, so the claim is the one scale between them and not a bare zero.
+    gainAims.length = 0;
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.a?.muted).toBe(false);
+    const heard = silenced();
+
+    // Redone: the same road, and this time the graph it builds holds one more scale at nought.
+    gainAims.length = 0;
+    instrument.send({ t: "history.redo" });
+    await settle();
+    expect(instrument.probe().decks.a?.muted).toBe(true);
+    expect(silenced()).toBe(heard + 1);
   });
 });

@@ -97,6 +97,8 @@ export type Engine = {
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
   /** Hold this deck's sequence — the fade it is played through — or none when empty (0379). */
   setSequence(deck: DeckId, steps: DeckSequence): void;
+  /** Whether this deck is heard: the last scale in its chain, above its meter's tap (0386). */
+  setMuted(deck: DeckId, muted: boolean): void;
   /**
    * Hear one part of this deck's song on its own, over and over, or hand the whole song back with
    * null — answering whether it did. A transport state and not an edit, the way a seek is not

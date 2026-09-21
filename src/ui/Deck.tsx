@@ -43,8 +43,10 @@ import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
+import { DeckMute } from "@/ui/DeckMute";
 import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckSequencerRow, SequencePlayToggle } from "@/ui/DeckSequencerRow";
+import { DeckTag } from "@/ui/DeckTag";
 import { useSequencerMode } from "@/ui/sequencerMode";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
@@ -509,6 +511,10 @@ export function Deck({
             >
               {readout(name, state)}
             </span>
+            {/* What a hand calls this yard, written where a hand reads the yard's name: the field
+                is the word's one home, so a yard says what it is for beside what it is playing
+                (0386). Not under the sequencer, whose face is a folded run. */}
+            <DeckTag instrument={instrument} deck={deck} tag={state.tag} />
             {/* Beside the name, where a hand reads it: the picture is a reading of that name and of
             nothing else, so what it was read as is said next to it rather than anywhere the name
             is not (0329). The same sentence is in the tuning panel's Scene card. */}
@@ -528,6 +534,10 @@ export function Deck({
             )}
           </>
         )}
+        {/* Whether the yard is heard, in the yard's own group under either face: what a mute is
+            about is the whole yard, the way the copy and the remove beside it are, and a muted
+            run is as ordinary a thing to arrange as a muted card (0379, 0386). */}
+        <DeckMute instrument={instrument} deck={deck} muted={state.muted} />
         {/* The grip, first of the yard's own group: the drag that moves this yard among the
             others, and the arrow keys on it, which are the keyboard path and the one
             ./scripts/drive can press (0062, 0111). */}

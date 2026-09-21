@@ -28,11 +28,19 @@ function fakeParam(calls: Call[]): AudioParam {
   return param as unknown as AudioParam;
 }
 
-/** `disconnected` counts teardowns, so a test can see a node let go of rather than dropped. */
+/**
+ * `disconnected` counts teardowns, so a test can see a node let go of rather than dropped, and
+ * `connected` holds every node this one was wired into, in order — which is how a test asks where
+ * in the chain a node sits rather than only what was scheduled onto it (0386).
+ */
 const fakeNode = () => {
   const node = {
     disconnected: 0,
-    connect: (destination: unknown) => destination,
+    connected: [] as unknown[],
+    connect: (destination: unknown) => {
+      node.connected.push(destination);
+      return destination;
+    },
     disconnect: () => {
       node.disconnected += 1;
     },
@@ -69,8 +77,11 @@ export function fakeBuffer(secs: number, sampleRate = 48_000): AudioBuffer {
   return buffer as unknown as AudioBuffer;
 }
 
-/** How many gains the chain builds before a pattern's first step builds its own (0089, 0379). */
-export const PRE_PLAYER_GAINS = 3;
+/**
+ * How many gains the chain builds before a pattern's first step builds its own (0089, 0379,
+ * 0386).
+ */
+export const PRE_PLAYER_GAINS = 4;
 
 /** A context with only what buildDeckChain and the transport ask of one. */
 // One fake graph: every factory the chain reaches for is part of the same object. See 0007.
@@ -80,8 +91,8 @@ export function fakeContext() {
   const gainCalls: Call[] = [];
   /**
    * Every gain in creation order. The chain builds `PRE_PLAYER_GAINS` — the deck fader, the
-   * sequence's fade and the rack's input — and each player step builds one fader of its own after
-   * that, so a step's seams are the log
+   * sequence's fade, the mute (0386) and the rack's input — and each player step builds one fader
+   * of its own after that, so a step's seams are the log
    * at `PRE_PLAYER_GAINS + its own index` (0089) — on a pattern that sparks nothing. A sparking
    * landing builds a second gain for its companion's level, so the stride is two and a step's
    * seams are at `PRE_PLAYER_GAINS + 2 × its own index` (P123).
@@ -93,7 +104,7 @@ export function fakeContext() {
    * of those: the node is minted per landing and held at its value, so there is no call to read it
    * off (P123).
    */
-  const gainNodes: { gain: AudioParam }[] = [];
+  const gainNodes: { gain: AudioParam; connected: unknown[] }[] = [];
   let gains = 0;
   /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
   /** `started` is one [when, offset] pair per start — both halves of what a resume moves. */
@@ -114,6 +125,12 @@ export function fakeContext() {
 
   /** Every compressor the rack built, newest last — where a meter's reading is written from. */
   const compressors: { reduction: number }[] = [];
+
+  /**
+   * Every panner the chain built — the one node the deck's meter is tapped off, so what it is
+   * wired into is the difference between a mute and a stop (0386).
+   */
+  const panners: { connected: unknown[] }[] = [];
 
   /** Every analyser the chain built — the deck's meter, which `level` and `crest` read off. */
   const analysers: { fftSize: number; fetches: number; window: (at: number) => number }[] = [];
@@ -144,7 +161,11 @@ export function fakeContext() {
     // (src/audio/effects/lull.ts, 0049).
     createConstantSource: () =>
       Object.assign(fakeNode(), { offset: fakeParam([]), start: () => {} }),
-    createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
+    createStereoPanner: () => {
+      const node = Object.assign(fakeNode(), { pan: fakeParam([]) });
+      panners.push(node);
+      return node;
+    },
     // The one effect node with a reading of its own, so a test can ask what a rack's meter puts
     // on the deck's per-frame read (0128 amended). `reduction` is writable here and read-only on
     // the real node, which is the whole point of a double.
@@ -218,6 +239,7 @@ export function fakeContext() {
     gainLogs,
     gainNodes,
     now,
+    panners,
     sources,
   };
 }
