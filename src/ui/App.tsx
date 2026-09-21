@@ -40,6 +40,7 @@ import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
+import { DriftToggle } from "@/ui/DriftToggle";
 import { SequencerToggle } from "@/ui/SequencerToggle";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
@@ -227,6 +228,9 @@ function Screen({ instrument }: { instrument: Instrument }) {
           {/* The sequencer view beside the theme, which is the other switch on the bar that is
               about how the yards are drawn and not about what they play (0379). */}
           <SequencerToggle />
+          {/* And the drift beside both, for the same reason: whether the picture is drawn at all
+              is one fact over every yard, so it is on the bar and not on any one of them (0397). */}
+          <DriftToggle />
           <ThemeToggle />
         </div>
       </header>

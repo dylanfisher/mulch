@@ -1,5 +1,7 @@
 /**
- * @role Tests that the overlay costs nothing while it is closed — no canvas in the markup, and no
+ * @role Tests that the picture is not there at all while the header's switch is off — no canvas
+ *   and no tile asked for — that the overlay costs nothing while it is closed — no canvas in the
+ *   markup, and no
  *   frame subscription, because `paintsPerFrame` is the whole `enabled` argument both sizes hand
  *   `useOnFrame` — that the click zooms in place and only the zoomed header asks for a window,
  *   that a press with Option skips to that window and says so with the cursor, that both sizes ask
@@ -9,6 +11,12 @@
 // One import over the cap, and the one over it is the registry a row's profile is declared in —
 // restating a profile here would be a second declaration of it (principle 1).
 // oxlint-disable import/max-dependencies
+// Over the soft cap since the switch landed, and every line over it is a case about one component
+// that is deliberately one file: the strip, the zoom and the window are the same component either
+// side of one seam (0138, 0139, 0140) and the switch stands over all three (0397), so every case
+// here shares the one set of mocks at the top. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as MoireTypes from "@/lib/moire";
 import { describe, expect, it, vi } from "vitest";
@@ -21,6 +29,9 @@ let held = false;
 const seen = vi.hoisted(() => ({
   effects: [] as (() => (() => void) | void)[],
   cycles: [] as number[],
+  /** How many times a render asked the tile shop for a surface — which is the canvas it mounts and
+   *  every bake behind it, since nothing here paints without one. */
+  surfaces: 0,
 }));
 
 // Held rather than run, the way src/ui/AutomationPreview.test.tsx holds its unmount: what the
@@ -43,8 +54,16 @@ vi.mock("@/ui/driftTiles", async (importOriginal) => ({
   // Spread, not replaced: the painter reaches into this module for its caches, and a factory that
   // named only the hook would throw the moment anything here painted.
   ...(await importOriginal<typeof DriftTiles>()),
-  useDriftSurface: () => ({ rootRef: { current: null }, canvasRef: { current: null } }),
+  useDriftSurface: () => {
+    seen.surfaces += 1;
+    return { rootRef: { current: null }, canvasRef: { current: null } };
+  },
 }));
+
+// The header's switch, as a value a case may set: `useSyncExternalStore` is left alone above, so
+// the real module would read a store this file has not stubbed.
+let shown = true;
+vi.mock("@/ui/driftShown", () => ({ useDriftShown: () => shown }));
 
 // The modifier, held rather than pressed: the arm is a document listener no server render makes,
 // so the reveal is read from here the way src/ui/ParameterKnob.test.tsx reads it.
@@ -82,13 +101,14 @@ import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
 import type * as DriftTiles from "@/ui/driftTiles";
 import type * as PopupWindow from "@/ui/popupWindow";
-import { MOIRE_OVERLAY, MOIRE_POP_OUT, RECURRENCE_UNBOUNDED } from "@/lib/copy";
-import { MOIRE_TUNE } from "@/lib/copyDrift";
+import { MOIRE_OVERLAY, RECURRENCE_UNBOUNDED } from "@/lib/copy";
+import { MOIRE_POP_OUT, MOIRE_TUNE } from "@/lib/copyDrift";
 import { MOIRE_CYCLES } from "@/lib/moire";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { driftPress, MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
+import { driftPress } from "@/ui/driftZoom";
+import { MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
 import { paintsPerFrame } from "@/ui/moireRows";
 import { SHELL_WIDTH } from "@/ui/shell";
 
@@ -177,6 +197,23 @@ describe("MoireStrip", () => {
       RECURRENCE_UNBOUNDED,
     );
     expect(render({ ...looped, player: { ...player, bypassed: true } })).toBe(render(looped));
+  });
+
+  it("mounts nothing at all while the picture is switched off — no canvas, and no tile asked for", () => {
+    // A yard that does draw one, so the case is the switch and not an empty yard.
+    seen.surfaces = 0;
+    expect(render(looped)).toContain("<canvas");
+    expect(seen.surfaces).toBe(1);
+    shown = false;
+    try {
+      seen.surfaces = 0;
+      expect(render(looped)).toBe("");
+      // No surface asked for is no canvas mounted and no tile baked: the shop is only ever reached
+      // through the hook, so a render that never calls it bakes nothing (src/ui/driftTiles.ts).
+      expect(seen.surfaces).toBe(0);
+    } finally {
+      shown = true;
+    }
   });
 
   it("opens the large picture over this page, and asks for a window from its header", () => {

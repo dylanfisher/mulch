@@ -6,7 +6,8 @@
 import { fail, report } from "./harness.js";
 
 /** The copy the gestures are found by, imported rather than restated (principle 1). */
-import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, yardLabel } from "../../src/lib/copy.ts";
+import { driftTitle, MOIRE_STRIP, yardLabel } from "../../src/lib/copy.ts";
+import { MOIRE_POP_OUT } from "../../src/lib/copyDrift.ts";
 import { DRIFT_PAINT_MS } from "../../src/lib/moire.ts";
 import { WASH_CREST_STRUCK } from "../../src/lib/moireSound.ts";
 

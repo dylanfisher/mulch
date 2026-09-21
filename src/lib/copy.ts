@@ -6,16 +6,20 @@
  *   src/lib/copyKnobs.ts, which is keyed by `PLAYER_KNOBS` and is where a new knob's words go. The
  *   pools an effect instance is named from → src/lib/copyNames.ts, which took them when an eighth
  *   entry's pool would have put this file within twenty lines of the hard cap (P142). What a take
- *   is called → src/lib/exportName.ts, which assembles a filename rather than a sentence.
+ *   is called → src/lib/exportName.ts, which assembles a filename rather than a sentence. What
+ *   the drift's own controls say — the switch that draws it at all, and the button that hands it a
+ *   window — → src/lib/copyDrift.ts; the picture's two names stay here.
  */
 
 // Over the soft cap, and every line over it is a word the interface says. Two things have been
 // split off: the two records keyed by `PLAYER_KNOBS` — a caption and a sentence per dial, which is
 // a list rather than a noun and which grows by two lines every time the jumps spec grows a field
 // (src/lib/copyKnobs.ts, P123) — and the effect name pools, which grow by twenty-four words every
-// time the registry grows an entry (src/lib/copyNames.ts, P142). What is left is the instrument's
-// vocabulary, and it stays in one file because splitting *that* is how a noun ends up declared
-// twice (principle 1). Read and
+// time the registry grows an entry (src/lib/copyNames.ts, P142) — and the drift pop-out's two
+// words, which went to the file the drift's other controls already spoke from when the picture's
+// switch put this one over the hard cap (src/lib/copyDrift.ts, 0397). What is left is the
+// instrument's vocabulary, and it stays in one file because splitting *that* is how a noun ends up
+// declared twice (principle 1). Read and
 // judged, far under the hard cap docs/map.md sets — see
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
@@ -27,6 +31,7 @@
 import type { PlayerCharacter } from "@/lib/playerCast";
 import { growthLeft } from "./copyAuto.ts";
 import { PLAYER_TAP_TOOLTIP } from "./copyCard.ts";
+import { MOIRE_SWITCH_TOOLTIP } from "./copyDrift.ts";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
 import type { SongPartId } from "@/lib/playerSong";
@@ -331,6 +336,10 @@ export const ACTION_TOOLTIPS = {
   randomize:
     "Draw every knob on this effect somewhere new, across the whole range each of them has. One press, one undo — what it was is one step back.",
   collapse: "Fold this section away, or open it again.",
+  // Keyed here for `tap`'s reason — this record is what the icon vocabulary is checked against —
+  // and written beside the drift's other words, because this file stands at the hard cap
+  // (src/lib/copyDrift.ts, 0045).
+  drift: MOIRE_SWITCH_TOOLTIP,
   sequencer:
     "Draw every yard folded, with its sequence in place of its source: fades in and out and rests over minutes, on top of the yard's own gain. Off draws the yards whole again; the sequences play either way.",
   apply: "Put this clip's settings onto a yard.",
@@ -775,19 +784,6 @@ export const MASTER_METER_TOOLTIP =
 /** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
 export const MOIRE_STRIP = "Drift";
 export const MOIRE_OVERLAY = "Drift In Full";
-
-/** What the zoomed picture's own button for a window of its own says (0139). */
-export const MOIRE_POP_OUT = "Pop Out";
-
-/**
- * What that button buys, and the one place the strip's hidden gesture is written down. The
- * sentence says what a second window is for — watching the drift while turning the knobs that make
- * it drift, which a picture over the instrument cannot offer (0138) — rather than naming the
- * browser feature, and the shortcut is said here because a gesture nothing says is a gesture
- * nobody finds.
- */
-export const MOIRE_POP_OUT_TOOLTIP =
-  "Hands this picture to a browser window of its own, so the instrument underneath stays reachable — put it on another screen and it keeps drawing there. Option-click the strip to send it straight out.";
 
 /**
  * What the large picture is called wherever it is named — its own window's title, the label a

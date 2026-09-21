@@ -19,6 +19,7 @@
 // at the budget's own setting and a bake with no sample has no number (0365, 0369).
 //
 //   --base SHA        the commit to measure against, stood up in a worktree of its own (required)
+//   --yards N         how many yards the rack stands on (default 2, the budget's own setting)
 //   --runs N          how many runs of each tree, interleaved base/head then head/base (default 3)
 //   --head-port P     put the harness's own dev server for the working tree on this port
 //   --out DIR         where the per-run JSON lands (default the system temp directory)
@@ -53,7 +54,8 @@ import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 
-import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, PLAYER_LABEL, yardLabel } from "../src/lib/copy.ts";
+import { driftTitle, MOIRE_STRIP, PLAYER_LABEL, yardLabel } from "../src/lib/copy.ts";
+import { MOIRE_POP_OUT } from "../src/lib/copyDrift.ts";
 import { GEN_SECS } from "../src/lib/waveform.ts";
 import { budgetVerdicts, gapRead, spread } from "./measure.d/stats.js";
 import { watchLongTasks } from "./smoke.d/longTasks.js";
@@ -97,6 +99,7 @@ const runsOption = option("--runs");
 const portOption = option("--head-port");
 const outOption = option("--out");
 const knob = option("--knob") ?? "Position";
+const yardsOption = option("--yards");
 const deadlineOption = option("--deadline");
 const unknown = args.find((argument) => argument.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
@@ -105,6 +108,17 @@ if (baseOption === undefined) die("--base SHA is what this measures against; the
 
 const RUNS = runsOption === undefined ? 3 : Number(runsOption);
 if (!(RUNS > 0)) die(`--runs needs a positive count: ${runsOption}`);
+/**
+ * How many yards the rack is stood up on. Two is the budget's own setting and the default; more is
+ * the instrument step 18 needed, because the picture's cost is per yard and the question the human
+ * asked — what a seven-yard rack pays — cannot be read off two (0375, 0397).
+ */
+const YARDS = yardsOption === undefined ? 2 : Number(yardsOption);
+// A whole number, loudly: `slice(0, 2.5)` is two yards stood up and a progress line saying 2.5.
+if (!Number.isInteger(YARDS) || YARDS < 1 || YARDS > 7)
+  die(`--yards needs a whole one to seven: ${yardsOption}`);
+/** The ids in the order the app hands them out, so yard A is always the one the picture is of. */
+const DECKS = ["a", "b", "c", "d", "e", "f", "g"].slice(0, YARDS);
 const HEAD_PORT = portOption === undefined ? 0 : Number(portOption);
 if (!(HEAD_PORT >= 0)) die(`--head-port needs a port: ${portOption}`);
 // Said rather than discovered: a dev server on 5173 is the human's by convention across this repo,
@@ -273,16 +287,20 @@ const RACK = [
 ];
 
 async function standRack(page) {
-  at("loading a source on both yards");
+  at(`loading a source on ${YARDS} yards`);
   // The second yard is added first: a page opens with one, and the budget's setting is two.
   await page.evaluate((decks) => {
-    window.mulch.send({ t: "deck.add", deck: "b", emoji: "🌾", name: "Measure" });
+    // Every yard but the first, which the page opens with.
+    for (const deck of decks.slice(1)) {
+      window.mulch.send({ t: "deck.add", deck, emoji: "🌾", name: `Measure ${deck.toUpperCase()}` });
+    }
     for (const deck of decks) {
       window.mulch.send({ t: "deck.load", deck, source: { gen: "click-train", hz: 8 } });
     }
-  }, ["a", "b"]);
+  }, DECKS);
   await page.waitForFunction(
-    () => window.mulch.probe().decks.a.duration > 0 && window.mulch.probe().decks.b.duration > 0,
+    (decks) => decks.every((deck) => window.mulch.probe().decks[deck]?.duration > 0),
+    DECKS,
   );
   // A loop, because a yard without one draws no mulcher card at all (0159, 0171) and the walk is
   // what the budget's setting plays. Two seconds is the walk's own sixteen landings (0358).
@@ -291,9 +309,9 @@ async function standRack(page) {
     ({ decks, secs }) => {
       for (const deck of decks) window.mulch.send({ t: "deck.loop", deck, in: 0, out: secs });
     },
-    { decks: ["a", "b"], secs: LOOP_SECS },
+    { decks: DECKS, secs: LOOP_SECS },
   );
-  at("standing the rack up on two yards");
+  at(`standing the rack up on ${YARDS} yards`);
   await page.evaluate(
     ({ decks, rack }) => {
       for (const deck of decks) {
@@ -312,13 +330,12 @@ async function standRack(page) {
         }
       }
     },
-    { decks: ["a", "b"], rack: RACK },
+    { decks: DECKS, rack: RACK },
   );
   await page.waitForFunction(
-    (held) =>
-      window.mulch.probe().decks.a.effects.length >= held &&
-      window.mulch.probe().decks.b.effects.length >= held,
-    RACK.length,
+    ({ decks, held }) =>
+      decks.every((deck) => window.mulch.probe().decks[deck].effects.length >= held),
+    { decks: DECKS, held: RACK.length },
   );
 }
 
@@ -335,15 +352,15 @@ async function startWalk(page) {
     .getByLabel(`Enable ${PLAYER_LABEL} on ${yardLabel("a")}`)
     .click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player !== null);
-  await page.evaluate(() => {
+  await page.evaluate((decks) => {
     const player = window.mulch.probe().decks.a.player;
     window.mulch.send({
       t: "deck.player",
       deck: "a",
       player: { ...player, arrange: 1, bedEvery: 8, bedReach: "bed" },
     });
-    for (const deck of ["a", "b"]) window.mulch.send({ t: "deck.play", deck });
-  });
+    for (const deck of decks) window.mulch.send({ t: "deck.play", deck });
+  }, DECKS);
   at("waiting for the walk to land");
   await page.waitForFunction(() => window.mulch.peek("a").player.step !== null, undefined, {
     timeout: 30_000,

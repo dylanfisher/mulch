@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0397. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0398. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -419,8 +419,9 @@ knob's default is nought; the pins are five cases, four in src/lib/lull.test.ts 
 in src/audio/effects/rackPlugins.test.ts, which now also proves the lane and the drawn rest through
 the rack.
 
-**Step 18 — the picture can be switched off, and the rest is an interview.** _Durable shape
-moved:_ none; the switch is a view preference. "add a way to completely disable visualizer for
+**Step 18 — the picture can be switched off, and the rest is an interview
+([0397](decisions/0397-the-picture-has-a-switch-and-off-is-not-mounted.md), landed).** _Durable
+shape moved:_ none; the switch is a view preference. "add a way to completely disable visualizer for
 slow computers, free up space. interview me about other ways to add a low resource mode when e.g.
 many items are automated over 7+ decks. ask if collapsing a deck frees up resources (e.g. we don't
 have to draw the knob moving.)" The switch lands; then the step reports what a folded yard already
@@ -428,6 +429,18 @@ skips (its knobs' animation, its strip) and what it still pays, with numbers fro
 `./scripts/measure` on a seven-yard rack, and asks the human which of the remaining costs to
 switch — those become steps of their own. **Tests that must fail first:** with the picture off no
 bake runs and no canvas mounts. **Refused:** a mode that guesses the machine is slow.
+_Landed:_ the switch is `src/ui/driftShown.ts` beside the sequencer view, and `MoireStrip` is a
+read of it over a body that is mounted only where it says so — off there is no canvas, no surface
+asked of the tile shop, no bake, no frame callback and no second window, which is the pin in
+src/ui/MoireStrip.test.tsx, beside four cases on the preference itself (0397). Landing it put
+src/lib/copy.ts and src/ui/MoireStrip.tsx over the 800-line hard cap, so the pop-out's two words
+went to src/lib/copyDrift.ts, where the drift's other controls already speak, and the zoom, the
+window and the press that chooses between them went to src/ui/driftZoom.tsx whole. The interview
+half was not held — there was no human in this run — so what it would have asked is written out as
+candidate switches in §4, measured rather than guessed: `./scripts/measure --yards 7 --runs 1`, an
+instrument this step added to the harness rather than forking it (0375), reads 48.2 frames a second
+and a 69.6 ms rAF p95 on seven yards against 104.2 and 24.9 ms on two, with the same rack and the
+same walk on each of them.
 
 **Step 19 — the picture as the card's ground, looked at.** _Durable shape moved:_ none. "try
 seeing what it looks like if the visualizer is the background of the entire card." An experiment
@@ -798,3 +811,33 @@ no key was landed, no decision number was spent, and the entry stays in docs/TOD
 (src/ui/shortcuts.ts) and its palette rows are the landing site when the human names the list; the
 step's tests are then the ones its text already states — each named key sends its command and none
 fires in an editable control — and it can be scheduled as a step of its own block.
+
+**Step 18's interview was not held, and the remaining costs are written down instead of chosen.**
+The entry asks for an interview about a low-resource mode, and an autonomous run has nobody to
+interview; inventing the human's answer is the same refused thing Step 17 stopped at. So the switch
+landed and the question was measured. What `./scripts/measure --yards 7 --runs 1` reads, against
+the same harness at the budget's own two yards, is that the drift is where the frame budget goes —
+one run of each rather than the harness's own three, because this is a reading to choose from and
+not a verdict on a regression:
+104.2 frames a second and a 24.9 ms rAF p95 at two yards, 48.2 and 69.6 ms at seven, 0 rAF gaps
+over 50 ms against 82, and one painting per yard per frame either way — five more strips, and the
+mean cost of a painting rose from 1.41 ms to 2.68 ms because every one of them is a
+picture-sized `drawImage` pair. What a folded yard skips is read off src/ui/Deck.tsx: its dials and
+their animation, its peaks, its mulcher card and its whole rack all unmount. What it still pays is
+the picture — `StripFollowing` moves into the header and paints at the same cadence, only narrower
+— so the answer to "does collapsing a deck free up resources" is yes for everything except the
+expensive thing. The candidates, none of them landed and the choice the human's:
+(a) **a fold takes the picture with it**, which is one line at the folded call site and would make
+the sequencer view a low-resource mode on its own;
+(b) **one picture at a time** — only the yard a hand is on paints, the rest hold their last frame —
+which needs a per-yard "is this the one" the strip does not have today;
+(c) **a cadence under load**, `DRIFT_PAINT_MS` scaled by how many strips are standing, which
+`looksPaintMs` already does for a long chain and would generalise;
+(d) **the tile shop shared across yards**, since at seven yards eight canvases bake the same
+picture-sized tiles independently;
+(e) **the strip off and the pop-out kept**, so a yard says nothing until it is asked to.
+Whichever is chosen, note what the switch itself does not do: the worker and the tile caches in
+src/ui/driftTiles.ts are the module's, so a page that has already drawn keeps them until a reload —
+switching off frees the frames, and only a page booted off frees the memory too.
+None of these is a step yet: each is a different trade between what a glance tells a performer and
+what the frame costs, and that trade is the human's to make.

@@ -13,12 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { EFFECTS } from "@/audio/effects/registry";
 import { PARAM_IDS, PARAMS } from "@/audio/params";
+import { MOIRE_POP_OUT_TOOLTIP } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
 import { PARAM_TOOLTIPS } from "@/lib/copyParams";
 import {
   ACTION_TOOLTIPS,
   BYPASS_TOOLTIP,
-  MOIRE_POP_OUT_TOOLTIP,
   PLAYER_AMOUNT_LABEL,
   PLAYER_AMOUNT_TOOLTIP,
   PLAYER_CHARACTER_LABEL,

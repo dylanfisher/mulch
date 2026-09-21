@@ -48,6 +48,7 @@ import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WaveformIcon } from "@phosphor-icons/react/Waveform";
+import { WavesIcon } from "@phosphor-icons/react/Waves";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -107,6 +108,11 @@ export const ACTION_ICONS = {
   // A run of steps climbing: what a sequence is, and not the waveform beside it, which is what a
   // yard plays rather than how it is played through over minutes (0379).
   sequencer: StepsIcon,
+  // Rows of waves lying over each other, which is what the drift is: not `exportAudio`'s single
+  // waveform, which is the sound itself written out, and not the steps beside it. The switch says
+  // whether the picture is drawn at all, and it is the picture that has to be recognisable on it
+  // (0055).
+  drift: WavesIcon,
   // Drawing a new seed, which is not copying anything: the copy icon said a second one was being
   // made, and what happens is that one pattern becomes a different pattern (0089, P74).
   reseed: ShuffleIcon,

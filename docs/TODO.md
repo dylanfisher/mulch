@@ -30,10 +30,6 @@
 
 - ability to live record session?
 
-- add a way to completely disable visualizer for slow computers, free up space. interview me about other ways to
-  add a low resource mode when e.g. many items are are automated over 7+ decks. ask if collapsing a deck frees
-  up resources (e.g. we don't have to draw the knob moving.)
-
 - add a feature to pitch effect that allows setting intervals like a simple keyboard recording
   so we can automate little melodies
 
