@@ -17,7 +17,6 @@
 
 - push spark effect more so its like playing an organ of sparks. sparks could harmonize at different octaves.
 
-- which ground should be able to set how it moves without enabling the mulcher
 - refactor the way "the ground" works: TODO
   - simpler, e.g. loop this many times before moving, etc.
   - set safe boundary areas where it can jump between

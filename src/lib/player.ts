@@ -261,6 +261,19 @@ export const playerSounding = (player: PlayerSpec | null): PlayerSpec | null =>
   player === null || player.bypassed ? null : player;
 
 /**
+ * And what that same graph is handed to crawl its ground under: the spec exactly while the switch
+ * stands off over one, and null while the pattern is walking a ground of its own (0395). The other
+ * half of `playerSounding` above and its exact complement — at most one of the two answers a spec,
+ * so the loop has one author and never two (principle 1).
+ *
+ * **Not a hidden mulcher.** What the crawl spends is the three words a move is said in and the
+ * period beside them (0277); nothing here draws a landing, a burst or a rest, and a yard with the
+ * switch off goes on playing its loop straight. What moves is where that loop is read.
+ */
+export const playerCrawling = (player: PlayerSpec | null): PlayerSpec | null =>
+  player !== null && player.bypassed ? player : null;
+
+/**
  * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
  * the gesture rather than defaulted (0089). Named here so the card that declares those values and
  * the seven menus that snap a dial back to one are keyed against the same list (principle 1).

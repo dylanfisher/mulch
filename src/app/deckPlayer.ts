@@ -7,7 +7,7 @@
  *   is held over, and what a soloed song is → src/audio/player.ts and src/lib/playerSong.ts. Split out of execute.ts when the hard 800-line cap made the
  *   audition a move rather than a note (0045, docs/map.md).
  */
-import { playerSounding } from "@/lib/player";
+import { playerCrawling, playerSounding } from "@/lib/player";
 import { assertGround, assertSync } from "@/lib/playerWire";
 import { assertDurableText } from "@/lib/guards";
 import { songsOnset } from "@/lib/playerSongs";
@@ -32,6 +32,9 @@ export function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runti
   // The same refusal the loop makes: a deck with nothing loaded has no grid to jump around, and
   // holding a pattern for one would be a durable edit nobody could hear (0089).
   if (refuseUnloaded(rt, cmd.deck)) return;
+  // The crawl first, so a yard switched back on begins on the ground the hand set rather than on
+  // wherever the crawl had walked its loop to (src/audio/deckCrawl.ts).
+  engine.setCrawl(cmd.deck, playerCrawling(cmd.player));
   engine.setPlayer(cmd.deck, playerSounding(cmd.player));
   patchDeck(rt.store, cmd.deck, { player: cmd.player });
   rt.bus.emit({ t: "deck.player.changed", deck: cmd.deck, player: cmd.player });

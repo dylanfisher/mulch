@@ -23,6 +23,7 @@ import type { DeckVoice } from "./deckVoice";
 import { createDeckLanes } from "./deckLanes";
 import { createDeckReporter } from "./deckReporter";
 import { ordinaryPass, startOffset } from "./deckPass";
+import { createDeckCrawl } from "./deckCrawl";
 import type { HoldEdge } from "./effects/contract";
 import {
   AUTOMATION_HORIZON_SECS,
@@ -181,6 +182,7 @@ export function createDeckVoice(
         return;
       case "looped":
         report.looped(message.at, message.cycle);
+        crawl.looped(loop, buffer?.duration ?? 0);
         return;
       case "xrun":
         report.xrun(message.detail);
@@ -489,6 +491,13 @@ export function createDeckVoice(
     return true;
   }
 
+  /** The window a ground with no pattern reads next; halted, the deck is only left there. */
+  function moveGround(to: Loop): void {
+    loop = to;
+    if (sounding() && !moveInPlace()) start(readsAt(ctx.currentTime + LOOKAHEAD_SECS) ?? undefined);
+  }
+  const crawl = createDeckCrawl(moveGround);
+
   function start(resumeAt?: number): void {
     // The tier above checks that something is loaded and says so on the log; reaching here
     // without a buffer is a bug in that check, not a user error, so it is loud.
@@ -532,6 +541,7 @@ export function createDeckVoice(
       // deck is no longer holding, and a grid measured against the old one means nothing against
       // the new. The tier above clears the same two fields on the session (src/app/execute.ts).
       player.set(null);
+      crawl.forget();
     },
 
     loaded: () => buffer,
@@ -645,6 +655,7 @@ export function createDeckVoice(
       if (switched && sounding() && loop !== null) start(resumed ?? undefined);
       else retick();
     },
+    setCrawl: crawl.set,
     soloPlayer: player.solo,
     armPlayer: player.armPart,
     setSequence: (steps) => {

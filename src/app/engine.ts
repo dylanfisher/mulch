@@ -14,7 +14,7 @@
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
-import { playerSounding } from "@/lib/player";
+import { playerCrawling, playerSounding } from "@/lib/player";
 import { groundIsLed, groundTicksBy, type SessionGround } from "@/lib/sessionGround";
 import type { GroundClock } from "@/audio/playerVoice";
 import { createMasterBus } from "@/audio/context";
@@ -494,6 +494,9 @@ export function createAudioEngine(
     setPlayer: (deck, player) => {
       voice(deck).setPlayer(player);
     },
+    setCrawl: (deck, spec) => {
+      voice(deck).setCrawl(spec);
+    },
     setSequence: (deck, steps) => {
       voice(deck).setSequence(steps);
     },
@@ -686,8 +689,12 @@ export function createAudioEngine(
           // Through the one reader of the switch, the way the command that sets a pattern is: a
           // yard stored with its module off holds its whole spec and must come back silent, not
           // jumping (P164, src/lib/player.ts).
-          const player = playerSounding(deckIn(session.decks, deck).player);
+          const held = deckIn(session.decks, deck).player;
+          const player = playerSounding(held);
           if (player !== null) preparedIn(deck).setPlayer(player);
+          // And the ground a yard stored with its module off crawls its loop over, through the
+          // other half of that same reader: off is a plain loop that may still move (0395).
+          preparedIn(deck).setCrawl(playerCrawling(held));
           // And the sequence, which rides nothing else (0379).
           const { sequence, muted } = deckIn(session.decks, deck);
           if (sequence.length > 0) preparedIn(deck).setSequence(sequence);

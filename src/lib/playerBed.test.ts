@@ -270,8 +270,9 @@ describe("the bed each step is read in", () => {
 
   /**
    * The three words as the three amounts the draw is handed, said once (0277): a reach is its
-   * sixteenths, a way is its lean, and staying put is the home roll certain. And the middle way
-   * really is either: a walk on it goes both sides of the bed it opened on.
+   * sixteenths, a way is its lean, and staying put is the home roll certain — and no stride, which
+   * is the fourth amount the draw takes and the one the ground has no dial for (0395). And the
+   * middle way really is either: a walk on it goes both sides of the bed it opened on.
    */
   it("says each word as the one number the draw is handed", () => {
     expect(
@@ -280,6 +281,7 @@ describe("the bed each step is read in", () => {
       distance: PLAYER_BED_DISTANCE_MAX,
       bias: 1,
       home: 0,
+      stride: 0,
     });
     expect(
       bedMove({ ...PLAYER_DEFAULTS, bedReach: "bed", bedWay: "back", bedWanders: false }),
@@ -287,6 +289,7 @@ describe("the bed each step is read in", () => {
       distance: PLAYER_SLOTS,
       bias: -1,
       home: 1,
+      stride: 0,
     });
     expect(bedMove({ ...PLAYER_DEFAULTS, bedReach: "nudge", bedWay: "either" }).bias).toBe(0);
     expect(PLAYER_BED_REACH_SLOTS.nudge).toBe(PLAYER_SLOTS / 4);

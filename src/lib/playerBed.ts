@@ -18,6 +18,7 @@ import { exactKeys, objectAt, whole } from "./guards.ts";
 import type { BedZone } from "./playerZone.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { clamp } from "./range.ts";
+import type { Lean } from "./playerDraw.ts";
 
 /**
  * How far from the loop's own bed a song may open, in beds either way. Zero is the loop itself,
@@ -269,10 +270,13 @@ export type BedSpec = {
  * one, short-circuiting the travel, exactly as a jump's home does (P87). Wandering is the roll
  * never taken, so a loop that wanders draws precisely what one with no home ever drew (0134).
  */
-export const bedMove = (spec: BedSpec): { distance: number; bias: number; home: number } => ({
+export const bedMove = (spec: BedSpec): Lean => ({
   distance: PLAYER_BED_REACH_SLOTS[spec.bedReach],
   bias: PLAYER_BED_WAY_LEAN[spec.bedWay],
   home: spec.bedWanders ? 0 : 1,
+  // The whole `Lean` and not three of it: the ground has no stride dial, and zero is the value
+  // that rolls nothing — so the one place that says so is here, where the three words are read.
+  stride: 0,
 });
 
 /**

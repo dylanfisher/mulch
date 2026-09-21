@@ -80,6 +80,14 @@ export type DeckVoice = {
    */
   setPlayer(player: PlayerSpec | null): void;
   /**
+   * And the ground that same yard crawls under while the switch stands off over its pattern — the
+   * spec whole, or null while it is walking one of its own (`playerCrawling`, src/lib/player.ts).
+   * A second setter and not a flag on the one above, because at most one of the two ever holds a
+   * spec: the pattern walks its ground, or the crawl moves the loop it is read on (0395). A
+   * property for the reason `soloPlayer` is one — it is handed on as the crawl's own function.
+   */
+  setCrawl: (spec: PlayerSpec | null) => void;
+  /**
    * Hold the sequence the deck is played through, or none when empty. Never a restart: a sequence
    * moved is re-armed on the pass that is up, the way a lane is (0379).
    */

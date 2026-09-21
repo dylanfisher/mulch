@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0395. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0396. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -372,14 +372,29 @@ The pins are seven cases: six in the new src/lib/effectGrowthStates.test.ts — 
 went because the existing suite crossed the 400-line soft cap — and one in
 src/audio/effects/automator.test.ts, that the knob reaches the maths at all.
 
-**Step 15 — the ground moves under a yard the mulcher is not on.** _Durable shape moved:_ to be
-decided in the step — whether the ground's motion spec leaves the `PlayerSpec`. "which ground
-should be able to set how it moves without enabling the mulcher". The strip already moves the
+**Step 15 — the ground moves under a yard the mulcher is not on
+([0395](decisions/0395-the-ground-moves-under-a-yard-with-no-pattern.md), landed).** _Durable shape
+moved:_ none — the motion spec stays on the `PlayerSpec`, which the switch already keeps whole
+(P164), so a yard switched off is holding everything a crawl needs. "which ground should be able to
+set how it moves without enabling the mulcher". The strip already moves the
 loop itself with the mulcher off (src/lib/copyGround.ts's tooltip); this lets the wander, its
 distance and its direction (0277) drive that loop on the pattern's clock without a pattern. Read
 how much of src/lib/playerWalk.ts the ground needs before deciding. **Tests that must fail
 first:** a yard with the mulcher off and a wandering ground reports a moved loop after one
 period. **Refused:** a hidden mulcher.
+_Landed:_ what the walk needed was its move and nothing else, so the crawl is the walk's three
+amounts spent on a walker of its own — `crawlBedAt` (src/lib/playerCrawl.ts), which is what the
+session's shared ground already was and now the one walker both grounds spend (0313). The clock is
+the loop coming round, counted as reports arrive rather than off the reporter's cycle number, since
+a move the playhead does not survive restarts the pass and sends that number to zero. `playerCrawling`
+is `playerSounding`'s exact complement, and `createDeckCrawl` (src/audio/deckCrawl.ts) holds the
+loop the hand set as the ground it counts from and hands the transport the window to play next —
+the deck's own loop moves, the session's does not, so nothing durable drifts and the playhead
+reports where it is reading. The ground fold's two controls are live with the switch off and read
+the held spec, which is the half of the ask a working transport alone would not have delivered; it
+narrows P164 by exactly those two, and its suite says so. The pins are ten cases: four in the new
+src/lib/playerCrawl.test.ts, six in the new src/audio/deckCrawl.test.ts, and one retargeted in
+src/ui/PlayerCardSwitch.test.tsx.
 
 **Step 16 — a play/pause effect.** _Durable shape moved:_ none; one registry entry. "play/pause
 effect, kinda like scatter". Scatter's shape (src/audio/effects/scatter.ts) with a gate instead of
@@ -732,3 +747,24 @@ arithmetic, and wants `binOf` in src/lib/range.ts — is declined for this step:
 caller removes nothing, and the three existing sites (src/lib/moireGlyph.ts, src/lib/playerSong.ts,
 src/lib/playerCharacter.ts) are three modules this step has no business editing (principle 4). It
 is a real third occurrence and belongs to a step of its own.
+
+**Step 15 left the picture, the planted grounds and the offline render out of the crawl.** The
+ground moves the window a switched-off yard reads, which the playhead reports and the waveform
+draws, but the strip above the dials still draws the hand's loop with no window over it, and the
+drift does not travel to the moved ground the way `loopStand` travels to a dragged loop (0274,
+src/ui/moireRows.ts) — the picture is handed a spec and the crawl's offset is a per-frame fact of
+the transport, so drawing it wants a peek field and a reader for it, and no surface asked for one
+this step. The review's Seam lens read the phase that reference row is painted at as a second cost
+and it is not: `refillRows` wraps `into` and says in its own prose that a deck sitting outside its
+loop still lands on the row. The grounds a hand
+kept (0194) come round on counts of parts and songs a yard with no pattern does not have, so the
+crawl reads only the three words, the period, the bed and the zone; a kept ground under a switched
+off yard is a step of its own. And the crawl is the live transport's: an offline render arms a
+prepared voice with the crawl set, but nothing ticks its loop there, so an export of a switched-off
+crawling yard renders the loop standing still — the one place in this build where the live and
+offline paths part, and the price of clocking it on the loop rather than on the wall. A forward move
+the playhead cannot survive restarts the pass, which is a stop-and-start pair on the log per period,
+exactly as a hand dragging the loop there produces one, and every rest the rack had laid ahead goes
+with it. And src/audio/deck.ts now stands at exactly its 800-line hard cap: the step's seam there is
+five lines and the prose behind them is in src/audio/deckCrawl.ts, so the next step that touches
+that file splits it rather than shaving anything.

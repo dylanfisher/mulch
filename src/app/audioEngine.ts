@@ -95,6 +95,8 @@ export type Engine = {
   setLoop(deck: DeckId, inSecs: number, outSecs: number): Loop | null;
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
+  /** And the ground it crawls its loop over while that pattern's switch stands off (0395). */
+  setCrawl(deck: DeckId, spec: PlayerSpec | null): void;
   /** Hold this deck's sequence — the fade it is played through — or none when empty (0379). */
   setSequence(deck: DeckId, steps: DeckSequence): void;
   /** Whether this deck is heard: the last scale in its chain, above its meter's tap (0386). */

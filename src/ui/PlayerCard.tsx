@@ -439,6 +439,20 @@ export function PlayerCard({
    *  (src/ui/PlayerRun.tsx). Built once for the reason the spec above it is — it is handed to
    *  eight runs, and a fresh object per render is a fresh prop on each. */
   const runProps = { deck, ...dialled };
+  /**
+   * And what the ground's own two controls take instead: the spec the yard is *holding*, live
+   * where every other control on the card is refused. With the switch off the ground goes on
+   * moving the loop this yard plays — the period counts rounds of it, and the three words shape
+   * the move exactly as they shape a walking one (0395, src/audio/deckCrawl.ts) — so a hand may
+   * say how a ground moves without turning the mulcher on, which is the whole of the ask. Refused
+   * on a yard that has never held a pattern, which has no ground to move — and *not* on one
+   * standing on the session's, which is the one thing these controls still author there: the rows
+   * inside them write the shared ground while Together is on, and the switch back to its own
+   * ground is one of them (0313, src/ui/PlayerBed.tsx). That refusal is the bed dial's alone,
+   * below, exactly as it was before this fold had a live control on it.
+   */
+  const grounded = player ?? OFF_SPEC;
+  const groundProps = { ...runProps, player: grounded, disabled: player === null };
 
   return (
     // Below the drift and above the rack, because what it moves is where inside the loop the deck
@@ -653,15 +667,21 @@ export function PlayerCard({
                 {/* Refused while the ground is the session's: this yard's own bed is what its own
                     crawl comes home to, and there is no such bed on a shared ground — every yard
                     on one holds a different source, so the one ground they all have is the loop
-                    itself (0313, src/lib/sessionGround.ts). */}
+                    itself (0313, src/lib/sessionGround.ts). And live while the switch is off,
+                    which these two alone are: see `groundProps` above. */}
                 <PlayerDial
                   knob="bed"
-                  {...runProps}
+                  {...groundProps}
                   patch={patch}
                   selected={false}
-                  disabled={off || shared}
+                  disabled={player === null || grounded.bedTogether}
                 />
-                <PlayerBed {...runProps} patch={patch} selected={false} instrument={instrument} />
+                <PlayerBed
+                  {...groundProps}
+                  patch={patch}
+                  selected={false}
+                  instrument={instrument}
+                />
                 {/* And the one gesture here, at the end of the row the ground is set on: the
                     walk moves the window and this writes it back down. A press and not a dial,
                     because it is a place a hand liked rather than an amount it is holding. */}

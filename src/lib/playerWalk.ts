@@ -585,13 +585,13 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // counted in parts would be a second mover the picture ahead of it could disagree with
     // (principle 1).
     //
-    // The move is the jump's own arithmetic one grid up (`leanStep`), with no stride, because the
-    // bed has no stride dial and zero is the value that rolls nothing. Its three amounts are the
-    // ground's three words said as numbers once (`bedMove`, 0277). Read off the spec and not off
+    // The move is the jump's own arithmetic one grid up (`leanStep`), handed the ground's three
+    // words said as the amounts they are — and no stride, which `bedMove` itself says once
+    // (`bedMove`, 0277, src/lib/playerBed.ts). Read off the spec and not off
     // the voice, the way `arrange` is: the ground belongs to the song, so a part standing at the
     // moment a move is due neither schedules it nor shapes it (0184).
     if (spec.bedEvery > 0 && grounded >= spec.bedEvery) {
-      const move = leanStep(random, { ...bedMove(spec), stride: 0 });
+      const move = leanStep(random, bedMove(spec));
       // Home is the song's own bed and so is counted in beds; a travel is counted in sixteenths,
       // which is the crawl (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts). One cursor, one unit:
       // the sixteenth, because it is the finer of the two and a bed is a whole number of them.

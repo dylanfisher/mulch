@@ -48,6 +48,11 @@ import { PlayerFront } from "@/ui/PlayerFront";
 const GROUND_WORDS =
   2 + PLAYER_BED_PERS.length + 2 + PLAYER_BED_REACHES.length + PLAYER_BED_WAYS.length;
 
+/** And the two dials beside those words: the bed a crawl comes home to and the period it moves on.
+ *  Named because they are what a bypassed card leaves live, where every other dial is greyed
+ *  (0395). */
+const GROUND_DIALS = 2;
+
 /**
  * The card as this suite reads it: every fold open, because what a claim about the switch reads is
  * the whole body it greys out (src/ui/playerCardDouble.ts).
@@ -157,19 +162,46 @@ describe("the jumps card's switch", () => {
   // What a bypassed card draws is what an unswitched one draws — the greyed, unturnable dials of
   // `PLAYER_DEFAULTS` — because the switch says off and the card says what the switch says. The
   // values under them are the held ones, which is what the press above sends back (P164, 0173).
-  it("draws a bypassed pattern exactly as it draws no pattern at all", () => {
-    const bypassed = renderToStaticMarkup(strip({ player: { ...PLAYER, bypassed: true } }).element);
-    const refused = PLAYER_KNOBS.length + GROUND_WORDS + PLAYER_CHARACTERS.length;
+  //
+  // **Except the ground's own controls**, which are live with the switch off and read the held
+  // spec: the loop of a yard with no pattern goes on moving, and how it moves is what these say
+  // (0395, src/audio/deckCrawl.ts). That is the whole of the exception — the bed it comes home to
+  // and the period and words beside it, and nothing else on the card.
+  it("draws a bypassed pattern as a card with no pattern but for the ground's own controls", () => {
+    const held = { ...PLAYER, bypassed: true, bedEvery: 4 };
+    const bypassed = renderToStaticMarkup(strip({ player: held }).element);
+    const refused = PLAYER_KNOBS.length - GROUND_DIALS + PLAYER_CHARACTERS.length;
     expect(bypassed.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(bypassed).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
+    // And the two live ones carry what the yard is holding rather than the switch's own values.
+    expect(bypassed).toContain(`aria-valuenow="${held.bedEvery}"`);
     // And the pattern's own one-line facts go with it: a seed nothing is unfolding is a readout of
     // a performance that is not happening.
     expect(bypassed).not.toContain(`${SEED_LABEL} ${PLAYER.seed}`);
   });
 
   /**
+   * The rows inside the ground fold are the only author of the session's shared ground, and they
+   * are drawn on the yards standing on it — so refusing them because a yard is Together would put
+   * that ground out of reach of the whole instrument, off *and* on (0313, 0395). The one control
+   * the shared ground does refuse is the bed this yard's own crawl would come home to, which it
+   * has no say over while it is standing on someone else's.
+   */
+  it("keeps the session's own ground reachable from a yard standing on it", () => {
+    const on = renderToStaticMarkup(strip({ player: { ...PLAYER, bedTogether: true } }).element);
+    expect(on.match(/aria-disabled="true"/gu)?.length).toBe(1);
+    const off = renderToStaticMarkup(
+      strip({ player: { ...PLAYER, bedTogether: true, bypassed: true } }).element,
+    );
+    const refused = PLAYER_KNOBS.length - GROUND_DIALS + PLAYER_CHARACTERS.length;
+    expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused + 1);
+  });
+
+  /**
    * Said whole rather than surface by surface: a card over a bypassed spec draws *character for
-   * character* what a card over no spec draws. Three painters read the held spec straight and none
+   * character* what a card over no spec draws — with the ground fold shut, which is what this
+   * renders, since 0395 leaves the two controls inside it live and reading the held spec.
+   * Three painters read the held spec straight and none
    * of them was covered by counting refused dials — the ground strip's kept and opening marks, the
    * walk's picture with its lanes, and the seed line — so the claim is the whole
    * markup and not a list of slots that will be out of date the next time one is added (P164).

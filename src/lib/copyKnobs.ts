@@ -88,7 +88,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. Past what the sample holds it folds back into it, which can leave the song opening part of a bed along. The ground is the whole song's: every part plays back on wherever the loop has moved to.",
   bedEvery:
-    "How many of whatever it is counted in pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it.",
+    "How many of whatever it is counted in pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it. With the Mulcher off there are no jumps, parts or songs to count, so it counts rounds of the loop and moves it under the yard anyway.",
   distance: "How far one jump may travel, in sixteenths of the loop.",
   bias: "Which way the pattern leans. In the middle it is as likely to go back as on; at either end every jump goes the one way, wrapping at the edge of the loop.",
   stride:

@@ -7,7 +7,8 @@
  * @instead One yard's own ground, and the three words a move is said in →
  *   src/lib/playerBed.ts, whose `bedTogether` is the switch that points a yard at this one. The
  *   shared jump clock, whose argument for wall seconds this borrows word for word →
- *   src/lib/playerClock.ts. The words this is said in → src/lib/copyGround.ts. Folding an offset
+ *   src/lib/playerClock.ts. The walk one move takes, which is this ground's and a yard's own alike
+ *   → src/lib/playerCrawl.ts. The words this is said in → src/lib/copyGround.ts. Folding an offset
  *   onto a real buffer, which is the transport's and is the same for both grounds → `bedWrap`,
  *   src/lib/playerBed.ts.
  */
@@ -17,8 +18,7 @@ import {
   type PlayerBedReach,
   type PlayerBedWay,
 } from "./playerBed.ts";
-import { leanStep } from "./playerDraw.ts";
-import { mulberry32 } from "./random.ts";
+import { crawlBedAt } from "./playerCrawl.ts";
 
 /**
  * The shared ground, as the session holds it: how often it moves, and the three words one move is
@@ -135,19 +135,6 @@ const GROUND_SEED = 0x67726e64;
  *  that yard marked (`bedWrap`, src/lib/playerBed.ts, 0318). */
 const GROUND_HOME = 0;
 
-/**
- * The crawl one ground has walked, grown as far as it has been asked for. Keyed on the ground
- * itself, which the store replaces on every edit — so a moved word is a new crawl and never a
- * cached one, and the old one is collected with the object nobody holds.
- *
- * A cache and not a second author: `groundBedAt` is a pure function of `(ground, tick)` and this
- * only spares it replaying every tick since zero on every step a transport arms. The generator is
- * held beside the list because it *is* the position in the stream — a walk grown to tick 40 has
- * spent exactly the draws ticks 1…40 spend, which is what makes growing it later the same walk as
- * having asked for it at once (0089).
- */
-const crawls = new WeakMap<SessionGround, { beds: number[]; random: () => number }>();
-
 /** The three words as the three amounts the shared draw is handed — a yard's `bedMove` said for
  *  this ground, over the same two records, so one reach means one distance on the instrument
  *  (principle 1, src/lib/playerBed.ts). */
@@ -179,17 +166,5 @@ export const groundTicksBy = (ground: SessionGround, at: number): number =>
  * counts. That is the whole of why two yards land on the same offset — they are not talking to
  * each other, they are reading one count (0313).
  */
-export function groundBedAt(ground: SessionGround, tick: number): number {
-  let held = crawls.get(ground);
-  if (held === undefined) {
-    held = { beds: [GROUND_HOME], random: mulberry32(GROUND_SEED) };
-    crawls.set(ground, held);
-  }
-  const lean = groundMove(ground);
-  while (held.beds.length <= tick) {
-    const from = held.beds.at(-1) ?? GROUND_HOME;
-    const move = leanStep(held.random, lean);
-    held.beds.push(move === null ? GROUND_HOME : from + move);
-  }
-  return held.beds[tick] ?? GROUND_HOME;
-}
+export const groundBedAt = (ground: SessionGround, tick: number): number =>
+  crawlBedAt(ground, { seed: GROUND_SEED, home: GROUND_HOME, lean: groundMove(ground) }, tick);
