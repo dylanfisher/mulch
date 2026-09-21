@@ -9,8 +9,6 @@
 - instead of visualizer being one big field related to how the sound is currently playing, it could be a continuously
   drawing recording of how the sound is playing, so as it plays it draws in a recording of it.
 
-- Add ability to set loop based on beat count
-
 - lull effect should impact the visualizer in such a way that it looks like a gap is drawn in, use empty
   and negative space in an interesting way.
 

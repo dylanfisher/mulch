@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeBeats,
   ANALYSIS_HOP,
+  beatsLoop,
+  loopBeats,
   MAX_BPM,
   MAX_ONSETS,
   MIN_BPM,
@@ -156,5 +158,43 @@ describe("snapLoop", () => {
 
   it("passes an unsnappable gesture through unchanged", () => {
     expect(snapLoop(0.3, 0.4, onsets, 0.01)).toEqual({ in: 0.3, out: 0.4 });
+  });
+});
+
+describe("beatsLoop", () => {
+  it("derives the end from the start and a count of beats", () => {
+    expect(beatsLoop(0, 4, 120, 10)).toEqual({ in: 0, out: 2 });
+    expect(beatsLoop(1.5, 8, 120, 10)).toEqual({ in: 1.5, out: 5.5 });
+    // The count is in the buffer's own seconds, so a slower tempo is a longer loop.
+    expect(beatsLoop(0, 4, 60, 10)).toEqual({ in: 0, out: 4 });
+  });
+
+  it("refuses a loop that would run past the end of the source rather than shortening it", () => {
+    expect(beatsLoop(0, 20, 120, 10)).toEqual({ in: 0, out: 10 });
+    expect(beatsLoop(0, 21, 120, 10)).toBeNull();
+    expect(beatsLoop(9, 4, 120, 10)).toBeNull();
+  });
+
+  it("refuses anything but a whole count of at least one beat", () => {
+    expect(beatsLoop(0, 0, 120, 10)).toBeNull();
+    expect(beatsLoop(0, -4, 120, 10)).toBeNull();
+    expect(beatsLoop(0, 1.5, 120, 10)).toBeNull();
+    expect(beatsLoop(0, NaN, 120, 10)).toBeNull();
+  });
+
+  it("refuses a tempo-less call, because a source with no beat offers no count", () => {
+    expect(() => beatsLoop(0, 4, 0, 10)).toThrow(RangeError);
+  });
+});
+
+describe("loopBeats", () => {
+  it("reads a loop back as the beats it lasts, unrounded", () => {
+    expect(loopBeats({ in: 0, out: 2 }, 120)).toBe(4);
+    expect(loopBeats({ in: 1.5, out: 5.5 }, 120)).toBe(8);
+    expect(loopBeats({ in: 0, out: 2.25 }, 120)).toBe(4.5);
+  });
+
+  it("refuses a tempo-less call the way the derivation does", () => {
+    expect(() => loopBeats({ in: 0, out: 2 }, 0)).toThrow(RangeError);
   });
 });

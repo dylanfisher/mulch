@@ -12,6 +12,7 @@
  *   same gesture said for a point rather than a length → `snapLoop`, src/lib/analysis.ts.
  */
 
+import { beatSecs } from "@/lib/analysis";
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
 import { clamp, snapToStep } from "@/lib/range";
 
@@ -117,9 +118,9 @@ export function beatBurst(
 ): number {
   // A deck with no analysis, or one whose analysis found no tempo, has no grid at all — its
   // toggle is refused rather than absent (0121, 0173), so a call with one is a caller that
-  // skipped that refusal and not a burst to guess at (principle 5).
-  if (!(bpm > 0)) throw new RangeError(`a beat needs a tempo: ${bpm}bpm`);
-  const beat = 60 / bpm;
+  // skipped that refusal and not a burst to guess at (principle 5) — which is the throw
+  // `beatSecs` makes of a tempo of nought.
+  const beat = beatSecs(bpm);
   let best: number | null = null;
   let nearest = Infinity;
   for (const division of PLAYER_BEAT_DIVISIONS) {

@@ -55,6 +55,7 @@ import { useOnFrame } from "@/ui/frame";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
+import { LoopBeats } from "@/ui/LoopBeats";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
 import type { Loop } from "@/lib/timeline";
@@ -530,7 +531,10 @@ export function Waveform({
       <div className="h-1 w-full bg-muted">
         <div ref={meterRef} className="h-full w-full origin-left scale-x-0 bg-primary" />
       </div>
-      <div className="flex items-center gap-2">
+      {/* Wrapped: the count beside the toggle is a label and an input wide enough to push the
+          readout past the narrowest shell, and a row that pushes the page sideways is worse than
+          one that takes two lines (P46). */}
+      <div className="flex flex-wrap items-center gap-2">
         {/* Snapping is a state the strip is in, not a thing that happens once, so it is a
             Toggle and reports it as `aria-pressed` (P25). */}
         <Says what={ACTION_TOOLTIPS.snap}>
@@ -546,6 +550,10 @@ export function Waveform({
             Snap
           </Toggle>
         </Says>
+        {/* The other way to say where the loop ends, beside the toggle that pulls it onto a beat:
+            both are the analysis's tempo reaching the same `deck.loop`, one by a count and one by
+            a drag. A tone has no boundary to place, so it has no count either (0110). */}
+        {tone === null && <LoopBeats instrument={instrument} deck={deck} state={state} />}
         {/* The sweep is the same gesture whether or not a worker has answered, so the hint it
             advertises stands on its own: only the tempo half waits for analysis (0147). */}
         <span className="type-readout text-muted-foreground">

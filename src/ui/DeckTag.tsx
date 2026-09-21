@@ -5,13 +5,13 @@
  *   and the session's own deck list (0057). The numeric field beside it → src/ui/LoadField.tsx,
  *   whose shape this follows.
  */
-import { type FocusEvent, type KeyboardEvent, useCallback } from "react";
+import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { TAG_LABEL, yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { DeckId } from "@/state/store";
-import { InlineField } from "@/ui/InlineField";
+import { InlineField, useFieldCommit } from "@/ui/InlineField";
 
 /**
  * Uncontrolled and committed on blur or Enter, the way the frequency beside it is: a controlled
@@ -38,18 +38,7 @@ export function DeckTag({
     [instrument, deck, tag],
   );
 
-  const onBlur = useCallback(
-    (event: FocusEvent<HTMLInputElement>) => {
-      commit(event.currentTarget);
-    },
-    [commit],
-  );
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") commit(event.currentTarget);
-    },
-    [commit],
-  );
+  const { onBlur, onKeyDown } = useFieldCommit(commit);
 
   return (
     <InlineField

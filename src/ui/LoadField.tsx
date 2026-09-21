@@ -4,9 +4,9 @@
  * @instead A parameter of the running deck → src/ui/Knob.tsx, which rides src/audio/params.ts.
  *   The rule for what a load accepts → src/lib/waveform.ts; this file is handed it, never its own.
  */
-import { type FocusEvent, type KeyboardEvent, useCallback } from "react";
+import { useCallback } from "react";
 
-import { InlineField } from "@/ui/InlineField";
+import { InlineField, useFieldCommit } from "@/ui/InlineField";
 
 type LoadFieldProps = {
   id: string;
@@ -52,18 +52,7 @@ export function LoadField({ id, name, value, min, step, valid, onCommit }: LoadF
     [value, valid, onCommit],
   );
 
-  const onBlur = useCallback(
-    (event: FocusEvent<HTMLInputElement>) => {
-      commit(event.currentTarget);
-    },
-    [commit],
-  );
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") commit(event.currentTarget);
-    },
-    [commit],
-  );
+  const { onBlur, onKeyDown } = useFieldCommit(commit);
 
   return (
     <InlineField

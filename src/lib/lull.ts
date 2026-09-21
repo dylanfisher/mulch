@@ -11,6 +11,7 @@
  * @instead The transport that holds and releases on these edges → src/audio/deck.ts. The one
  *   generator a seed is spent through → src/lib/random.ts.
  */
+import { beatSecs } from "./analysis.ts";
 import { syncedFrom } from "./playerClock.ts";
 import { PLAYER_BEAT_DIVISIONS } from "./playerBurst.ts";
 import { clamp } from "./range.ts";
@@ -73,8 +74,7 @@ export type LullCursor = {
  * says the length is logarithmic.
  */
 export function beatLength(secs: number, bpm: number): number {
-  if (!(bpm > 0)) throw new RangeError(`a beat needs a tempo: ${bpm}bpm`);
-  const beat = 60 / bpm;
+  const beat = beatSecs(bpm);
   if (secs >= beat) return beat * Math.max(1, Math.round(secs / beat));
   let best = beat;
   let nearest = Infinity;

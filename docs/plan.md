@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0389. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0390. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -221,13 +221,30 @@ its window the slot is (`enters`), so the playhead crosses the seam with the sou
 snapping back to the slot. The pins are one case in src/lib/playerBurst.test.ts, one in
 src/audio/playerPeek.test.ts and two rewritten in src/audio/player.test.ts, which held the clamp.
 
-**Step 9 — the loop is set by a count of beats.** _Durable shape moved:_ none. "Add ability to set
-loop based on beat count". Analysis gives a `bpm` (src/lib/analysis.ts) and the loop edge already
-snaps to its candidates (src/ui/LoopHandles.tsx); a beat-count field beside the loop derives the
-end from the start and the count, and sends the same `deck.loop`. Nothing durable rests on the
-count: the loop is stored in seconds as now (§2, analysis is not a pure function of bytes).
+**Step 9 — the loop is set by a count of beats
+([0389](decisions/0389-a-beat-count-sets-the-loops-end.md), landed).** _Durable shape moved:_
+none. "Add ability to set loop based on beat count". Analysis gives a `bpm`
+(src/lib/analysis.ts) and the loop edge already snaps to its candidates (src/ui/LoopHandles.tsx);
+a beat-count field beside the loop derives the end from the start and the count, and sends the
+same `deck.loop`. Nothing durable rests on the count: the loop is stored in seconds as now (§2,
+analysis is not a pure function of bytes).
 **Tests that must fail first:** a count of four at a known `bpm` sends a loop of four beats; a
 source with `bpm: 0` shows no field. **Refused:** a stored beat count.
+_Landed:_ the count is derived both ways and stored nowhere: `beatsLoop` and `loopBeats`
+(src/lib/analysis.ts) turn a whole count of beats into the loop that begins where the yard's
+already begins, and a loop back into the count a hand could have typed, both in the buffer's own
+seconds rather than the sounding ones (0031). The field is src/ui/LoopBeats.tsx, beside the snap
+toggle in src/ui/Waveform.tsx and withdrawn — not drawn dead — where the analysis found no tempo,
+the way a tone is offered no loop toggle (0110). A count that is not whole, or whose end would run
+past the source, is refused and the field put back rather than clamped (principle 5), and so is a
+field still reading what it was handed, because the read is a rounding and a blur that typed
+nothing must not square the loop up behind the hand (0389). The field is remounted on the loop
+itself and never on the count, so a half-typed number cannot outlive the start it was typed at —
+both of those the review's finding. The blur-or-Enter commit and the seconds in a beat each became one — `useFieldCommit`
+(src/ui/InlineField.tsx) and `beatSecs` (src/lib/analysis.ts), read now by src/ui/DeckTag.tsx,
+src/ui/LoadField.tsx and src/ui/PlayerSeed.tsx, and by src/lib/lull.ts and src/lib/playerBurst.ts
+(0389). The pins are six cases in src/lib/analysis.test.ts and ten in
+src/ui/LoopBeats.test.tsx, two of them the step's own.
 
 **Step 10 — a second stop clears the tails.** _Durable shape moved:_ none. "if possible, make it
 so pressing stop when already stops clears all noise (feedback, etc.)". The global Stop
@@ -500,3 +517,15 @@ that already render a jumping yard rather than taking one of its own, because wh
 there is a burst length and not a behaviour the harness cannot already reach. The divisions a hold
 rounds onto were left where they are, so a sixteen-second burst held to the beat lands on the beat
 itself: multiples of a beat are a vocabulary of their own (0388).
+
+**Step 9 collapsed two duplications and declined one reuse.** The blur-or-Enter commit was about
+to be written a fourth time, so it became `useFieldCommit` (src/ui/InlineField.tsx) and
+src/ui/DeckTag.tsx, src/ui/LoadField.tsx and src/ui/PlayerSeed.tsx were moved onto it; `60 / bpm`
+and the refusal in front of it was about to be written a third time, so it became `beatSecs`
+(src/lib/analysis.ts) and src/lib/lull.ts and src/lib/playerBurst.ts were moved onto it. Both are
+principle 3 on the occurrence that earns it, and both came out of the review's Reuse lens, which
+found the fourth field and the third beat this step had counted as one fewer. `masterTempo`
+(src/app/engine.ts) is left alone: it derives a tempo from a sync interval, which is the inverse
+fact. Reusing src/ui/LoadField.tsx outright was declined for a reason rather than a preference — its skip guard compares the input against the
+number it displays, and here the displayed count is a rounding of the loop that must still be
+committable, so the comparison has to be against the derived loop (0389).

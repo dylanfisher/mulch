@@ -6,13 +6,13 @@
  *   src/ui/PlayerBlend.tsx. Minting the number both of them send → src/ui/PlayerCard.tsx. What the
  *   number unfolds into → src/lib/player.ts; this file knows only that it is a whole 32 bits.
  */
-import { type FocusEvent, type KeyboardEvent, useCallback } from "react";
+import { useCallback } from "react";
 
 import { ACTION_TOOLTIPS, SEED_LABEL } from "@/lib/copy";
 import { isPlayerSeed, PLAYER_SEED_MAX } from "@/lib/player";
 import { Button } from "@/ui/components/button";
 import { ACTION_ICONS } from "@/ui/icons";
-import { InlineField } from "@/ui/InlineField";
+import { InlineField, useFieldCommit } from "@/ui/InlineField";
 import { Says } from "@/ui/Says";
 
 /**
@@ -55,18 +55,7 @@ export function PlayerSeed({
     [seed, onCommit],
   );
 
-  const onBlur = useCallback(
-    (event: FocusEvent<HTMLInputElement>) => {
-      commit(event.currentTarget);
-    },
-    [commit],
-  );
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") commit(event.currentTarget);
-    },
-    [commit],
-  );
+  const { onBlur, onKeyDown } = useFieldCommit(commit);
 
   return (
     // The field and the die that fills it, on one row: typing a number in and drawing one are the

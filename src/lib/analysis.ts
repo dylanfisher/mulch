@@ -276,3 +276,44 @@ export function snapLoop(
   if (to <= from) return { in: inSecs, out: outSecs };
   return { in: from, out: to };
 }
+
+/**
+ * Seconds one beat lasts at `bpm` — the one place that division and the refusal in front of it
+ * are written (principle 1). A tempo of nought is what `analyzeBeats` reports for a source with
+ * no beat in it, and a caller that hands one over has skipped the refusal that keeps a tempo-less
+ * source from being offered a beat at all, so it throws rather than guessing (principle 5). Every
+ * beat in the instrument is measured through here: the burst held to one, the lull's own length,
+ * and the count a loop is said in.
+ */
+export function beatSecs(bpm: number): number {
+  if (!(bpm > 0)) throw new RangeError(`a beat needs a tempo: ${bpm}bpm`);
+  return 60 / bpm;
+}
+
+/**
+ * The loop `count` beats long that begins where `start` does, or null where the buffer has no
+ * room for it. A whole count of beats and nothing else: half a beat is not a thing a count names,
+ * and a loop that would run off the end of the source is refused rather than quietly shortened,
+ * because a hand that asked for eight beats and was given six has been told nothing (principle 5).
+ * The maths is in the buffer's own seconds, which is what a loop is stored in: a yard played at
+ * any speed reads the same count of beats out of the same stretch.
+ */
+export function beatsLoop(
+  start: number,
+  count: number,
+  bpm: number,
+  duration: number,
+): Loop | null {
+  const beat = beatSecs(bpm);
+  if (!Number.isInteger(count) || count < 1) return null;
+  const out = start + count * beat;
+  return out > duration ? null : { in: start, out };
+}
+
+/**
+ * How many beats a loop lasts, unrounded — the read the field beside it shows back. Fractional
+ * for a loop no count could have set, which is most of them: a drag lands where the hand let go.
+ */
+export function loopBeats(loop: Loop, bpm: number): number {
+  return (loop.out - loop.in) / beatSecs(bpm);
+}
