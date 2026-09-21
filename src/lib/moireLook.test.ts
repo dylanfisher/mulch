@@ -269,6 +269,10 @@ describe("what a look is", () => {
   });
 
   // P282: delay's, and the third look to take a slot in the chain.
+  // One sweep per term the echoes read — the count, the spacing, the fade, the crowd and the wind
+  // — and then delay's own defaults through all of them, each with the reason the band is where it
+  // is written beside it. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("repeats the field on a whole count under the cap, spaced and fading by its own knobs", () => {
     expect(LOOKS.echoes.at).toBe("pass");
     expect(LOOKS.echoes.terms).toEqual({ spacing: "turn", count: "turn", fade: "turn" });
@@ -466,6 +470,10 @@ describe("what a look is", () => {
     expect(grainBite(1, hiss)).toBeLessThan(GRAIN_CEILING.value);
   });
   // P287: eq's, and the one look declared whole in a file of its own (0287).
+  // One reading per term the band has — the depth off the Q, the middle off the frequency, the
+  // direction off the gain, the taper's steps and the presence — with the reason each band sits
+  // where it does. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("stands one band down the field on the frequency, as deep as the Q, lifting or cutting", () => {
     expect(LOOKS.band.at).toBe("pass");
     expect(LOOKS.band.terms).toEqual({

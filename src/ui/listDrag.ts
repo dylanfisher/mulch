@@ -201,6 +201,8 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
       // The gap the list lays its rows out with, asked of the list rather than assumed by this
       // gesture: `normal` is what a flex row reads with no gap declared, and it is nothing.
       const { columnGap } = list.ownerDocument.defaultView!.getComputedStyle(list);
+      // Parsed and not coerced: a computed length reads with its unit (`8px`), which `Number` refuses.
+      // oxlint-disable-next-line unicorn/prefer-number-coercion
       const gap = columnGap === "normal" ? 0 : Number.parseFloat(columnGap);
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
       drag.begin(list, event, {
@@ -226,6 +228,11 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
   );
 
   const move = useCallback(
+    // The drop rule, most of it prose: the scroll put back, the row read first and the seam along
+    // it second, then the room after the row's last card. Each step was a refused drop (0155, 0305)
+    // and the comments are why; the code under them is three short scans over one `slots`.
+    // See docs/decisions/0007-reviewed-oversized-functions.md.
+    // oxlint-disable-next-line max-lines-per-function
     (event: PointerEvent<HTMLElement>) => {
       const active = drag.matched(event);
       if (active === null) return;

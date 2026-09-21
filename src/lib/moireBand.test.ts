@@ -62,6 +62,10 @@ function drawnAt(shape: number, lift: number): Drew[] {
   return drew;
 }
 
+// One case per shape the band may stand in, each recording the draws at both ends of the gain and
+// reading them back against the frequency; the peaking and the two passes are three pictures and
+// the cases hold all three. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the EQ band's shape", () => {
   it("reads the shape term back onto the same list the node's type is set from", () => {
     for (const [index, shape] of EQ_SHAPES.entries()) {

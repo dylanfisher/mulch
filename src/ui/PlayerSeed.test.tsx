@@ -46,7 +46,7 @@ const typed = (value: number) => ({ valueAsNumber: value, value: "" });
 
 describe("the seed's own field", () => {
   it("commits a whole 32 bits on Enter and on blur", () => {
-    const onCommit = vi.fn();
+    const onCommit = vi.fn<(seed: number) => void>();
     const props = field(9, onCommit);
 
     props.onKeyDown({ key: "Enter", currentTarget: typed(PLAYER_SEED_MAX) });
@@ -58,13 +58,13 @@ describe("the seed's own field", () => {
 
   /** Every prefix of a ten-digit number is a different pattern, and a seed restarts the pass. */
   it("says nothing on a keystroke that is not Enter", () => {
-    const onCommit = vi.fn();
+    const onCommit = vi.fn<(seed: number) => void>();
     field(9, onCommit).onKeyDown({ key: "4", currentTarget: typed(1234) });
     expect(onCommit).not.toHaveBeenCalled();
   });
 
   it("patches nothing when the box already reads the pattern's own seed", () => {
-    const onCommit = vi.fn();
+    const onCommit = vi.fn<(seed: number) => void>();
     field(9, onCommit).onBlur({ currentTarget: typed(9) });
     expect(onCommit).not.toHaveBeenCalled();
   });
@@ -75,7 +75,7 @@ describe("the seed's own field", () => {
    */
   it("refuses a fraction, a negative and one over the range, and puts the seed back", () => {
     for (const refused of [1.5, -1, PLAYER_SEED_MAX + 1, Number.NaN]) {
-      const onCommit = vi.fn();
+      const onCommit = vi.fn<(seed: number) => void>();
       const box = typed(refused);
       field(9, onCommit).onBlur({ currentTarget: box });
       expect(onCommit).not.toHaveBeenCalled();

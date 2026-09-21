@@ -36,6 +36,10 @@ import { spectralTilt } from "./peaks";
 const row = (level: number): number =>
   pulsedDepth({ ...moireRow(), depth: 0, pulse: heardLevel(level) });
 
+// One case per reading of the output the session's row spends — its level, its two sides, its
+// brightness — each with the P-number and the reason it reads that way written above it. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("what the session's own output is worth to a picture", () => {
   /**
    * P167: the row of the whole session is built with no depth of its own, so its meter is the only
@@ -116,6 +120,10 @@ describe("what the session's own output is worth to a picture", () => {
  * next scale — and neither of them is a map: which places the support is seeded off is the
  * population an automator is standing and nothing else says it (0241, 0245).
  */
+// Two cases, the beat and the bite, each read across the whole of its band with the reason the
+// band ends where it does said at every point. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("what the shape of the output's spectrum is worth to the support", () => {
   it("beats the support against its own next scale as the output rings, and not at all under a wash", () => {
     // A broad wash is a flatness at the top of the band the instrument actually reaches: the

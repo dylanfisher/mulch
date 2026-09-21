@@ -8,6 +8,10 @@
  *   src/lib/moireWarp.test.ts and src/lib/moireShards.test.ts. The wind beside this reading →
  *   src/ui/moireWind.test.ts.
  */
+// One over the cap, and it is the row builder: the carry is asserted on a real set, so the set's
+// builder comes in beside the lattice, the params the fixture is filled from and the reading under
+// test. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults, PARAMS } from "@/audio/params";
@@ -57,6 +61,9 @@ const SWAYING = { "sway.mix": 1, "sway.depth": PARAMS["sway.depth"].max };
 
 const quiet = emptyMasterPeek();
 
+// One case per thing the shape does — the read, the travel, the lean's step, the carry — in the
+// order a frame takes them. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("how the standing rack shapes the picture", () => {
   it("reads the lattice off the rack it can hear, and off nothing an automator is holding", () => {
     expect(rackShape([])).toEqual(shapingRest());
@@ -72,6 +79,10 @@ describe("how the standing rack shapes the picture", () => {
     expect(rackShape([instance("s", { effect: "sway", params: SWAYING })]).standing).toBe(1);
   });
 
+  // One travel per term the shape carries — the cells, the wander, the lean, the loudness, the
+  // sides — and the halted yard last, each its own `shapeRest()` walked over the window that term
+  // travels on. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("travels the lattice at its own rate, and arrives outright on a yard that is not running", () => {
     const shape = shapeRest();
     const toward = { standing: LATTICE_REACH.value };

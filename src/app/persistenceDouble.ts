@@ -1,11 +1,12 @@
 /**
  * @role The doubles the facade's persistence seams are driven through — a repository that records
  *   what it was asked to keep, an engine that records the calls it was asked to make, and the
- *   microtask drain those two need to settle.
+ *   microtask drain those two need to settle — and the two thinner repositories an import is
+ *   driven through: one that records what it was handed, one that names bytes after their file.
  * @instead A double with no persistence in it at all → src/app/engineDouble.ts, which this one
  *   wraps.
  */
-import type { BlobId } from "@/lib/source";
+import { importedBlobId, type BlobId } from "@/lib/source";
 import { genSecs } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
@@ -13,6 +14,32 @@ import { deckIn, deckIdsOf, fromDecks, patchDeck, type SessionStore } from "@/st
 import type { ParamId } from "@/audio/params";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
+
+/** A repository that records what it was handed, so a refused import is a visibly empty list. */
+export const ingestingRepository = (ingested: Blob[]): SessionRepository => ({
+  load: () => Promise.resolve(),
+  save: () => Promise.resolve(),
+  ingest: (received) => {
+    ingested.push(received);
+    return Promise.resolve("stored-id");
+  },
+  blob: () => Promise.resolve(new Blob()),
+  blobs: () => Promise.resolve(new Map()),
+  replace: () => Promise.resolve(),
+});
+
+/**
+ * A store that names bytes after the file they arrived as, so two imports have two ids — minted
+ * by the one function that mints one, so the name reads back out of the id the way the header
+ * reads it (0127, src/lib/source.ts).
+ */
+export const byNameRepository = (): SessionRepository => ({
+  ...ingestingRepository([]),
+  ingest: (received) =>
+    Promise.resolve(
+      importedBlobId(received instanceof File ? received.name : "minted", crypto.randomUUID()),
+    ),
+});
 
 export type RepositoryDouble = SessionRepository & {
   saves: Session[];

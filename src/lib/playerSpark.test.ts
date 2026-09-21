@@ -65,6 +65,10 @@ describe("a spark's own start", () => {
   });
 });
 
+// Two cases and the paragraph that says why the count is rolled nowhere; each runs the landing
+// at every count and reads every companion it threw, which is the length. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a landing that sparks, at a count", () => {
   /**
    * And how many it throws is the Count, rolled nowhere: the odds are rolled once per landing —

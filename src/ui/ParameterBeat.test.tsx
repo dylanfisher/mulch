@@ -2,6 +2,10 @@
  * @role What the tap and the hold a tapped parameter wears beside its dial draw and send — the
  *   rack's own controls for a parameter that declared `beat` (0326).
  */
+// The control is pressed inside a real instrument and read back off the rack that draws it, so
+// this imports the instrument and its clock beside the control, the slot it stands in and the
+// rack double that finds it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { Children, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";

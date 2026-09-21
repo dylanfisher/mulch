@@ -35,6 +35,10 @@ const PER_LANDING = COUNT + 1;
  *  no two of which could be confused with the delay itself. */
 const HALF = 0.5;
 
+// Three cases, each stepping the harness's sources and gains by the landing's own count: what is
+// built, when each begins and stops, and what each reports. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a landing that throws three sparks", () => {
   /**
    * Three companions is three sources and three level gains under the one landing, and the pass is

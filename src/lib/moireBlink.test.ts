@@ -33,6 +33,11 @@ function surface() {
 // oxlint-disable-next-line no-unsafe-type-assertion -- the pass never reads the source
 const FIELD = { width: 8, height: 8 } as HTMLCanvasElement;
 
+// One case per term the blink reads — the Gap's period, the Chance's duty, the depth under its
+// ceiling — and one for the draw that spends them, which records every call the pass makes. The
+// draw case is the long one and is the only reading of the pass there is. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the blink", () => {
   it("cycles inside its band on the Gap's turn, and never past it", () => {
     expect(blinkPeriod(0)).toBe(BLINK_PERIOD[0]);

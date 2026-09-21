@@ -40,6 +40,10 @@ const saysAnEntryOf = (name: string, bank: readonly string[]): boolean =>
     ? bank.some((entry) => name.split(" ").includes(entry))
     : bank.some((entry) => name.includes(entry));
 
+// One case per fact the name banks must hold — their reach, their bound, each grouping, no repeat
+// and the casing — and each walks every entry of the banks it checks, so the suite's length is the
+// banks'. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the banks a yard is named from", () => {
   it("outlasts far more than a session's worth of yards", () => {
     const readings = ALWAYS.reduce((total, bank) => total * bank.length, 1);

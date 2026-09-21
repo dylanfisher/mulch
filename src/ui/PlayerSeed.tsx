@@ -21,6 +21,10 @@ import { Says } from "@/ui/Says";
  * it, and every prefix of a ten-digit number is a different pattern. `key` is the committed seed,
  * so a reseed — or an undo, or a session loaded from a file — remounts the field in step.
  */
+// The prop list with its two documented presses, the commit that refuses a bad seed, and one field
+// beside one button. Nothing branches; what is over is the documentation of why the die sits on
+// this row. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function PlayerSeed({
   id,
   seed,

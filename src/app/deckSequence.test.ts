@@ -47,6 +47,10 @@ const loaded = (calls: string[] = []) => {
   return instrument;
 };
 
+// One case per road a sequence reaches the yard by — set, cleared, held before a load, undone,
+// copied with the yard and clipped, refused at the wire — each driving the real instrument and
+// reading the log back. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the sequence as a durable run of steps", () => {
   it("holds the whole run, hands it to the graph, and says so on the log", () => {
     const calls: string[] = [];

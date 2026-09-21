@@ -452,9 +452,16 @@ const alphaAt = (field: Uint8ClampedArray, index: number): number => field[index
 // tile. Lifting the pixel pair into a helper would hand it eight parameters and the three tallies
 // it writes, which reads worse than the nest (0007).
 // oxlint-disable max-depth
+// And long for the same reason it is deep: the two cases are the sweep and the reference
+// arithmetic it is compared against, written out beside each other so a reader can see the two
+// are the same sum. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("curvedField", () => {
   // Every pixel of the tile under every geometry, profile and place is two seconds here and past
   // the five-second default on a hosted runner, so the sweep names its own time.
+  // The five-deep sweep and the three tallies it keeps, with the rounding exemption checked in
+  // place. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("writes the byte the arithmetic it was written from writes, at every pixel", () => {
     const ref = geometryRef(TILE_W, TILE_H);
     const shipped = new Uint8ClampedArray(TILE_W * TILE_H * 4);

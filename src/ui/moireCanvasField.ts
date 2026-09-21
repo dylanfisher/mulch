@@ -195,6 +195,11 @@ function passLooks(
  * the first's pieces, the way a flattened picture is torn again, and never adds its table to the
  * first's. Two surfaces between suffice whatever the count: a layer reads one and writes the other.
  */
+// A sequence with nothing to lift: the chain, the readings taken off the looks, the throw table
+// filled once, and the layer loop that hands each two-pass surface to the next. The readings and
+// the loop share `lens`, `turns`, `shatter`, `piece` and `bent`, which a helper would carry across
+// as its whole argument list. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function cutField(
   context: CanvasRenderingContext2D,
   field: HTMLCanvasElement,

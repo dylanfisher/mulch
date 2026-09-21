@@ -48,6 +48,11 @@ const READING = [
 /** One tuning handle by its id, live: the object the panel moves, not a reading of it. */
 const tuning = (id: string) => tunings().find((handle) => handle.id === id);
 
+// One case per group the panel draws — every scene's, the bloom's, the meadow's and canopy's, the
+// water's, the stand's — each naming the exact tunables that group holds, beside the panel's own
+// pushes, copy and reset. The list of groups is the panel's whole surface. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("DriftTuning", () => {
   afterEach(resetTuning);
 

@@ -77,6 +77,10 @@ describe("SketchPage", () => {
   });
 });
 
+// The list of every entry the bench was cleared of, one id per line, and the files and route the
+// marks bench took with it: the length is the roll of the cleared, and a re-mount of any one has to
+// come here to say so. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("SketchPage is cleared of what it argued before", () => {
   /**
    * The thirteen that were here argued the whole card or one fold of it, the eight after them

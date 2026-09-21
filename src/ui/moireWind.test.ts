@@ -7,6 +7,10 @@
  *   The term it becomes on the screen's transform → src/ui/moireScreen.test.ts. The rows the whole
  *   field owns beside this reading → src/ui/moireRowsField.test.ts.
  */
+// The wind is carried across a rebuilt set, so the row builder and its read come in beside the
+// tail's band, the params the fixture is filled from and the reading under test. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults, PARAMS } from "@/audio/params";

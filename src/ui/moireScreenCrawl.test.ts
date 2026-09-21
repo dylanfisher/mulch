@@ -43,6 +43,10 @@ function crawling(reversed: boolean, crawl = 0, wind = windRest()) {
   return { placed, bakes: baked(painted, beatPx(gridPitchPx(2))) };
 }
 
+// One case per term of the crawl's travel — the sign, the ground's cells, the wind's lean — each
+// painted forwards and back through the one `crawling` fixture and read off the same cell of the
+// transform. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the crawl of a landing read backwards", () => {
   it("walks the lattice back the way it came, by the same distance and on the crawl's own axis", () => {
     // The twelfth step of the block: a step says which way its landing reads, and the crawl is the

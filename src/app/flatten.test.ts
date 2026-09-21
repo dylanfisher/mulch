@@ -7,6 +7,10 @@
 // One flat list of the command's success and refusal cases, beside the render, graph and
 // repository doubles they are asserted against (0007).
 // oxlint-disable max-lines-per-function
+// And the file as a whole: the fixture stands up a render harness, a graph double and a
+// repository, and no other suite renders a yard through all three, so the doubles live beside the
+// eleven cases they serve. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import type { Fingerprint } from "@/lib/fingerprint";

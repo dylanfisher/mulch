@@ -79,6 +79,12 @@ const untorn = (table: Float64Array): number =>
 const distinct = (throws: number[]): number =>
   new Set(throws.map((slid) => Math.round(slid * 1000))).size;
 
+// One case per thing a tear is — one automator's, a piece against a wave, young against held, the
+// second's own layer, the cap, the presence — and then one per knob of the six that shape a run,
+// each throwing a table and reading its layers back. Splitting the knobs from the layers would
+// part the six from the table they are read off. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the shards", () => {
   it("throws nothing where nothing stands, and a tear where one automator does", () => {
     expect(thrown([]).every((slid) => Number.isNaN(slid))).toBe(true);

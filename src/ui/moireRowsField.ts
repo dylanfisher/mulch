@@ -15,6 +15,12 @@
 // `reads`, which must stay index-for-index, between two files. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And every import is the maths one of those five rows rests on — the fractal's, the lattice's, the
+// sound's, the recurrence's, the age's — or a type the per-frame read carries for the lanes, the
+// instances and the peeks it is filled from. A row that imported through its neighbour would name
+// the neighbour for a fact that is not its own (principle 1).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { fold } from "@/lib/copy";
 import type { AlphabetName } from "@/lib/moireAlphabets";
 import {

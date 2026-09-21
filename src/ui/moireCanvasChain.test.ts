@@ -208,6 +208,10 @@ describe("the chain of passes", () => {
   });
 
   // P282: delay's echoes, and the first pass that displaces the field rather than resizing it.
+  // One painting per setting of the wind the ladder is drawn along — blown, turned round, absent,
+  // at the knobs' bottom, standing still, halfway round, and two delays at once — each read off
+  // the same plain field. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("repeats the field by drawing it along the wind, and never by filling over it", () => {
     const plain = settled();
     const at = plain.elements.length;
@@ -356,6 +360,10 @@ describe("the chain of passes", () => {
   });
 
   // P285: tape's wobble, and the first pass that moves on the picture's own clock.
+  // The bands, the grain after them, and then one painting per setting that must draw the plain
+  // field — off, arriving, and a second later — all read against the one `plain` painted first.
+  // See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("swims the field in bands and grains it with a tile, and never by filling over it", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     const plain = paintedOn(128, 64, [row({ period: 4 })]);
@@ -424,6 +432,11 @@ describe("the chain of passes", () => {
   });
 
   // P287: eq's band, and the one pass whose two composites are one pair — the shot's way round.
+  // The lift, then the cut as the same slices the other way round, then the taper on a field
+  // shorter than itself, then the band at flat and arriving: every one is compared to the draws
+  // the lift made, so they share its block. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("stands one slice of the field over itself, lit or quieted, and never fills over it", () => {
     vi.stubGlobal("devicePixelRatio", 2);
     const plain = paintedOn(128, 64, [row({ period: 4 })]);

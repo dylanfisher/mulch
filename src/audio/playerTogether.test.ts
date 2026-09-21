@@ -7,6 +7,10 @@
  *   ground and the clocks its period is counted on → src/lib/playerBed.test.ts. Everything else
  *   the player promises → src/audio/player.ts's own suite (0045).
  */
+// The module under test plus every constant its ground is counted in — slots, scope, cast, the
+// ground's own arithmetic and the songs — because two yards are only shown together by reading the
+// same numbers the transport reads. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { partVoice, PLAYER_MIN_SLOT_SECS, type PlayerSpec } from "@/lib/player";
@@ -188,6 +192,10 @@ const read = (host: ReturnType<typeof deck>, count = 6): { at: number; bed: numb
   return steps;
 };
 
+// One case per thing a yard on the shared ground does — reads it at each step, leaves its own
+// alone, reports its parts while leading, a whole row with nothing arranged, nothing while
+// another leads, the tail again on a move. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a yard standing on the session's ground", () => {
   /**
    * The whole claim: a yard on the shared ground reads the offset that ground is on at the instant
@@ -242,7 +250,12 @@ describe("a yard standing on the session's ground", () => {
       },
       ground,
       // The count every yard on this ground reads: one tick per boundary the leader reported.
-      { ticksBy: (at) => led.filter((when) => when <= at).length, crossed: (at) => led.push(at) },
+      {
+        ticksBy: (at) => led.filter((when) => when <= at).length,
+        crossed: (at) => {
+          led.push(at);
+        },
+      },
     );
     const steps = read(host);
     expect(steps.length).toBeGreaterThan(2);
@@ -267,7 +280,12 @@ describe("a yard standing on the session's ground", () => {
       // inside the horizon one arming lays down — the row is twenty-four jumps whatever they cost.
       { bedTogether: true, seed: 3, repeats: 1, burst: PLAYER_MIN_SLOT_SECS },
       { ...GROUND, per: "part", leader: "a", every: 1 },
-      { ticksBy: (at) => led.filter((when) => when <= at).length, crossed: (at) => led.push(at) },
+      {
+        ticksBy: (at) => led.filter((when) => when <= at).length,
+        crossed: (at) => {
+          led.push(at);
+        },
+      },
     );
     const steps = read(host, PLAYER_SCOPE_LANDINGS * 2 + 1);
     expect(steps.length).toBe(PLAYER_SCOPE_LANDINGS * 2 + 1);

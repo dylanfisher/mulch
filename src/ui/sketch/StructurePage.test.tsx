@@ -43,6 +43,10 @@ describe("the structure route", () => {
   });
 });
 
+// One case per thing every entry must draw — its section, its thesis, its canvas under a dial with
+// its inks — and the one entry that reads through the ramp, all off the one markup. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("StructurePage mounts the bench", () => {
   /** At least six, which is what the bench was asked for, and every one off the list (0254). */
   it("mounts every entry, with one id apiece", () => {

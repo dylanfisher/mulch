@@ -24,6 +24,10 @@ const imagesOf = (folds: number, points = 64): number => {
   return seen.size;
 };
 
+// Three cases, each sweeping a ring of points through every fold count under the cap and counting
+// the images: the sweep is what proves a fold is a fold and not a shift, and it is most of the
+// length. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the plane folded for the automators standing", () => {
   it("leaves the plane alone at no fold, and keeps every radius at any", () => {
     const out: Folded = { u: 0, v: 0 };

@@ -70,6 +70,10 @@ function alphaOf(
   return alpha;
 }
 
+// One case per contract an alphabet keeps — its count and its weight order, what it refuses, how
+// it covers a pixel read hard and soft, and its cell's edges — each read over every alphabet
+// there is. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the alphabets", () => {
   it("are ten marks each, every one carrying strictly more ink than the last", () => {
     for (const [name, alphabet] of Object.entries(ALPHABETS)) {
@@ -150,6 +154,10 @@ describe("the part that is standing", () => {
   });
 });
 
+// Three cases, each baking a whole tile in two hands and comparing the bytes cell by cell: the
+// order's alphabet, the armed part's last column, and the lattice inside it. The bake and the
+// compare are the length. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the tile the part picks the alphabet for", () => {
   it("bakes its marks in the alphabet the order names, and the same cells either way", () => {
     const marks = alphaOf("marks");

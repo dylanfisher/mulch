@@ -19,6 +19,10 @@ const values = (rest: Partial<Record<string, number>> = {}) => ({
   ...rest,
 });
 
+// Four cases, each walking every stage: what each toggle builds and takes away, the pan with none
+// standing, the silence at no spread, and the order they are let go in. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the panner's stages", () => {
   it("builds the nodes each toggle names, and takes them away again", () => {
     const context = fakeContext();

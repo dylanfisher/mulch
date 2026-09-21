@@ -17,6 +17,10 @@ const CUTOFF = { min: 20, max: 20_000, curve: "log" as const };
 const WHOLE = { min: 0, max: 10, step: 1 };
 const SEEDS = [1, 7, 1234, 20_260_907];
 
+// One case per contract a drawn lane keeps, and one per character it may be drawn in — sporadic,
+// pulse, the hand's clock against smooth's — each swept over every seed and span in the fixtures
+// above. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a drawn lane", () => {
   it("is the same lane twice from the same seed, and another from another seed or span", () => {
     expect(drawMotionLane("smooth", 7, GAIN, 0.5, 6)).toEqual(

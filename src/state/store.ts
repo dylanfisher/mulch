@@ -7,6 +7,10 @@
 // parameter, the lib types a durable field is written in, and the store that holds them. The rule
 // has no per-site form, so this is the only shape the waiver can take (0007).
 // oxlint-disable import/max-dependencies
+// And the file: the deck, rack and session shapes and the one writer per field of them, each a
+// few lines, which src/app's send() reaches through as one store. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   DECK_PARAM_DEFAULTS,
   type DeckAutomationParamId,

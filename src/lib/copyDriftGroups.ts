@@ -9,6 +9,13 @@
  *   The numbers themselves → `tunable(` under src/lib and src/ui, and the registry they are moved
  *   through → src/lib/moireTuning.ts. The panel that reads this table → src/ui/MoireTuning.tsx.
  */
+// Over the soft cap because this is the panel read top to bottom: eighteen groups, a row for every
+// tunable declared under src/, and a hint on each — the length is the count of numbers the drift
+// exposes, and the panel refuses a row without a tunable or a tunable without a row, which is only
+// checkable against one table. The scenes' groups were already cut off at the hard cap (0045); a
+// second cut would leave a reader two files to find where one knob sits. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 
 import { MOIRE_SCENE_TUNE_GROUPS } from "@/lib/copyDriftScenes";
 

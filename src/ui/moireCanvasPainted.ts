@@ -13,6 +13,11 @@
 // warn is that function and cannot be split further without handing a case half a recorder. Under
 // the 800-line hard cap. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And one import per argument the painter's signature takes, because a stand-in canvas has to hand
+// over a rest value for every one of them — the alphabet, the stops, the pushes, the sparks, the
+// scene, the shape, the tint, the ink — plus the painter and the shop it draws through. The count
+// is the painter's arity. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { ALPHABET_REST, type AlphabetName } from "@/lib/moireAlphabets";
 import { fractalStopsRest, type FractalStops } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";

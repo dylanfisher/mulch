@@ -63,6 +63,10 @@ const bedAt = (spec: PlayerSpec, tick: number): number =>
 const windowFrom = (homeIn: number, bed: number): number =>
   bedGround(homeIn, LOOP.out - LOOP.in, 4, bed, null).in;
 
+// One case per thing the crawl answers to — a period gone by, a ground that never moves, the
+// session's ground, the switch, a forget, a silent deck, a hand moving the loop. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the ground under a yard the mulcher is not on", () => {
   it("moves the window it reads after one period, and keeps the loop's own span", () => {
     const held = crawling(GROUND);

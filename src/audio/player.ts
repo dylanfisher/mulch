@@ -201,13 +201,13 @@ export function createDeckPlayer(
     // **Before the bed below it**, so a move the leader's own boundary caused lands on the first
     // jump of the part that caused it — which is what makes it audible as the part arriving
     // somewhere new, and is exactly where a yard's own `bedPer: "part"` ticks (0192).
-    const crossed = clock?.crossed;
+    const crossed = clock?.crossed ?? null;
     // And a leader with nothing arranged reports one whole row of its walk instead, which is
     // exactly the fallback its own ground already counts on: a hand that pointed the shared ground
     // at a yard with no parts asked for a clock, and a row is the boundary that yard has (0192,
     // principle 5). Read off the step and not worked out again here, because the walk is what
     // knows where a row turned over (`PlayerStep.rows`, principle 1).
-    if (crossed != null && (drawn.rows || (shared.per === "part" ? drawn.opens : drawn.first)))
+    if (crossed !== null && (drawn.rows || (shared.per === "part" ? drawn.opens : drawn.first)))
       crossed(at);
     const step: PlayerStep =
       spec !== null && spec.bedTogether

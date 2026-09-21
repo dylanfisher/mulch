@@ -182,6 +182,10 @@ describe("loop-reporter", () => {
 
 // A rest scheduled ahead, from this side of the seam: the stop's instant is where the counting
 // ends and the held is posted, and the plan queued behind it is taken up there (0372).
+// Three cases — the held at the rest, a plan queued behind it, a plan that replaces it — each
+// stepping the reporter through the blocks around the rest's instant. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("loop-reporter under a rest", () => {
   it("posts held once at the rest's own instant, and no boundary past it", () => {
     const deck = reporter();

@@ -19,6 +19,11 @@ import { useCallback, useMemo, type PointerEvent } from "react";
 // the kept ones marked on it are each read from their own module, plus the canvas and gesture this
 // file draws them with. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the line cap by the gestures the one picture takes: a bed carried, a ground kept and a
+// zone marked, each a press, a move and a release on the same canvas, and each drawn from the same
+// blocks. The blocks and the gestures both read `home`, so a file for either would import the
+// other's reading. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import type { Instrument } from "@/app/facade";
 import { PLAYER_GROUP_LABELS, yardLabel } from "@/lib/copy";
 import type { PlayerSpec } from "@/lib/player";

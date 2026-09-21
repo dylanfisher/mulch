@@ -101,6 +101,12 @@ function fringes(field: readonly number[], pitches: readonly number[]): number {
   return smooth.filter((_, index) => above(index) && !above(index - 1)).length;
 }
 
+// One case per thing a row is — its bend, its window, its period, its pitch, its angle, its surge,
+// its travel, each dimension's reach and rest, its colour, its profile at every scale and the
+// field's settling — so the suite is as long as src/lib/moire.ts has claims. Splitting it by
+// dimension would part the reaches from the rests they are tested against. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("moire", () => {
   it("samples a lane's own gesture onto 0..1, and flattens one that never moved", () => {
     // The bend is what makes two lanes of the same period different rows: the period sets the

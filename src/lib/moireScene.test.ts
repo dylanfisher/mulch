@@ -20,6 +20,10 @@ import {
   sceneSharp,
 } from "@/lib/moireScene";
 
+// One case per bank the contract holds — the names, the lights, the winds and the mark's cosine —
+// each walked whole, so the suite is as long as the banks are. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the scene contract", () => {
   it("names every scene, light and wind exactly once", () => {
     for (const bank of [SCENE_NAMES, SCENE_LIGHTS, SCENE_WINDS]) {

@@ -12,6 +12,11 @@
 // count tracks the pool's surface rather than this file's complexity, exactly as the rack's own
 // does. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the line cap by one component per thing an entry's popover holds — the weight row, the
+// draws toggle, a bound row per drawn parameter, the entry itself and the grid of them. Each is
+// read by the one beside it and none is asked for anywhere else, so a file apiece would be five
+// files with one importer. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { ArrowUpRightIcon } from "@phosphor-icons/react/ArrowUpRight";
 import { useCallback, useState } from "react";
 

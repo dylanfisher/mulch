@@ -12,6 +12,10 @@ import {
 
 const range = { min: 0, max: 1, step: 0.1 };
 
+// One case per thing the registry does — declares, refuses, moves and tells, reports and resets —
+// each declaring its own tunables so no case reads another's. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("tunable", () => {
   afterEach(resetTuning);
 

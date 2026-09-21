@@ -451,16 +451,17 @@ export const washedToward = (value: number, ceiling: number, wash: number): numb
  * washed toward a full cut they would each cut half a grating of a structure no automator is
  * standing. Nought here, and the same reading in `drawnGratings` (src/ui/moireCanvas.ts), so the
  * picture's weight and its ink agree.
+ *
+ * Otherwise, how much of the row is in the picture at all, over the whole of the rest: a row still
+ * arriving cuts its own share of what it will cut, and a wash raising every row at once may not
+ * raise one the picture has not admitted (`arrivedInto`, src/lib/moireArrival.ts). Over and not
+ * inside, so the share the count is solved for and the depth actually cut are the one number
+ * (`drawnGratings`, src/ui/moireCanvas.ts).
  */
 export const washedDepth = (row: MoireRow, wash: number): number =>
   row.depth <= 0 && isFieldGeometry(row.geometry)
     ? 0
-    : // How much of the row is in the picture at all, over the whole of the rest: a row still
-      // arriving cuts its own share of what it will cut, and a wash raising every row at once may
-      // not raise one the picture has not admitted (`arrivedInto`, src/lib/moireArrival.ts). Over
-      // and not inside, so the share the count is solved for and the depth actually cut are the one
-      // number (`drawnGratings`, src/ui/moireCanvas.ts).
-      clamp(row.arrival, 0, 1) * washedToward(pulsedDepth(row), 1, wash);
+    : clamp(row.arrival, 0, 1) * washedToward(pulsedDepth(row), 1, wash);
 
 /**
  * The flatness a resonance and a wash actually read at, which is not nought and one. A spectrum is

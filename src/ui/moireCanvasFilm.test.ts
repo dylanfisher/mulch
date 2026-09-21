@@ -10,6 +10,10 @@
  *   the ease over them → src/lib/moireScreenFilm.ts. The bench that argued the share is gone with
  *   the share's own landing (0339, 0357).
  */
+// The floor is checked for every scene under the deepest shade, so this imports the scene names
+// and their readers beside the film's own terms, the tuning they are moved on and the painter they
+// are read through. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
 import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH } from "@/lib/moire";

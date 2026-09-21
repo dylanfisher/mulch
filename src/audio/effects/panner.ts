@@ -6,6 +6,10 @@
  *   stereo panners and one oscillator, so there is no processor and no second copy of any range.
  *   The whole-field move it makes in the picture → `staggerLook`, src/lib/moirePanner.ts.
  */
+// One entry with three stage builders inside it, each a sequence of native-node constructions and
+// wires with no branching; the entry's declaration and the graph it builds are one thing, as every
+// other plugin file is. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { ArrowsOutLineHorizontalIcon } from "@phosphor-icons/react/ArrowsOutLineHorizontal";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";

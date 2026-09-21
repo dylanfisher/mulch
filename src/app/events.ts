@@ -2,6 +2,10 @@
  * @role The event union — every state change and audio milestone, stamped with a gapless
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
+// Every import is a type an event body carries — the union names each durable fact by the type
+// that owns it, so the log's shape is the sum of the tiers below it and grows with them. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { StopReason } from "@/audio/deckReport";

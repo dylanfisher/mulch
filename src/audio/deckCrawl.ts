@@ -37,6 +37,11 @@ export type DeckCrawl = {
  * playhead survives the move and by a restart where it does not — the same two roads a loop moved
  * by a hand takes (0091, src/audio/deck.ts).
  */
+// One closure over the hand's loop, the crawl's own, the round count and the tick, with `looped`
+// the one place all four are read together; parting that read from the setters that keep them
+// would hand the invariant between `home` and `mine` across a seam. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createDeckCrawl(move: (to: Loop) => void): DeckCrawl {
   let spec: PlayerSpec | null = null;
   /**

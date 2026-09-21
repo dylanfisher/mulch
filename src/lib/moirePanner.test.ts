@@ -72,6 +72,11 @@ function drawnWith(terms: LookTerms): Drew[] {
   return drew;
 }
 
+// One case per claim on the stagger's draw — the walk's share, no column undrawn at either end of
+// either term, the symmetry about the middle, and the three stages — and each of them records a
+// whole field's draws and reads every column back. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the panner's stagger", () => {
   it("walks the whole field a share of the picture, and never a multiple of it", () => {
     // The one thing that makes the position readable: the draw wraps, so a walk of a whole width

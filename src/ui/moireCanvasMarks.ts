@@ -14,6 +14,11 @@
  *   src/lib/moireScreenField.ts. The whole-field lattice that is nothing but a pattern →
  *   src/ui/moireCanvasPattern.ts.
  */
+// One surface's whole life: the stamp minted against its canvas, the tiles baked per mark, the
+// read of the box, the three lifts on it, the band cut per mark and the one draw onto the picture.
+// The read and the stamp share the `Stamp` and its sized surfaces, so a file for either would hold
+// half of what the other mints. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   type Alphabet,
   ALPHABET_REST,
@@ -393,6 +398,11 @@ function cutBand(
  * output's weight is between its two channels (`shape.sides`, src/ui/moireShape.ts), lifted into the
  * same read the same way and for the same reason.
  */
+// One line over: the mint of the ten tiles on a changed key, the one read of the box, and the three
+// lifts on that same read in the order they stack. The lifts are already their own functions; what
+// is left is the order they go on in, which is the point of the file's comment above.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function readMarks(
   canvas: HTMLCanvasElement,
   field: HTMLCanvasElement,

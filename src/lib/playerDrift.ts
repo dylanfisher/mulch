@@ -17,6 +17,12 @@
 // declare a row, and a helper between them would only move the same imports. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the soft line cap for the same reason: the player's own row, its tier's row and the
+// ground it stands on are each a handful of declarations — a shape, a pitch, a tint, a profile, a
+// geometry, a stand — and every one of them is a fact about the jumps module that the @role above
+// says lives beside it. Splitting them by row would put the player's declaration in two files with
+// nothing but the module's name in common. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fold } from "./copy";
 import {
   colourReached,

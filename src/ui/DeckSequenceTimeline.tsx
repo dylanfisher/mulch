@@ -51,6 +51,11 @@ function profilePath(steps: DeckSequence): string {
   return parts.join(" ");
 }
 
+// The path, the band widths, the cursor painted off `peek()` a frame, the empty case, and the tree
+// of bands, line and cursor — all reading the one `span`. The cursor paint is the half that could
+// move out, and it would take the span, the steps and the ref it writes with it.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function DeckSequenceTimeline({
   instrument,
   deck,

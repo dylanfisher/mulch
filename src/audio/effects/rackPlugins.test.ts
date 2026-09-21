@@ -3,6 +3,10 @@
 // Split off ./rack.test.ts, whose rewiring matrix is about the rack rather than about an entry
 // (0045).
 // oxlint-disable max-lines
+// And one import per registry entry's own constants, beside the rack, the fake and the registry:
+// a suite that checks each entry at the values its module declares has to read those values from
+// the module that declares them. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
@@ -501,7 +505,13 @@ describe("the shift in the rack", () => {
 // The one entry that asks the transport for something rather than only processing what reaches
 // it: built transparent, its knobs on parked constants, its asks gathered by the rack while it
 // runs and not while it is bypassed (0371).
+// One instance walked through its whole life — built, asked, moved, turned back up, bypassed,
+// moved on a length, laned, redrawn, loosened, disposed — and every stage reads the asks the one
+// before it laid, so the walk cannot be cut into cases without each rebuilding the last. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the lull in the rack", () => {
+  // oxlint-disable-next-line max-lines-per-function
   it("passes the audio through one gain, and asks the rack's transport for rests", () => {
     const { context, gains, constants, node } = fakeContext();
     const destination = node("destination");

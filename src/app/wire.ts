@@ -3,6 +3,10 @@
  *   read no store, bus or engine, so they are testable and importable without an instrument.
  * @instead What a command does once it is trusted → src/app/execute.ts.
  */
+// One import per validator a command field is guarded by: each durable type owns its own assert,
+// and the wire is where all of them are called once. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { assertSequence } from "@/lib/deckSequence";
 import { assertPlayer } from "@/lib/playerWire";
 import { assertEffectInstanceId } from "@/audio/effects/contract";

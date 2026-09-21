@@ -24,6 +24,11 @@
 // draw a look it has never heard of (0279, 0280). Splitting the draws off would put half of what a
 // look is in a file the declaration points at. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And over the dependency cap for the other half of the same fact: the looks that were cut off at
+// the hard cap into files of their own are still declared here, so this file imports one look per
+// file it shed, beside the maths every look is drawn by. Each import is a look the registry must be
+// able to name. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { bandLook } from "@/lib/moireBand";
 import { cellBloom } from "@/lib/moireCellBloom";
 import { cellEchoes } from "@/lib/moireCellEchoes";

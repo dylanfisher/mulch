@@ -31,6 +31,11 @@ import {
 } from "./moireLattice.ts";
 import { DRIFT_PICKED_GEOMETRIES } from "./playerDrift.ts";
 
+// One case per reading the lattice makes of a point — the fold, the box, the ramp between gutter
+// and trough, the baked cell, the geometries it names and how it tightens — and the ramp and the
+// bake cases each walk a whole cell's pixels. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the cell the lattice repeats", () => {
   it("folds a point into its cell, and measures it against a rounded box", () => {
     const { cx, cy, qx, qy } = cellFold(1.3, 0.7, 2);

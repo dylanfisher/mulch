@@ -202,6 +202,20 @@ export function pickOnSheet(geometry: ScopeGeometry, base: number, ordinal: numb
  * a hand touching anything. A `PlayerStep` is one of these and so is a `PlayerVoice`.
  */
 export type StepSpan = Pick<PlayerStep, "burst" | "repeats" | "ratchet" | "rest">;
+/**
+ * Where the transport opens each ghost of a sparked landing, as a fraction of the sheet: its start
+ * within the landing's own window less a seam, which is the same arithmetic `armStep` writes the
+ * ghost's own fade at (0175, src/audio/player.ts). `room` is that window over the sheet's seconds.
+ */
+const sparksOf = (sparked: PlayerStep["sparked"], from: number, room: number): ScopeSpark[] =>
+  sparked === null
+    ? []
+    : sparked.slots.map((slot, index) => ({
+        slot,
+        at: from + sparkStartOf(index, sparked.slots.length, sparked.delay) * room,
+        level: sparked.level,
+      }));
+
 export const stepSecs = (step: StepSpan, slotSecs: number): number =>
   landingSecs(step.burst, step.repeats, step.ratchet) + step.rest * slotSecs;
 
@@ -284,20 +298,7 @@ export function scopeGeometry(
       // apart, which as a comparison is a wait of 4e-16 seconds drawn a whole hairline wide.
       wait: step.rest <= 0 ? null : { from: to, to: (began + whole) / secs },
       edge: edgeOf(step.place),
-      // Where the transport opens it: a fraction of the landing's own window less a seam, which is
-      // the same arithmetic `armStep` writes the ghost's own fade at (0175, src/audio/player.ts).
-      sparks:
-        sparked === null
-          ? []
-          : sparked.slots.map((slot, index) => ({
-              slot,
-              at:
-                from +
-                (sparkStartOf(index, sparked.slots.length, sparked.delay) *
-                  Math.max(0, end - began - PLAYER_FADE_SECS)) /
-                  secs,
-              level: sparked.level,
-            })),
+      sparks: sparksOf(sparked, from, Math.max(0, end - began - PLAYER_FADE_SECS) / secs),
     });
     began += whole;
     previous = step.bed;

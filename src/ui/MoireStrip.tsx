@@ -648,6 +648,11 @@ export function MoireStrip(props: MoireProps & { className?: string }) {
   return useDriftShown() ? <DriftPicture {...props} /> : null;
 }
 
+// The overlay hook, the picture hook, the gesture hook and then the tree — the strip, the
+// recurrence, the tuning and the overlay — every one of them reading the same six props. The
+// hooks decide what the tree mounts, so a component for the tree alone would take all of it back
+// as props. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function DriftPicture({
   instrument,
   deck,

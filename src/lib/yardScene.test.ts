@@ -35,6 +35,10 @@ import {
 } from "@/lib/moireScene";
 import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 
+// One case per bank the reading keys on, and each walks every entry of its bank through the public
+// reading, so the suite's length is the banks' and grows with them. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("yardScene reads the whole of every bank it keys on", () => {
   it("reads every plant, air and adjective back to the group it was drawn from", () => {
     // The bank *is* the grouping (0329), so what is left to prove is the walk from a whole name

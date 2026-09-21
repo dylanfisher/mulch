@@ -14,6 +14,11 @@
  *   labels and hints → src/lib/copyDriftGroups.ts. The words a reading is said in →
  *   src/lib/copyScene.ts, and the card that says it and offers the field → src/ui/MoireSceneCard.tsx.
  */
+// The panel's words, its groups, the registry it reads and writes, and then one component per
+// control the panel is built from — the popover, the card, the slider, the button, the toast, the
+// tooltip and the scene card. The count is the panel's surface rather than anything it decides.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { useCallback, useSyncExternalStore } from "react";
 
 import {

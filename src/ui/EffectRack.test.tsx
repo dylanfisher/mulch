@@ -631,6 +631,11 @@ describe("a card is its knobs", () => {
    * is the weight at none; on is the weight the entry ships at, because nothing remembers where
    * it stood before.
    */
+  // The card drawn at two weights and the word pressed at the same two, through a probe that has
+  // to call the toggle as a function: the two readings are the same fixture read from the outside
+  // and the inside, and parting them would test a word beside no card. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("enables and disables an entry from its card on the grid, without opening it", () => {
     const instrument = createInstrument(manualClock());
     const sent: (Command | Envelope)[] = [];

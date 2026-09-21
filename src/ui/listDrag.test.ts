@@ -412,6 +412,11 @@ const cardStacked = (): Card[] => [
 // was the one that did until P128 took its drawing away (0171), and the vocabulary is still the
 // contract's — and it is the layout a drop resolved against a box's middle reads backwards on
 // (P113).
+// One case per seam a half card and a full card can meet at — in front, past, short of it, straight
+// up and straight down — each a drag of three events over one rack. Each is a defect this layout
+// once had, and they read as one list of them. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the rack's drag across cards of different widths", () => {
   // The defect this replaced: the half card's centre sits under the wide card's left half, so
   // against centres it had to travel a whole rack-width's worth of diagonal before it was nearest

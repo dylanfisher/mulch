@@ -4,6 +4,10 @@
  *   body, and that what it lays is brought in by how full the rack is and is nothing at all when
  *   the rack is empty.
  */
+// The tile is counted in both cells and read pixel by pixel, so this imports the lattice, the
+// glyphs and the alphabets the marks are written from beside the film's pitches and the painter
+// with its readings. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_REST } from "@/lib/moire";
@@ -237,6 +241,10 @@ describe("moireScreenBeat", () => {
     expect(both).toBeGreaterThan(beatPx(pitch) * 1.5);
   });
 
+  // A port of its own that keeps every bake, and a painting of three frames whose `between` answers
+  // the first bake and then grows the lattice: the port and the frames are one arrangement, and
+  // neither reads without the other. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("sweeps the tile it is drawing and not the one it asked for, while that one is baked", () => {
     // Since 0354 a bake is off this task, so a painting whose key has just moved draws the tile the
     // canvas last stood on — and a translation of exactly one tile is the identity for a repeating

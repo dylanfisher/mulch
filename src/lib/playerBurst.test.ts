@@ -7,6 +7,10 @@ import { describe, expect, it } from "vitest";
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
 import { beatBurst, PLAYER_TAP_PRESSES, tapBurst, tapPress } from "@/lib/playerBurst";
 
+// One case per fact about a run of presses — too few, the intervals kept, the clamp and step, the
+// long tap, the window and the gap that ends a run — each with the press list it needs written out.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a tapped burst", () => {
   /** Nought presses and one set nothing, which is the whole of what an interval needs two for. */
   it("says nothing until there are two presses", () => {
@@ -68,6 +72,10 @@ describe("a tapped burst", () => {
   });
 });
 
+// One case per way the beat may hold a burst — rounding, the crossover, a division passed over,
+// the dial's range, no fit at all and no tempo — a flat list with a value or two each. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a burst held to the beat", () => {
   /** The halvings of the beat, and nothing between two of them. */
   it("rounds onto the nearest whole division", () => {

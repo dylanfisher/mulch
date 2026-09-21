@@ -254,6 +254,11 @@ export const SHARD_LAYER = 2 * LENS_SLICES;
  * one plane read twice. At most `SHARD_CAP` times `SHARD_LAYER` kernel reads a painting, into a
  * table the caller keeps: no allocation (0070) and no read-back (0129).
  */
+// One pass per standing automator, reading its six terms into the eight numbers a layer is thrown
+// by and then the slices down and across at those numbers. Lifting the per-run read into a helper
+// would return the eight as a record the loop unpacks again, which is the same lines in two
+// places. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function shardsInto(
   out: Float64Array,
   seed: Readonly<FractalSeed>,

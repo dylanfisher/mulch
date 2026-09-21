@@ -349,6 +349,10 @@ describe("where a take begins", () => {
   });
 });
 
+// One case per kind of memory a rack can hold — nothing, a decay, a capture, a tape at unity, a
+// run, a bypassed stage — each standing up the instrument with that one thing in the rack. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("how long a session has to settle", () => {
   it("is the floor for a yard with nothing in its rack", () => {
     expect(settle(loaded())).toBe(SETTLE_FLOOR_SECS);

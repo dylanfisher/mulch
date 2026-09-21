@@ -388,6 +388,11 @@ const drawn = (fraction: number) => ({
   indicator: `rotate(${-135 + fraction * 270} 20 20)`,
 });
 
+// One moved dial and then one case per way a gesture can end on it — up, cancelled, capture lost —
+// beside the commit and the key that must not paint it back. The endings are a table over the one
+// `moved` fixture, which is why they stay in its block. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("Knob paints ahead of the store", () => {
   /** A dial pressed at rest and moved 18px right: the hand is at 0.6 while `value` is still 0.5. */
   function moved(onChange: (value: number) => void = () => {}) {
@@ -448,7 +453,7 @@ describe("Knob paints ahead of the store", () => {
   );
 
   it("steps a key from the value it last sent, not from a render one transition behind", () => {
-    const onChange = vi.fn();
+    const onChange = vi.fn<(value: number) => void>();
     const { control } = renderKnob(onChange);
     const key = { key: "ArrowUp", preventDefault: () => {} };
     control.onKeyDown(key);
@@ -458,7 +463,7 @@ describe("Knob paints ahead of the store", () => {
   });
 
   it("follows a render that moved the value, once no hand is on the dial", () => {
-    const onChange = vi.fn();
+    const onChange = vi.fn<(value: number) => void>();
     const { control } = renderKnob(onChange, { value: 0.2 });
     control.onKeyDown({ key: "ArrowUp", preventDefault: () => {} });
     expect(onChange).toHaveBeenLastCalledWith(0.21);

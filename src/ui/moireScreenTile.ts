@@ -77,6 +77,10 @@ const inkCopy = (stop: Ink): Ink => [stop[0], stop[1], stop[2], stop[3]];
  * order refilled by the next painting would be the next painting's tile baked under this one's key.
  * A miss is the only time it is built, and a miss is the only time anything is baked at all.
  */
+// Three lines over, all of them the order: fourteen parameters in and one field per parameter out,
+// with the copies the fields need. A builder for the order would take the same fourteen names.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function screenTile(
   key: string,
   width: number,

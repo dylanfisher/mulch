@@ -42,6 +42,9 @@ describe("playerJumps", () => {
   });
 });
 
+// One case per answer the grid gives — none, sixteenths, the seam in real seconds, the ground
+// either side, the narrowed zone. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("gridOf", () => {
   it("draws no grid for a loop whose slots are too short to carry a seam", () => {
     expect(gridOf({ in: 0, out: SHORT_SECS }, RATE, SHORT_SECS, null)).toBeNull();

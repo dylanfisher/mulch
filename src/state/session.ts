@@ -629,6 +629,10 @@ function validateMaster(value: unknown): void {
  * The one validator: stored JSON is this build's shape or it is not a session. There is no
  * migration to reach for, so every caller's failure path is the same one — discard it (0026).
  */
+// One field of the session after another, in the order the shape declares them, with the deck
+// list read once and held for the three checks that must agree with it. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
   exactKeys(

@@ -7,6 +7,10 @@
  *   out of at the 800-line hard cap (0045). How the shape it is cut from is read and travelled →
  *   src/ui/moireShape.test.ts. The cell itself → src/lib/moireLattice.test.ts.
  */
+// The lattice is a row of a real set, so this imports the row builder and its read with every
+// resting state that read takes, beside the cut and geometry the row is asserted against and the
+// lane it stands next to. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { emptyMasterPeek } from "@/audio/context";
@@ -46,7 +50,12 @@ const SILENT_MASTER = emptyMasterPeek();
 const ARRIVED = Number.POSITIVE_INFINITY;
 const STOOD = fractalStopsRest();
 
+// One case, and the block that holds it: a rack empty, bypassed and standing, then the standing one
+// read quiet and loud, each read spelling out the whole argument list. The reads are on the one
+// set the case built. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the lattice the rack stands in", () => {
+  // oxlint-disable-next-line max-lines-per-function
   it("stands a lattice over a rack holding anything, and cuts it as loud as the output is", () => {
     // No rack, no lattice: the picture drawn before there was a rack in it (0278).
     const bare = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null, NO_MASTER);

@@ -265,6 +265,10 @@ describe("the ground's run", () => {
  * patches the yard's own switch, and while it is on the three rows beside it stop writing the
  * spec and start writing the session's ground instead (0313).
  */
+// One case per row the shared ground turns — the switch, the three it takes over, the clock, the
+// period beside it, the leader — each pressed and read back on the one instrument. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the shared ground", () => {
   it("patches this yard's own switch, and nothing of the session's", () => {
     const { element, patch, instrument } = run();

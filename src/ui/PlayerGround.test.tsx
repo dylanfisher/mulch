@@ -6,6 +6,10 @@
  * @instead The maths behind those blocks → src/lib/playerGround.test.ts and
  *   src/lib/playerBed.test.ts.
  */
+// One over the cap, and it is the three mocks: the two hooks, the gesture and the canvas each come
+// in once as a type to be spread into a stand-in, beside the surface and the three modules that
+// say what its blocks are. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactTypes from "react";

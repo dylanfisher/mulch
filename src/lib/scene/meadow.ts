@@ -104,6 +104,12 @@ export const meadow: Scene = {
     "--scene-canopy-lit",
     "--scene-water-lit",
   ],
+  // One reading laid on the last, in order: the gust, the mass at its scales, the stretch, the
+  // stalks pulled into it, the sparks and the tile's own band of shade — each a few lines that
+  // read the value the one before left. A helper per layer would take the whole of `terms` and the
+  // running value, and the field would be read across six signatures instead of down one page.
+  // See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   ground: (x, y, terms) => {
     const lean = terms.lean * SLANT;
     const fibre = FIBRE.value * terms.reach;

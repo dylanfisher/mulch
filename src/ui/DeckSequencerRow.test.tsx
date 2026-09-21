@@ -101,6 +101,10 @@ const row = (steps: DeckSequence) => {
   return { element, sent, markup: renderToStaticMarkup(element) };
 };
 
+// One case per gesture the row offers — the toggle, the empty add, a pick, a remove, a typed length
+// — and every one asserts the whole run the row sends, so the cases share one fixture and one
+// reading of the command. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the sequence row", () => {
   it("plays and pauses the yard through the one toggle the transport sends", () => {
     const instrument = createInstrument(manualClock(), () => silentEngine());

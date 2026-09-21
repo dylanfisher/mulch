@@ -98,6 +98,11 @@ class LoopReporter extends AudioWorkletProcessor {
     this.started = resume ? this.started : false;
   }
 
+  // One block's whole account: the start, the cycles owed and the rest, each posted with the
+  // instant arithmetic gives it, and all three read the one `clock` a rest clamps. Parting them
+  // would hand that clamp across a call on the audio thread. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   process() {
     const plan = this.plan;
     if (plan === null) return true;

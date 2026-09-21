@@ -7,6 +7,10 @@
  *   src/ui/moireRowsField.test.ts. The rows a set holds and the read that fills them →
  *   src/ui/moireRows.test.ts. A row joining the picture or leaving it → src/ui/moireArrival.test.ts.
  */
+// The jolt is read off the walk and spent on the rows, so this imports the walk and the spec it
+// walks — slots, songs, defaults — beside the row builder and every resting state its read takes.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -47,6 +51,10 @@ const standingOn = (slot: number, at: number | null, dropped = false): PlayerPee
   at,
 });
 
+// One case per stage of the jolt — the crest band it is read in, the distance the walk jumped, the
+// snap and the fall, how far the age lets it throw, and the two things it is spent on — in the
+// order the read takes them. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the jolt the picture answers a hit with", () => {
   /**
    * One crest, three bands. Under the smeared crest the field washes and jolts nothing; between the

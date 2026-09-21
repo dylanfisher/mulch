@@ -11,6 +11,11 @@
 // Two imports over the cap: the noun the labels say (0057), and the one frame loop the redraw
 // counts passes on. The recording's point buffer is written and never rendered.
 // oxlint-disable import/max-dependencies, react/immutability
+// And over the line cap by the gestures one dial answers: the plain set, the armed recording from
+// press to release, the clearing of a lane it held, the preview and the lane drawn from the menu.
+// All of them read the same refs on the same dial, and the header says why each is here.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { rackLabel } from "@/lib/copy";
@@ -196,6 +201,12 @@ export const ParameterKnob = memo(function ParameterKnob({
   }, [lane, phase, value]);
 
   const onChange = useCallback(
+    // One case per kind of move a dial can send: the tail of a drag whose recording already
+    // committed, an armed move recording a point, the first move that clears a lane, and a plain
+    // set — with the reset threaded through the last two. The cases share the refs they read and
+    // clear, so each would take `recording`, `cleared` and `resetting` along with it.
+    // See docs/decisions/0007-reviewed-oversized-functions.md.
+    // oxlint-disable-next-line max-lines-per-function
     (raw: number) => {
       // The one rounding in front of this dial's command, wherever the value came from — a drag,
       // an arrow key, a reset or a point of a recording — so a parameter held to the beat is held

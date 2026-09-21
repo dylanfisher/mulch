@@ -9,6 +9,11 @@
  *   src/lib/deckSequence.ts. The play toggle is the transport's own, sending the same command →
  *   src/ui/DeckTransport.tsx.
  */
+// Every import is the run's own words, its maths, or one control the chip is built out of — the
+// picker, the reading, the button, the toggle, the tooltip, the picture and the icons — so the
+// count is what a step is edited with and not what this file decides.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { useCallback, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -99,6 +104,10 @@ export function SequencePlayToggle({
 }
 
 /** One step's chip: its kind, its length, and the press that takes it out — one box, one edge. */
+// One control per thing a step holds — the picker, the reading, the press that takes it out — each
+// under its own tooltip with the callback it sends through. Lifting any one of them parts the chip's
+// one edge from what it draws inside it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function StepChip({
   step,
   index,
@@ -174,6 +183,11 @@ function StepChip({
   );
 }
 
+// One callback per edit the strip offers — a kind, a length, a step gone, a step added — each
+// sending the whole run through the one `send`, and then the strip that draws them. The edits and
+// the strip read the same `steps`, so a helper for either would take that list with it.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function DeckSequencerRow({
   instrument,
   deck,

@@ -28,6 +28,10 @@ import { bandTurns } from "@/ui/moireScreen";
 /** The loop's own row at a phase: the reference every band here is rolled against. */
 const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
 
+// One case per term the screen keeps — the floor, the band's roll, the seam — each a loop over the
+// densities or canvas heights the term is read at. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the screen's own terms", () => {
   it("keeps more of the ink than the screen takes, at every density", () => {
     // A texture over the picture and not a mask cut out of it: four gratings and a band multiply

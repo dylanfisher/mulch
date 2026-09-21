@@ -220,7 +220,12 @@ describe("the a-rate mix", () => {
   });
 });
 
+// The old per-sample loop is written out whole inside the case, because it is the statement the
+// shipped stage is held equal to and belongs nowhere else; the walk across the knob under two
+// block sizes follows it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the stage as it stood before the quantiser moved to the take", () => {
+  // oxlint-disable-next-line max-lines-per-function
   it("still draws exactly what it drew then, under a depth that moves mid-hold", () => {
     // The loop as it was, kept here as the statement the shipped one is held to: the held pair
     // rounded again on every sample. The rewrite rounds at the take and again when the depth

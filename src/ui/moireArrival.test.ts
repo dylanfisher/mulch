@@ -8,6 +8,11 @@
  *   fills them → src/ui/moireRows.test.ts. The other three things a rebuilt set carries →
  *   src/ui/moireRowsField.test.ts, where the ground's own carry is measured.
  */
+// A set is built and read here the way the painter builds and reads one, so this imports the row
+// builder plus every resting state the read takes an argument for — stops, ink, jolt, shape, master
+// — and the registry the fixture instance is filled from. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -76,6 +81,11 @@ function shareOf(set: MoireRowSet, key: string): number {
   return row.arrival;
 }
 
+// One case per direction a population can change — a row added, a row dropped, a halted yard, a
+// row matched by name — and each walks the share through the arrival in steps, reading the
+// picture's weight at each. The add and the drop are one flash read both ways round, so they stay
+// side by side. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a row arriving in the picture", () => {
   /**
    * The whole point of the share. What the picture weighs is solved for how many rows there are

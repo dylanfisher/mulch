@@ -5,6 +5,10 @@
  * @instead What a rack operation does to the session → src/app/execute.ts. Nothing here knows
  *   about decks, commands or events; every method is a rewire that either takes or throws (0023).
  */
+// The contract type and the one closure that fills it: every method is a rewire over the same
+// order, instance map and hold list, and the type above it is read beside the body it describes.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // Type-only, and deliberately so: `params.ts` reads this directory's own registry at module scope,
 // so a *value* import from here closes the loop registry → automator → rack → params → registry and
 // the whole graph throws at load in the TDZ (0203). What this file needed from it was one lookup,

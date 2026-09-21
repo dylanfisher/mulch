@@ -177,16 +177,6 @@ const hasRenderCapacity = (
 const RENDER_CAPACITY_INTERVAL_SECS = 0.5;
 
 /**
- * `resume` is how this host starts its clock, or `null` for one that has none to start. The
- * unlock gate below is the same either way; what differs is who owns the context's suspension.
- * Live, a gesture does — so it is `ctx.resume`. Offline, the render driver suspends and resumes
- * on its own schedule to pump the queue (src/app/render.ts), and a second resumer would fight it.
- */
-// Over the line cap by design: the host's whole surface is here, each member a few lines of
-// delegation into the voice and peaks maps this one closure owns. See
-// docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-/**
  * One of the master's edges handed to one voice: a hold only to a yard that is playing, a release
  * to every yard — refused by the ones not resting — and a clear as a restart in place (0371).
  */
@@ -202,6 +192,16 @@ const spend = (held: DeckVoice, edge: HoldEdge): void => {
 /** The beat the rack under all the yards counts on: the shared clock as one beat, or none. */
 const masterTempo = (sync: number | null): number => (sync === null ? 0 : 60 / sync);
 
+/**
+ * `resume` is how this host starts its clock, or `null` for one that has none to start. The
+ * unlock gate below is the same either way; what differs is who owns the context's suspension.
+ * Live, a gesture does — so it is `ctx.resume`. Offline, the render driver suspends and resumes
+ * on its own schedule to pump the queue (src/app/render.ts), and a second resumer would fight it.
+ */
+// Over the line cap by design: the host's whole surface is here, each member a few lines of
+// delegation into the voice and peaks maps this one closure owns. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createAudioEngine(
   ctx: BaseAudioContext,
   store: SessionStore,

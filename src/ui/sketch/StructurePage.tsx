@@ -139,6 +139,11 @@ function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
   section.scrollIntoView({ behavior: "smooth" });
 }
 
+// One tree: the header with a nav item per sketch, the paragraph that asks the bench's question,
+// and a frame per sketch — both lists walking the same `SKETCH_STRUCTURES`. The length is the
+// question written out, not anything the page decides.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function StructurePage() {
   return (
     <div className="min-h-dvh">

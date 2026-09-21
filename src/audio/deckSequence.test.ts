@@ -62,6 +62,10 @@ const fadeOf = ({ voice }: Harness): { at: number; level: number } => {
   return { at: out.sequenceAt, level: out.fade };
 };
 
+// One case per transport gesture the fade answers — play, move, pause, stop, the tick, and letting
+// go — each reading the fade calls off the same harness. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a sequence on the transport", () => {
   it("lays the window ahead on the fade the moment play begins, from the top of its run", () => {
     const held = deck();

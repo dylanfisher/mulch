@@ -7,6 +7,10 @@
  * @instead The transport that fills it → src/audio/deck.ts. The per-frame read it writes into →
  *   src/audio/deckPeek.ts.
  */
+// Type-only, one per thing a host may hand a voice or read back from it: the contract names each
+// by the type that owns it and holds no logic of its own. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import type { DeckSequence } from "@/lib/deckSequence";
 import type { PlayerSpec } from "@/lib/player";
 import type { AutomationPoint } from "@/lib/automation";

@@ -26,6 +26,11 @@
 // terms, which a worker spends without a document, and the theme side that resolves an order — and
 // routing either through the other would be a second name for it (0007, principle 1).
 // oxlint-disable import/max-dependencies
+// And over the line cap by its prose: the tunables, the key and the six motions are each a short
+// piece of code under a long account of the decision that shaped it, and the fill they end in is
+// one function. The tile and the shop already live next door; what is here is the one place the
+// pattern is keyed, cut and moved. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   DRIFT_DISPERSE_REACH,
   DRIFT_FRINGE_REACH,
@@ -207,6 +212,10 @@ const BAKING = Symbol("the screen's first tile, still baking");
  * holds no tile for at all — its first still baking, or an engine that would give the bake no
  * context to land in — answers `BAKING` instead, which is not a picture yet (0384).
  */
+// The key, which is one line of code and a paragraph per term saying why that term is in it, then
+// the shop asked and the pattern cut. Moving the key out would put its reasons a file away from
+// the terms they explain. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function screenOf(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
@@ -333,6 +342,12 @@ function cutThrough(
  * nor the sides — those are the rack's own tail and the output's two channels, and neither of them
  * is being played backwards.
  */
+// The six motions, each one term written onto the one `rolled` transform in turn — the roll, the
+// crawl with the ground, the sides and the wind on it, the breath and turn, the lean, and the gust
+// read strip by strip — and above each term the paragraph that says which decision put it there.
+// The terms compose on one matrix, so a function per motion would hand that matrix round in order
+// and say nothing the prose does not. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function inkThrough(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,

@@ -280,6 +280,10 @@ describe("moireRows", () => {
     expect(effectById("delay").drift).not.toBe(PLAIN_PROFILE);
   });
 
+  // The bare instance and then the same instance with a lane on it, and the second is asserted as
+  // the whole set's order of rows — one entry per row the field owns, each with its reason. The
+  // two are one instance read twice. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("gives an instance in the rack a row of its own, lane or no lane", () => {
     const { rows, reads } = moireRows([], [instance("fx1")], 0, PLAIN_CUT);
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,

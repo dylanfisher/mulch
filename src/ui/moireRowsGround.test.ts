@@ -8,6 +8,10 @@
  *   src/ui/moireRowsSong.test.ts. The two rows that belong to the whole field →
  *   src/ui/moireRowsField.test.ts. The stand itself as arithmetic → src/lib/playerDrift.test.ts.
  */
+// One ground read through the real row builder and its read, which takes a resting state per
+// thing the picture holds — stops, ink, jolt, shape, master — beside the travel it measures. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { emptyMasterPeek } from "@/audio/context";
