@@ -1,6 +1,7 @@
 /**
  * @role The rack that is no yard's, offline: an effect addressed with null is heard on everything
- * the session puts out, and an instance moved onto it goes on being heard whole (0320, 0321).
+ * the session puts out, an instance moved onto it goes on being heard whole, and a Stop pressed on
+ * a session already stopped takes away what it is still ringing with (0320, 0321, 0390).
  */
 import { fail, RACK_RENDER_SECS, report } from "./harness.js";
 
@@ -8,6 +9,16 @@ import { fail, RACK_RENDER_SECS, report } from "./harness.js";
 const MASTER_FILTER_DB = 10;
 /** How closely two renders of one session have to agree to be the same performance twice. */
 const SAME_TAKE_DB = 0.5;
+/**
+ * The tail take: long enough that a stop at `TAIL_STOP_SECS` leaves three tenths of a second of
+ * delay ringing behind it, which is what the second stop is asked to take away.
+ */
+const TAIL_RENDER_SECS = 0.9;
+const TAIL_STOP_SECS = 0.4;
+/** Where the reading starts — past the second stop, with nothing playing into it. */
+const TAIL_READ_SECS = 0.6;
+/** How much quieter a cleared tail has to be than one left to ring. */
+const TAIL_CLEARED_DB = 20;
 
 export const renderMaster = async ({ page }) => {
   const takes = await page.evaluate(async (secs) => {
@@ -87,10 +98,71 @@ export const renderMaster = async ({ page }) => {
       takes,
     );
   }
+
+  // And the second Stop: the delays and reverbs on this rack ride the context's own clock, which
+  // never stops, so a first Stop moves every playhead and leaves them ringing (0390). One take
+  // with the first stop alone and one with the second behind it, the same session either way.
+  const tails = await page.evaluate(
+    async ({ secs, stopAt, readAt }) => {
+      const session = (second) => ({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+          { t: "deck.loop.toggle", deck: "a" },
+          // A long feedback on the rack that is no yard's: memory, and nothing a parameter can
+          // ask to be emptied.
+          { t: "effect.add", deck: null, id: "dly", effect: "delay" },
+          { t: "param.set", deck: null, instance: "dly", param: "delay.time", value: 0.1 },
+          { t: "param.set", deck: null, instance: "dly", param: "delay.feedback", value: 0.9 },
+          { t: "param.set", deck: null, instance: "dly", param: "delay.mix", value: 1 },
+          { t: "deck.play", deck: "a" },
+          // What the header's Stop sends with a yard playing: every playhead home, and the
+          // session's run back to nought.
+          { at: stopAt, cmd: { t: "deck.stop", deck: "a" } },
+          { at: stopAt, cmd: { t: "session.rewind" } },
+          // What it sends when it lands again on a session where nothing is playing.
+          ...(second ? [{ at: stopAt + 0.1, cmd: { t: "session.silence" } }] : []),
+        ],
+      });
+      const ringing = await window.mulch.render(session(false));
+      const cleared = await window.mulch.render(session(true));
+      // The windows past the second stop, asked of the reading's own count rather than of a window
+      // length restated here: the fingerprint divides the take into equal windows (src/lib/fingerprint.ts).
+      const from = (result, at) =>
+        result.fingerprint.rmsDb.slice(Math.ceil((at / secs) * result.fingerprint.rmsDb.length));
+      const after = from(ringing, readAt);
+      return {
+        windows: after.length,
+        ringingDb: Math.max(...after),
+        clearedDb: Math.max(...from(cleared, readAt)),
+      };
+    },
+    { secs: TAIL_RENDER_SECS, stopAt: TAIL_STOP_SECS, readAt: TAIL_READ_SECS },
+  );
+
+  // Before the comparison, because `Math.max()` of nothing is -Infinity and the difference of two
+  // of those is NaN — which is less than nothing and greater than nothing, so a reading window
+  // that had emptied would pass this scenario rather than fail it (principle 5).
+  if (tails.windows < 1) {
+    fail(
+      `the tail reading found no window past ${TAIL_READ_SECS}s of a ${TAIL_RENDER_SECS}s take`,
+      tails,
+    );
+  }
+  if (tails.ringingDb - tails.clearedDb < TAIL_CLEARED_DB) {
+    fail(
+      `a second Stop left the master's tail ringing: ${tails.ringingDb}dB after one stop, ` +
+        `${tails.clearedDb}dB after two`,
+      tails,
+    );
+  }
+
   report(
     `a low-pass under all the yards took ${(takes.bareDb - takes.masterDb).toFixed(1)}dB off the ` +
       `offline take and rendered twice within ${Math.abs(takes.masterDb - takes.againDb).toFixed(2)}dB; ` +
       `the same EQ dragged out of the yard's own rack onto it rendered within ` +
-      `${Math.abs(takes.movedDb - takes.masterDb).toFixed(2)}dB of that, carrying its 200Hz with it`,
+      `${Math.abs(takes.movedDb - takes.masterDb).toFixed(2)}dB of that, carrying its 200Hz with it; ` +
+      `a second Stop took ${(tails.ringingDb - tails.clearedDb).toFixed(1)}dB off the delay still ` +
+      `ringing on it, ${tails.ringingDb.toFixed(1)}dB down to ${tails.clearedDb.toFixed(1)}dB`,
   );
 };

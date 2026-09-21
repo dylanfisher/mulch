@@ -43,6 +43,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   dismissGrown: () => false,
   removeEffect: () => {},
   reorderEffects: () => {},
+  silence: () => {},
   peek: () => {},
   masterPeek: () => {},
   cropped: () => new Uint8Array(new ArrayBuffer(0)),

@@ -239,6 +239,23 @@ function reachable(state: SessionState): readonly DeckId[] {
 }
 
 /**
+ * Whether the session has nothing left for a Stop to stop — the same pair src/ui/DeckTransport.tsx
+ * disables one yard's own Stop button on, asked of every yard at once. A held playhead counts as
+ * something to stop: a hand that paused and then pressed Stop is stopping, so that press is the
+ * first one and the reverb it paused under is still its to hear out (0390).
+ *
+ * Asked of every yard the session holds rather than of the reachable ones, because a yard whose
+ * source outlives its load is still a yard making a sound (principle 5). A session with no yards
+ * at all has nothing to stop, which is the honest answer: the master's tails do not need a yard.
+ */
+function nothingPlaying(state: SessionState): boolean {
+  return !state.deckList.some((entry) => {
+    const held = deckIn(state.decks, entry.id);
+    return held.playing || held.paused !== null;
+  });
+}
+
+/**
  * One global transport press, expanded into the per-deck commands a person pressing every yard
  * in turn would have sent — the header's three buttons and the Space key both come here, so
  * neither is a second kind of state and the log reads the same either way (P66). A yard with
@@ -251,14 +268,20 @@ export function transportAllCommands(
   action: TransportAction,
 ): readonly Command[] {
   const perYard = reachable(state).map((deck) => TRANSPORT_COMMANDS[action](deck));
+  if (action !== "stop") return perYard;
   // And the one thing that is the session's rather than any yard's: a global Stop ends the
   // performance, so the next one begins at nought and so does the next take (0315). After the
   // per-deck stops, because it is what they add up to. The per-deck row sends none of it — one
-  // yard stopping is not the session ending (P66).
-  // The one thing the header's press sends that no yard's own row does, whether or not a yard
-  // answered: the run is the session's, and it has been running since the page opened however
-  // little was loaded (0315).
-  return action === "stop" ? [...perYard, { t: "session.rewind" }] : perYard;
+  // yard stopping is not the session ending (P66). Sent whether or not a yard answered: the run
+  // is the session's, and it has been running since the page opened however little was loaded.
+  const ended: readonly Command[] = [...perYard, { t: "session.rewind" }];
+  // A Stop that lands on a session where nothing is playing is the second one, and it asks the
+  // graph for the thing a first Stop cannot give: the delays and reverbs are ringing on the
+  // master's clock, which never stops, so the tails outlive every playhead this press moved
+  // (0390). `playing` is safe to read for this where it is not for the Space key: the graph
+  // writes it false the moment a halt returns, and the lookahead it lags by is on the way up
+  // (0052).
+  return nothingPlaying(state) ? [...ended, { t: "session.silence" }] : ended;
 }
 
 /**

@@ -53,8 +53,6 @@
 - panner slice rate knob should change to adjust band and time. refactor how this effect works. i imagine it
   more like pop effect width, how it expands the soundstage.
 
-- if possible, make it so pressing stop when already stops clears all noise (feedback, etc.)
-
 - some sort of effect, or post-effect chain that takes the sound input and "flattens" it, and allows cutting
   up the processed sound.
 

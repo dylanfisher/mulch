@@ -77,6 +77,7 @@ const COMMAND_HISTORY = {
   "effect.dismiss": "none",
   "session.save": "none",
   "session.rewind": "none",
+  "session.silence": "none",
   "gesture.end": "none",
   "history.undo": "none",
   "history.redo": "none",

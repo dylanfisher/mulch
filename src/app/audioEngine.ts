@@ -197,6 +197,13 @@ export type Engine = {
    * `rebuild` is applied now, at its last value and once — see src/audio/effects/rack.ts.
    */
   endGesture(): void;
+  /**
+   * Every rack this host holds — the yards' and the one that is no yard's — emptied and built
+   * again from the entries the session already holds, so whatever the nodes were still ringing
+   * with goes with them. Nothing durable moves and no deck is told: a delay line and a reverb are
+   * memory, and there is no parameter that means "forget what you are holding" (0390).
+   */
+  silence(): void;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
     session: Session,

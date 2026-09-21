@@ -713,6 +713,12 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       rt.rewind();
       rt.bus.emit({ t: "session.rewound" });
       return;
+    // The graph's side of a Stop that landed on a session already stopped: every rack rebuilt, so
+    // the delays and reverbs still ringing on the master's clock let go of what they were holding.
+    // Optional like every other graph effect here — nothing in the session moves (0390).
+    case "session.silence":
+      rt.engine?.silence();
+      return;
     case "gesture.end":
       rt.historyEndGesture();
       // And the graph's side of the same ending: a plugin that declared a parameter a `rebuild`

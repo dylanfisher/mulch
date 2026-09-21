@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0390. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0391. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -246,14 +246,28 @@ src/ui/LoadField.tsx and src/ui/PlayerSeed.tsx, and by src/lib/lull.ts and src/l
 (0389). The pins are six cases in src/lib/analysis.test.ts and ten in
 src/ui/LoopBeats.test.tsx, two of them the step's own.
 
-**Step 10 — a second stop clears the tails.** _Durable shape moved:_ none. "if possible, make it
-so pressing stop when already stops clears all noise (feedback, etc.)". The global Stop
-(src/ui/GlobalTransport.tsx, `deck.stop` per yard) leaves every delay and reverb ringing on the
-master's clock, which never stops (src/audio/masterEffects.ts). A Stop pressed with nothing
-playing asks every rack, master included, to silence its tails — the same emptying and rebuilding
-a restore already does to the master rack, or a ramp to nought and back. **Tests that must fail
-first:** a render of a stop, a second stop and a window after it reads silence where the first
-stop alone reads a tail. **Refused:** a third transport button.
+**Step 10 — a second stop clears the tails
+([0390](decisions/0390-a-second-stop-clears-the-tails.md), landed).** _Durable shape moved:_ none.
+"if possible, make it so pressing stop when already stops clears all noise (feedback, etc.)". The
+global Stop (src/ui/GlobalTransport.tsx, `deck.stop` per yard) leaves every delay and reverb
+ringing on the master's clock, which never stops (src/audio/masterEffects.ts). A Stop pressed with
+nothing playing asks every rack, master included, to silence its tails — the same emptying and
+rebuilding a restore already does to the master rack, or a ramp to nought and back. **Tests that
+must fail first:** a render of a stop, a second stop and a window after it reads silence where the
+first stop alone reads a tail. **Refused:** a third transport button.
+_Landed:_ the emptying and rebuilding, because nothing else makes a delay line forget: `rebuildRack`
+and `silenceRacks` (src/app/rackRebuild.ts) stand every rack back up out of the entries the session
+already holds, and `restoreMaster` now reads the first of them rather than spelling the same walk a
+second time (0390). The press decides at the gesture, from the pair one yard's own Stop button is
+disabled on — not playing and holding no playhead (src/ui/DeckTransport.tsx), so Pause then Stop is
+a first Stop — and sends one more command behind the per-deck stops and the rewind:
+`session.silence`, durable in nothing and told to no deck. The clocks go down again behind the
+rebuild, because a rack remembers neither and a lull rebuilt at nought lays no rests — the review's
+finding, from all three lenses.
+The proof is the render the step asked for, in scripts/smoke.d/renderMaster.js: a 0.9s take with a
+90% feedback delay on the master, stopped at 0.4s, reads -15.5dB across the windows past 0.6s with
+one stop and -120.0dB with two. The pins are five cases — four in src/app/rackRebuild.test.ts, one
+in src/ui/GlobalTransport.test.tsx, plus two there rewritten around a session that is playing.
 
 **Step 11 — the header counts the mulch.** _Durable shape moved:_ none. "in header, add a effects
 count, and yard count, and any other funny interesting statistics about how the sound is
@@ -529,3 +543,20 @@ found the fourth field and the third beat this step had counted as one fewer. `m
 fact. Reusing src/ui/LoadField.tsx outright was declined for a reason rather than a preference — its skip guard compares the input against the
 number it displays, and here the displayed count is a rounding of the loop that must still be
 committable, so the comparison has to be against the derived loop (0389).
+
+**Step 10 cuts the tail rather than fading it, and pays 205ms for its render.** A rebuild is
+instantaneous, so what was ringing stops between one sample and the next — the same cut a restore
+already makes when the rack it comes back to differs, and the gesture's own meaning, since a hand
+pressing Stop twice is asking for silence now. A fade would want a gain per rack that no rack has,
+and a ramp to nought and back would only cover the tail while it was down: the feedback loop goes
+on circulating behind it (0390). The render the step named went into
+scripts/smoke.d/renderMaster.js rather than into a scenario of its own, since it is the same rack
+the file is already about; interleaved base and head runs of `./scripts/check` measured
+10.59/10.84s against 10.69/11.15s, a mean delta of 205ms and inside 0012's 250ms. The walk a
+restore makes over one prepared deck's rack (src/app/engine.ts, inside `prepareRestore`) was left
+where it is: it is interleaved across four per-deck passes for the crossfade's sake, so it is not
+the same walk `rebuildRack` is. A yard whose source ran out by itself reads as stopped and takes
+the clearing on the next single press, which the review raised and this step declined: the step's
+words are "a Stop pressed with nothing playing", and there is nothing for that press to stop. A
+paused yard is the other way round and was fixed — it has a playhead to stop, so Pause then Stop
+is a first Stop (0390).

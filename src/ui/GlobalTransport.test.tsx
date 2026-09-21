@@ -97,7 +97,10 @@ const spacebar = (instrument: Instrument): readonly Command[] =>
 
 describe("one transport over all the yards", () => {
   it("sends one per-deck command per yard, and never a command of its own", () => {
-    const { instrument } = threeYards();
+    const { instrument, store } = threeYards();
+    // Sounding, the way the graph would have said so: a Stop that lands on a session already
+    // stopped sends one command more, which is the case below (0390).
+    for (const deck of ["a", "b", "c"]) patchDeck(store, deck, { playing: true });
 
     expect(pressed(instrument, "play")).toEqual([
       { t: "deck.play", deck: "a" },
@@ -138,6 +141,38 @@ describe("one transport over all the yards", () => {
     expect(spacebar(instrument)).toEqual(everyYardInTurn);
   });
 
+  /**
+   * The second Stop. The tails are on the master's clock, which never stops, so the first press
+   * moves every playhead and leaves the delays and reverbs ringing; the press that lands on a
+   * session already stopped is the one that asks the racks to let go (0390). Read off `playing`,
+   * which the graph writes false the moment a halt returns — the lookahead it lags by is on the
+   * way up, so a stop's answer is already in by the next press (0052).
+   */
+  it("asks the racks for their tails only once nothing is playing", () => {
+    const { instrument, store } = threeYards();
+    for (const deck of ["a", "b", "c"]) patchDeck(store, deck, { playing: true });
+
+    const stops = ["a", "b", "c"].map((deck) => ({ t: "deck.stop", deck }));
+    expect(pressed(instrument, "stop")).toEqual([...stops, { t: "session.rewind" }]);
+
+    // One yard still sounding is a session still sounding: the press is the first one again.
+    patchDeck(store, "a", { playing: false });
+    patchDeck(store, "b", { playing: false });
+    expect(pressed(instrument, "stop")).toEqual([...stops, { t: "session.rewind" }]);
+
+    // And a yard holding its playhead is still a yard with something to stop: a hand that paused
+    // and then pressed Stop is stopping, so the reverb it paused under is its to hear out.
+    patchDeck(store, "c", { playing: false, paused: 1.5 });
+    expect(pressed(instrument, "stop")).toEqual([...stops, { t: "session.rewind" }]);
+
+    patchDeck(store, "c", { paused: null });
+    expect(pressed(instrument, "stop")).toEqual([
+      ...stops,
+      { t: "session.rewind" },
+      { t: "session.silence" },
+    ]);
+  });
+
   it("sends no per-deck command when the session has no yard to send to", () => {
     const { instrument: empty } = silent();
     empty.send({ t: "deck.remove", deck: "a" });
@@ -146,7 +181,9 @@ describe("one transport over all the yards", () => {
     expect(pressed(empty, "play")).toEqual([]);
     // Except the one that is the session's own: the run has been going since the page opened,
     // whatever is loaded, and the Stop is what ends it (0315).
-    expect(pressed(empty, "stop")).toEqual([{ t: "session.rewind" }]);
+    // And, since nothing in it is playing, the tails: a session with no yards has a master rack
+    // all the same, and there is no yard whose silence it could be waiting on (0390).
+    expect(pressed(empty, "stop")).toEqual([{ t: "session.rewind" }, { t: "session.silence" }]);
     expect(spacebar(empty)).toEqual([]);
 
     // A yard with nothing loaded is skipped for the same reason its own row is disabled: there

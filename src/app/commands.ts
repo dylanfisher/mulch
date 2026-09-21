@@ -236,6 +236,14 @@ export type Command =
    * stop sends none: one yard stopping is not the session ending (P66).
    */
   | { t: "session.rewind" }
+  /**
+   * Every rack in the session given fresh nodes, so the tails they were still ringing with are
+   * gone. Not durable and not transport: the session is untouched and no playhead moves — what
+   * changes is only what the graph was carrying, which is the one thing no command could ask a
+   * delay line or a reverb to let go of otherwise. The global Stop sends it when it lands on a
+   * session where nothing is playing, and a yard's own stop sends none (0390).
+   */
+  | { t: "session.silence" }
   // A hand let go. Not durable and not transport: it closes whatever history transaction the
   // drag it ends had open, which is the boundary that makes one drag one entry (0067). Sending
   // it with nothing open changes nothing, so a replayed file never has to know what was held.

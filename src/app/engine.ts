@@ -21,13 +21,7 @@ import { createMasterBus } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckVoice } from "@/audio/deck";
 import type { EffectInstanceId, HoldEdge } from "@/audio/effects/contract";
-import {
-  DECK_AUTOMATION_PARAM_IDS,
-  DECK_PARAM_IDS,
-  effectAutomationParamIds,
-  paramIn,
-  soundingBpm,
-} from "@/audio/params";
+import { DECK_AUTOMATION_PARAM_IDS, DECK_PARAM_IDS, soundingBpm } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
 import { LOOP_REPORTER } from "@/audio/worklet";
@@ -49,6 +43,7 @@ import {
 import type { MasterEffects } from "@/audio/masterEffects";
 import { PEAK_COLUMNS, type AudioEngine, type DecodedSource, type Emit } from "./audioEngine";
 import type { Analyzer } from "./analysis";
+import { armInstanceLanes, rebuildRack, silenceRacks } from "./rackRebuild";
 // oxlint-enable import/max-dependencies
 
 // Re-exported because this file used to declare them and every caller reaches them through it:
@@ -139,13 +134,7 @@ export function restoreMaster(
   effects: readonly SessionEffect[],
 ): void {
   if (sameRack(held, effects)) return;
-  for (const instance of master.held()) master.removeEffect(instance);
-  for (const entry of effects) {
-    master.addEffect(entry.id, entry.effect, entry.params);
-    master.setEffectBounds(entry.id, entry.bounds);
-  }
-  for (const entry of effects) if (entry.bypassed) master.setEffectBypass(entry.id, true);
-  for (const entry of effects) armInstanceLanes(master, entry);
+  rebuildRack(master, master.held(), effects);
 }
 
 /**
@@ -166,19 +155,6 @@ type RackHost = Pick<
   DeckVoice,
   "setEffectBypass" | "setEffectBounds" | "dismissGrown" | "removeEffect" | "reorderEffects"
 >;
-
-/**
- * Every lane one prepared instance holds, armed against its own binding and its own manual value.
- * An instance's lanes are held beside its values and go with it, so there is nothing here that
- * could name a binding the rack does not have (0030).
- */
-function armInstanceLanes(voice: Pick<DeckVoice, "setAutomation">, entry: SessionEffect): void {
-  for (const param of effectAutomationParamIds(entry.effect)) {
-    const lane = entry.automation[param];
-    if (lane !== undefined)
-      voice.setAutomation(entry.id, param, lane, paramIn(entry.params, param));
-  }
-}
 
 /**
  * `AudioContext.renderCapacity` is in the Web Audio spec but not in lib.dom, and it is read in
@@ -352,9 +328,12 @@ export function createAudioEngine(
    * knobs read it, or nought with no analysis yet. Read off the store rather than carried here,
    * because the store is where both halves already are (0371).
    */
-  const refreshTempo = (deck: DeckId): void => {
+  const deckBpm = (deck: DeckId): number => {
     const held = deckIn(store.getState().decks, deck);
-    voice(deck).setTempo(soundingBpm(held.analysis, held.params));
+    return soundingBpm(held.analysis, held.params);
+  };
+  const refreshTempo = (deck: DeckId): void => {
+    voice(deck).setTempo(deckBpm(deck));
   };
 
   const anyPlanned = (): boolean => [...voices.values()].some((held) => held.planned());
@@ -780,6 +759,18 @@ export function createAudioEngine(
     endGesture: () => {
       for (const deck of voices.values()) deck.endGesture();
       master.effects.endGesture();
+    },
+    // Every rack given fresh nodes, so whatever they were still holding is gone with the old ones
+    // — the only way a delay line or a reverb forgets (`silenceRacks`, 0390). Nothing durable
+    // moves: each rack is stood back up out of the entries the session already holds.
+    silence: () => {
+      // The clocks go down behind the rebuild, because a rack remembers neither and a fresh
+      // instance is built from its values alone: an entry pacing itself by the session's beat
+      // would otherwise come back at nought and lay nothing (`SilencedRack`, 0097, 0371).
+      silenceRacks(master.effects, voices, store.getState(), {
+        sync,
+        tempo: (deck) => (deck === null ? masterTempo(sync) : deckBpm(deck)),
+      });
     },
     armAutomation: () => {
       for (const deck of voices.values()) deck.armAutomation();
