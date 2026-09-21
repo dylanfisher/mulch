@@ -153,6 +153,12 @@ export const ParameterKnob = memo(function ParameterKnob({
    * the lane it is painting (0035) for as long as that press lasted.
    */
   const pressed = useRef<{ start: number; value: number } | null>(null);
+  /**
+   * Whether the value now arriving from the dial is its double-click reset. Set from the capture
+   * phase, which is the one place that runs before the dial's own handler sends it, and read and
+   * let go by the move it belongs to (0385).
+   */
+  const resetting = useRef(false);
 
   /**
    * The (instance, param) this knob rides, as the key `peek()` files phases under — built here
@@ -186,13 +192,22 @@ export const ParameterKnob = memo(function ParameterKnob({
       const owner = instanceHalf(instance);
       const set = { t: "param.set", deck, ...owner, param, value: next } as const;
       const current = recording.current;
+      /**
+       * Whether this move is the dial's own reset. It reaches this wrapper in the capture phase,
+       * before the dial sends the value, so it is known here rather than guessed from the value:
+       * a reset is not a ride — armed, it would record a lane of one point at the default where
+       * the hand asked for the lane gone — and it is not part of a drag either, so it closes its
+       * own entry the way a paste does (0385).
+       */
+      const reset = resetting.current;
+      resetting.current = false;
       if (current === DONE) {
         // Still dragging after Option ended the recording: an ordinary move that must not clear
         // the lane the same drag just recorded.
         instrument.send(set);
         return;
       }
-      if (armed) {
+      if (armed && !reset) {
         // stats().at and not probe().at: the audio clock, which nothing rewinds (0315). What is
         // stored is the distance from this gesture's own start, so where the playhead was while it
         // happened is never part of the lane (0028).
@@ -228,9 +243,11 @@ export const ParameterKnob = memo(function ParameterKnob({
         if (drawn !== null)
           commands.push({ t: "automation.drawn", deck, ...owner, param, drawn: null });
         instrument.send({ t: "history.group", commands });
+        if (reset) instrument.send({ t: "gesture.end" });
         return;
       }
       instrument.send(set);
+      if (reset) instrument.send({ t: "gesture.end" });
     },
     [armed, lane, drawn, instrument, deck, instance, param, round],
   );
@@ -386,6 +403,10 @@ export const ParameterKnob = memo(function ParameterKnob({
     },
     [commit, instrument],
   );
+  /** The reset, seen going past on its way to the dial. */
+  const onReset = useCallback(() => {
+    resetting.current = true;
+  }, []);
   const onPointerUp = useCallback(() => {
     finish(true);
   }, [finish]);
@@ -423,6 +444,9 @@ export const ParameterKnob = memo(function ParameterKnob({
    */
   const onGestureStart = useCallback(() => {
     recording.current = null;
+    // A reset whose value the dial then refused to send — the guard `resetsAnyway` lifts only for
+    // a lane — must not be read by the next gesture as one.
+    resetting.current = false;
     pressed.current = armed ? { start: instrument.stats().at, value } : null;
     dragging.current = true;
     cleared.current = false;
@@ -515,6 +539,8 @@ export const ParameterKnob = memo(function ParameterKnob({
       // The reveal: every automatable knob is visibly armed while Option is down, and the flag is
       // readable by ./scripts/smoke without depending on a colour.
       data-automation={armed ? "armed" : "off"}
+      // Capture, so the flag is set before the dial's own `onDoubleClick` sends the value.
+      onDoubleClickCapture={onReset}
       onPointerDown={onGestureStart}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
@@ -542,6 +568,10 @@ export const ParameterKnob = memo(function ParameterKnob({
         // gesture where it stopped, and the dial holds with it — but only a playing deck is
         // reading a value that moves, so only that one is painted per frame (0040).
         {...(lane === null ? {} : { live })}
+        // A reset on a dial holding a lane is the move that clears it, and it has to be sent even
+        // where the dial's own value is already the default — which is every lane ridden from
+        // there, and the one double-click that used to do nothing at all (0385).
+        resetsAnyway={lane !== null}
         animate={playing}
       />
       {marked ? (

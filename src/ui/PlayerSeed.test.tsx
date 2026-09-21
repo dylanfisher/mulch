@@ -23,12 +23,25 @@ type Ends = {
   defaultValue: number;
 };
 
-/** The field the component drew, and the box a hand has been typing in. */
-const field = (seed: number, onCommit: (seed: number) => void) => {
-  const drawn = PlayerSeed({ id: "a-seed", seed, onCommit });
-  if (!isValidElement<Ends>(drawn)) throw new Error("the seed drew no field");
-  return drawn.props;
+/** The row the component drew: the box a hand types in, and the die that draws one beside it. */
+const row = (seed: number, onCommit: (seed: number) => void, reseed = () => {}) => {
+  const drawn = PlayerSeed({
+    id: "a-seed",
+    seed,
+    onCommit,
+    reseed,
+    reseedLabel: "Reseed Seed on Yard A",
+  });
+  if (!isValidElement<{ children: unknown[] }>(drawn)) throw new Error("the seed drew no row");
+  const [box, says] = drawn.props.children;
+  if (!isValidElement<Ends>(box)) throw new Error("the seed drew no field");
+  if (!isValidElement<{ children: unknown }>(says)) throw new Error("the seed drew no die");
+  const die = says.props.children;
+  if (!isValidElement<{ onClick: () => void }>(die)) throw new Error("the die is no button");
+  return { field: box.props, die: die.props };
 };
+/** The box alone, which is what every claim about what a seed commits reads. */
+const field = (seed: number, onCommit: (seed: number) => void) => row(seed, onCommit).field;
 const typed = (value: number) => ({ valueAsNumber: value, value: "" });
 
 describe("the seed's own field", () => {
@@ -68,5 +81,21 @@ describe("the seed's own field", () => {
       expect(onCommit).not.toHaveBeenCalled();
       expect(box.value).toBe("9");
     }
+  });
+});
+
+/**
+ * 0385: the die beside the box presses the card's own reseed and mints nothing here — the number
+ * a pattern unfolds from has one source, and this is a second place to ask for it.
+ */
+describe("the die beside that field", () => {
+  it("presses the card's own reseed and commits nothing", () => {
+    const onCommit = vi.fn<(seed: number) => void>();
+    const reseed = vi.fn<() => void>();
+
+    row(9, onCommit, reseed).die.onClick();
+
+    expect(reseed).toHaveBeenCalledTimes(1);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

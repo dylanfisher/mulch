@@ -37,6 +37,7 @@ import {
   PLANT_LABEL,
   PLAYER_TOOLTIP,
   RESEED_LABEL,
+  SEED_LABEL,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
@@ -474,8 +475,20 @@ export function PlayerCard({
             outside the fold: a performance is reproducible by that number, so reading it may not
             cost opening anything (0089, P98) — and typing one in is the other half of that
             reproducibility, so it is a field and not a readout (0312). The die that draws one
-            stays on the card's front, where it stands beside the other draw (0259). */}
-        {live !== null && <PlayerSeed id={`${deck}-seed`} seed={live.seed} onCommit={onSeed} />}
+            stands beside it as well as on the card's front: the front's is there because it is one
+            of the two draws a hand reaching for "make this different" wants (0259), and this one
+            is there because drawing a number is the other half of reading it, wherever it is read
+            — which above the fold is the only half a folded yard has (0385). One command either
+            way, `onReseed`. */}
+        {live !== null && (
+          <PlayerSeed
+            id={`${deck}-seed`}
+            seed={live.seed}
+            onCommit={onSeed}
+            reseed={onReseed}
+            reseedLabel={`${RESEED_LABEL} ${SEED_LABEL} on ${yardLabel(deck)}`}
+          />
+        )}
         {/* And what it is arranged as, beside that number and on the same terms: a song is parts
             in an order, so the order is the thing to read, and it is legible without opening the
             menu that edits it (0153, P98). */}

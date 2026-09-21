@@ -185,6 +185,70 @@ describe("ParameterKnob automation gestures", () => {
     expect(playing.knob.live?.()).toBeNull();
   });
 
+  /**
+   * 0385: a dial holding a lane is painted wherever the lane has it, so its own value says
+   * nothing about whether there is anything to reset — and the reset is the move that clears the
+   * lane. The dial is told to send it either way; a dial with no lane keeps the guard.
+   */
+  it("tells the dial a reset must be sent for a lane, whatever value the dial holds", () => {
+    expect(renderKnob(points).knob.resetsAnyway).toBe(true);
+    expect(renderKnob(null).knob.resetsAnyway).toBe(false);
+  });
+
+  /**
+   * 0385: Option is the reveal, so a hand double-clicking to reset a dial it can see holds a lane
+   * is often holding it. A reset is not a ride: armed, the recording would take the value as its
+   * one point and lay that back as a lane of one point at the default, which is the lane still
+   * there rather than gone.
+   */
+  it("resets a lane rather than recording one, with Option still held", async () => {
+    held = true;
+    try {
+      const lane = [{ at: 0, value: 0.5 }];
+      const { instrument, wrapper, knob, render } = renderKnob(lane);
+      instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: lane });
+      await turns();
+
+      wrapper.onDoubleClickCapture();
+      knob.onChange(1);
+      await turns();
+      // And the modifier let go afterwards, which is what commits anything the press recorded.
+      held = false;
+      render(null);
+      await turns();
+
+      expect(instrument.probe().decks.a!.automation).toEqual({});
+      expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
+    } finally {
+      held = false;
+    }
+  });
+
+  /**
+   * 0385: the reset lands after the pointer's own ending, so nothing else closes its entry — and
+   * a turn of the same dial a moment later would join it and one undo would take back both (0067).
+   * A reset closes its own, the way a paste does.
+   */
+  it("closes the reset's own entry, so the next turn of the dial is another", async () => {
+    const lane = [{ at: 0, value: 0.5 }];
+    const { instrument, wrapper, knob, render } = renderKnob(lane);
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: lane });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+
+    wrapper.onDoubleClickCapture();
+    knob.onChange(1);
+    await turns();
+    render(null).knob.onChange(0.5);
+    await turns();
+    instrument.send({ t: "history.undo" });
+    await turns();
+
+    // One undo took back the turn alone: the reset is still standing, lane and all.
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+  });
+
   it("clears the lane and applies the new value as one transaction on a normal move", async () => {
     const { instrument, knob } = renderKnob([{ at: 0, value: 0.5 }]);
     instrument.send({

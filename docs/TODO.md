@@ -19,7 +19,6 @@
 
 - visualizer effects should always tween between items. right now sometimes the jumps between changes (dry/wet,
   adding or removing an effect) is jumpy. it should be smoother when possible.
-- double clicking a automated knob should always reset it
 
 - push spark effect more so its like playing an organ of sparks. sparks could harmonize at different octaves.
 
@@ -69,8 +68,6 @@
 
 - some sort of effect, or post-effect chain that takes the sound input and "flattens" it, and allows cutting
   up the processed sound.
-
-- randomize button next to yard seed input
 
 - stacked visualizer view for many decks?
 - master effects should not collapse by default if any effects are present (or better yet, remember collapse

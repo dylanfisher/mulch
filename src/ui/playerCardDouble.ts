@@ -179,6 +179,9 @@ export type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
   /** What the seed's own field hands back, which no other control on this card offers: it is a
    *  number and not an event, so it is not one of `HANDLER_KEYS` (0312, src/ui/PlayerSeed.tsx). */
   onCommit?: Press;
+  /** The card's own reseed, which two controls are handed rather than one: the front's die and
+   *  the twin beside the seed's field (0385, src/ui/PlayerSeed.tsx). */
+  reseed?: Press;
 };
 
 export const HANDLER_KEYS = [

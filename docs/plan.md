@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0385. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0386. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -116,14 +116,32 @@ tile already takes (0144, 0384). The pin is a case in src/ui/moireCanvas.test.ts
 src/ui/moireCanvas.ts past the 800-line hard cap, so the frame the picture lays back into itself
 moved whole into src/ui/moireCanvasFeedback.ts, beside the test file already named for it.
 
-**Step 5 — two small gestures: the knob's reset and the seed's dice.** _Durable shape moved:_
-none. "double clicking a automated knob should always reset it" — src/ui/Knob.tsx already commits
+**Step 5 — two small gestures: the knob's reset and the seed's dice
+([0385](decisions/0385-a-reset-is-about-the-lane-not-the-number.md), landed).** _Durable shape
+moved:_ none. "double clicking a automated knob should always reset it" — src/ui/Knob.tsx already commits
 `defaultValue` on double-click and the lane-bearing dial is the one path that refuses it; and
 "randomize button next to yard seed input" — the reseed already stands on the card's front
 (src/ui/PlayerBlend.tsx); it gets a twin beside the field in src/ui/PlayerSeed.tsx, or moves
 there, one command either way. **Tests that must fail first:** a double-click on a dial holding a
 lane commits the default; the button beside the seed sends the same reseed the front does.
 **Refused:** a third seed source.
+_Landed:_ the lane-bearing dial did not refuse the reset — the knob did, and only for the lane
+ridden from the parameter's own default, which is the ordinary way one is recorded. `commit`
+(src/ui/Knob.tsx) dropped a value landing where the dial already stood, and a dial a lane is
+painting is not standing at its value at all, so the move that clears the lane was never sent and
+the dial went on following it. The dial is now told when a reset must go out regardless
+(`resetsAnyway`), which is every dial holding a lane and no other (0385); the pins are three cases
+in src/ui/Knob.test.tsx and three in src/ui/ParameterKnob.test.tsx, two of them the review's: a
+reset with Option still held was recording a lane of one point at the default rather than clearing
+the one it was pressed on — Option is the reveal, so the hand that can see the lane is holding it —
+and the reset's own group was left open behind the pointer's ending, so a turn of the same dial a
+moment later joined its entry. The wrapper now hears the double-click going past in the capture
+phase, which is what tells a reset from a ride and from a drag. The die beside the seed is a
+twin rather than a move: the front's stays beside the six names (0259) and this one stands beside
+the field above the fold, both handed the card's own `onReseed`, named apart so two controls on
+one card can be told from each other. Its pins are a case each in src/ui/PlayerSeed.test.tsx and
+src/ui/PlayerCard.test.tsx, and P130's folded-card claim is retargeted rather than dropped: the
+front's die still goes away with the body, and the seed's does not.
 
 **Step 6 — the yard's header: mute, and a name it can be sorted by.** _Durable shape moved:_
 `SessionDeck.muted`, a boolean, and `SessionDeck.tag`, a short string, both empty by default;
@@ -352,3 +370,20 @@ taken knowingly, and are in 0383: a bypass arriving before the rest's instant st
 there, because a stop already scheduled cannot be taken back; and an arming that cannot reach the
 instant — `MAX_PLAYER_STEPS` at the shortest slot — rests where the queue ends instead of where the
 lull drew it, which is the transport's own horizon margin (0120) rather than this rest's.
+
+**Step 5's reset is narrowed to the dials a lane drives, and the die is a twin.** Making a
+double-click commit unconditionally on every dial would send a patch from every dial carrying a
+live read — the voice a song moves, the draft of a span drag — for a gesture that changes nothing
+there, so the knob is told per call site and only the automated one is told (0385). The seed's die
+could have moved off the card's front instead of being twinned there; moving it would have broken
+the pair of draws 0259 stands on, so the card now carries two controls sending one command, named
+apart. Its cost is P130's line: a folded yard's heading now holds the seed, the switch and a die,
+rather than the seed and the switch.
+
+**Step 5 left two sentences standing that have drifted.** `RESEED_LABEL`'s doc in src/lib/copy.ts
+still calls the reseed "the one gesture on the card that is neither a state nor a number", which
+is true of the command and no longer of the presses; and `InlineField`'s `self-start` (0306) now
+resolves against the seed's own row rather than the heading, which changes nothing while every
+item in that heading is `h-7`. Both were reported by the review and both were left: neither is a
+duplication or a reachable failure, and principle 4 is the smallest change that solves the
+problem.

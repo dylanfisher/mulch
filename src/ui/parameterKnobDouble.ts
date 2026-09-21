@@ -24,6 +24,7 @@ export type KnobHandlers = {
   format?: (value: number) => string;
   live?: () => number | null;
   animate?: boolean;
+  resetsAnyway?: boolean;
 };
 export type WrapperProps = {
   onPointerDown: () => void;
@@ -31,6 +32,7 @@ export type WrapperProps = {
   onPointerCancel: () => void;
   onLostPointerCapture: () => void;
   onKeyUp: () => void;
+  onDoubleClickCapture: () => void;
   children: unknown[];
   className: string;
   "data-automation": string;

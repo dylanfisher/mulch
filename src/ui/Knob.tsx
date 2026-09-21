@@ -299,6 +299,14 @@ type KnobProps = {
    * out the same number it always did — the mark is which of them a hand has been to.
    */
   marksDefault?: boolean;
+  /**
+   * Whether a double-click sends the default even where the dial's own value already is it. A
+   * dial following a lane is not standing at `value` — it is wherever the lane has it — and what
+   * the reset asks for there is the lane gone, which only reaches the store as a move; the guard
+   * that spares a plain dial a commit it does not need is what refused it, on every lane a hand
+   * rode from the default (0385, src/ui/ParameterKnob.tsx). Absent, the guard stands.
+   */
+  resetsAnyway?: boolean;
 };
 
 /**
@@ -332,6 +340,7 @@ export function Knob({
   says,
   animate = true,
   marksDefault = false,
+  resetsAnyway = false,
 }: KnobProps) {
   /** The three parts a live value moves: the arc, the indicator and the readout under it. */
   const travelled = useRef<SVGPathElement>(null);
@@ -388,9 +397,9 @@ export function Knob({
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
-    (next: number) => {
+    (next: number, anyway = false) => {
       const snapped = snapToStep(next, min, max, step);
-      if (snapped === reached.current) return;
+      if (snapped === reached.current && !anyway) return;
       reached.current = snapped;
       paint(snapped);
       onChange(snapped);
@@ -482,9 +491,14 @@ export function Knob({
     if (!animate || live === undefined) paint(live?.() ?? reached.current);
   }, [animate, drag, live, paint, value]);
 
+  /**
+   * The reset. Sent whether or not the number moves where the dial says so (`resetsAnyway`): a
+   * double-click on a dial a lane is driving is a hand asking for the lane gone, and the value it
+   * is standing at says nothing about whether there is one to clear (0385).
+   */
   const handleDoubleClick = useCallback(() => {
-    commit(defaultValue);
-  }, [commit, defaultValue]);
+    commit(defaultValue, resetsAnyway);
+  }, [commit, defaultValue, resetsAnyway]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {

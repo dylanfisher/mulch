@@ -50,6 +50,7 @@ type ControlProps = {
   onPointerUp: PointerHandler;
   onPointerCancel: PointerHandler;
   onKeyDown: (event: { key: string; preventDefault: () => void }) => void;
+  onDoubleClick: () => void;
 };
 type DialProps = {
   fraction: number;
@@ -419,6 +420,39 @@ describe("Knob keyboard", () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]?.[0] ?? 0).toBeGreaterThan(PLAYER_BURST_MIN);
+  });
+});
+
+/**
+ * 0385: a double-click asks for the default. On a dial nothing is driving, one already standing
+ * there has nothing to send; on one following a lane, the dial is not at `value` at all and what
+ * the reset asks for is the lane gone, which only reaches the store as a move — so the dial that
+ * refused it is exactly the automated dial the gesture exists for (src/ui/ParameterKnob.tsx).
+ */
+describe("Knob reset", () => {
+  it("sends the default from a dial already holding it, where a lane is driving it", () => {
+    const onChange = vi.fn<(value: number) => void>();
+    const { control } = renderKnob(onChange, { resetsAnyway: true, live: () => 0.9 });
+
+    control.onDoubleClick();
+
+    expect(onChange).toHaveBeenCalledWith(0.5);
+  });
+
+  it("says nothing from a plain dial already standing at its default", () => {
+    const onChange = vi.fn<(value: number) => void>();
+
+    renderKnob(onChange).control.onDoubleClick();
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("sends the default from a dial a hand has moved, either way round", () => {
+    for (const resetsAnyway of [false, true]) {
+      const onChange = vi.fn<(value: number) => void>();
+      renderKnob(onChange, { value: 0.2, resetsAnyway }).control.onDoubleClick();
+      expect(onChange).toHaveBeenCalledWith(0.5);
+    }
   });
 });
 

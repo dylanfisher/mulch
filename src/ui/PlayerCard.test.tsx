@@ -349,11 +349,15 @@ describe("the jumps card", () => {
     expect(markup).toContain(SEED_LABEL);
     expect(markup).toContain(`value="${PLAYER.seed}"`);
     // P130: a module put away is its heading and nothing else — no frame, no header, none of the
-    // corner's actions (0173). So the fold and the switch are the whole of it, and the reseed goes
-    // with the body it belongs to.
+    // corner's actions (0173). So the front's own die goes with the body it belongs to; the one
+    // beside the field stays, because drawing a number is the other half of reading it and this
+    // is where a folded yard reads it (0385).
     expect(markup).not.toContain('data-slot="card"');
     expect(markup).not.toContain('data-slot="card-action"');
-    expect(markup).not.toContain(RESEED_LABEL);
+    expect(markup).not.toContain(`${RESEED_LABEL} ${PLAYER_LABEL}`);
+    expect(markup).toContain(`${RESEED_LABEL} ${SEED_LABEL}`);
+    // Two, as before: the die beside the field is drawn inside the seed's own component and is
+    // reached through its props, which is where the claim above it reads (src/ui/PlayerSeed.tsx).
     expect(handlers(folded.element).length).toBe(2);
   });
 
@@ -374,12 +378,16 @@ describe("the jumps card", () => {
     // The corner is gone entirely: there is nothing left in the card's header for it to hold, and
     // a header with an empty action is a shape kept for a control that moved (0197).
     expect(markup).not.toContain('data-slot="card-action"');
-    // The front comes first inside the card, and the reseed is in it: the picture, then the names
-    // that fill the dials under them, then the number they all unfold from.
-    expect(markup.indexOf('data-slot="player-scope"')).toBeLessThan(
-      markup.indexOf(`${RESEED_LABEL} `),
+    // The front comes first inside the card, and the front's die is in it: the picture, then the
+    // names that fill the dials under them, then the number they all unfold from. Read by the
+    // fuller name, because the twin beside the seed's own field is drawn before any of it (0385).
+    const front = `${RESEED_LABEL} ${PLAYER_LABEL}`;
+    expect(markup.indexOf('data-slot="player-scope"')).toBeLessThan(markup.indexOf(front));
+    expect(markup.indexOf(front)).toBeLessThan(markup.indexOf(PLAYER_FINE_LABEL));
+    // And the twin stands beside the field, above everything the card holds.
+    expect(markup.indexOf(`${RESEED_LABEL} ${SEED_LABEL}`)).toBeLessThan(
+      markup.indexOf('data-slot="card"'),
     );
-    expect(markup.indexOf(`${RESEED_LABEL} `)).toBeLessThan(markup.indexOf(PLAYER_FINE_LABEL));
     // And the heading the seed reads beside is outside the card rather than in its header (0106).
     expect(markup.indexOf(PLAYER_LABEL)).toBeLessThan(markup.indexOf('data-slot="card"'));
   });
@@ -516,6 +524,27 @@ describe("the jumps card", () => {
     walk(strip({ player: PLAYER }).element);
     expect(drawn.has(PlayerBlend)).toBe(true);
     expect(drawn.has(ACTION_ICONS.duplicate)).toBe(false);
+  });
+
+  /**
+   * 0385: "randomize button next to yard seed input". The die beside the field is handed the
+   * card's own reseed — the very function the front's die holds — so it is one command reachable
+   * in two places rather than a second source of a number (0089).
+   */
+  it("hands the die beside the field the same reseed the front holds", () => {
+    const { element, sent } = strip({ player: PLAYER });
+    const beside = propsOf(element, PlayerSeed)?.reseed;
+
+    expect(beside).toBe(propsOf(element, PlayerFront)?.reseed);
+    beside?.();
+
+    expect(sent).toHaveBeenCalledTimes(1);
+    const command = sent.mock.calls[0]?.[0];
+    if (command === undefined || !("t" in command) || command.t !== "deck.player") {
+      throw new Error("the die sent no pattern");
+    }
+    // Everything but the number is the pattern it was standing on, and the number is another one.
+    expect({ ...command.player, seed: PLAYER.seed }).toEqual(PLAYER);
   });
 
   /**

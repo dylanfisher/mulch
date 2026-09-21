@@ -149,7 +149,9 @@ describe("the mulcher card's folds", () => {
     expect(boxes(shut)).toBe(0);
     // The front is not: the cast's pad and a reseed are the shortest road to a pattern worth
     // hearing, and a fold that put them away would be the fold 0197 refused (0152, 0197).
-    expect(shut).toContain(RESEED_LABEL);
+    // By its fuller name: the die beside the seed's own field carries the word too, and is drawn
+    // above every fold, so the bare word could no longer fail for the reason this reads (0385).
+    expect(shut).toContain(`${RESEED_LABEL} ${PLAYER_LABEL} on Yard A`);
     expect(shut).toContain('data-slot="player-blend"');
     expect(card({ fine: true }).sent).not.toHaveBeenCalled();
   });
