@@ -1,3 +1,7 @@
+- Ableton push support?
+
+---
+
 - more ways to use the tone up/down feature in the mulcher (octaves could be set like a sequencer or piano)
 
 - keyboard shortcuts
@@ -12,7 +16,6 @@
 
 - lull effect should impact the visualizer in such a way that it looks like a gap is drawn in, use empty
   and negative space in an interesting way.
-- lull effect doesn't appear to work when mulcher is activated
 
 - visualizer effects should always tween between items. right now sometimes the jumps between changes (dry/wet,
   adding or removing an effect) is jumpy. it should be smoother when possible.

@@ -257,7 +257,7 @@ export function createDeckVoice(
         // The asker was redrawn: what it laid is dropped by the one road that drops a stop
         // already scheduled, a restart in place — whose own arming gathers the fresh run, so
         // the rest of this list, drawn before the reset that restart makes, is not applied.
-        if (rests.length === 0) continue;
+        if (rests.length === 0 && !player.resting()) continue;
         releaseNow();
         return;
       }
@@ -267,13 +267,15 @@ export function createDeckVoice(
   }
 
   function holdAt(at: number): boolean {
-    // Only the ordinary pass is rested: a pattern's steps are its own transport, laid ahead by
-    // the player, and a stop scheduled on one of them would hold nothing the next step does not
-    // start again (0089, 0372).
     // A hold the tick arrived too late for is not taken: laid now it would stop the deck at once
     // and its release, clamped to the same instant, would start it again — a blip and not a rest.
     // The release that follows is refused with it, because no rest stands.
-    if (player.running() || buffer === null || at < ctx.currentTime) return false;
+    if (buffer === null || at < ctx.currentTime) return false;
+    // A pattern rests as a gap in itself and not as a halt: the player stops what it laid at the
+    // instant and lays nothing until the release, so no plan is torn down and no stop is
+    // reported. Nothing of this transport moves, which is why the queue below is the ordinary
+    // pass's alone (0383).
+    if (player.running()) return player.rest(at);
     const last = rests.at(-1);
     if (last === undefined) {
       const current = playing;
@@ -317,11 +319,25 @@ export function createDeckVoice(
    * hand's play does (0371).
    */
   function releaseNow(): void {
+    // A jumping pass lets go where it stands, at the lookahead: the walk carries on rather than
+    // the pass restarting, because a rest on it tore nothing down to restart from (0383). What a
+    // restart would have done beside it is owed all the same — the rack counts its gap again from
+    // here, and the fresh run is gathered at once rather than a tick later, or the edges a redraw
+    // drew in the same breath as its clear would be spent and never laid (0371).
+    if (player.resting()) {
+      const at = ctx.currentTime + LOOKAHEAD_SECS;
+      player.resume(at);
+      chain.resetHolds(at);
+      armAhead();
+      return;
+    }
     if (rests.length === 0) return;
     start(readsAt(ctx.currentTime + LOOKAHEAD_SECS) ?? pausedAt ?? undefined);
   }
 
   function releaseAt(at: number): boolean {
+    // The pattern's rest is the player's, and it is the player that lays the steps it took (0383).
+    if (player.running()) return player.resume(at);
     const current = rests.at(-1);
     if (current === undefined || current.release !== null || buffer === null) return false;
     // Inside the loop and inside the buffer, the way a seek is kept (0041).

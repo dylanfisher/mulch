@@ -19,9 +19,10 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
-import { bedStart, gridOf, gridSpan, loopIn, slotStart, zonedGrid, type Grid } from "./playerGrid";
+import { bedStart, gridOf, gridSpan, loopIn, zonedGrid, type Grid } from "./playerGrid";
+import { type Scheduled, sparkPosition, stepPosition } from "./playerCursor";
 import { seam } from "./playerSeam";
-import { readInto, windowOf } from "./playerWindow";
+import { windowOf } from "./playerWindow";
 import { syncedFrom } from "@/lib/playerClock";
 import type { DeckPlayer, GroundClock } from "./playerVoice";
 import {
@@ -38,59 +39,17 @@ import { playerWalk } from "@/lib/playerWalk";
 import { buildSparks, type ReadSlot, type Spark } from "./playerSparks";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
-/** One step the transport has going: its source, the fader its seams are on, and where it reads. */
-type Scheduled = {
-  source: AudioBufferSourceNode;
-  fader: GainNode;
-  /**
-   * The quieter sources this landing threw, empty where it threw none — held on the landing's own
-   * entry and never as entries of their own. That is the whole of what a spark costs the queue:
-   * `position` scans this list for the latest entry the clock is at or past, so a companion
-   * sitting in it would win that scan and the deck's read head would follow the spark instead of
-   * the landing, which is where the pattern actually is (P123).
-   *
-   * Their level gains are held here too, and for the reason the sources are: what a step is made
-   * of is what a step has to let go of, and a node dropped from this list without being
-   * disconnected is still wired into the chain.
-   */
-  sparks: Spark[];
-  at: number;
-  ends: number;
-  /**
-   * When this step's own business is over — its end, plus whatever rest the pattern takes. Held
-   * unsynced: the clock the next step waits for is whichever one is held when that step is armed,
-   * so a clock turned down or off does not leave the tail waiting out the old one's tick (0097).
-   */
-  next: number;
-  /** The buffer seconds its source loops, from the slot it starts in — the burst, at its rate. */
-  span: number;
-  /** The rate each of this step's repeats was armed at, and how long each of those repeats is.
-   *  Read per step, not per pass: a speed change moves the ones armed after it and must not be
-   *  applied to a window laid out for another rate. A pair rather than one number since P124,
-   *  because the cursor now sums the repeats a landing has finished at the rungs they were read at
-   *  rather than multiplying the whole landing by one rate (0167). Both are exactly `repeats`
-   *  long, and `spans` sums to `ends - at`. */
-  rates: readonly number[];
-  spans: readonly number[];
-  /**
-   * The very step this entry was armed from, held rather than copied out of. Where it reads, which
-   * way round, what it was standing in and the whole of what it was drawn as — a read at the clock
-   * answers off the entry the clock is inside rather than off a cursor seconds ahead of it (0157,
-   * 0158), and it answers with everything the step carries rather than the four fields this entry
-   * used to keep a second copy of (principle 1, 0180). Held until `release`, which the queue's own
-   * bound is what bounds.
-   */
-  step: PlayerStep;
-  /**
-   * Which landing of this pass it is, counting from the first one the pass laid down — `laid` at
-   * the moment it was drawn. Handed to `armStep` rather than read off `laid` there, because both
-   * call sites pass `draw()` straight in and a read beside it would be leaning on evaluation
-   * order. It is what lets a surface line its own walk of the same spec up with the one sounding.
-   */
-  ordinal: number;
-};
-
 export type { DeckPlayer } from "./playerVoice";
+
+/**
+ * One step silenced — its own source and the companions it threw, which are started sources like
+ * any other: a landing stopped without them is a spark sounding over a pattern that has moved on
+ * (P123). At `at`, or at once where none is given.
+ */
+function silence(step: Scheduled, at?: number): void {
+  step.source.stop(at);
+  for (const spark of step.sparks) spark.source.stop(at);
+}
 
 /**
  * One pass is one closure over the pattern, the grid it is laid against and the queue of steps it
@@ -166,6 +125,12 @@ export function createDeckPlayer(
   let queue: Scheduled[] = [];
   /** What the pass is laid against: fixed at `begin` and read by every arming after it. */
   let running: { buffer: AudioBuffer; grid: Grid } | null = null;
+  /**
+   * The instant the rest the rack asked this pass for begins, or null while it plays. Nothing is
+   * laid past it and the cursor parks where it stopped the pattern, so a rest is the same silence
+   * the pattern takes between two steps — longer, and asked for rather than drawn (0383).
+   */
+  let resting: number | null = null;
   /** The audio time the last armed step ends, which is when the next one starts. */
   let queueEnd = 0;
   /**
@@ -435,7 +400,12 @@ export function createDeckPlayer(
     // free-running from wherever the stall left it (0097).
     queueEnd = syncedFrom(Math.max(queueEnd, now + LOOKAHEAD_SECS), sync);
     const horizon = now + AUTOMATION_HORIZON_SECS;
-    for (let n = 0; queueEnd <= horizon && n < MAX_PLAYER_STEPS; n++) {
+    // And never past a standing rest, which is the nearer horizon while one stands: the pass
+    // reaches its instant and stops there, so a re-arm inside a rest lays the steps still to be
+    // heard before it again rather than leaving the yard silent from wherever the drop found it
+    // (0383).
+    const until = resting ?? Infinity;
+    for (let n = 0; queueEnd <= horizon && queueEnd < until && n < MAX_PLAYER_STEPS; n++) {
       let drawn = draw();
       // A queued part lands here, on the first step that opens a part: the walk is wound to that
       // part's own first jump — the wind a solo's release takes — and the step drawn again from
@@ -452,6 +422,21 @@ export function createDeckPlayer(
       }
       queueEnd = armStep(drawn.step, drawn.ordinal, queueEnd);
     }
+    if (resting !== null) trim(resting);
+  }
+
+  /**
+   * The step that reaches into a rest, stopped at its edge with the companions it threw. Its entry
+   * ends where it was stopped, so the cursor parks on the head the rest held and the prune reads
+   * the rest rather than the window the step was drawn with.
+   */
+  function trim(at: number): void {
+    const step = standingAt(at);
+    if (step === null || step.at > at || step.ends <= at) return;
+    silence(step, at);
+    step.ends = at;
+    step.next = at;
+    queueEnd = at;
   }
 
   /**
@@ -477,10 +462,7 @@ export function createDeckPlayer(
   function dropAfter(from: number): { ordinal: number; at: number } | null {
     const dropping = queue.filter((entry) => entry.at > from);
     for (const step of dropping) {
-      step.source.stop();
-      // And its companions, which are started sources like any other: a landing dropped ahead of
-      // the clock takes its sparks with it, or they sound over the pattern that replaced it (P123).
-      for (const spark of step.sparks) spark.source.stop();
+      silence(step);
       release(step);
     }
     const first = dropping[0];
@@ -532,35 +514,58 @@ export function createDeckPlayer(
   }
 
   /**
-   * Where one spark of `step` is reading at `at`, or null wherever it is not reading — no pass, or
-   * a delayed one whose own start is still ahead.
-   *
-   * One answer per companion off the same entry and never a second queue: `position` goes on
-   * answering off the landing, which is precisely why a spark rides the landing's entry (0166), so
-   * the cursors the peaks paint for them are asked for separately (0175). The step is handed in
-   * rather than scanned for again: `standingAt` walks the whole queue and `peek` has just called
-   * it, and this is the per-frame read (0070).
+   * Where the deck is reading at `at`, in buffer seconds, or null with no pass running — and the
+   * head a rest is parking on once its instant has come, since nothing is reading while it stands.
    */
-  const sparkPositionOf = (step: Scheduled, spark: Spark, at: number): number | null => {
+  function positionAt(at: number): number | null {
     if (running === null) return null;
-    const { grid } = running;
-    // The landing's window is what `readInto` sums over, so a spark held back is the difference
-    // of two reads of it: how far the landing has read now, less how far it had read when the
-    // spark started. That keeps the two on one ladder — the companion is stepped at the
-    // landing's own boundaries, so it reads at the landing's rate at every instant and differs
-    // only by where it entered (0167, 0175).
-    const held = Math.min(at - step.at, step.ends - step.at);
-    const from = Math.min(spark.at - step.at, step.ends - step.at);
-    if (held < from) return null;
-    const into = readInto(step, held) - readInto(step, from);
-    const read = into > 0 ? into % spark.span : 0;
-    // Backwards where the landing is, for the reason the landing's cursor is: the spark takes
-    // the landing's direction, so a cursor running the other way would be the picture saying one
-    // thing while the graph plays another (P121).
-    return (
-      slotStart(grid, spark.slot, step.step.bed) + (step.step.reversed ? spark.span - read : read)
-    );
-  };
+    // Nothing is reading while a rest stands, so the head parks where the rest stopped the
+    // pattern: the same read, taken at the rest's own instant rather than at the clock.
+    const when = resting !== null && at >= resting ? resting : at;
+    const step = standingAt(when);
+    return step === null ? null : stepPosition(step, running.grid, when);
+  }
+
+  /**
+   * Rest the pass at `at`, answering whether it was taken — a pass already resting refuses, and so
+   * does a deck with no pattern running. The steps ahead of the instant go the way a re-arm's do
+   * and the walk winds back over them, so the release lays exactly the steps the rest took; the
+   * step the instant falls inside is stopped there, its companions with it, the way a rest stops
+   * an ordinary pass's source. Nothing of the transport moves — no plan is torn down and no stop
+   * is reported — because a jumping pass is already a run of sound and silence, and a rest is one
+   * more silence in it (0383).
+   */
+  function rest(at: number): boolean {
+    if (running === null || spec === null || resting !== null) return false;
+    resting = at;
+    // Standing before the re-arm, which is therefore the whole of the rest's work: everything past
+    // the instant is dropped, the walk is wound back over it, nothing is laid beyond it, and the
+    // step that reaches into it is trimmed at its edge.
+    rearm(at);
+    return true;
+  }
+
+  /**
+   * Let the rest go at `at`: the walk carries on from there under whatever spec is held now,
+   * laying the steps the rest took off the ordinal it was wound back to. Refused with no rest
+   * standing. Never before the lookahead, which `arm` clamps it to — a step laid in the past is
+   * a step nobody hears (0383).
+   */
+  function letGo(at: number): boolean {
+    if (running === null || resting === null) return false;
+    queueEnd = Math.max(at, resting);
+    resting = null;
+    arm();
+    return true;
+  }
+
+  /**
+   * Where one spark of `step` is reading at `at`, or null wherever it is not reading — no pass, or
+   * a delayed one whose own start is still ahead. The step is handed in rather than scanned for
+   * again: `standingAt` walks the whole queue and `peek` has just called it (0070).
+   */
+  const sparkPositionOf = (step: Scheduled, spark: Spark, at: number): number | null =>
+    running === null ? null : sparkPosition(step, spark, running.grid, at);
 
   return {
     set: (next) => {
@@ -671,6 +676,8 @@ export function createDeckPlayer(
       running = { buffer, grid };
       walk = playerWalk(soloSongs(spec, solo));
       laid = 0;
+      // A fresh pass is never resting: a hand's play takes every rest with it (0371).
+      resting = null;
       const first = draw();
       queueEnd = armStep(first.step, first.ordinal, at);
       arm();
@@ -692,27 +699,13 @@ export function createDeckPlayer(
 
     rearm,
 
-    position: (at) => {
-      if (running === null) return null;
-      const { grid } = running;
-      const step = standingAt(at);
-      if (step === null) return null;
-      // Its own rates, not the pass's: a speed change moves the steps armed after it and leaves
-      // the ones already laid down reading at the rates their window was measured in. Held at the
-      // step's own end — between two steps the pattern is resting and the read head is where the
-      // burst left it — and wrapped on the burst's span, which is the slot's only at a burst
-      // of one (P67).
-      const into = readInto(step, Math.min(at - step.at, step.ends - step.at));
-      const read = into > 0 ? into % step.span : 0;
-      // A reversed landing walks that same span the other way, so the head is `span` in and coming
-      // back rather than at the slot's own edge and going on. It has to be: the playhead and the
-      // picture are drawn off this number, and a cursor running forwards under a landing playing
-      // backwards is the instrument showing one thing and playing another (P121).
-      return (
-        slotStart(grid, step.step.slot, step.step.bed) +
-        (step.step.reversed ? step.span - read : read)
-      );
-    },
+    position: positionAt,
+
+    rest,
+
+    resume: letGo,
+
+    resting: () => resting !== null,
 
     peek: (at, out) => {
       const entry = running === null ? null : standingAt(at);
@@ -744,6 +737,8 @@ export function createDeckPlayer(
       queue = [];
       running = null;
       walk = null;
+      // The rest dies with the pass, the way a queued jump does.
+      resting = null;
       // An arm is a pending jump of this pass, and the pass is over — unlike a solo, which is a
       // state the next pass opens on (0190).
       pending = null;
@@ -752,11 +747,10 @@ export function createDeckPlayer(
         // Every one of these has been started, which is the only thing `stop` refuses; one that
         // has already run out takes it as the no-op it is. What matters is the steps still ahead
         // of the clock: those are exactly the ones that must not sound.
-        step.source.stop();
+        silence(step);
         step.source.disconnect();
         step.fader.disconnect();
         for (const spark of step.sparks) {
-          spark.source.stop();
           spark.source.disconnect();
           spark.level.disconnect();
         }

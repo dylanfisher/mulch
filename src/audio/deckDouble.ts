@@ -139,6 +139,11 @@ export function fakeContext() {
       buffers.push(buffer);
       return buffer;
     },
+    // A parked source whose offset is a number an effect drives rather than a signal: what the
+    // lull's every parameter binds to, and the one node kind a rack plugin asks this fake for
+    // (src/audio/effects/lull.ts, 0049).
+    createConstantSource: () =>
+      Object.assign(fakeNode(), { offset: fakeParam([]), start: () => {} }),
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
     // The one effect node with a reading of its own, so a test can ask what a rack's meter puts
     // on the deck's per-frame read (0128 amended). `reduction` is writable here and read-only on

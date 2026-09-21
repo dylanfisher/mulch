@@ -33,19 +33,26 @@ export type DeckVoice = {
   /** Stops and holds the playhead where it is, so the next play carries on from there (0038). */
   pause(): void;
   /**
-   * A rest the rack asked for: stop the ordinary source at `at`, hold the playhead where it will
-   * be then, and answer whether it was taken — a deck with nothing playing, one walking a pattern
-   * or one already resting refuses (0371, 0372). Scheduled on the source and reported by the
-   * reporter at its instant, never timed from the main thread.
+   * A rest the rack asked for: stop what is sounding at `at`, hold the playhead where it will be
+   * then, and answer whether it was taken — a deck with nothing playing or one already resting
+   * refuses (0371, 0372). Scheduled on the source and reported by the reporter at its instant,
+   * never timed from the main thread. A deck walking a pattern rests it as a gap in that pattern
+   * instead: the player stops what it laid and lays nothing until the release, and no plan is
+   * torn down (0383).
    */
   holdAt(at: number): boolean;
   /**
    * The rest's end: a source started at `at` from where the hold left the playhead, kept inside
-   * the loop. Refused with no rest standing, or one already given its release. Laid ahead the way
-   * the hold was, so a render is sample-exact (0372).
+   * the loop — or, on a pattern, the walk carried on from there. Refused with no rest standing, or
+   * one already given its release. Laid ahead the way the hold was, so a render is sample-exact
+   * (0372, 0383).
    */
   releaseAt(at: number): boolean;
-  /** Let a standing rest go at the lookahead, in place — what a bypass owes it (0371). */
+  /**
+   * Let a standing rest go at the lookahead — what a bypass owes it (0371). A restart in place for
+   * the ordinary pass; on a pattern the walk simply carries on, since the rest tore nothing down
+   * to restart from, and the rack is counted again either way (0383).
+   */
   releaseNow(): void;
   /** The yard's sounding beat, in bpm, or nought — pushed down to the rack (0371). */
   setTempo(bpm: number): void;

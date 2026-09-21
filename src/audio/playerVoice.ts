@@ -104,6 +104,20 @@ export type DeckPlayer = {
   armPart: (part: SongPartId | null) => boolean;
   /** Whether a pass is running. */
   running(): boolean;
+  /**
+   * Rest the pass at `at` — the rack's ask, taken by a jumping deck as a gap in its own pattern:
+   * the steps ahead of the instant are dropped, the one it falls inside is stopped there, and
+   * nothing is laid until the release winds the walk on from where it stood. Answers whether it
+   * was taken; a pass already resting, or none running, refuses (0371, 0383).
+   */
+  rest(at: number): boolean;
+  /**
+   * The rest's end: the walk carries on from `at`, or from the lookahead where that is already
+   * past. Answers whether it did — with no rest standing it is nothing.
+   */
+  resume(at: number): boolean;
+  /** Whether a rest is standing over this pass. */
+  resting(): boolean;
   /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
   position(at: number): number | null;
   /**

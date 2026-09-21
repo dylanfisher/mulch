@@ -4,7 +4,9 @@
 - **Status:** accepted, amending [0089](0089-a-jump-is-the-transports.md)
   and [0222](0222-an-effect-hears-what-passes-through-it.md), whose mechanism it
   keeps and whose conclusion it narrows; resting on
-  [0320](0320-an-effects-address-is-a-rack-not-a-yard.md) for where the master's asks come from.
+  [0320](0320-an-effects-address-is-a-rack-not-a-yard.md) for where the master's asks come from;
+  amended by [0383](0383-a-rest-on-a-jumping-pass-is-a-gap-in-its-pattern.md), which takes the
+  refusal below away from a yard walking a pattern.
 
 **An instance still holds nothing but its own nodes.** 0089 ruled out a rack plugin allowed to reach
 the transport because the moment one plugin has a handle on the voice, "an effect processes what
@@ -12,8 +14,9 @@ reaches it" is no longer true of any of them. That stays true: the lull has no h
 is a list. `holds(until, out)` writes the hold and release edges it asks for up to a horizon, the
 rack gathers the lists of its running instances, and the voice reads them on the same arming tick
 it lays lanes and steps on — a function of the ticks covered and never of when it was called, the
-pump's own rule (0204). The transport decides what an ask is worth: a yard walking a pattern refuses
-it, a yard already resting refuses a second, and a release with no rest standing is nothing.
+pump's own rule (0204). The transport decides what an ask is worth: a yard already
+resting refuses a second, a release with no rest standing is nothing, and a yard walking a pattern
+takes the ask as a gap in that pattern (0383).
 
 **A hand always wins.** Play, pause, stop and seek each take every laid rest with them — the
 scheduled stops and the releases laid ahead — and a play tells every instance to count its gap again

@@ -7,10 +7,14 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
+import { PLAYER_SLOTS } from "@/lib/playerSlots";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { playerSequence } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import { deck } from "./deckHarness";
 import { emptyDeckPeek } from "./deckPeek";
-import { LOOKAHEAD_SECS } from "./transport";
+import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS } from "./transport";
 
 type Harness = ReturnType<typeof deck>;
 type Posted = PlayPlan & { id: number; until?: number; resume: boolean };
@@ -212,5 +216,177 @@ describe("a rest on the transport", () => {
     expect(held.sources[1]?.started[0]?.[0]).toBeCloseTo(3.5 + LOOKAHEAD_SECS, 9);
     expect(held.sources[1]?.started[0]?.[1]).toBeCloseTo(3 - LOOKAHEAD_SECS, 9);
     expect(held.voice.planned()).toBe(true);
+  });
+});
+
+/** A loop the grid divides into 0.2s slots, the way ./player.test.ts cuts one. Spelled again
+ *  rather than imported from there: importing a test module runs its cases a second time, which
+ *  is the reason ./deckHarness.ts is a module of its own and not an export of ./deck.test.ts. */
+const SPAN = 3.2;
+const SLOT = SPAN / PLAYER_SLOTS;
+/** The spec the cases below jump under: the module's own, on that loop, under one seed. */
+const PATTERN: PlayerSpec = { ...PLAYER_DEFAULTS, seed: 7 };
+
+/** One deck already walking a pattern, the way the rack finds it when a lull asks for a rest. */
+const mulching = (): Harness => {
+  const host = deck();
+  host.voice.setLoop(0, SPAN);
+  host.voice.setPlayer(PATTERN);
+  host.voice.play();
+  return host;
+};
+
+type Step = Harness["sources"][number];
+/**
+ * The window one step of a jumping pass actually sounds in, or null where it sounds not at all:
+ * every armed step carries the stop its own window ends at, a bare stop after it is a step dropped
+ * ahead of the clock, and a second stop at an instant is a rest taking it there.
+ */
+const sounds = (step: Step): [from: number, until: number] | null => {
+  const until = step.stopped.at(-1);
+  return until === undefined ? null : [step.started[0]?.[0] ?? Number.NaN, until];
+};
+
+/** The slots every step that sounds was started at, in order — the walk, as the graph played it. */
+const walked = (host: Harness): string[] =>
+  host.sources
+    .filter((step) => sounds(step) !== null)
+    .map((step) => ((step.started[0]?.[1] ?? Number.NaN) / SLOT).toFixed(6));
+
+/** The slots the seed itself draws, `n` of them. */
+const drawn = (n: number): string[] =>
+  playerSequence(PATTERN, n).map((step) => step.slot.toFixed(6));
+
+// A lull asks the transport for a rest and the mulcher drives that same transport: a jumping pass
+// takes the ask as a gap in its own pattern rather than refusing it (0371, 0383).
+// One contract, a case per promise. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a rest on a yard the mulcher is playing", () => {
+  it("goes silent across the rest and lays nothing inside it", () => {
+    const host = mulching();
+    const armed = host.sources.length;
+    expect(armed).toBeGreaterThan(1);
+    host.now(0.5);
+
+    expect(host.voice.holdAt(3)).toBe(true);
+    // Nothing the pass had laid is still sounding a seam past the instant: the steps ahead of it
+    // are dropped and the one it falls inside is stopped there.
+    for (const step of host.sources) {
+      expect(sounds(step)?.[1] ?? 0).toBeLessThanOrEqual(3 + PLAYER_FADE_SECS + 1e-9);
+    }
+    // And no tick inside the rest lays another one, however many of them run.
+    host.now(0.5 + AUTOMATION_REARM_SECS);
+    host.voice.armAutomation();
+    host.now(0.5 + 2 * AUTOMATION_REARM_SECS);
+    host.voice.armAutomation();
+    expect(host.sources).toHaveLength(armed);
+  });
+
+  it("carries the walk on from where the rest found it, rather than drawing it again", () => {
+    const host = mulching();
+    const armed = host.sources.length;
+    host.now(0.5);
+    host.voice.holdAt(3);
+    const standing = walked(host).length;
+
+    expect(host.voice.releaseAt(6)).toBe(true);
+    const laid = host.sources.slice(armed);
+    expect(laid.length).toBeGreaterThan(0);
+    // The steps the rest dropped are the ones it has to lay again: more than were left standing.
+    expect(standing).toBeGreaterThan(0);
+    expect(standing).toBeLessThan(armed);
+    // Nothing sounds inside the rest: the first step laid begins at the release and not before it.
+    for (const step of laid) expect(sounds(step)?.[0] ?? 0).toBeGreaterThanOrEqual(6);
+    // And the pattern the graph played across the rest is the one the seed draws, unbroken — a
+    // rest is a gap in the walk and never a second performance of its top.
+    const slots = walked(host);
+    expect(slots.length).toBeGreaterThan(standing);
+    expect(slots).toEqual(drawn(slots.length));
+  });
+
+  it("parks the read head where it stopped the pattern, for as long as the rest stands", () => {
+    const host = mulching();
+    host.now(0.5);
+    host.voice.holdAt(3);
+
+    host.now(3.5);
+    const head = positionOf(host);
+    host.now(4.5);
+    expect(positionOf(host)).toBe(head);
+  });
+
+  it("refuses a second rest, and a hand's play takes the one standing with it", () => {
+    const host = mulching();
+    host.now(0.5);
+    expect(host.voice.holdAt(3)).toBe(true);
+    expect(host.voice.holdAt(4)).toBe(false);
+    const armed = host.sources.length;
+
+    host.voice.play();
+    // A fresh pass, drawn again from the top of the pattern and resting under nothing.
+    expect(host.sources.length).toBeGreaterThan(armed);
+    expect(host.voice.releaseAt(5)).toBe(false);
+  });
+
+  it("lets a standing rest go in place at the lookahead when asked to now", () => {
+    const host = mulching();
+    host.now(0.5);
+    host.voice.holdAt(3);
+    host.now(3.5);
+    const armed = host.sources.length;
+
+    host.voice.releaseNow();
+    const laid = host.sources.slice(armed);
+    expect(laid.length).toBeGreaterThan(0);
+    expect(laid[0]?.started[0]?.[0]).toBeCloseTo(3.5 + LOOKAHEAD_SECS, 9);
+  });
+
+  // A rest is laid seconds ahead of the clock, so there is a long window in which one stands and
+  // has not begun. A move inside that window re-arms the pass from the lookahead, and what it
+  // drops has to be laid down again: the rest belongs where the lull drew it.
+  it("lays the steps before a pending rest again when the pattern is re-armed inside one", () => {
+    const host = mulching();
+    host.now(0.5);
+    expect(host.voice.holdAt(6)).toBe(true);
+    const armed = host.sources.length;
+
+    host.voice.setPlayer({ ...PATTERN, distance: 2 });
+    const laid = host.sources.slice(armed);
+    expect(laid.length).toBeGreaterThan(0);
+    // Laid up to the rest and never past it, so the yard sounds right up to the instant asked for.
+    for (const step of laid) {
+      expect(sounds(step)?.[1] ?? 0).toBeLessThanOrEqual(6 + PLAYER_FADE_SECS + 1e-9);
+    }
+    expect(Math.max(...laid.map((step) => sounds(step)?.[1] ?? 0))).toBeCloseTo(6, 9);
+  });
+
+  // A redraw asks for a clear, and the fresh run's own edges are drawn in the same breath as it.
+  // The ordinary pass survives that because its release restarts and the restart counts the rack
+  // again; a pattern's release tears nothing down, so it has to count the rack itself (0371).
+  it("counts the rack again when a redraw lets a pattern rest go", () => {
+    const host = mulching();
+    // At every chance, checked every five seconds and rested for five, the way 0371's cases do.
+    host.voice.addEffect("l1", "lull", {
+      "lull.chance": 1,
+      "lull.rest": 5,
+      "lull.every": 5,
+      "lull.grid": 0,
+      "lull.seed": 1,
+    });
+    host.now(0.5);
+    host.voice.armAutomation();
+    // The lull's first rest, five seconds into its run and taken by the pattern.
+    expect(host.sources.map((step) => step.stopped.at(-1))).toContain(5);
+    const armed = host.sources.length;
+
+    // The seed rebuilds, so the run is redrawn and the rest it laid is nobody's.
+    host.voice.setParam("l1", "lull.seed", 9);
+    host.voice.endGesture();
+    const laid = host.sources.slice(armed);
+    // The walk carries on from where the rest held it...
+    expect(laid[0]?.started[0]?.[0]).toBe(5);
+    // ...and the fresh run's first rest is laid in the same breath as the clear, counted from the
+    // lookahead the release stood at, rather than spent on a gather nobody applied.
+    expect(laid.map((step) => step.stopped.at(-1))).toContain(0.5 + LOOKAHEAD_SECS + 5);
   });
 });

@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0383. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0384. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -75,12 +75,27 @@ ground stood still until a gesture touched it — the reported sentence, one doo
 one argument in src/app/engine.ts; the pin for the copy is a case in src/app/decks.test.ts and the
 failure is one in src/app/engine.test.ts.
 
-**Step 3 — lull rests a yard the mulcher is playing.** _Durable shape moved:_ none. "lull effect
+**Step 3 — lull rests a yard the mulcher is playing
+([0383](decisions/0383-a-rest-on-a-jumping-pass-is-a-gap-in-its-pattern.md), landed).** _Durable
+shape moved:_ none. "lull effect
 doesn't appear to work when mulcher is activated". Lull asks the transport to rest on edges from
 its own seed (0371, src/audio/effects/lull.ts) and the mulcher drives the transport by its own
 plan (src/audio/player.ts); one of them ignores the other's hold. **Tests that must fail first:**
 a render of a mulched yard under a lull is silent across the lull's rests, matching the same
 render unmulched. **Refused:** a lull that only works on one transport.
+_Landed:_ neither ignored the other — the deck refused the ask outright, because 0371 had ruled
+that only the ordinary pass could be rested. The ask now reaches the pattern: the player drops the
+steps ahead of the instant, stops the one it falls inside there, lays nothing until the release and
+then carries the same walk on from the ordinal the rest found. Nothing of the deck's transport
+moves, so a rest on a jumping pass is a gap in its pattern rather than a halt (0383). The proof is
+five cases in src/audio/deckRest.test.ts, driven on the fake context rather than through a render:
+silence across the rest with nothing laid inside it, the walk continued rather than redrawn, the
+read head parked, the second rest refused with a hand's play taking the one standing, a bypass
+letting it go in place at the lookahead, and the two the review found: a re-arm inside a pending
+rest laying its steps again rather than silencing the yard early, and a redraw's clear counting the
+rack again so the fresh run's own edges are not spent unapplied. The rest put src/audio/player.ts past the 800-line hard
+cap, so the queue entry a step is and the two cursor reads over it moved whole into
+src/audio/playerCursor.ts, beside src/audio/playerWindow.ts and for its reason.
 
 **Step 4 — the popped-out picture opens on the grid.** _Durable shape moved:_ none. "when popping
 open visualizer there's a underlying solid color, like orange, before the grid fills in." The
@@ -298,3 +313,17 @@ the structural rule — every heading inside the group it heads — and the thro
 `scripts/smoke.d/moveCard.js`, which the local gate alone runs (0380). The alternative was an
 error boundary around the menu, which the step refused: a guard there leaves a control that opens
 onto nothing.
+
+**Step 3's proof is the schedule, not a render.** The step named a render of a mulched yard under
+a lull held against the same render unmulched. Nothing below the browser can host one — a render
+is an `OfflineAudioContext` and the suite runs on the fake context — so the silence is proved
+where it is scheduled instead: every step of the pass is stopped by the rest's instant, no tick
+inside the rest lays another, and the first step laid again begins at the release. The fake
+context records exactly the starts and stops a render would sound, so what is untested is the
+sample and not the schedule. The rest also stops the step it lands inside hard, with no seam,
+which is what an ordinary pass's rest already does to its source; one rule for both transports was
+worth more than a fade that would move the rest a seam off where the lull drew it. Two costs are
+taken knowingly, and are in 0383: a bypass arriving before the rest's instant still cuts the pass
+there, because a stop already scheduled cannot be taken back; and an arming that cannot reach the
+instant — `MAX_PLAYER_STEPS` at the shortest slot — rests where the queue ends instead of where the
+lull drew it, which is the transport's own horizon margin (0120) rather than this rest's.
