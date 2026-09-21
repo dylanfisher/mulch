@@ -25,6 +25,7 @@ export type KnobHandlers = {
   live?: () => number | null;
   animate?: boolean;
   resetsAnyway?: boolean;
+  land?: (value: number) => number;
 };
 export type WrapperProps = {
   onPointerDown: () => void;

@@ -70,6 +70,7 @@ export function SlotControls({
   label,
   bypassed,
   round,
+  beat,
 }: {
   instrument: Instrument;
   deck: RackId;
@@ -81,6 +82,9 @@ export function SlotControls({
   bypassed: boolean;
   /** What every value this head writes passes through — the card's own (0326). */
   round?: (param: EffectParamId, value: number) => number;
+  /** The rack's beat, for the one control here that outlives this card: a copy of it is a second
+   *  card, and it carries the holds this one has on (0387). */
+  beat: RackBeat;
 }) {
   const toggleRunning = useCallback(
     (running: boolean) => {
@@ -92,10 +96,14 @@ export function SlotControls({
     instrument.send({ t: "effect.remove", deck, instance });
   }, [instrument, deck, instance]);
   // One command for one press: the copy's values and its bypass are the reducer's, so this
-  // control never sends the three commands a copy expands into (0078, 0092).
+  // control never sends the three commands a copy expands into (0078, 0092). What the command
+  // cannot carry is the hold, which is the rack's runtime and not the session's — so the copy of
+  // it is made here, beside the mint, against the id the command is about to use (0387).
   const duplicate = useCallback(() => {
-    instrument.send(duplicateEffectCommand(deck, instance));
-  }, [instrument, deck, instance]);
+    const copy = duplicateEffectCommand(deck, instance);
+    instrument.send(copy);
+    beat.copyHolds(instance, copy.id);
+  }, [instrument, deck, instance, beat]);
 
   /**
    * Every knob on this card somewhere new, as one entry in history — the draw is the command
@@ -300,6 +308,7 @@ function EffectCard({
             label={label}
             bypassed={entry.bypassed}
             round={round}
+            beat={beat}
           />
         </CardAction>
       </CardHeader>

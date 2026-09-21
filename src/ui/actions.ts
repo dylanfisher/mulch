@@ -134,7 +134,13 @@ export function addEffectCommand(deck: RackId, effect: EffectId): Command {
  * is the reducer's, because a caller that listed it would be a second way to build a rack entry
  * (0092).
  */
-export function duplicateEffectCommand(deck: RackId, instance: EffectInstanceId): Command {
+// Narrowed rather than `Command`, because the id minted here is the one thing about the copy the
+// caller cannot look up afterwards: the rack carries its own runtime for a card — which of its
+// parameters are held to the beat — and copying that needs both ids (0387).
+export function duplicateEffectCommand(
+  deck: RackId,
+  instance: EffectInstanceId,
+): Extract<Command, { t: "effect.duplicate" }> {
   return { t: "effect.duplicate", deck, instance, id: mintInstanceId() };
 }
 

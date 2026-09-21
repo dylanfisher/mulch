@@ -307,6 +307,21 @@ type KnobProps = {
    * rode from the default (0385, src/ui/ParameterKnob.tsx). Absent, the guard stands.
    */
   resetsAnyway?: boolean;
+  /**
+   * The places this dial is allowed to stand, as a landing every value it reaches passes through
+   * before it is painted or sent — a parameter held to the beat lands on whole divisions of it
+   * and on nothing between them (src/ui/ParameterBeat.tsx). Absent, a dial stands wherever its
+   * own `step` lets it, which is every dial in the instrument but a held one.
+   *
+   * It is a landing and not a second range: the drag goes on accumulating the value it would have
+   * reached, so a hand travelling across two divisions crosses one and the dial *steps* rather
+   * than sliding and being corrected afterwards, and the keys go on stepping by `step` until the
+   * sum of them reaches the next place — as far as `step` moves the value at all, which on a log
+   * dial whose declared step is coarser than a key's own move is nowhere, landing or none. Must be
+   * stable across renders; must be idempotent, since the readout's own typed value passes through
+   * the caller's copy of it too.
+   */
+  land?: (value: number) => number;
 };
 
 /**
@@ -341,6 +356,7 @@ export function Knob({
   animate = true,
   marksDefault = false,
   resetsAnyway = false,
+  land,
 }: KnobProps) {
   /** The three parts a live value moves: the arc, the indicator and the readout under it. */
   const travelled = useRef<SVGPathElement>(null);
@@ -379,11 +395,6 @@ export function Knob({
     [curve, format, max, min, step],
   );
 
-  // A dial paints ahead of the store for exactly the length of its own gesture — a move turns it
-  // before its value is sent, so the hand never waits on what a commit costs downstream (0307) —
-  // and yet a gesture the browser ended has nothing to put back: every move committed the value it
-  // painted, so what is on the dial is what the store holds (0114).
-  const drag = usePointerGesture<Drag>(() => {});
   /**
    * The value this dial last reached — sent by its own hand, or handed to it by a render that
    * moved `value` — and what a key, a reset and a press step from instead of the prop: the yard
@@ -391,9 +402,37 @@ export function Knob({
    * behind, and a key repeated inside that gap would step from where the dial had already left.
    * `rendered` is what the last render carried, which is how a render that moved is told from one
    * that did not.
+   *
+   * Under a landing it is also where the hand is between two places, which is not where the dial
+   * is — see `landed`, and `settle`, which is what keeps the difference inside one gesture.
    */
   const reached = useRef(value);
   const rendered = useRef(value);
+  /**
+   * Where the dial is actually standing — `reached` put through `land`, and the same number where
+   * there is no landing. Held apart from `reached` because the two are exactly what a stepped dial
+   * needs to be: the hand goes on travelling between two places while the dial stays on the one it
+   * is on, and a move that lands where it already is turns nothing and sends nothing.
+   */
+  const landed = useRef(value);
+  /**
+   * A gesture's ending, however it ends: the hand's travel goes back to where the dial is standing.
+   *
+   * On a plain dial this is already true — every move wrote, so the two are the same number — and
+   * under a landing it is the whole difference between accumulating *inside* a drag and keeping a
+   * drag's abandoned travel forever. A press that never crossed to the next place sends nothing,
+   * so no render carries a new `value` and the layout effect below never re-seats either ref; the
+   * next press would then start from a fraction the dial is not at, and the next arrow key would
+   * cross on one stroke (0387).
+   */
+  const settle = useCallback(() => {
+    reached.current = landed.current;
+  }, []);
+  // A dial paints ahead of the store for exactly the length of its own gesture — a move turns it
+  // before its value is sent, so the hand never waits on what a commit costs downstream (0307) —
+  // and yet a gesture the browser ended has nothing to put back but the hand's own travel: every
+  // move committed the value it painted, so what is on the dial is what the store holds (0114).
+  const drag = usePointerGesture<Drag>(settle);
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
@@ -401,10 +440,13 @@ export function Knob({
       const snapped = snapToStep(next, min, max, step);
       if (snapped === reached.current && !anyway) return;
       reached.current = snapped;
-      paint(snapped);
-      onChange(snapped);
+      const place = land === undefined ? snapped : land(snapped);
+      if (place === landed.current && !anyway) return;
+      landed.current = place;
+      paint(place);
+      onChange(place);
     },
-    [max, min, onChange, paint, step],
+    [land, max, min, onChange, paint, step],
   );
 
   const handlePointerDown = useCallback(
@@ -445,11 +487,18 @@ export function Knob({
       if (next === state.reached) return;
       state.reached = next;
       reached.current = next;
+      // The place that value lands on, which on a plain dial is the value. A drag across a stepped
+      // dial goes on accumulating above — the fraction is the hand's, not the dial's — so what is
+      // dropped here is the stretch of travel between two places, and the dial steps onto the next
+      // one when the hand crosses to it.
+      const place = land === undefined ? next : land(next);
+      if (place === landed.current) return;
+      landed.current = place;
       // Painted before it is sent: the dial is at the hand whatever the commit below costs.
-      paint(next);
-      onChange(next);
+      paint(place);
+      onChange(place);
     },
-    [curve, drag, max, min, onChange, paint, step, travelPx],
+    [curve, drag, land, max, min, onChange, paint, step, travelPx],
   );
 
   const handlePointerUp = useCallback(
@@ -459,8 +508,9 @@ export function Knob({
       // hand's angle stands on every ending: every move committed the value it painted, and the
       // render carrying it may still be on its way (0307).
       drag.ended(event);
+      settle();
     },
-    [drag],
+    [drag, settle],
   );
 
   useOnFrame(
@@ -486,9 +536,12 @@ export function Knob({
     // says nothing about where the dial is.
     if (value !== rendered.current) {
       rendered.current = value;
-      if (drag.held() === null) reached.current = value;
+      if (drag.held() === null) {
+        reached.current = value;
+        landed.current = value;
+      }
     }
-    if (!animate || live === undefined) paint(live?.() ?? reached.current);
+    if (!animate || live === undefined) paint(live?.() ?? landed.current);
   }, [animate, drag, live, paint, value]);
 
   /**

@@ -46,6 +46,9 @@ const dialOf = (rendered: unknown): KnobHandlers => {
   return knob.props;
 };
 
+/** A rounding a caller may hand the dial, standing still across renders the way a real one does. */
+const doubled = (value: number) => value * 2;
+
 /** What the knob draws in its corner over `lane`. */
 const marker = (lane: readonly AutomationPoint[] | null) => renderKnob(lane).wrapper.children[1];
 
@@ -549,6 +552,27 @@ describe("ParameterKnob automation gestures", () => {
       param: "deck.gain",
       value: 0.3,
     });
+  });
+
+  /**
+   * And the same rounding goes down to the dial as its landing, so the places it may stand on are
+   * the places the command can carry: a held parameter steps under the hand instead of sliding and
+   * being corrected once the store answers (0387). One function, handed to both — the readout's
+   * typed number reaches `onChange` without passing the dial at all.
+   */
+  it("hands the dial the same rounding its command passes through, and none without one", () => {
+    const instrument = createInstrument(manualClock(4));
+    const props = {
+      instrument,
+      deck: "a" as const,
+      param: "deck.gain" as const,
+      value: 1,
+      lane: null,
+      drawn: null,
+      playing: false,
+    };
+    expect(dialOf(ParameterKnob({ ...props, round: doubled })).land).toBe(doubled);
+    expect(dialOf(ParameterKnob(props)).land).toBeUndefined();
   });
 });
 

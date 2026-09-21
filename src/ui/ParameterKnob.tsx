@@ -563,6 +563,13 @@ export const ParameterKnob = memo(function ParameterKnob({
         {...(PARAM_TOOLTIPS[param] === undefined ? {} : { says: PARAM_TOOLTIPS[param] })}
         size="sm"
         {...(spec.step === undefined ? {} : { step: spec.step })}
+        // The same rounding, one layer down: as `onChange` above it is the one rule in front of
+        // the command, and as the dial's landing it is where the dial may stand at all — so a
+        // parameter held to the beat steps between whole divisions of it under the hand rather
+        // than sliding and being corrected once the store answers. One function, handed to both
+        // (principle 1): the readout's typed number reaches `onChange` without passing the dial,
+        // and a value already on a division lands on itself.
+        {...(round === undefined ? {} : { land: round })}
         // A knob with no lane hands the dial no live read at all, and so registers no frame
         // callback (0035). One that has a lane always hands it over — a halted deck holds its
         // gesture where it stopped, and the dial holds with it — but only a playing deck is

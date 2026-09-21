@@ -21,7 +21,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { rackLabel } from "@/lib/copy";
 import { PLAYER_BEAT_LABEL, PLAYER_TAP_LABEL } from "@/lib/copyCard";
 import { PARAM_BEAT_TOOLTIP, PARAM_TAP_TOOLTIP } from "@/lib/copyParams";
-import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
+import { instanceHalf, PARAM_IDS, paramKey, PARAMS, type ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { beatBurst, tapBurst, tapPress } from "@/lib/playerBurst";
 import { Button } from "@/ui/components/button";
@@ -52,7 +52,41 @@ export type RackBeat = {
   /** Which (instance, parameter) pairs are held to it, by `paramKey`. */
   holds: ReadonlySet<string>;
   setHold: (key: string, held: boolean) => void;
+  /**
+   * Every hold one instance is carrying, said again for a second instance of the same effect —
+   * what a copy of a card does with the toggle on its head (0387).
+   *
+   * Here and not in the reducer because the hold is not durable: it is the rack's own runtime, so
+   * the copy is made where the copy's id is minted, in the rack that is about to hold both cards
+   * (src/ui/EffectRack.tsx).
+   */
+  copyHolds: (from: EffectInstanceId, to: EffectInstanceId) => void;
 };
+
+/**
+ * The parameters a hold can be on at all — every one that declared `beat`, off the registry rather
+ * than listed here, so a second tapped parameter is one declaration and not two (principle 1).
+ * What a copy of a card visits, because a hold's key is opaque and a set of them says nothing
+ * about which instance each belongs to.
+ */
+const BEAT_PARAM_IDS: readonly ParamId[] = PARAM_IDS.filter((id) => PARAMS[id].beat === true);
+
+/**
+ * `holds` with everything `from` is holding said again for `to`. The copy's id is minted a moment
+ * before this and nothing is held on it, so this only ever adds — and a set that did not grow is
+ * returned as it came, so copying a card holding nothing redraws no rack.
+ */
+export function withCopiedHolds(
+  holds: ReadonlySet<string>,
+  from: EffectInstanceId,
+  to: EffectInstanceId,
+): ReadonlySet<string> {
+  const next = new Set(holds);
+  for (const param of BEAT_PARAM_IDS) {
+    if (holds.has(paramKey(from, param))) next.add(paramKey(to, param));
+  }
+  return next.size === holds.size ? holds : next;
+}
 
 /**
  * A rack holding nothing to the beat, which is what every rack opens holding. One value rather
@@ -97,7 +131,10 @@ export function useRackBeat(bpm: number): RackBeat {
       return next;
     });
   }, []);
-  return useMemo(() => ({ bpm, holds, setHold }), [bpm, holds, setHold]);
+  const copyHolds = useCallback((from: EffectInstanceId, to: EffectInstanceId) => {
+    setHolds((prev) => withCopiedHolds(prev, from, to));
+  }, []);
+  return useMemo(() => ({ bpm, holds, setHold, copyHolds }), [bpm, holds, setHold, copyHolds]);
 }
 
 /**

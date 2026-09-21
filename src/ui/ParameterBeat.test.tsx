@@ -14,7 +14,7 @@ import { rackLabel } from "@/lib/copy";
 import type { RackId } from "@/state/store";
 import { SlotControls } from "@/ui/EffectRack";
 import { findLabelled, labels, markupOf, rackBeat } from "@/ui/effectRackDouble";
-import { heldValue, ParameterBeat, type RackBeat } from "@/ui/ParameterBeat";
+import { heldValue, ParameterBeat, withCopiedHolds, type RackBeat } from "@/ui/ParameterBeat";
 import type { ParameterKnobProps } from "@/ui/ParameterKnob";
 
 /**
@@ -176,6 +176,7 @@ describe("a tapped parameter's own two gestures", () => {
       bpm: 120,
       holds: new Set([paramKey("one", "delay.time")]),
       setHold: () => {},
+      copyHolds: () => {},
     };
     const round = (param: EffectParamId, value: number) => heldValue(beat, "one", param, value);
     const sent = vi.spyOn(instrument, "send");
@@ -189,6 +190,7 @@ describe("a tapped parameter's own two gestures", () => {
         label: "Delay 1",
         bypassed: false,
         round,
+        beat,
       });
       return null;
     }
@@ -226,6 +228,7 @@ describe("a tapped parameter's own two gestures", () => {
       setHold: (key, on) => {
         holds.push(`${key} ${String(on)}`);
       },
+      copyHolds: () => {},
     };
     const { controls } = beatControls(instrument, beat);
     const sent = vi.spyOn(instrument, "send");
@@ -237,5 +240,62 @@ describe("a tapped parameter's own two gestures", () => {
     expect(sent.mock.calls.map(([command]) => command)).toEqual([
       { t: "param.set", deck: "a", instance: "one", param: "delay.time", value: 0.25 },
     ]);
+  });
+
+  /**
+   * A copy of a card is a second card saying what the first one says, and the hold is one of the
+   * things it says — so the copy press carries it onto the id the command is minting, in the rack
+   * the two cards share. The hold stays runtime rather than becoming a field of the entry: it is
+   * no part of what the graph plays, and the value it rounded is already durable (0026, 0387).
+   */
+  it("carries the holds of a copied card onto the copy", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    const copies: [string, string][] = [];
+    const beat: RackBeat = {
+      ...rackBeat(120),
+      holds: new Set([paramKey("one", "delay.time")]),
+      copyHolds: (from, to) => {
+        copies.push([from, to]);
+      },
+    };
+    const sent = vi.spyOn(instrument, "send");
+    let head: ReactNode = null;
+    function Probe(): null {
+      head = SlotControls({
+        instrument,
+        deck: "a",
+        instance: "one",
+        effect: "delay",
+        label: "Delay 1",
+        bypassed: false,
+        beat,
+      });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    findLabelled(head, "Duplicate Delay 1 on Yard A")!.onClick!();
+
+    const copy = sent.mock.calls.map(([command]) => command)[0]!;
+    if (!("t" in copy) || copy.t !== "effect.duplicate")
+      throw new Error("the copy sent no command");
+    // The id the command carries and the id the rack was told to hold are the same one: a copy
+    // that held some other id would be a hold on a card that is not on the rack.
+    expect(copies).toEqual([["one", copy.id]]);
+  });
+
+  /**
+   * What that copy is, under the rack's own state: every tapped parameter the source is holding
+   * said again for the new id, and nothing else touched. A card holding nothing is copied as the
+   * same set it came in as, so a rack redraws for a copy that changed a hold and for no other.
+   */
+  it("copies every held tapped parameter and leaves an unheld card's set alone", () => {
+    const held = new Set([paramKey("one", "delay.time"), paramKey("two", "delay.time")]);
+    const copied = withCopiedHolds(held, "one", "three");
+    expect([...copied]).toEqual([...held, paramKey("three", "delay.time")]);
+    // A parameter that declared no `beat` is not a hold and is never copied as one, and a source
+    // holding nothing hands back the very set it was given.
+    const loose = new Set([paramKey("one", "delay.feedback")]);
+    expect(withCopiedHolds(loose, "one", "three")).toBe(loose);
   });
 });

@@ -128,7 +128,15 @@ const headControl = (
 ): Labelled => {
   let head: ReactNode = null;
   function Probe(): null {
-    head = SlotControls({ instrument, deck: "a", instance, effect, label, bypassed });
+    head = SlotControls({
+      instrument,
+      deck: "a",
+      instance,
+      effect,
+      label,
+      bypassed,
+      beat: rackBeat(),
+    });
     return null;
   }
   renderToStaticMarkup(<Probe />);

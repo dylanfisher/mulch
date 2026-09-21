@@ -213,6 +213,105 @@ describe("Knob lifecycle", () => {
   });
 });
 
+// The two gestures a landing changes, kept apart from the plain drag's suite: what is asked here
+// is where the dial may stand at all, which is a different question from where a hand took it.
+// One case per thing a landing decides — the drag's crossing, the keys' sum, and the travel a
+// gesture that crossed nothing leaves behind, which is asked once per ending. Waived at the site
+// rather than raised for the tree; see docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("Knob landing", () => {
+  /**
+   * A dial handed a landing stands on the places it allows and nowhere between them: a drag across
+   * the stretch between two of them writes nothing, and crossing to the next one writes it once.
+   * That is the whole difference between a dial that steps and one that slides and is corrected
+   * afterwards — the correction lands, but the hand watches the dial pass through values it cannot
+   * hold (0387).
+   */
+  it("steps between the places a landing allows, and stands still between them", () => {
+    const onChange = vi.fn<(value: number) => void>();
+    // Quarters of the sweep, which the plain 0.01 step would otherwise fill in between.
+    const { control } = renderKnob(onChange, { land: (v) => Math.round(v * 4) / 4 });
+    const element = target();
+
+    dispatch(control.onPointerDown, element, 0, 0);
+    // 0.5 to 0.6: inside the same quarter, so the dial has not moved and nothing was written.
+    dispatch(control.onPointerMove, element, 18, 0);
+    expect(onChange).not.toHaveBeenCalled();
+    // On across the crossing at 0.625 and past it: one write, at the place, not at the value.
+    dispatch(control.onPointerMove, element, 36, 0);
+    dispatch(control.onPointerMove, element, 45, 0);
+    expect(onChange.mock.calls).toEqual([[0.75]]);
+    // And back the way it came: the travel between the two places is still the hand's, so one
+    // crossing is one write however many moves it took.
+    dispatch(control.onPointerMove, element, 0, 0);
+    expect(onChange.mock.calls).toEqual([[0.75], [0.5]]);
+  });
+
+  /**
+   * The keys go on stepping by `step` under a landing — what they add up is the value the hand is
+   * reaching for, and the dial moves when that sum crosses to the next place. Dropping the sum
+   * would leave every arrow key on a held dial permanently dead, since each press would recompute
+   * from the place it never left. What a press adds is still the dial's own `step`, which on a log
+   * dial coarse enough to swallow it moves nothing with a landing or without one (0387, P82).
+   */
+  /**
+   * And a press that crossed nothing leaves nothing behind: the hand's travel is the drag's, so it
+   * goes back to where the dial is standing when the hand lets go, whichever way the gesture ended.
+   * Without that, a drag that wrote nothing would seed the next press from a fraction the dial was
+   * never at, and one arrow key afterwards would cross a place on its own (0387).
+   */
+  it.each([
+    [
+      "the pointer comes up",
+      (control: ControlProps, element: ReturnType<typeof target>) => {
+        dispatch(control.onPointerUp, element, 12, 0, 0);
+      },
+    ],
+    [
+      "the gesture is cancelled",
+      (control: ControlProps, element: ReturnType<typeof target>) => {
+        dispatch(control.onPointerCancel, element, 12, 0, 0);
+      },
+    ],
+    [
+      "the capture is lost",
+      (_control: ControlProps, element: ReturnType<typeof target>) => {
+        element.lose();
+      },
+    ],
+  ])("hands the hand's travel back to the dial's place when %s", (_ending, end) => {
+    const onChange = vi.fn<(value: number) => void>();
+    const { control } = renderKnob(onChange, { land: (v) => Math.round(v * 4) / 4 });
+    const element = target();
+
+    // A whole drag inside one quarter: the dial never moved and nothing was ever written.
+    dispatch(control.onPointerDown, element, 0, 0);
+    dispatch(control.onPointerMove, element, 12, 0);
+    expect(onChange).not.toHaveBeenCalled();
+    end(control, element);
+
+    // So an arrow key afterwards steps from the place, not from the travel that was abandoned.
+    control.onKeyDown({ key: "ArrowUp", preventDefault: () => {} });
+    expect(onChange).not.toHaveBeenCalled();
+    // And the next drag starts there too: the same 12px goes the same nowhere it went before.
+    dispatch(control.onPointerDown, element, 0, 0);
+    dispatch(control.onPointerMove, element, 12, 0);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("adds keyboard steps up until they cross to the next place", () => {
+    const onChange = vi.fn<(value: number) => void>();
+    const { control } = renderKnob(onChange, { land: (v) => Math.round(v * 4) / 4 });
+    const key = { key: "ArrowUp", preventDefault: () => {} };
+
+    for (let press = 0; press < 12; press += 1) control.onKeyDown(key);
+    // Twelve presses of 0.01 from 0.5 is 0.62, still under the crossing at 0.625.
+    expect(onChange).not.toHaveBeenCalled();
+    control.onKeyDown(key);
+    expect(onChange.mock.calls).toEqual([[0.75]]);
+  });
+});
+
 describe("Knob dial", () => {
   it("reveals the travelled arc by dash offset, over the track's own path", () => {
     const { dial } = renderKnob(() => {}, { live: () => 0.25 });

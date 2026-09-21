@@ -28,6 +28,7 @@ export const rackBeat = (bpm = 0): RackBeat => ({
   bpm,
   holds: new Set<string>(),
   setHold: () => {},
+  copyHolds: () => {},
 });
 
 /** The rack as it renders right now, for whatever the instrument currently holds on deck a. */

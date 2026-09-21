@@ -11,9 +11,6 @@
 
 - Add ability to set loop based on beat count
 
-- setting delay to beat mode should change time to only toggle between set beat points
-- duplicate delay effect should also copy the beat toggle
-
 - lull effect should impact the visualizer in such a way that it looks like a gap is drawn in, use empty
   and negative space in an interesting way.
 

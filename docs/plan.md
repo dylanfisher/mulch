@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0387. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0388. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -170,14 +170,30 @@ src/ui/EffectMove.test.tsx. The mute's control moved out of src/ui/Deck.tsx into
 src/ui/DeckMute.tsx beside src/ui/DeckRemove.tsx, because Deck.test.tsx is at the hard cap and a
 control with a gesture wants a file a test can hold.
 
-**Step 7 — the delay's beat is a setting the dial keeps.** _Durable shape moved:_ none, unless the
-hold turns out to want to be durable — decide in the step and say so. "setting delay to beat mode
+**Step 7 — the delay's beat is a setting the dial keeps
+([0387](decisions/0387-a-held-dial-steps-and-its-copy-is-held.md), landed).** _Durable shape
+moved:_ none — the hold stays runtime, decided in the step and recorded in 0387. "setting delay to beat mode
 should change time to only toggle between set beat points" and "duplicate delay effect should also
 copy the beat toggle". The hold lives in rack runtime (`beat.holds`, src/ui/ParameterBeat.tsx),
 which is why a duplicate drops it; with it held, the dial's drag steps between the divisions
 `beatBurst` already rounds onto (src/lib/playerBurst.ts) rather than sliding and rounding after.
 **Tests that must fail first:** a duplicate of a held delay is held; a drag under the hold
 commits only divisions of the beat. **Refused:** a second rounding.
+_Landed:_ the rounding was already in front of every command, so what was missing was the
+picture: the dial painted every value the hand dragged through on its way to a number the store
+would not keep. A dial can now be handed a landing — the places it may stand at all — and while it
+has one it steps between them (`land`, src/ui/Knob.tsx); the held parameter hands over the
+rounding it already had, so one function is both the rule and the set of places (0387). The hand's
+travel is kept and the dial's is not: a drag goes on accumulating above the landing and the keys
+go on adding their step to it, which is what makes the dial step on the crossing and what keeps an
+arrow key on a held dial from being permanently dead; a gesture's ending hands that travel back to
+the place, or a press that crossed nothing would seed the next one from where the dial never was —
+three cases of the review's, one per ending. The hold stays runtime rather than becoming
+a `SessionEffect` field — it is a way of writing a number, not a number — so no stored session
+changes shape (0026), and the copy carries it by hand: `duplicateEffectCommand` returns its
+narrowed command so the press that mints the id hands both ids to the rack (`copyHolds`), off the
+registry's own `beat` declarations rather than a list. The pins are two cases in
+src/ui/Knob.test.tsx, one in src/ui/ParameterKnob.test.tsx and two in src/ui/ParameterBeat.test.tsx.
 
 **Step 8 — a burst may be sixteen seconds and cross the seam.** _Durable shape moved:_ none.
 "increase mulcher burst timing to be up to 8 or 16 seconds. if a burst needs to wrap around a
@@ -426,3 +442,23 @@ fingerprint measures, which the mute had made half false, was rewritten. Two wer
 tag is not drawn under the sequencer face, where the yard's own name is not drawn either, and a
 tag of one space renders as an empty pair of brackets, which a hand can clear and the instrument
 should not quietly rewrite.
+
+**Step 7's hold is copied by the rack and not by the reducer, so a copied yard starts loose.**
+Keeping the hold out of `SessionEffect` (0387) is what keeps stored sessions the shape they are,
+and it puts the copy in the hand that mints the new id — the press on a card's head, in the rack
+that is about to hold both cards. A whole yard duplicated (`deck.duplicate`) mounts a new rack
+with its own runtime, which opens holding nothing, so the copy's delay is on the same time as its
+source and no longer rounding to it; the same is true of a reload, which is what the hold has
+always cost. The step's words are about the card's own copy, and that is what landed. A yard's
+copy, a clip and a restore would all come free from a durable hold, which is the trade 0387 names
+and refuses.
+
+**Step 7 left two things standing that the review found and this step is not the place for.** The
+delay's Time declares no step, so its dial takes the knob's default 0.01 over a log range of
+0.01–2, and a key's own move below about 0.1s is finer than that: `commit` snaps it back and the
+arrow keys are dead there, hold or no hold — P82's collision at the burst's floor, at a second
+call site, and true at HEAD before this step. The landing does not cause it and cannot fix it; a
+step of `delay.time`'s own would. And the mulcher card's burst still slides under a held hand and
+is corrected once the store answers (`heldPatch`, src/ui/playerBurstControls.ts): it is the same
+hold and the same `beatBurst`, now two gestures on two cards. Step 8 opens that file to raise the
+cap, and handing its dial the same `land` belongs there rather than here.
