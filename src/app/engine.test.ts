@@ -7,8 +7,14 @@
  *   context, because the reports under test come from the voice rather than from a double.
  */
 // One fake graph plus the cases it exists for; the graph is the shared fixture and splitting the
-// describes would mean two copies of it. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines-per-function
+// describes would mean two copies of it — which is also why the file is over the soft cap: a
+// second file would carry a second copy of the context above, and the hard cap is far above it.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines-per-function, max-lines
+// And two imports over the cap, both the shared ground's: the one case about it builds a pattern
+// the way the module builds one and names the ground it is restoring (principle 1).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionRepository } from "@/state/repository";
@@ -18,6 +24,10 @@ import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 import { GEN_SECS } from "@/lib/waveform";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
+import { partVoice } from "@/lib/player";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { oneSong } from "@/lib/playerSongs";
+import type { SessionGround } from "@/lib/sessionGround";
 
 const SAMPLE_RATE = 48_000;
 
@@ -28,6 +38,9 @@ const fakeParam = () => {
     value: 0,
     cancelScheduledValues: () => {},
     cancelAndHoldAtTime: () => {},
+    // A step's seams are written as a curve, which is the one thing a jumping pass needs of a
+    // parameter that the ordinary one does not.
+    setValueCurveAtTime: () => {},
     setValueAtTime: () => {},
     // A ramp lands where it was aimed: the one reading of a parameter's own value the graph
     // makes is the lull's roll, which reads the chance off its lane's target.
@@ -49,6 +62,13 @@ const fakeBuffer = (channels: number, length: number, sampleRate: number) => {
     copyToChannel: (source: Float32Array, channel: number) => data[channel]?.set(source),
   };
 };
+
+/**
+ * Every source this graph has built, newest last. A jumping step reads its ground by where its
+ * source loops, so the only way to see which ground a pass is standing on is to read the sources
+ * it armed — the peek answers the step the clock is inside, and this context's clock never moves.
+ */
+const sources: { loopStart: number }[] = [];
 
 /** Only the factories the master bus, a deck chain and the transport actually reach for. */
 function fakeContext(): BaseAudioContext {
@@ -77,8 +97,8 @@ function fakeContext(): BaseAudioContext {
     // hand the host the empty decode a truncated or headers-only file produces.
     decodeAudioData: (bytes: ArrayBuffer) =>
       Promise.resolve(fakeBuffer(1, bytes.byteLength, SAMPLE_RATE)),
-    createBufferSource: () =>
-      Object.assign(fakeNode(), {
+    createBufferSource: () => {
+      const source = Object.assign(fakeNode(), {
         buffer: null,
         loop: false,
         loopStart: 0,
@@ -88,7 +108,10 @@ function fakeContext(): BaseAudioContext {
         addEventListener: () => {},
         start: () => {},
         stop: () => {},
-      }),
+      });
+      sources.push(source);
+      return source;
+    },
   };
   // oxlint-disable-next-line no-unsafe-type-assertion -- the graph uses only the members above
   return context as unknown as BaseAudioContext;
@@ -156,7 +179,12 @@ function fixture(): Fixture {
     save: () => Promise.resolve(),
     ingest: () => Promise.reject(new Error("this fixture stores nothing")),
     blob: (id) => Promise.resolve(blobs.get(id) ?? null),
-    blobs: () => Promise.reject(new Error("this fixture stores nothing")),
+    // Nothing is stored, so the only read this fixture can answer is the empty one an undo of a
+    // session whose sources are all generated asks for.
+    blobs: (ids) =>
+      ids.size === 0
+        ? Promise.resolve(new Map())
+        : Promise.reject(new Error("this fixture stores nothing")),
     replace: () => Promise.resolve(),
   };
   // Collected the way the reporters above are, rather than assigned to a captured `let`: the
@@ -199,6 +227,7 @@ const settle = async (): Promise<void> => {
 
 afterEach(() => {
   reporters.length = 0;
+  sources.length = 0;
   vi.unstubAllGlobals();
 });
 
@@ -339,5 +368,76 @@ describe("a lull on the master", () => {
       const last = reporter.plans.at(-1);
       expect(last).toMatchObject({ startTime: LOOKAHEAD_SECS, resume: false, until: undefined });
     }
+  });
+});
+
+/**
+ * The session's shared ground, on a yard standing on it, as a led ground with parts to count:
+ * every part this yard opens is one boundary, and one boundary is one move.
+ */
+const LED_GROUND: SessionGround = {
+  per: "part",
+  leader: "a",
+  every: 1,
+  wanders: true,
+  reach: "anywhere",
+  way: "either",
+};
+
+/** A pattern on the session's ground, arranged as two short parts so the boundaries come fast. */
+const TOGETHER_ON_PARTS = {
+  ...PLAYER_DEFAULTS,
+  seed: 9,
+  bedTogether: true,
+  songs: oneSong(
+    ["one", "two"].map((id) => ({
+      id,
+      name: id,
+      skip: false,
+      voice: partVoice(PLAYER_DEFAULTS),
+      length: 2,
+      steps: [],
+    })),
+  ),
+};
+
+/** Whether the pass armed since the last read has carried the loop a whole bed or more through
+ *  the source: a source looping past the end of a one-second loop is standing on a ground the walk
+ *  moved to, and a ground that never moved cannot read this way at all (0185). */
+const leftTheLoop = (from: number): boolean =>
+  sources.slice(from).some((source) => source.loopStart >= 1);
+
+// The ground a restored session comes back standing on, which is the host's only after the swap:
+// the voices are prepared while the host still holds the ground going out, so the clock they are
+// handed has to be about the one coming back (0313, 0382).
+describe("the shared ground a restore hands over", () => {
+  it("leads from the yard the restored ground names, not the one the host was holding", async () => {
+    const { instrument } = fixture();
+    // A second yard for the outgoing ground to name, holding nothing: what it is for is to be a
+    // leader that is not this one.
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌱", name: "Second Yard" });
+    instrument.send({ t: "deck.loop", deck: "a", in: 0, out: 1 });
+    instrument.send({ t: "deck.player", deck: "a", player: TOGETHER_ON_PARTS });
+    instrument.send({ t: "session.ground", ground: LED_GROUND });
+    // The positive control: on the ground as the command set it, the yard leads and the loop
+    // moves through the source.
+    const before = sources.length;
+    instrument.send({ t: "deck.play", deck: "a" });
+    expect(leftTheLoop(before)).toBe(true);
+    instrument.send({ t: "deck.stop", deck: "a" });
+
+    // A ground led by the other yard — which holds no pattern, so it crosses nothing and the
+    // count stands still under it — and then the first one back through an undo, which rebuilds
+    // every voice rather than replaying the command that set it. Led either way on purpose: the
+    // count is reached by the same road under both grounds, so the only thing the restore can get
+    // wrong here is *which yard reports*, which is the half of the clock this case is about.
+    instrument.send({ t: "session.ground", ground: { ...LED_GROUND, leader: "b" } });
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().ground).toEqual(LED_GROUND);
+
+    const after = sources.length;
+    instrument.send({ t: "deck.play", deck: "a" });
+    expect(leftTheLoop(after)).toBe(true);
   });
 });

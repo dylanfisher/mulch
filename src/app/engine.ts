@@ -275,14 +275,21 @@ export function createAudioEngine(
    * What one voice is handed about the shared ground: the count at an instant, and the way to say
    * a boundary was armed — the second of which is null for every yard but the one leading it, so a
    * voice never has to know its own name (0313).
+   *
+   * A clock is about **the ground it is handed beside**, which is this host's own except where a
+   * session is being restored under it: there the voices stand on the ground coming back while the
+   * host still holds the one going out, and a clock read off the host would decide who leads by
+   * the ground nobody is on any more (0382). Demanded and never defaulted, so the pair is written
+   * out at each of the three places a voice is stood on a ground and neither half can be the one
+   * nobody chose.
    */
-  const groundClock = (deck: DeckId): GroundClock => ({
-    ticksBy: (at) => (groundIsLed(ground) ? ledTicksBy(at) : groundTicksBy(ground, at)),
+  const groundClock = (deck: DeckId, held: SessionGround): GroundClock => ({
+    ticksBy: (at) => (groundIsLed(held) ? ledTicksBy(at) : groundTicksBy(held, at)),
     crossed:
-      groundIsLed(ground) && ground.leader === deck
+      groundIsLed(held) && held.leader === deck
         ? (at) => {
             crossed++;
-            if (crossed < ground.every) return;
+            if (crossed < held.every) return;
             crossed = 0;
             ticks.push(at);
           }
@@ -291,7 +298,7 @@ export function createAudioEngine(
   const newVoice = (deck: DeckId): DeckVoice => {
     const voice = makeVoice(ctx, master.input, deck, store, emit, () => rescheduling === deck);
     voice.setSync(sync);
-    voice.setGround(ground, groundClock(deck));
+    voice.setGround(ground, groundClock(deck, ground));
     return voice;
   };
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
@@ -526,7 +533,7 @@ export function createAudioEngine(
       // all inside it, so a changed ground is a new count rather than the old one carried on.
       ticks = [];
       crossed = 0;
-      for (const [deck, held] of voices) held.setGround(next, groundClock(deck));
+      for (const [deck, held] of voices) held.setGround(next, groundClock(deck, next));
     },
     setParam: (deck, instance, param, value) => {
       if (deck === null) {
@@ -703,7 +710,7 @@ export function createAudioEngine(
         // And the ground beside it, for the reason above: a graph rebuilt without it would leave
         // an undone or imported session's yards standing on the ground this host last held (0313).
         for (const { id: deck } of session.deckList)
-          preparedIn(deck).setGround(session.ground, groundClock(deck));
+          preparedIn(deck).setGround(session.ground, groundClock(deck, session.ground));
       } catch (error) {
         release();
         throw error;

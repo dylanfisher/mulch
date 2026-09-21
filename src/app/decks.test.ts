@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { tierName } from "@/lib/copyNames";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
-import { partVoice } from "@/lib/player";
+import { partVoice, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { sessionSnapshot, validateSession, type Session } from "@/state/session";
 import { deckIdsOf, INITIAL_DECK_ID, type DeckId } from "@/state/store";
@@ -24,6 +24,7 @@ import type { Event } from "./events";
 import { createInstrument } from "./facade";
 import { GEN_SECS, genSecs } from "@/lib/waveform";
 import { songsParts, oneSong } from "@/lib/playerSongs";
+import { playerSequence } from "@/lib/playerWalk";
 
 // oxlint-enable import/max-dependencies
 
@@ -75,6 +76,12 @@ const twoDecks = (calls: string[] = [], at = 0) => {
   const instrument = createInstrument(manualClock(at), () => engineDouble(calls));
   instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
   return instrument;
+};
+
+/** The first twelve grounds one spec walks to, which is what a hand hears a copy standing on. */
+const grounds = (spec: PlayerSpec | null): number[] => {
+  if (spec === null) throw new Error("a yard with no pattern to walk");
+  return playerSequence(spec, 12).map((step) => step.bed);
 };
 
 /** Every refusal the log carried, as the sentences it said them in. */
@@ -439,6 +446,40 @@ describe("duplicating a yard", () => {
     const [copy] = songsParts(instrument.probe().decks.b?.player?.songs ?? []);
     expect(copy?.name).toBe(tierName("part", copy?.id ?? ""));
     expect(copy?.name).not.toBe(song[0].name);
+  });
+
+  /**
+   * The ground is the one field of the spec that is a *walk* rather than a number, so a copy that
+   * carried every field and still stood still would be a copy of the pattern and not of where it
+   * plays. Walked rather than compared: two specs that agree field for field agree about the next
+   * grounds by construction, and it is the grounds the hand hears (0185, 0382).
+   */
+  it("copies a wandering ground, so the copy walks the source's grounds from the first jump", async () => {
+    const instrument = loadedYard([]);
+    const wandering = {
+      ...PLAYER_DEFAULTS,
+      seed: 9,
+      bedEvery: 1,
+      bedWanders: true,
+      bedReach: "anywhere",
+    } as const;
+    instrument.send({ t: "deck.player", deck: "a", player: wandering });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
+    await settle();
+
+    const { decks } = instrument.probe();
+    const source = grounds(decks.a?.player ?? null);
+    // The ground the copy is on, jump for jump — and a ground that actually moves, or the case
+    // would pass on two yards that both stand still.
+    expect(grounds(decks.b?.player ?? null)).toEqual(source);
+    expect(new Set(source).size).toBeGreaterThan(1);
   });
 
   it("lands on the index it names, under the yard it was copied from (0111)", async () => {

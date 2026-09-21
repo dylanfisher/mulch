@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0382. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0383. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -55,7 +55,9 @@ context — and the yard-to-yard one, which no suite held, is now a case in
 src/app/effectMaster.test.ts. The fix is one `DropdownMenuGroup`; the browser proof is
 `scripts/smoke.d/moveCard.js`, in the renders lane.
 
-**Step 2 — a duplicated yard's ground moves from the first jump.** _Durable shape moved:_ none.
+**Step 2 — a duplicated yard's ground moves from the first jump
+([0382](decisions/0382-a-ground-clock-is-about-the-ground-it-is-handed.md), landed).** _Durable
+shape moved:_ none.
 "when duplicating a deck, the 'which ground' where it wanders setting doesn't take affect. i have
 to toggle a change before it starts going to other locations." `duplicatedDeckPreset`
 (src/app/restore.ts) clones the player spec whole, so the spec arrives intact and something
@@ -63,6 +65,15 @@ downstream is not re-armed on the copy — the same fact a session restore must 
 so read the restore stages first. **Tests that must fail first:** through `createInstrument`, a
 duplicate of a yard whose ground wanders reports the same next grounds as its source on the first
 walk. **Refused:** a synthetic toggle on duplicate; a fix that restore does not also get.
+_Landed:_ the duplicate was clean at every layer — the copy walks its source's grounds jump for
+jump through `createInstrument`, through the real engine over a fake context, and in the browser
+through the card's own Duplicate, with a gen source and a stored one, on its own ground and on the
+session's, and a reload restores a wandering ground too. What is not re-armed is the _restore_: a
+prepared voice was handed the ground coming back beside a clock built from the ground going out,
+so a session restored onto a led shared ground named a leader no voice was reporting for and the
+ground stood still until a gesture touched it — the reported sentence, one door along. The fix is
+one argument in src/app/engine.ts; the pin for the copy is a case in src/app/decks.test.ts and the
+failure is one in src/app/engine.test.ts.
 
 **Step 3 — lull rests a yard the mulcher is playing.** _Durable shape moved:_ none. "lull effect
 doesn't appear to work when mulcher is activated". Lull asks the transport to rest on edges from
@@ -272,6 +283,14 @@ failing seam-level test before broad UI work. Do not turn the driver into a seco
 teaching it feature semantics.
 
 ## 4. Not taken
+
+**Step 2 did not reproduce as reported.** A duplicated yard's ground walks its source's grounds
+from the first jump on this build, at every layer a reproduction can reach — the stage list carries
+the whole spec and the walk is a pure function of it — so the step's named test landed as a pin
+that never failed rather than as proof. What it cost was the hunt: seven reproductions before the
+defect turned up in the restore beside it (0382), which produces the same sentence the entry does.
+Whether the human met it through a duplicate or through the undo beside one is not knowable from
+the note, and a second guess at their session was refused.
 
 **Step 1's crash has no proof below the browser.** The Move To popup is a portal that renders
 nothing outside one, so no colocated Vitest case can watch Base UI throw; what the suite holds is
