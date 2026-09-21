@@ -269,12 +269,17 @@ describe("effect registry", () => {
     }
   });
 
-  // P356 step 10: what the automator writes off is now the eleven pool weights and nothing else —
-  // the six knobs that shape its run reach the shards look, and a weight's own reach is the rows the
-  // run it grows lays (0360). A twelfth line here is a knob that has quietly left the picture.
-  it("writes off the automator's eleven pool weights and nothing else", () => {
-    expect(AUTO_UNREACHED.map((each) => each.param)).toEqual(Object.values(WEIGHT_OF));
-    expect(AUTO_UNREACHED).toHaveLength(11);
+  // P356 step 10: what the automator writes off is the eleven pool weights and, since P356 step 14,
+  // the one knob that is a weight's twin — States, which decides which values those grown effects
+  // arrive at where a weight decides which effects they are (0360, 0394). The six knobs that shape
+  // its run reach the shards look. A thirteenth line here is a knob that has quietly left the
+  // picture.
+  it("writes off the automator's pool weights and the count that is their twin", () => {
+    expect(AUTO_UNREACHED.map((each) => each.param)).toEqual([
+      "auto.states",
+      ...Object.values(WEIGHT_OF),
+    ]);
+    expect(AUTO_UNREACHED).toHaveLength(12);
     // And every other knob of it is drawn, by a dimension of its row or by a term of its look.
     const { params, driftFrom, lookFrom } = effectById("automator");
     const reached = new Set([...driftFrom, ...(lookFrom ?? [])].map((each) => each.param));
@@ -286,7 +291,7 @@ describe("effect registry", () => {
   });
 
   // And the list the block is closing, said as a whole rather than per entry: the only values still
-  // written off are the automator's pool weights. A new one here is an entry deciding for itself
+  // written off are the automator's own, its weights and the count beside them. A new one here is an entry deciding for itself
   // that it has nothing to say.
   it("writes off only the knobs a step of this block still owes", () => {
     const owed = new Set<string>(AUTO_UNREACHED.map((each) => each.param));

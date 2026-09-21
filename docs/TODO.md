@@ -38,10 +38,6 @@
 - add a feature to pitch effect that allows setting intervals like a simple keyboard recording
   so we can automate little melodies
 
-- effect automator needs a way to set a random 0/1 style value change, so you can do something like toggle between
-  to random states, and set duration of automator to get interesting effects. you could set 1/2/3/4 etc different
-  states on a knob.
-
 - try seeing what it looks like if the visualizer is the background of the entire card.
 
 - play/pause effect, kinda like scatter

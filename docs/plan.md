@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0394. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0395. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -346,14 +346,31 @@ src/app/automationEdit.ts. The pins are sixteen cases: five in src/lib/automatio
 src/app/automation.test.ts, two in src/ui/AutomationPreview.test.tsx, three in the new
 src/ui/LaneBoundsRow.test.tsx and one in src/state/session.test.ts.
 
-**Step 14 — the automator may throw between a few states.** _Durable shape moved:_ none if it is
-a knob on the automator's declaration (src/audio/effects/automatorParams.ts); say so. "effect
+**Step 14 — the automator may throw between a few states
+([0394](decisions/0394-a-run-may-be-thrown-between-a-few-states.md), landed).** _Durable shape
+moved:_ none — `auto.states` is a knob on the automator's declaration
+(src/audio/effects/automatorParams.ts), so an instance's values record already carries it. "effect
 automator needs a way to set a random 0/1 style value change, so you can do something like toggle
 between two random states, and set duration of automator to get interesting effects. you could set
 1/2/3/4 etc different states on a knob." A count of states, one to four, drawn from the seed the
 way the population is (0203); at one it is today's automator. **Tests that must fail first:** the
 growth maths with a state count yields exactly that many distinct values per parameter across a
 long run, same seed same run. **Refused:** a stored draw.
+_Landed:_ `auto.states`, one to four, at one by default — and one is the run as it was rather than
+one state, which is the only reading of the floor that leaves every run drawn before this knob
+untouched (0394). `stateDraw` (src/lib/effectGrowth.ts) reads which of that many equal shares of a
+parameter's window a draw landed in and takes that share at a phase drawn off the run's own
+generator, one per parameter, when the cursor is built: the states are the seed's, not a lattice
+every run shares, and nothing is stored. Only a value's own draw is snapped, so which entry a place
+lays and whether a standing value moves stay free. The count is a ceiling — a presence, or any
+window a hand has closed, takes one value however many states the run is thrown between. It reaches
+the picture as the rows it grows, the way a pool weight does, so it is the twelfth line of
+`AUTO_UNREACHED` rather than a drift claim: the review's Seam lens showed that the obvious claim,
+`fringe`, is one of the five dimensions the whole picture shares by boldest claim, and the knob's
+own default would have stood at the far end of it and flattened every picture in the instrument.
+The pins are seven cases: six in the new src/lib/effectGrowthStates.test.ts — which is where they
+went because the existing suite crossed the 400-line soft cap — and one in
+src/audio/effects/automator.test.ts, that the knob reaches the maths at all.
 
 **Step 15 — the ground moves under a yard the mulcher is not on.** _Durable shape moved:_ to be
 decided in the step — whether the ground's motion spec leaves the `PlayerSpec`. "which ground
@@ -700,3 +717,18 @@ depended on. `validateLaneBounds` beside `validateBounds`, `LaneBoundsRow` besid
 _second_ occurrence, and principle 3 says the second is not a finding. `BOUNDS_STEP` is the second
 declaration of a slider step and stays local rather than importing a constant out of the pool
 menu's own component file.
+
+**Step 14 shipped its states seeded, and declined a shared bin helper.** The first cut snapped a
+draw to the middle of its share — a quantizer, the same two values on every seed — which the
+review's Contract lens read against the step's own "drawn from the seed the way the population is";
+the phase per parameter is what answers it, and the cost is that turning States up is a different
+run rather than the same run quantized. Two claims the first cut made were narrowed on evidence:
+"exactly that many distinct values per parameter" is exactly that many only where the window has
+width and the stray is above nothing (a presence takes one value at any count), and the `fringe`
+drift claim came out entirely — the Seam lens traced it to `boldestRow`, where the knob's own
+shipped default would have stood at the far end of a dimension the whole picture shares. The Reuse
+lens's one finding — that indexing a unit draw into N bins is now the fourth site of that
+arithmetic, and wants `binOf` in src/lib/range.ts — is declined for this step: a helper with one
+caller removes nothing, and the three existing sites (src/lib/moireGlyph.ts, src/lib/playerSong.ts,
+src/lib/playerCharacter.ts) are three modules this step has no business editing (principle 4). It
+is a real third occurrence and belongs to a step of its own.

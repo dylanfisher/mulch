@@ -16,6 +16,7 @@ import { pannerEffect } from "./panner";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
 import { STIR_MIN_SECS, stirSecs, TICK_MIN_SECS, WAIT_MAX } from "./automatorParams";
 import { isGrowable } from "./registry";
+import { GROWTH_STATES_MIN } from "@/lib/effectGrowth";
 import { normalize } from "@/lib/range";
 import type { GrownEffect } from "./contract";
 
@@ -387,6 +388,26 @@ describe("the effect automator", () => {
     const drew = rows.map((row) => [row.effect, row.values.length]);
     expect(drew).toContainEqual(["eq", 3]);
     expect(drew).toContainEqual(["panner", 2]);
+  });
+
+  it("throws its run between the states its own knob asks for", () => {
+    // What the states do to a draw is proved in src/lib/effectGrowth.test.ts; what this reads is
+    // that the knob reaches that maths at all — a run quantized to a handful of settings is not
+    // the run the same seed draws without one.
+    const drawnAt = (states: number) => {
+      const { ctx, instance } = built(2, 3, 1);
+      instance.setParam("auto.drift", 1, 0);
+      instance.setParam("auto.states", states, 0);
+      instance.endGesture?.();
+      instance.pump?.(0, 8);
+      ctx.advance(4);
+      instance.pump?.(ctx.currentTime, ctx.currentTime + 8);
+      return rowsOf(instance).map((row) => [row.effect, ...row.values].join(":"));
+    };
+    expect(drawnAt(2)).not.toEqual(drawnAt(GROWTH_STATES_MIN));
+    // And the same count twice from one seed is the same run: a state is where a draw lands, not a
+    // draw of its own.
+    expect(drawnAt(2)).toEqual(drawnAt(2));
   });
 
   /**

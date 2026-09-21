@@ -43,6 +43,36 @@ export const GROWTH_WANDER_MIN = 0;
 export const GROWTH_WANDER_MAX = 1;
 
 /**
+ * How many values a drawn knob may take, across the whole run. One is the run as it was — every
+ * draw its own number — and two and up is a throw between exactly that many, for as long as the
+ * run stands. The ceiling is four because the point is to hear the run land on the same place
+ * twice, and a knob thrown between more states than a hand can count is the continuum it had.
+ */
+export const GROWTH_STATES_MIN = 1;
+export const GROWTH_STATES_MAX = 4;
+
+/**
+ * Which state a draw falls in, as that state's own turn: which of `states` equal shares of the
+ * window it landed in, taken at `phase` of the way through that share. On the draw and never on
+ * the value, because a state is one point per parameter and a lattice over values would be a
+ * lattice over hertz and decibels at once.
+ *
+ * **The phase is the seed's, which is what makes the states drawn rather than declared.** Without
+ * it every run at two states, on every seed, would throw every knob between the same quarter and
+ * the same three-quarter turn of its own window — a quantizer, and not the two random states this
+ * was asked for. One phase per parameter and one share per state, so the states are drawn and are
+ * still a share apart: a throw between two of them is one a hand can hear rather than two draws
+ * that happened to land together. At the floor the draw is handed back untouched, which is the
+ * automator every run before this knob had.
+ */
+export function stateDraw(draw: number, states: number, phase: number): number {
+  const at = clamp(draw, 0, 1);
+  const count = clamp(Math.round(states), GROWTH_STATES_MIN, GROWTH_STATES_MAX);
+  if (count <= GROWTH_STATES_MIN) return at;
+  return (Math.min(count - 1, Math.floor(at * count)) + clamp(phase, 0, 1)) / count;
+}
+
+/**
  * The shortest a wander may take. A value that steps is a graph edit and not a movement, which is
  * the one thing this whole entry exists to refuse (0202), so the fastest end of the dial is still
  * a ramp.
@@ -209,6 +239,8 @@ export type GrowthSpec = {
   drift: number;
   /** The odds one drawn value moves again at each tick it stands. */
   wander: number;
+  /** How many values each parameter may be drawn at. One is a fresh number every draw. */
+  states: number;
 };
 
 /**
@@ -260,6 +292,31 @@ export function createGrowth(
   const least = Math.min(held(spec.least), most);
   const odds = clamp(spec.odds, GROWTH_ODDS_MIN, GROWTH_ODDS_MAX);
   const wander = clamp(spec.wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
+  const states = clamp(Math.round(spec.states), GROWTH_STATES_MIN, GROWTH_STATES_MAX);
+  // Where each parameter's states stand, drawn off this run's own generator before its first tick
+  // and never again: what a run throws between is the seed's. Nothing is stored — the phases are
+  // the cursor's, derived again with it the way the places are (0204) — and nothing is drawn at
+  // all at the floor, which keeps a run with no states the run it always was.
+  const phases = new Map<string, number>();
+  if (states > GROWTH_STATES_MIN) {
+    for (const entry of pool) {
+      for (const param of entry.params) {
+        if (param.held === true) continue;
+        phases.set(param.id, random());
+      }
+    }
+  }
+  // Only a value's own draw is snapped: which entry a place lays and whether a standing value
+  // moves are decisions about the run and not values of it, so a run thrown between two states
+  // still draws from the whole pool and still wanders at the odds it was given.
+  const valueDraw = (param: GrowthParam): number => {
+    if (states <= GROWTH_STATES_MIN) return random();
+    // A parameter with no phase is a pool changed under the cursor, which is a redraw and not a
+    // draw: it would throw this one value somewhere nobody asked for.
+    const phase = phases.get(param.id);
+    if (phase === undefined) throw new Error(`no state phase for ${param.id}`);
+    return stateDraw(random(), states, phase);
+  };
   const weights = pool.map(({ weight }) => weight);
   const entries = new Map(pool.map((entry) => [entry.id, entry] as const));
   const places: (GrowthPlace | null)[] = Array.from({ length: most }, () => null);
@@ -287,7 +344,7 @@ export function createGrowth(
       for (const param of entry.params) {
         if (param.held === true || param.presence === true || param.lane !== true) continue;
         const moves = random() < wander;
-        const value = drawValue(param, spec.drift, random());
+        const value = drawValue(param, spec.drift, valueDraw(param));
         if (moves) values.push({ param: param.id, value });
       }
       if (values.length > 0) changes.push({ t: "move", place, values });
@@ -305,7 +362,7 @@ export function createGrowth(
       // A held value is not drawn and its draw is not spent: it is the automator's to move, so
       // there was never a choice here to make (0202).
       if (param.held === true) continue;
-      values.push({ param: param.id, value: drawValue(param, spec.drift, random()) });
+      values.push({ param: param.id, value: drawValue(param, spec.drift, valueDraw(param)) });
     }
     const laid: GrowthPlace = { effect: entry.id, place, born };
     places[place] = laid;

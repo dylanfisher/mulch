@@ -97,8 +97,8 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "panner.time": "Give the two sides their own short delay and gain, so a move is heard arriving.",
   "panner.slice":
     "Land successive short slices at their own positions, so the sound crosses in grains.",
-  // The automator's own twenty. It holds a run of other effects rather than a sound, so its words
-  // are about the run: what is in it, how wide it is, how often it turns over (0204).
+  // The automator's own twenty-one. It holds a run of other effects rather than a sound, so its
+  // words are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
   "auto.most": "The most effects the run may hold at once, and how many places it turns over.",
@@ -115,6 +115,9 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.wander":
     "How alive a grown effect's knobs are once they are drawn: the odds one moves again, and how " +
     "fast it gets there.",
+  "auto.states":
+    "How many values each grown knob may take. One draws a fresh number every time; above it the " +
+    "run throws between exactly that many settings.",
   "auto.panner": "How often a panner is drawn against the rest of the pool. None is never.",
   "auto.delay": "How often a delay is drawn against the rest of the pool. None is never.",
   "auto.eq": "How often an EQ/Filter is drawn against the rest of the pool. None is never.",

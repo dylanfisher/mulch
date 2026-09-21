@@ -1,6 +1,7 @@
 /**
  * @role What an automator grows, proved to be a function of its seed and nothing else — the claim
  *   an offline render of the same session rests on (0204).
+ * @instead What a state count does to those draws → ./effectGrowthStates.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { DRIFT_OCTAVES_REACH, DRIFT_GEOMETRIES, LINEAR_GEOMETRY } from "./moire.ts";
@@ -10,6 +11,7 @@ import {
   drawValue,
   drawWeighted,
   GROWTH_COUNT_MAX,
+  GROWTH_STATES_MIN,
   grownOctaves,
   WANDER_MIN_SECS,
   wanderSecs,
@@ -42,14 +44,25 @@ const WANDERS: readonly GrowthEntry[] = POOL.slice(0, 1);
  * every place is the one every other case reads.
  */
 const run = (
-  spec: { most: number; drift: number; wander?: number; least?: number; odds?: number },
+  spec: {
+    most: number;
+    drift: number;
+    wander?: number;
+    least?: number;
+    odds?: number;
+    states?: number;
+  },
   ticks: number,
   seed = 7,
   pool = POOL,
   /** How many wander ticks fall inside one change tick — the second clock the caller keeps. */
   stirs = 1,
 ) => {
-  const growth = createGrowth({ wander: 0, least: 0, odds: 1, ...spec }, mulberry32(seed), pool);
+  const growth = createGrowth(
+    { wander: 0, least: 0, odds: 1, states: GROWTH_STATES_MIN, ...spec },
+    mulberry32(seed),
+    pool,
+  );
   // The order the automator realizes them in: a stir at the same instant as a tick goes first, so
   // a place laid at that tick is not also moved at it.
   return Array.from({ length: ticks }, (_, tick) => [
@@ -138,7 +151,7 @@ describe("effect growth", () => {
   it("holds the run inside the width it was asked for, however long it goes", () => {
     const standing = new Map<number, string>();
     const growth = createGrowth(
-      { most: 3, least: 0, odds: 1, drift: 0.5, wander: 0 },
+      { most: 3, least: 0, odds: 1, drift: 0.5, wander: 0, states: GROWTH_STATES_MIN },
       mulberry32(7),
       POOL,
     );

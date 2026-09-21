@@ -13,6 +13,8 @@ import {
   GROWTH_DRIFT_MIN,
   GROWTH_ODDS_MAX,
   GROWTH_ODDS_MIN,
+  GROWTH_STATES_MAX,
+  GROWTH_STATES_MIN,
   GROWTH_WANDER_MAX,
   GROWTH_WANDER_MIN,
 } from "@/lib/effectGrowth";
@@ -185,6 +187,21 @@ export const params = [
     precision: 2,
     rebuild: true,
   },
+  {
+    // The third thing a drawn value can be, after how far it strays and how alive it is: how many
+    // values it may be at all. At one it is the run as it always was, every draw its own number;
+    // above it every parameter of every entry is thrown between exactly that many states, so a
+    // wander is a switch between two places rather than a walk through all of them and a life set
+    // short is a run flipping between a handful of settings (0208).
+    id: "auto.states",
+    label: "States",
+    min: GROWTH_STATES_MIN,
+    max: GROWTH_STATES_MAX,
+    default: GROWTH_STATES_MIN,
+    precision: 0,
+    step: 1,
+    rebuild: true,
+  },
   // One weight per poolable entry. Eleven literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` (0203, 0204).
@@ -239,7 +256,7 @@ export const WEIGHT_OF: Record<string, AutoParamId> = {
  * beside the reason it reaches none — the other half of `driftFrom` and `lookFrom`, and the list the
  * registry throws at load for a parameter that is in none of them (0148, 0359).
  *
- * **The pool weights, and nothing else** (0360). A weight is one voice in a pool: what it decides is
+ * **The pool weights, and the one knob that is a weight's twin** (0360, 0394). A weight is one voice in a pool: what it decides is
  * which effects a run grows, and every one of those already reaches the picture as a row of its own
  * the moment it is grown (`grownInto`, src/ui/moireGrown.ts). So the reach of these eleven is the
  * rows they bring, which is declared here rather than left as a silence — a row per weight would be
@@ -249,7 +266,20 @@ export const WEIGHT_OF: Record<string, AutoParamId> = {
 const POOL_WEIGHT =
   "a weight is one voice in a pool, and its reach is the rows the run it grows lays";
 
+/**
+ * And States, which is the same answer one parameter further in: a weight decides which effects a
+ * run grows, and States decides which values those effects arrive at — neither is a value of the
+ * automator's own row, and both are already drawn where they land, as the grown rows themselves
+ * (0394). A dimension of its own would be worse than a silence here: `fringe`, the reading a bit
+ * depth takes, is one of the five the whole picture shares by boldest claim, and a count whose
+ * floor is the continuum stands at the far end of it — so a knob nobody had touched would have
+ * flattened every picture in the instrument (0360, src/ui/moireScreenInk.ts).
+ */
+const STATE_COUNT =
+  "a count of states is which values the run it grows arrives at, and its reach is those rows";
+
 export const AUTO_UNREACHED: readonly { param: AutoParamId; because: string }[] = [
+  { param: "auto.states", because: STATE_COUNT },
   { param: "auto.panner", because: POOL_WEIGHT },
   { param: "auto.delay", because: POOL_WEIGHT },
   { param: "auto.eq", because: POOL_WEIGHT },

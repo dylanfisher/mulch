@@ -210,6 +210,7 @@ describe("parameter registry", () => {
       "auto.fade",
       "auto.drift",
       "auto.wander",
+      "auto.states",
       "auto.panner",
       "auto.delay",
       "auto.eq",
