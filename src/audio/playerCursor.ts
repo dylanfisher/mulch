@@ -36,8 +36,13 @@ export type Scheduled = {
    * so a clock turned down or off does not leave the tail waiting out the old one's tick (0097).
    */
   next: number;
-  /** The buffer seconds its source loops, from the slot it starts in — the burst, at its rate. */
+  /** The buffer seconds its source loops, from the slot it starts in — the burst at its rate, or
+   *  the whole bed where the burst outlives what is left of it (`slotRead`,
+   *  src/audio/playerWindow.ts). */
   span: number;
+  /** How far into that window the slot it landed on begins, which is what the cursor adds before
+   *  it takes its modulo (`SlotRead`, src/audio/playerWindow.ts). */
+  enters: number;
   /** The rate each of this step's repeats was armed at, and how long each of those repeats is.
    *  Read per step, not per pass: a speed change moves the ones armed after it and must not be
    *  applied to a window laid out for another rate. A pair rather than one number since P124,
@@ -65,6 +70,31 @@ export type Scheduled = {
 };
 
 /**
+ * Where a read that has gone `into` buffer seconds stands, in buffer seconds, given the slot it
+ * landed on and the window its source loops around that slot.
+ *
+ * `enters` is how far into that window the slot itself is, which is nought for every burst that
+ * fits in what is left of the bed and the slot's own offset for one that wrapped (`slotRead`,
+ * src/audio/playerWindow.ts). So a wrapping landing's cursor runs off the bed's end and comes back
+ * at its head, which is what the source is doing — a playhead that snapped back to the slot there
+ * would be the instrument showing one thing and playing another (P121).
+ *
+ * Backwards is that same window walked the other way, from its end: the head is `span` in and
+ * coming back rather than at the slot's own edge and going on, and a wrapping landing read
+ * backwards entered at the window's end, so the one expression covers both.
+ */
+const windowRead = (
+  slot: number,
+  window: { span: number; enters: number },
+  reversed: boolean,
+  into: number,
+): number => {
+  const from = slot - window.enters;
+  const read = into > 0 ? into % window.span : 0;
+  return from + (reversed ? window.span - read : (window.enters + read) % window.span);
+};
+
+/**
  * Where the deck is reading at `at`, in buffer seconds, off the entry the clock is inside.
  *
  * Its own rates, not the pass's: a speed change moves the steps armed after it and leaves the ones
@@ -74,14 +104,7 @@ export type Scheduled = {
  */
 export function stepPosition(step: Scheduled, grid: Grid, at: number): number {
   const into = readInto(step, Math.min(at - step.at, step.ends - step.at));
-  const read = into > 0 ? into % step.span : 0;
-  // A reversed landing walks that same span the other way, so the head is `span` in and coming
-  // back rather than at the slot's own edge and going on. It has to be: the playhead and the
-  // picture are drawn off this number, and a cursor running forwards under a landing playing
-  // backwards is the instrument showing one thing and playing another (P121).
-  return (
-    slotStart(grid, step.step.slot, step.step.bed) + (step.step.reversed ? step.span - read : read)
-  );
+  return windowRead(slotStart(grid, step.step.slot, step.step.bed), step, step.step.reversed, into);
 }
 
 /**
@@ -107,11 +130,8 @@ export function sparkPosition(
   const from = Math.min(spark.at - step.at, step.ends - step.at);
   if (held < from) return null;
   const into = readInto(step, held) - readInto(step, from);
-  const read = into > 0 ? into % spark.span : 0;
   // Backwards where the landing is, for the reason the landing's cursor is: the spark takes the
   // landing's direction, so a cursor running the other way would be the picture saying one thing
   // while the graph plays another (P121).
-  return (
-    slotStart(grid, spark.slot, step.step.bed) + (step.step.reversed ? spark.span - read : read)
-  );
+  return windowRead(slotStart(grid, spark.slot, step.step.bed), spark, step.step.reversed, into);
 }

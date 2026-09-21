@@ -195,3 +195,34 @@ describe("what a jumping deck reports", () => {
     expect(out.player).toEqual({ step: null, at: null, sparkPositions: [], armed: null });
   });
 });
+
+describe("what a jumping deck reads under a burst longer than its loop", () => {
+  /**
+   * A burst longer than what is left of the loop in front of it reads on through the loop's head
+   * rather than stopping at its tail (0388), and the playhead has to go with it: the source is
+   * looping the whole loop from the slot it landed on, so a cursor that snapped back to that slot
+   * at the seam would be the instrument showing one thing and playing another (P121).
+   */
+  it("carries the playhead across the loop's seam under a burst longer than the loop", () => {
+    // Longer than the loop itself, so every landing wraps wherever it lands.
+    const burst = SPAN + SLOT;
+    const host = jumping({ burst, repeats: 1 });
+    // The first landing that is not at the top of the loop: there the seam falls inside the burst
+    // with buffer on both sides of it, which is the whole case.
+    const laid = playerSequence({ ...PLAYER, burst, repeats: 1 }, host.sources.length);
+    const index = laid.findIndex((step) => step.slot > 0);
+    expect(index).toBeGreaterThan(-1);
+    const [at, from] = startOf(host, index);
+    expect(from).toBeGreaterThan(0);
+    const out = emptyDeckPeek();
+    // A hair before the loop's own end, read from where this landing entered it.
+    const seam = SPAN - from;
+    host.now(at + seam - 0.01);
+    host.voice.peek(out);
+    expect(out.position).toBeCloseTo(SPAN - 0.01, 6);
+    // And a hair after it, which is the loop's head and not the slot it started in.
+    host.now(at + seam + 0.01);
+    host.voice.peek(out);
+    expect(out.position).toBeCloseTo(0.01, 6);
+  });
+});

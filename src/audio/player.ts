@@ -22,7 +22,7 @@ import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
 import { bedStart, gridOf, gridSpan, loopIn, zonedGrid, type Grid } from "./playerGrid";
 import { type Scheduled, sparkPosition, stepPosition } from "./playerCursor";
 import { seam } from "./playerSeam";
-import { windowOf } from "./playerWindow";
+import { slotRead, windowOf } from "./playerWindow";
 import { syncedFrom } from "@/lib/playerClock";
 import type { DeckPlayer, GroundClock } from "./playerVoice";
 import {
@@ -272,41 +272,38 @@ export function createDeckPlayer(
       source.buffer = step.reversed ? mirrorOf(buffer) : buffer;
       source.connect(into);
       source.loop = true;
-      // A burst longer than the slot reads on through the slots after it, and never past the end
-      // of the bed it is in: a jump is a move inside the loop's grid (0089), and since 0183 that
-      // grid sits on one bed of the source at a time. Clamped there it wraps sooner, and sounds for
-      // `burstSecs` either way. The bed's own end and not the loop's, or a landing on the last slot
-      // of a moved loop would read on into whatever the file holds after it — audio the pattern
-      // never chose, which is the one thing the clamp exists to refuse.
+      // Where this slot reads and how much buffer it loops there — the window itself, and the wrap
+      // a burst that outlives the bed takes through the bed's head, both `slotRead`'s arithmetic
+      // rather than this file's (src/audio/playerWindow.ts, and it is at the hard cap).
       //
       // The burst, and never a ratcheted repeat's own length: one looping source has one period, so
       // what the ratchet moves is the windows the landing is cut and ended on and not the grain
       // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
       // node count and a question of its own (docs/plan.md, the rung walk's step).
-      const span = Math.min(burstSecs * stepRate, ground + gridSpan(grid) - from);
-      // Where the source actually reads: the slot itself, or its mirror in the reversed copy. A
-      // point `t` of the buffer is `duration - t` of the copy, so the window `[from, from + span)`
-      // becomes `[duration - from - span, duration - from)` — the same audio, entered at the end
-      // and walked to the start, which is the whole of what reading a slot backwards is. The head
-      // starts at the window's own beginning either way, and the loop is the same length, so every
-      // other number this step is made of is untouched (P121).
-      //
-      // Floored at zero, and it has to be: the forward path never subtracts, while this one takes
-      // `from` and `span` — two independently rounded quantities whose sum is only nominally inside
-      // the buffer — away from the duration. A loop ending on the clip's own end and starting after
-      // zero recomputes its grid a couple of ulps past `loop.out`, so the last slot of it mirrors to
-      // a few femtoseconds below zero, which `start` answers with a `RangeError` and `loopStart`
-      // answers by ignoring the loop points and repeating the whole reversed clip.
-      const reads = step.reversed ? Math.max(0, buffer.duration - from - span) : from;
-      source.loopStart = reads;
-      source.loopEnd = reads + span;
+      const {
+        from: loops,
+        span,
+        enters,
+        reads,
+      } = slotRead(
+        from,
+        { from: ground, span: gridSpan(grid) },
+        burstSecs * stepRate,
+        buffer.duration,
+        step.reversed,
+      );
+      // The window as the source reads it: forwards it begins where it begins, backwards it is the
+      // mirror the head was already handed. Both are one length, so nothing else about the step
+      // moves (P121).
+      source.loopStart = step.reversed ? reads : loops;
+      source.loopEnd = source.loopStart + span;
       tune(source);
       // `begins` is the landing's own `at` for the landing, and a fraction of its window later for
       // a spark held back — the one instant of a companion that is not the landing's. Its stop is
       // still the landing's, which is what keeps a delayed spark inside the entry it rides (0175).
       source.start(begins, reads);
       source.stop(ends + PLAYER_FADE_SECS);
-      return { source, span };
+      return { source, span, enters };
     };
 
     /** The speed the chain wrote onto the landing's source, captured so the companion below can
@@ -318,7 +315,7 @@ export function createDeckPlayer(
     // is beforehand has to be what that curve begins at.
     fader.gain.value = 0;
     fader.connect(input);
-    const { source, span } = readSlot(step.slot, fader, at, (node) => {
+    const { source, span, enters } = readSlot(step.slot, fader, at, (node) => {
       bindSource(node);
       // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap
       // (P67), and a landing that climbs is one such ratio per repeat rather than one for the
@@ -352,6 +349,7 @@ export function createDeckPlayer(
       ends,
       next,
       span,
+      enters,
       rates,
       spans,
       step,

@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0388. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0389. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -195,7 +195,9 @@ narrowed command so the press that mints the id hands both ids to the rack (`cop
 registry's own `beat` declarations rather than a list. The pins are two cases in
 src/ui/Knob.test.tsx, one in src/ui/ParameterKnob.test.tsx and two in src/ui/ParameterBeat.test.tsx.
 
-**Step 8 — a burst may be sixteen seconds and cross the seam.** _Durable shape moved:_ none.
+**Step 8 — a burst may be sixteen seconds and cross the seam
+([0388](decisions/0388-a-burst-that-outlives-the-loop-wraps-it.md), landed).** _Durable shape
+moved:_ none.
 "increase mulcher burst timing to be up to 8 or 16 seconds. if a burst needs to wrap around a
 loop to satisfy the length requirement it should do that, rather than get cut off at the end."
 `PLAYER_BURST_MAX` (src/lib/player.ts) is two; the cap rises to sixteen, and a burst that outlives
@@ -205,6 +207,19 @@ then the wrap, so the second's test can ask for a burst longer than the loop. **
 fail first:** a sixteen-second burst is accepted and rounded by the beat hold; a render of a burst
 longer than the remaining loop carries sound across the seam with no gap. **Refused:** a burst
 longer than the loop that plays the loop twice as two bursts.
+_Landed:_ the cap is sixteen and the clamp is gone: the window a source loops is the burst where
+the bed has room for it and the **whole bed** where it has not, entered at the slot the landing
+fell on, so a burst that outlives the loop plays its slot, runs off the tail and carries on from
+the head (`slotRead`, src/audio/playerWindow.ts — out of src/audio/player.ts, which is at the hard
+cap). Nothing was ever cut to silence: what was cut was the window, so a landing near the top of
+the grid stuttered a fragment of the tail, which is exactly what a sixteen-second burst would have
+been good for (0388). The bed's own end and never the buffer's, which is the clamp's reason kept
+(0183); read backwards the wrap enters at the bed's end, since a burst covering the bed has no
+slot left to begin at and entering where the clamped read already entered leaves the one
+subtraction that can land before frame zero untouched (P121). The queue entry carries how far into
+its window the slot is (`enters`), so the playhead crosses the seam with the source rather than
+snapping back to the slot. The pins are one case in src/lib/playerBurst.test.ts, one in
+src/audio/playerPeek.test.ts and two rewritten in src/audio/player.test.ts, which held the clamp.
 
 **Step 9 — the loop is set by a count of beats.** _Durable shape moved:_ none. "Add ability to set
 loop based on beat count". Analysis gives a `bpm` (src/lib/analysis.ts) and the loop edge already
@@ -460,5 +475,28 @@ arrow keys are dead there, hold or no hold — P82's collision at the burst's fl
 call site, and true at HEAD before this step. The landing does not cause it and cannot fix it; a
 step of `delay.time`'s own would. And the mulcher card's burst still slides under a held hand and
 is corrected once the store answers (`heldPatch`, src/ui/playerBurstControls.ts): it is the same
-hold and the same `beatBurst`, now two gestures on two cards. Step 8 opens that file to raise the
-cap, and handing its dial the same `land` belongs there rather than here.
+hold and the same `beatBurst`, now two gestures on two cards. Step 8 did not open that file after
+all — the cap is a number in src/lib/player.ts and the wrap is in the transport, so nothing in the
+step reached the card's gestures — and handing its dial the same `land` is a change of its own,
+left for the step that has a reason to be in there.
+
+**Step 8's review found the ceiling had broken the burst readout, and it was fixed here.** Three
+lenses named the same thing: `burstValue` told milliseconds from seconds by the dial's own top, a
+rule that worked only while that top sat below the smallest reading the box draws, so at sixteen
+the band `5`…`16` was ambiguous and typing back the floor's own `5` set five seconds. The unit is
+now read off the spelling, with a whole number under the floor in milliseconds taken as seconds;
+`burstLabel` drops its hundredth by measuring the reading rather than by comparing the value,
+since `(9.996).toFixed(2)` is five characters; and `tapPress` takes the bounds `tapBurst` already
+took. The pins are two cases in src/ui/KnobReadout.test.tsx — where the burst's format and its
+parser moved, because src/ui/Knob.test.tsx reached the 800-line cap — and one in
+src/lib/playerBurst.test.ts.
+
+**Step 8 proves the wrap at the window and not at the samples.** "A render of a burst longer than
+the remaining loop carries sound across the seam with no gap" is pinned as the window the source
+loops and the playhead that crosses it: with `loop = true` a window is continuous by the graph's
+own definition, and the unit suite has no sample-accurate host to hear it in — `./scripts/check`'s
+offline renders are the browser's, through scripts/smoke.d. The wrap rides the smoke scenarios
+that already render a jumping yard rather than taking one of its own, because what would be new
+there is a burst length and not a behaviour the harness cannot already reach. The divisions a hold
+rounds onto were left where they are, so a sixteen-second burst held to the beat lands on the beat
+itself: multiples of a beat are a vocabulary of their own (0388).

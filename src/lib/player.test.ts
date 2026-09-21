@@ -380,9 +380,12 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, burst: PLAYER_BURST_MIN / 2 }, "a player")).toThrow(
       /outside/u,
     );
-    // A burst in the old unit — four, meaning four slots — is now four seconds and out of range,
-    // which is how a spec from before this build is refused rather than quietly transposed (0026).
-    expect(() => assertPlayer({ ...SPEC, burst: 4 }, "a player")).toThrow(/outside/u);
+    // And one above the ceiling: the dial reaches sixteen seconds — a burst that outlives the loop
+    // and reads on through its head (0388) — and a spec saying more than it is refused rather than
+    // quietly clamped (0026).
+    expect(() => assertPlayer({ ...SPEC, burst: PLAYER_BURST_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
   });
 
   /**

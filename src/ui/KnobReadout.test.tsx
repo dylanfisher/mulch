@@ -25,6 +25,8 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
+import { PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
+import { burstLabel, burstValue, secondsValue } from "@/ui/Knob";
 import { KnobReadout, readNumber, withoutUnit } from "@/ui/KnobReadout";
 
 type Field = {
@@ -161,7 +163,48 @@ describe("Knob readout field", () => {
   });
 });
 
+/**
+ * And the way back from the readings a dial spells: it can be told a number in the unit it is
+ * showing, not only in the unit the value is kept in (0201). The burst's pair lives here rather
+ * than beside the dial because src/ui/Knob.test.tsx is at the hard cap and a format and its parser
+ * are one claim (0045).
+ */
 describe("Knob readings", () => {
+  it("reads seconds back with or without the unit drawn after them", () => {
+    expect(secondsValue("1.25s", 0, 4)).toBe(1.25);
+    expect(secondsValue("1.25", 0, 4)).toBe(1.25);
+  });
+
+  /**
+   * And the burst's two units are told apart by the spelling: the box draws milliseconds whole and
+   * seconds with a decimal point, so every reading it draws is read back as the reading it drew.
+   * `500` is what a hand read at half a second, and typing it back must land there.
+   */
+  it("reads a burst back in the unit the box drew it in", () => {
+    const max = PLAYER_BURST_MAX;
+    expect(burstValue("500", PLAYER_BURST_MIN, max)).toBe(0.5);
+    expect(burstValue(burstLabel(0.5), PLAYER_BURST_MIN, max)).toBe(0.5);
+    expect(burstValue("1.5", PLAYER_BURST_MIN, max)).toBe(1.5);
+    expect(burstValue("", PLAYER_BURST_MIN, max)).toBeUndefined();
+    // The floor itself, which is where the two units overlap once the dial reaches sixteen
+    // seconds: `5` is the reading the floor draws, so typing it back is five milliseconds and not
+    // five seconds (0388). Every reading the box can draw round-trips.
+    for (const secs of [PLAYER_BURST_MIN, 0.016, 0.999, 1, 10, max]) {
+      expect(burstValue(burstLabel(secs), PLAYER_BURST_MIN, max)).toBeCloseTo(secs, 3);
+    }
+    // And a whole number too small to be a reading in milliseconds at all can only have been
+    // seconds: the dial bottoms out at five of them.
+    expect(burstValue("1", PLAYER_BURST_MIN, max)).toBe(1);
+  });
+
+  /** The readout is four characters at every reading of the dial, rounding included: the compact
+   *  rung sits in a row that shifts under the pointer the moment one of them grows. */
+  it("draws every burst reading in four characters", () => {
+    for (const secs of [PLAYER_BURST_MIN, 0.999, 1, 9.99, 9.996, 10, PLAYER_BURST_MAX]) {
+      expect(burstLabel(secs).length).toBeLessThanOrEqual(4);
+    }
+  });
+
   it("reads a plain number and nothing else", () => {
     expect(readNumber("1.25", 0, 2)).toBe(1.25);
     expect(readNumber(" 3 ", 0, 4)).toBe(3);

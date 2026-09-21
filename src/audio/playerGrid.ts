@@ -46,7 +46,7 @@ export const slotStart = (grid: Grid, slot: number, bed: number): number =>
 /**
  * The buffer second the bed the pattern is standing on begins at — the loop's own start, moved by
  * the walk's offset in the loop's own sixteenths. A slot of source and not a whole loop-length
- * since the crawl, so the bed a burst is clamped inside is still one loop long but need not begin
+ * since the crawl, so the bed a burst is held inside is still one loop long but need not begin
  * on a boundary of them (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts).
  */
 export const bedStart = (grid: Grid, bed: number): number =>

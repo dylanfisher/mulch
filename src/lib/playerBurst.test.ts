@@ -23,12 +23,24 @@ describe("a tapped burst", () => {
 
   /** A tap can name nothing the dial cannot: the ends of its range, and its own step. */
   it("clamps onto the dial's range and lands on its step", () => {
-    expect(tapBurst([0, 5000])).toBe(PLAYER_BURST_MAX);
+    expect(tapBurst([0, 20_000])).toBe(PLAYER_BURST_MAX);
     expect(tapBurst([0, 1])).toBe(PLAYER_BURST_MIN);
     const odd = tapBurst([0, 333]) ?? 0;
     expect(Math.abs(odd - 0.333)).toBeLessThan(PLAYER_BURST_STEP);
     const steps = (odd - PLAYER_BURST_MIN) / PLAYER_BURST_STEP;
     expect(steps).toBe(Math.round(steps));
+  });
+
+  /**
+   * And the top of that range is sixteen seconds — a burst longer than most loops, which the
+   * transport reads round the loop's head rather than cutting at its tail (0388). A tap that slow
+   * is written whole, and the hold then rounds it onto a division of the beat like any other: the
+   * nearest to sixteen seconds is the beat itself, since nothing above it is a division of one.
+   */
+  it("takes a sixteen-second tap and lets the beat hold round it", () => {
+    const burst = tapBurst([0, 16_000]);
+    expect(burst).toBe(16);
+    expect(beatBurst(burst ?? 0, 30)).toBeCloseTo(2, 6);
   });
 
   /** The oldest is dropped on every press, so a tap that keeps going follows the hand. */
@@ -48,6 +60,11 @@ describe("a tapped burst", () => {
     const after = tapPress([0, 100], 100 + PLAYER_BURST_MAX * 1000 + 1);
     expect(after).toHaveLength(1);
     expect(tapBurst(after)).toBeNull();
+    // And it is the dial being written that says how long a gap that is: a parameter declaring a
+    // sub-range of the burst's lets go of its run at its own top, not at sixteen seconds (0388).
+    const narrow = { min: 0.01, max: 2 };
+    expect(tapPress([0, 100], 100 + 2001, narrow)).toHaveLength(1);
+    expect(tapPress([0, 100], 100 + 1999, narrow)).toHaveLength(3);
   });
 });
 

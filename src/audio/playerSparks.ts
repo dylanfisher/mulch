@@ -17,9 +17,12 @@ export type Spark = {
   /** Its level gain, held here for the reason the source is: what a step is made of is what a step
    *  has to let go of, and a node dropped without being disconnected is still wired in. */
   level: GainNode;
-  /** Where it reads and the window it loops there, so a cursor can answer off it. */
+  /** Where it reads and the window it loops there, so a cursor can answer off it — the window's
+   *  own length, and how far into it the slot is where a burst outlived the bed (`slotRead`,
+   *  src/audio/playerWindow.ts). */
   slot: number;
   span: number;
+  enters: number;
   /** And when it began, which is the one instant it does not share with the landing (0175). */
   at: number;
 };
@@ -32,7 +35,7 @@ export type ReadSlot = (
   into: AudioNode,
   begins: number,
   tune: (source: AudioBufferSourceNode) => void,
-) => { source: AudioBufferSourceNode; span: number };
+) => { source: AudioBufferSourceNode; span: number; enters: number };
 
 /**
  * The companions of one landing, empty where it threw none. Each hangs under the landing's own
@@ -79,6 +82,6 @@ export function buildSparks(
       level.gain.value = sparked.level;
     }
     const read = readSlot(slot, level, begins, tune);
-    return { source: read.source, level, slot, span: read.span, at: begins };
+    return { source: read.source, level, slot, span: read.span, enters: read.enters, at: begins };
   });
 }

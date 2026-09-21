@@ -365,11 +365,13 @@ describe("deck player", () => {
     const fresh = host.sources.slice(armed);
     expect(fresh.length).toBeGreaterThan(0);
     // Twice the buffer for the same window: the burst is unchanged in seconds and the rate is
-    // what decides how far through the loop those seconds read. Clamped at the loop's own end for
-    // a step that started late in the grid, which is a jump staying inside it (0089).
+    // what decides how far through the loop those seconds read. A step that started late enough in
+    // the grid for those seconds to outlive the loop loops the whole of it instead and reads on
+    // through its head, which is a jump staying inside it either way (0089, 0388).
     for (const source of fresh) {
       const from = source.started[0]?.[1] ?? Number.NaN;
-      expect(source.loopEnd - source.loopStart).toBeCloseTo(Math.min(SLOT * 2, SPAN - from), 9);
+      const room = SPAN - from;
+      expect(source.loopEnd - source.loopStart).toBeCloseTo(SLOT * 2 > room ? SPAN : SLOT * 2, 9);
     }
     // And the window itself did not move. Before 0119 the shortest step at 2x was half a slot;
     // now the shortest is one whole burst however fast the deck is reading.
@@ -596,23 +598,35 @@ describe("deck player", () => {
   });
 
   // A jump is a move inside the loop's grid (0089), and a burst longer than a slot reads on
-  // through the slots after it — up to the loop's own end and never past it.
-  it("keeps a burst longer than a slot inside the loop it is jumping around", () => {
+  // through the slots after it — round the loop's own end and never past it (0388).
+  it("carries a burst longer than the loop's tail round its head, never past it", () => {
     // Seed 3 is the one whose walk reaches the top of the grid, where a four-slot burst has
-    // nowhere left to read: without a ceiling it would run on into the file past the loop.
+    // nowhere left to read: without the wrap it would be cut short at the loop's last sample, and
+    // without a ceiling it would run on into the file past the loop.
     const host = jumping({ burst: SLOT * 4, repeats: 1, seed: 3 });
     expect(host.sources.length).toBeGreaterThan(2);
-    let clamped = 0;
+    let wrapped = 0;
     let past = 0;
     for (const source of host.sources) {
+      const from = source.started[0]?.[1] ?? Number.NaN;
+      expect(source.loopStart).toBeGreaterThanOrEqual(0);
       expect(source.loopEnd).toBeLessThanOrEqual(SPAN + 1e-9);
       expect(source.loopEnd).toBeGreaterThan(source.loopStart);
+      // Wherever it reads from, it reads from inside the window it loops.
+      expect(from).toBeGreaterThanOrEqual(source.loopStart - 1e-9);
+      expect(from).toBeLessThan(source.loopEnd);
       if (source.loopEnd - source.loopStart > SLOT * 1.5) past++;
-      if (source.loopEnd - source.loopStart < SLOT * 3.9) clamped++;
+      // A landing with less than a burst of loop left in front of it loops the whole loop and
+      // enters it at its own slot: what follows the tail is the head, and not the slot again.
+      if (SPAN - from < SLOT * 4 - 1e-9) {
+        expect(source.loopEnd - source.loopStart).toBeCloseTo(SPAN, 9);
+        expect(from).toBeGreaterThan(source.loopStart);
+        wrapped++;
+      }
     }
-    // It did read past its own slot where the loop had room, and was cut short where it did not.
+    // It did read past its own slot where the loop had room, and round the seam where it did not.
     expect(past).toBeGreaterThan(0);
-    expect(clamped).toBeGreaterThan(0);
+    expect(wrapped).toBeGreaterThan(0);
   });
 
   // The playhead a jumping deck paints, and the offset a cleared loop resumes at, both come off

@@ -37,9 +37,6 @@
   add a low resource mode when e.g. many items are are automated over 7+ decks. ask if collapsing a deck frees
   up resources (e.g. we don't have to draw the knob moving.)
 
-- increase mulcher burst timing to be up to 8 or 16 seconds. if a burst needs to wrap around a loop to satisfy
-  the length requirement it should do that, rather than get cut off at the end.
-
 - add a feature to pitch effect that allows setting intervals like a simple keyboard recording
   so we can automate little melodies
 

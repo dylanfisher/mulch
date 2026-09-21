@@ -93,14 +93,17 @@ export const PLAYER_MIN_SLOT_SECS = PLAYER_FADE_SECS * 5;
  *
  * The floor is the seam's own, `PLAYER_MIN_SLOT_SECS`: the wall-second window the transport
  * already refuses to go below, so the knob bottoms out exactly where the sound does rather than
- * above or below it depending on which loop it happened to be over. The ceiling is what four
- * slots of an eight-second loop used to buy.
+ * above or below it depending on which loop it happened to be over. The ceiling is a phrase and
+ * no longer a grain: sixteen seconds is longer than most loops a hand sets, which is the whole
+ * point of it — a burst that outlives what is left of the loop reads on through the loop's head
+ * rather than stopping at its tail (`slotRead`, src/audio/playerWindow.ts), so the top of this
+ * dial is a yard playing its loop through the pattern's own seams.
  *
- * Still over two orders of magnitude, so the one dial that reads this is drawn on a log curve
+ * Over three orders of magnitude, so the one dial that reads this is drawn on a log curve
  * (src/ui/PlayerCard.tsx).
  */
 export const PLAYER_BURST_MIN = PLAYER_MIN_SLOT_SECS;
-export const PLAYER_BURST_MAX = 2;
+export const PLAYER_BURST_MAX = 16;
 
 /**
  * The finest a hand may set the burst, and the reason it is not the floor itself: the dial that

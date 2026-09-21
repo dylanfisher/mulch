@@ -89,7 +89,7 @@ export const PLAYER_BED_DISTANCE_MAX = PLAYER_BED_MAX * PLAYER_SLOTS;
  * Sixteenths and not whole beds, which is the whole of the crawl: a move of less than sixteen
  * leaves the loop reading a window the source's own bed grid does not begin at, so a leaning
  * pattern creeps across the file and drifts out of phase with it rather than hopping bed to bed
- * (0185). A bed is still one loop-length of source and still what a burst is clamped inside
+ * (0185). A bed is still one loop-length of source and still what a burst is held inside
  * (0183); it is simply no longer true that the ground sits on a boundary of them.
  */
 export const PLAYER_BED_REACHES = ["nudge", "bed", "anywhere"] as const;
@@ -283,7 +283,8 @@ export const bedMove = (spec: BedSpec): { distance: number; bias: number; home: 
  * A sixteenth and not a bed since the crawl: a bed boundary is no longer where the ground may
  * stand, so what is counted here is the step the walk actually takes and not the loop-lengths it
  * used to hop. The bed itself is unchanged — it is one loop-length of source *beginning at the
- * offset*, which is what a burst is still clamped inside (0183, `bedStart`, src/audio/player.ts).
+ * offset*, which is what a burst is still held inside — read round its head where the burst
+ * outlives it (0183, 0388, `bedStart`, src/audio/player.ts).
  *
  * **A zone narrows this and never widens it** (0318): the room the buffer answers for is the outer
  * bound whatever a hand marked, so a zone reaching past the file is the file. This is the one

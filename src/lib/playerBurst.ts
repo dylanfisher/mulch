@@ -51,13 +51,21 @@ const landOn = (value: number, bounds: BurstBounds): number =>
 
 /**
  * The presses this tap is made of after one more at `at`, in milliseconds off a monotonic clock.
- * The oldest beyond `PLAYER_TAP_PRESSES` is dropped, and a gap longer than the longest burst the
- * dial can name starts the run again: an interval the burst cannot hold is not a tempo being
- * tapped, it is the last tap being left alone and a new one begun.
+ * The oldest beyond `PLAYER_TAP_PRESSES` is dropped, and a gap longer than the longest value the
+ * dial being written can name starts the run again: an interval that dial cannot hold is not a
+ * tempo being tapped, it is the last tap being left alone and a new one begun.
+ *
+ * The dial's own top and not the burst's, for the reason `tapBurst` takes bounds at all: a rack
+ * parameter that declares `beat` is a sub-range of the burst's, so the delay's Time lets go of a
+ * run after two seconds where the card's burst holds one for sixteen (0326, 0388).
  */
-export function tapPress(times: readonly number[], at: number): readonly number[] {
+export function tapPress(
+  times: readonly number[],
+  at: number,
+  bounds: BurstBounds = PLAYER_BURST_BOUNDS,
+): readonly number[] {
   const last = times.at(-1);
-  const run = last === undefined || at - last > PLAYER_BURST_MAX * 1000 ? [] : times;
+  const run = last === undefined || at - last > bounds.max * 1000 ? [] : times;
   return [...run.slice(1 - PLAYER_TAP_PRESSES), at];
 }
 

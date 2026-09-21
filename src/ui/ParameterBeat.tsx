@@ -198,7 +198,7 @@ export function ParameterBeat({ beat, ...knob }: ParameterKnobProps & { beat: Ra
    * moments in this page's life, which is the one thing a monotonic clock is for.
    */
   const onTap = useCallback(() => {
-    const times = tapPress(taps.current, performance.now());
+    const times = tapPress(taps.current, performance.now(), spec);
     taps.current = times;
     const next = tapBurst(times, spec);
     if (next !== null) send(round(next));

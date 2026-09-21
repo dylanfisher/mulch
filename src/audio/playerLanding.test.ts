@@ -373,11 +373,12 @@ describe("a sparking landing", () => {
    * spark hangs under the fader the landing's seams are written on and the only node of its own is
    * the gain holding it at its level (P123).
    *
-   * The one thing it does not take is the landing's loop period. A read is clamped so it never runs
-   * past the end of the loop's grid, and that clamp is its own slot's — so a burst wider than a slot
-   * wraps sooner near the end of the loop, for a spark exactly as for a landing (0089). Asked on a
-   * burst four slots wide, where the clamp bites, rather than on the fixture's own one, where
-   * `Math.min` is a no-op at every slot and the assertion would be about nothing.
+   * The one thing it does not take is the landing's loop period. A read never runs past the end of
+   * the loop's grid, and where it begins is its own slot's — so a burst wider than a slot reads on
+   * through the slots after it and, where it outlives them, round the grid's own head, for a spark
+   * exactly as for a landing (0089, 0388). Asked on a burst four slots wide, where a slot's own
+   * room decides the window, rather than on the fixture's own one, where every slot has room and
+   * the assertion would be about nothing.
    */
   it("gives it the landing's instants, its own slot's clamp, and a gain at the dial's level", () => {
     const burst = SLOT * 4;
@@ -388,8 +389,9 @@ describe("a sparking landing", () => {
     expect(sparking.gainNodes.length - PRE_PLAYER_GAINS).toBe(
       (plain.gainNodes.length - PRE_PLAYER_GAINS) * 2,
     );
-    /** The window one read of `slot` loops: the burst, or what is left of the grid past it. */
-    const clamped = (slot: number) => Math.min(burst, SPAN - slot * SLOT);
+    /** The window one read of `slot` loops: the burst, or the whole grid where the burst outlives
+     *  what is left of it and reads round the head instead (0388). */
+    const window = (slot: number) => (burst > SPAN - slot * SLOT ? SPAN : burst);
     const steps = playerSequence(
       { ...PLAYER, spark: 1, sparkLevel: LEVEL, burst },
       plain.sources.length,
@@ -400,15 +402,15 @@ describe("a sparking landing", () => {
       expect(spark?.started[0]?.[0]).toBeCloseTo(landing?.started[0]?.[0] ?? Number.NaN, 9);
       expect(spark?.stopped[0]).toBeCloseTo(landing?.stopped[0] ?? Number.NaN, 9);
       expect((spark?.loopEnd ?? 0) - (spark?.loopStart ?? 0)).toBeCloseTo(
-        clamped(step.sparked?.slots[0] ?? Number.NaN),
+        window(step.sparked?.slots[0] ?? Number.NaN),
         9,
       );
       expect(sparking.gainNodes[PRE_PLAYER_GAINS + at * 2 + 1]?.gain.value).toBe(LEVEL);
     });
-    // And the clamp really does bite on this burst: some spark loops a window its landing does not,
-    // which is what says the line above is the spark's own slot rather than the landing's.
+    // And the slot really does decide it on this burst: some spark loops a window its landing does
+    // not, which is what says the line above is the spark's own slot rather than the landing's.
     expect(
-      steps.some((step) => clamped(step.sparked?.slots[0] ?? Number.NaN) !== clamped(step.slot)),
+      steps.some((step) => window(step.sparked?.slots[0] ?? Number.NaN) !== window(step.slot)),
     ).toBe(true);
   });
 
@@ -707,12 +709,13 @@ describe("a landing on a moved bed", () => {
     }
   });
 
-  it("stands on ground no whole bed fits on, and clamps a burst to the end of that one", () => {
+  it("stands on ground no whole bed fits on, and holds a burst inside that one", () => {
     // A clip holding one bed and seven tenths: before the crawl there was nowhere for this pattern
     // to go at all — one whole bed fits, so every index folded onto it and the loop never moved.
     // Now the ground reaches eleven sixteenths in, bed 1 is sixteen of them, and the fold lands on
-    // the fourth. The burst is longer than what is left of that bed, so this is the clamp's case
-    // too: it wraps inside the ground the pattern is standing on rather than reading past it (0183).
+    // the fourth. The burst is longer than what is left of that bed, so this is the wrap's case
+    // too: it goes round inside the ground the pattern is standing on rather than reading past it
+    // (0183, 0388).
     const ground = 4 * SLOT;
     const crawled = windows(still(1, { burst: SPAN / 2 }, SPAN * 1.7));
     expect(crawled.length).toBeGreaterThan(0);

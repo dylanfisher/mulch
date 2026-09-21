@@ -63,28 +63,46 @@ export const secondsValue: ReadingParser = (text, min, max) =>
 /**
  * The same length read the way a grain is read, in the two units a duration spanning three orders
  * of magnitude needs. Whole milliseconds under a second — `5` to `999`, which is where a grain's
- * length is heard as timbre and a tenth of a millisecond is below what a hand can set — and two
- * decimals at or above it, `1.00` to `2.00`. The step from `999` to `1.00` is the unit changing,
+ * length is heard as timbre and a tenth of a millisecond is below what a hand can set — and
+ * seconds at or above it, `1.00` to `16.0`. The step from `999` to `1.00` is the unit changing,
  * which is the one place four characters can say "second" without the word; the caption's sentence
  * carries it in full.
+ *
+ * A decimal is dropped rather than a character added, and it is dropped by measuring the reading
+ * rather than by comparing the value: the readout is four characters at every reading of the dial,
+ * and `(9.996).toFixed(2)` is `10.00`, which a test of `secs < 10` would have let through. A
+ * compact readout sits in a row that shifts under the pointer the moment one of them grows
+ * (`readoutChars`), and what that hundredth would name up there is a step the dial cannot be
+ * turned to by eye anyway.
  *
  * Here rather than on the jumps card because the burst is no longer the only dial that reads in
  * it: the vary beside it is the same length in the same unit, and that is the whole point of
  * saying a vary in seconds (0135). The default `String` would put `0.012500000000000002` in a box
  * sized for four characters.
  */
-export const burstLabel = (secs: number): string =>
-  secs < 1 ? String(Math.round(secs * 1000)) : secs.toFixed(2);
+export const burstLabel = (secs: number): string => {
+  if (secs < 1) return String(Math.round(secs * 1000));
+  const hundredths = secs.toFixed(2);
+  return hundredths.length > 4 ? secs.toFixed(1) : hundredths;
+};
 
 /**
- * The same two units read back. Which one a typed number is in is decided by the dial rather than
- * by how it was spelled: the dial reads out in seconds only up to its own top, so anything above
- * that could only have been the milliseconds the readout is showing under a second. `500` is half
- * a second, `1.5` is a second and a half, and both are what the box they were typed into said.
+ * The same two units read back, decided by how the number was spelled rather than by how big it
+ * is: the readout draws milliseconds as whole numbers and seconds with a decimal point, so a
+ * reading carrying one is seconds and a reading without one is milliseconds. `500` is half a
+ * second, `1.5` is a second and a half, and both are what the box they were typed into said.
+ *
+ * The exception is a whole number too small to be a reading in milliseconds at all: under the
+ * dial's own floor, milliseconds is not a unit it can hold, so `1` on a dial bottoming out at five
+ * of them can only have been a second. That is the whole of the old rule — read the unit off the
+ * dial's range — and it used to be the whole of it, which worked only while the top of the range
+ * was below the smallest reading the box could draw. At a ceiling of sixteen seconds the two
+ * overlap, and typing back the `5` the floor itself reads out would have set five seconds (0388).
  */
 export const burstValue: ReadingParser = (text, min, max) => {
   const read = readNumber(text, min, max);
-  return read === undefined ? undefined : read > max ? read / 1000 : read;
+  const millis = (read ?? 0) / 1000;
+  return read === undefined || text.includes(".") || millis < min ? read : millis;
 };
 
 /** The caption under the dial, written once because it is drawn plain and inside a tooltip

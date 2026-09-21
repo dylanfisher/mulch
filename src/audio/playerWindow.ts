@@ -1,8 +1,8 @@
 /**
- * @role The seconds one landing occupies, and how much buffer it has read into itself: the pure
- *   arithmetic the pass lays a step down by and the cursor reads a step back by. Out of
- *   src/audio/player.ts because that file sits at the hard cap and neither function touches the
- *   graph (0045).
+ * @role The seconds one landing occupies, how much buffer it has read into itself, and the window
+ *   of buffer one slot of it loops: the pure arithmetic the pass lays a step down by and the
+ *   cursor reads a step back by. Out of src/audio/player.ts because that file sits at the hard cap
+ *   and none of it touches the graph (0045).
  * @instead The pass that arms a step by this window → src/audio/player.ts. Where the seams of one
  *   step fall → src/audio/playerSeam.ts. How long a burst is, and how its repeats are cut →
  *   src/lib/player.ts.
@@ -81,4 +81,63 @@ export function readInto(
     left -= span;
   }
   return read;
+}
+
+/** The window of buffer one slot's source loops, and where inside it that source starts. */
+export type SlotRead = {
+  /** The window's own beginning, in buffer seconds read forwards. */
+  from: number;
+  /** How long it is: the burst at its rate, or the whole bed where the burst outlives it. */
+  span: number;
+  /** How far into that window, forwards, the slot this step landed on begins — nought unless the
+   *  burst wrapped, and what the cursor adds before it takes its modulo. */
+  enters: number;
+  /** The offset the source is started at, in the buffer it was handed: the slot itself forwards,
+   *  and the mirror of the window's own end where the landing reads backwards. */
+  reads: number;
+};
+
+/**
+ * Where one slot reads and how much of the buffer it loops there.
+ *
+ * A burst shorter than what is left of the bed is the window it asks for, looped from the slot:
+ * the read it always was. A burst that **outlives** the bed from where it landed loops the whole
+ * bed instead, entered at the slot — so it plays its slot, runs off the bed's end and carries on
+ * from the bed's head rather than snapping back to the slot every few hundred milliseconds. That
+ * is what makes a sixteen-second burst over a two-second loop a loop being played rather than a
+ * fragment of one stuttered (`PLAYER_BURST_MAX`, src/lib/player.ts). The bed's own end and never
+ * the buffer's, for the reason the clamp here had: a landing on the last slot of a moved loop that
+ * read on past it would read audio the pattern never chose.
+ *
+ * Backwards it is the same window mirrored — a point `t` of the buffer is `duration - t` of the
+ * reversed copy, so `[from, from + span)` is entered at `duration - from - span` and walked to its
+ * start. A wrapping landing therefore enters at the bed's **end** and walks down through the whole
+ * of it: read backwards, a burst that covers the bed has no slot left to begin at, only a phase,
+ * and entering where the clamped read already entered keeps that subtraction exactly as it was.
+ *
+ * Floored at zero, and it has to be: the forward path never subtracts, while this one takes two
+ * independently rounded quantities away from the duration. A loop ending on the clip's own end and
+ * starting after zero recomputes its grid a couple of ulps past its out point, so the last slot of
+ * it mirrors to a few femtoseconds below zero — which `start` answers with a `RangeError` and
+ * `loopStart` answers by ignoring the loop points and repeating the whole reversed clip.
+ */
+export function slotRead(
+  /** Where the slot begins and where the bed holding it does, both in buffer seconds. */
+  at: number,
+  bed: { from: number; span: number },
+  /** The buffer seconds this burst asks for: its wall length at the rate it is read. */
+  want: number,
+  duration: number,
+  reversed: boolean,
+): SlotRead {
+  const room = bed.from + bed.span - at;
+  const wraps = want > room;
+  const from = wraps ? bed.from : at;
+  const span = wraps ? bed.span : want;
+  return {
+    from,
+    span,
+    enters: at - from,
+    reads: reversed ? Math.max(0, duration - from - span) : at,
+  };
 }

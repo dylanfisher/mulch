@@ -39,7 +39,7 @@ vi.mock("@/ui/frame", () => ({
 }));
 
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
-import { burstLabel, burstValue, Knob, secondsValue } from "@/ui/Knob";
+import { burstLabel, Knob } from "@/ui/Knob";
 
 type PointerHandler = (event: PointerEvent<HTMLDivElement>) => void;
 type ControlProps = {
@@ -756,29 +756,5 @@ describe("Knob default mark", () => {
     expect(marked(0.5, true)).toContain("h-[2lh]");
     // And the mark is the ink alone: it is one class swapped, never a box of another size.
     expect(caption("Gate")).toContain("h-[2lh]");
-  });
-});
-
-/**
- * The way back from the two readings this file spells: a dial can be told a number in the unit it
- * is showing, not only in the unit the value is kept in (0201, src/ui/KnobReadout.tsx).
- */
-describe("Knob readings", () => {
-  it("reads seconds back with or without the unit drawn after them", () => {
-    expect(secondsValue("1.25s", 0, 4)).toBe(1.25);
-    expect(secondsValue("1.25", 0, 4)).toBe(1.25);
-  });
-
-  /**
-   * And the burst's two units are told apart by the dial rather than by the spelling: it reads out
-   * in seconds only as far as its own top, so a number above that is the milliseconds the box was
-   * showing. `500` is what a hand read at half a second, and typing it back must land there.
-   */
-  it("reads a burst above its own range as the milliseconds it was drawn in", () => {
-    const max = PLAYER_BURST_MAX;
-    expect(burstValue("500", PLAYER_BURST_MIN, max)).toBe(0.5);
-    expect(burstValue(burstLabel(0.5), PLAYER_BURST_MIN, max)).toBe(0.5);
-    expect(burstValue("1.5", PLAYER_BURST_MIN, max)).toBe(1.5);
-    expect(burstValue("", PLAYER_BURST_MIN, max)).toBeUndefined();
   });
 });
