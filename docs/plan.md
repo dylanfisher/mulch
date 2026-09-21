@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0392. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0393. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -297,7 +297,8 @@ are fourteen cases — eight in src/state/mulchTally.test.ts, five in src/ui/Mul
 one in src/ui/App.test.tsx, the last of them the step's own header markup, read up to the
 header's own close.
 
-**Step 12 — a fold is remembered, and the master's starts open when it is full.** _Durable shape
+**Step 12 — a fold is remembered, and the master's starts open when it is full
+([0392](decisions/0392-a-fold-is-remembered.md), landed).** _Durable shape
 moved:_ none — a fold is a view preference (§2). "master effects should not collapse by default if
 any effects are present (or better yet, remember collapse state of each deck/module in local
 browser session)". src/ui/MasterRack.tsx hard-codes its fold shut and src/ui/Deck.tsx its own
@@ -305,6 +306,20 @@ open; both read the remembered fold first, keyed by rack, and the master's defau
 its rack holds anything. **Tests that must fail first:** a master rack with one entry mounts open;
 a fold set on one mount is read on the next. **Refused:** a fold in the session, a command, a
 history entry.
+_Landed:_ one module beside src/ui/theme.ts — src/ui/rackFold.ts, whose
+`useRackFold(rack, whenUnset)` reads what a hand last left this rack as and falls back to the
+caller's own default only where no hand has said (0392). Both racks read it, keyed by the
+`DeckId | null` every control on a rack is already addressed by: the master's (src/ui/MasterRack.tsx)
+and every yard's (src/ui/Deck.tsx, in place of the `useHeld(false)` beside its siblings). The
+default is read on every render rather than frozen at mount, because the master's is a fact about
+the rack — shut over nothing — and the rack is filled by a restore that can land after the first
+render. Nothing durable moved: no command, no history entry, no field of the session, and the
+store's own failures are the theme's — junk is not a choice, an access that throws is a line on
+the console. That guard was its third spelling, so the review's Reuse lens took it out of all three:
+src/ui/preference.ts is the one guarded read and write now, and the theme, the sequencer view and a
+fold keep only their key, their parse and their default. The pins are fourteen cases: nine in
+src/ui/rackFold.test.ts and five in the new src/ui/MasterRack.test.tsx, which had no suite of its
+own before this step.
 
 **Step 13 — an automation has a floor and a ceiling.** _Durable shape moved:_ a lane's bounds on
 the deck's and the instance's `automation` record, absent by default — discard, no migration
@@ -602,3 +617,24 @@ array need a binding this repo's lint refuses. And the readout is plain text und
 than a focusable trigger, which is how a readout is written here (src/ui/MoireTuning.tsx,
 src/ui/PlayerCharacter.tsx); what did move is its `aria-label`, deleted because a name on an
 element with no role names nothing, and each number is captioned in the markup already.
+
+**Step 12 remembered the two rack folds and not every fold on the screen, and remembers them per
+view rather than per tab.** The entry's parenthesis says "each deck/module"; the step's own words
+name src/ui/MasterRack.tsx and src/ui/Deck.tsx's rack, and that is what landed — a yard carries
+nine folds (the card, the jumps, the fine tune, the ground, the arrangement, the song, the part's
+dials and two more), every one of them shut or open for a reason written beside it, and
+remembering all nine is a different question from the one the entry is complaining about. Any of
+them can read `useRackFold` later without the module moving. Two costs are known and taken. A
+yard's fold is keyed by its id, and although a letter is never reused inside one session (P55), a
+session started fresh begins at A again and that yard reads whatever the last A was left as — one
+caret in the wrong position, corrected by one press, and nothing durable follows it. And the fold
+does not sync between tabs the way the theme does: two tabs showing different colours is one
+instrument contradicting itself, two tabs with different sections folded is two views (0392).
+Two review findings were declined. The master's default moves both ways while no hand has touched
+it — a rack standing open on the default alone folds when its last card goes, and opens again on
+the undo that brings it back — which is the entry's own rule read in both directions and settled for
+good by one press of the caret (State lens, 0392). And the `localStorage` test double is now spelled
+three times, which the Reuse lens is right about: it stays spelled three times because a shared one
+needs `vi.fn` spies for the calls src/ui/theme.test.ts asserts, no `*Double` module in this repo
+imports the test runner, and the three fixtures are not one shape — two hold a single key's value
+and the third is keyed by rack.

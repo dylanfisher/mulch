@@ -5,15 +5,17 @@
  * @instead The cards, the picker and the drag inside it → src/ui/EffectRack.tsx, which this
  *   renders and does not repeat. What an effect command does at this address → src/app/effects.ts.
  */
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { MASTER_LABEL } from "@/lib/copy";
 import { EffectRack } from "@/ui/EffectRack";
+import { useRackFold } from "@/ui/rackFold";
 import { useRackBeat } from "@/ui/ParameterBeat";
 
 /**
- * Under the yards and above nothing, folded shut like every other card fold but the front (0217).
+ * Under the yards and above nothing, folded the way it was last left — and, until a hand says,
+ * shut over an empty rack and open over a full one (0392).
  * Its heading says whose rack it is, because the section inside carries only the word Effects and
  * a rack with no yard's name on it would be one more Effects heading among however many yards.
  */
@@ -27,8 +29,11 @@ export function MasterRack({ instrument }: { instrument: Instrument }) {
     [instrument],
   );
   const playing = useSyncExternalStore(instrument.state.subscribe, readPlaying, readPlaying);
-  const [folded, setFolded] = useState(true);
-  const fold = useMemo((): [boolean, (next: boolean) => void] => [folded, setFolded], [folded]);
+  // Shut over an empty rack, the way every other card fold but the front begins (0217) — and
+  // open over one that is holding something, because a rack with effects in it is the thing the
+  // fold was hiding. Either is only what a hand has not yet said: a fold left here is read back
+  // on the next mount (src/ui/rackFold.ts, 0392).
+  const fold = useRackFold(null, effects.length === 0);
   const state = useMemo(() => ({ effects, playing }), [effects, playing]);
   // Nought, because this rack is under every yard and belongs to none: there is no one analysis
   // and no one rate to read a sounding tempo off, so a tapped parameter here is tapped and never

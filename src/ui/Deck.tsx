@@ -62,6 +62,7 @@ import { SourcePicker } from "@/ui/SourcePicker";
 import { Waveform } from "@/ui/Waveform";
 import { secondsLabel } from "@/ui/Knob";
 import { FoldCaret } from "@/ui/FoldCaret";
+import { useRackFold } from "@/ui/rackFold";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -247,8 +248,10 @@ export function Deck({
    * fold — the header's switch, and nothing durable.
    */
   const face = useSequencerMode() ? "sequence" : "play";
-  /** The rack's own fold, held above the fold that renders it so it survives one (P64). */
-  const rackFold = useHeld(false);
+  /** The rack's own fold, held above the fold that renders it so it survives one (P64) — and
+   *  remembered between mounts, keyed by this yard, so a rack left shut comes back shut (0392).
+   *  Open until a hand says otherwise, which is what it has always opened as (0217). */
+  const rackFold = useRackFold(deck, false);
   /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
   const playerFold = useHeld(false);
   /** And the fine tune inside that card, held here for the same reason again: it is drawn under

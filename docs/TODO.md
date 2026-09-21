@@ -54,8 +54,6 @@
   up the processed sound.
 
 - stacked visualizer view for many decks?
-- master effects should not collapse by default if any effects are present (or better yet, remember collapse
-  state of each deck/module in local browser session)
 
 - add a way to create a visualized artifact for the song, as part of the export audio workflow. kind of like
   a generative album cover, gif, mp4, etc.

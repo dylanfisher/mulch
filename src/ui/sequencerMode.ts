@@ -2,12 +2,17 @@
  * @role The sequencer view — whether every yard is drawn folded with its sequence in the header's
  *   slack — the one place it is read and written. A view preference exactly like the theme's: it
  *   sends nothing, changes no session state and leaves no history entry (plan §2, 0379).
- * @instead Never touch localStorage for it: go through `useSequencerMode`. The theme, whose shape
- *   this copies → src/ui/theme.ts.
+ * @instead Never touch localStorage for it: go through `useSequencerMode`. The guarded read and
+ *   write themselves → src/ui/preference.ts. The theme, whose shape this copies → src/ui/theme.ts.
  */
 import { useSyncExternalStore } from "react";
 
+import { readStored, writeStored } from "@/ui/preference";
+
 const STORAGE_KEY = "mulch:sequencer";
+
+/** What the console calls this preference when the store under it refuses. */
+const SAID = "sequencer view";
 /** The one value the key holds while the view is on; absent is off. */
 const ON = "on";
 
@@ -16,19 +21,10 @@ const listeners = new Set<() => void>();
 /** Read once, then held here: `getSnapshot` runs on every render and must be cheap. */
 let current: boolean | undefined;
 
-/**
- * `localStorage` is not always there to be read — blocked cookies, a third-party frame — and this
- * runs during render, so an escaping error would take the whole tree down over a view preference.
- * Loud but proportionate: say so, then draw the yards the ordinary way (src/ui/theme.ts).
- */
+/** On only where the key says so; anything else, including no store at all, draws the yards the
+ *  ordinary way (src/ui/preference.ts). */
 function stored(): boolean {
-  if (typeof localStorage === "undefined") return false;
-  try {
-    return localStorage.getItem(STORAGE_KEY) === ON;
-  } catch (error) {
-    console.error("mulch: cannot read the stored sequencer view, drawing the yards whole", error);
-    return false;
-  }
+  return readStored(STORAGE_KEY, SAID) === ON;
 }
 
 function getSnapshot(): boolean {
@@ -59,14 +55,8 @@ function subscribe(onChange: () => void) {
 
 export function setSequencerMode(on: boolean): void {
   current = on;
-  // Where reading throws, writing throws too. The choice still applies for this session; it just
-  // will not outlive the tab, which is worth a line in the console and nothing more.
-  try {
-    if (on) localStorage.setItem(STORAGE_KEY, ON);
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error("mulch: cannot store the sequencer view, it will not survive a reload", error);
-  }
+  // Off is the absence of a choice, so it is stored as the absence of one.
+  writeStored(STORAGE_KEY, on ? ON : null, SAID);
   for (const notify of listeners) notify();
 }
 

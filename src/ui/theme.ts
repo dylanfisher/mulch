@@ -4,6 +4,8 @@
  */
 import { useEffect, useSyncExternalStore } from "react";
 
+import { readStored, writeStored } from "@/ui/preference";
+
 /**
  * "system" is the absence of a choice, and the absence of a class: `src/ui/tokens.css`
  * writes every colour as `light-dark(…)` under `color-scheme: light dark`, so following
@@ -25,6 +27,9 @@ export function nextTheme(theme: Theme): Theme {
 
 const STORAGE_KEY = "mulch:theme";
 
+/** What the console calls this preference when the store under it refuses. */
+const SAID = "theme";
+
 const listeners = new Set<() => void>();
 
 /** Read once, then held here: `getSnapshot` runs on every render and must be cheap. */
@@ -35,23 +40,10 @@ export function isTheme(value: string | null | undefined): value is Theme {
   return THEMES.some((theme) => theme === value);
 }
 
-/**
- * `localStorage` is not always there to be read: blocking all cookies, or embedding the app
- * in a third-party frame, makes access throw rather than return null. This runs inside
- * `getSnapshot`, i.e. during render, so an escaping error takes the whole tree down — a blank
- * instrument over a theme preference. Loud but proportionate: say so, then follow the OS.
- */
+/** The stored choice, or the absence of one — which is following the OS (src/ui/preference.ts). */
 function stored(): Theme {
-  // No `localStorage` at all is not that: it is the no-DOM case `getServerSnapshot` states, and
-  // saying it out loud on every render outside a browser buries the access that really did fail.
-  if (typeof localStorage === "undefined") return "system";
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return isTheme(saved) ? saved : "system";
-  } catch (error) {
-    console.error("mulch: cannot read the stored theme, following the system instead", error);
-    return "system";
-  }
+  const saved = readStored(STORAGE_KEY, SAID);
+  return isTheme(saved) ? saved : "system";
 }
 
 function getSnapshot(): Theme {
@@ -85,14 +77,8 @@ function subscribe(onChange: () => void) {
 
 export function setTheme(theme: Theme) {
   current = theme;
-  // Where reading throws, writing throws too. The choice still applies for this session;
-  // it just will not outlive the tab, which is worth a line in the console and nothing more.
-  try {
-    if (theme === "system") localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, theme);
-  } catch (error) {
-    console.error("mulch: cannot store the theme, it will not survive a reload", error);
-  }
+  // "system" is the absence of a choice, so it is stored as the absence of one.
+  writeStored(STORAGE_KEY, theme === "system" ? null : theme, SAID);
   for (const notify of listeners) notify();
 }
 
