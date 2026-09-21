@@ -25,7 +25,12 @@ import { clamp } from "@/lib/range";
 import { assertRackId, patchRack, rackIn, type RackHeld, type RackId } from "@/state/store";
 import type { EffectBounds, SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
-import { boundsCommands, drawnCommands, rackRestorationCommands } from "./restore";
+import {
+  boundsCommands,
+  drawnCommands,
+  laneBoundsCommands,
+  rackRestorationCommands,
+} from "./restore";
 import { audio, rackSaid } from "./refusals";
 import type { Runtime } from "./runtime";
 
@@ -69,6 +74,7 @@ export function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtim
       params,
       automation: {},
       drawn: {},
+      laneBounds: {},
       bounds: {},
     },
   ]);
@@ -142,6 +148,9 @@ export async function duplicateEffect(
     // (0027, 0314). The copy redraws the way the original does, which is the fact this function
     // was already trying to copy.
     ...drawnCommands(cmd.deck, cmd.id, copied.effect, copied.drawn),
+    // And the window each of those lanes is squeezed into, beside what drew them and for the same
+    // reason: a squeeze is part of what was done to the lane (0092, 0393).
+    ...laneBoundsCommands(cmd.deck, cmd.id, copied.effect, copied.laneBounds),
   ]);
   rt.bus.emit({
     t: "effect.duplicated",

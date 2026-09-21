@@ -608,6 +608,9 @@ export function Deck({
                   value={shown.params[param]}
                   lane={(isAutomationParam(param) ? shown.automation[param] : undefined) ?? null}
                   drawn={(isAutomationParam(param) ? shown.drawn[param] : undefined) ?? null}
+                  laneBounds={
+                    (isAutomationParam(param) ? shown.laneBounds[param] : undefined) ?? null
+                  }
                   playing={shown.playing}
                 />
               ))}

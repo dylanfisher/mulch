@@ -39,7 +39,7 @@ import {
   type EffectAutomationParamId,
   type EffectParamValues,
 } from "@/audio/params";
-import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
+import { normalizeAutomationLane, type AutomationLane, type LaneBounds } from "@/lib/automation";
 import { assertMotionDrawn, type MotionDrawn } from "@/lib/motion";
 import type { GrowthBound } from "@/lib/effectGrowth";
 import {
@@ -84,6 +84,13 @@ export type SessionEffect = {
    */
   drawn: Partial<Record<EffectAutomationParamId, MotionDrawn>>;
   /**
+   * The floor and ceiling each of those lanes is squeezed into, for the ones a hand has narrowed
+   * — beside the lane rather than inside it, exactly as `drawn` is and for the same reason
+   * (0314, 0393). A lane cleared clears this beside it, so a window on a parameter holding no
+   * lane is never stored.
+   */
+  laneBounds: Partial<Record<EffectAutomationParamId, LaneBounds>>;
+  /**
    * A window per pool parameter on what this instance's run may draw, and `{}` on every entry
    * that draws nothing at all — which is every entry but the one that declared `grows`. The keys
    * are the *pool's* parameter ids rather than this instance's own, because what is bounded is
@@ -110,6 +117,8 @@ export type SessionDeck = {
   automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
   /** What drew each of those, for the ones a motion drew — the deck's own half of `drawn` (0314). */
   drawn: Partial<Record<DeckAutomationParamId, MotionDrawn>>;
+  /** The floor and ceiling each of those is squeezed into — the deck's own half of the same (0393). */
+  laneBounds: Partial<Record<DeckAutomationParamId, LaneBounds>>;
   /** The rack, in signal order: any number of instances of any registry entry. */
   effects: SessionEffect[];
   source: SourceRef | null;
@@ -248,29 +257,41 @@ const laneProjection = (lane: AutomationLane): AutomationLane =>
  * has exactly one JSON the way one set of values does (0021).
  */
 const boundsProjection = (bounds: EffectBounds): EffectBounds =>
-  Object.fromEntries(
-    BOUNDABLE_PARAM_IDS.flatMap((id) => {
-      const bound = bounds[id];
-      return bound === undefined ? [] : [[id, { min: bound.min, max: bound.max }] as const];
-    }),
-  );
+  besideLanes(bounds, BOUNDABLE_PARAM_IDS, (bound) => ({ min: bound.min, max: bound.max }));
 
 /**
- * What drew each lane, projected in the owner's own declared parameter order and rebuilt field by
- * field — so one drawn state has exactly one JSON, which is what history's comparison is written
- * against (0021, 0314).
+ * One record kept beside the lanes, projected in the owner's own declared parameter order and
+ * rebuilt field by field — so one such record has exactly one JSON, which is what history's
+ * comparison is written against (0021). The third of these, so it is written once and read by all
+ * three: what drew each lane (0314), the window each is squeezed into (0393), and the windows a
+ * run draws inside (0208), which brings its own id list because those are the pool's.
  */
-const drawnProjection = <Id extends ParamId>(
-  drawn: Partial<Record<Id, MotionDrawn>>,
+const besideLanes = <Id extends ParamId, Held>(
+  held: Partial<Record<Id, Held>>,
   allowed: readonly Id[],
-): Partial<Record<Id, MotionDrawn>> => {
-  const projected: Partial<Record<Id, MotionDrawn>> = {};
+  rebuild: (value: Held) => Held,
+): Partial<Record<Id, Held>> => {
+  const projected: Partial<Record<Id, Held>> = {};
   for (const id of allowed) {
-    const said = drawn[id];
-    if (said !== undefined) projected[id] = { character: said.character, redraw: said.redraw };
+    const value = held[id];
+    if (value !== undefined) projected[id] = rebuild(value);
   }
   return projected;
 };
+
+/** What drew each lane: its character and how many passes it plays before it is drawn again. */
+const drawnProjection = <Id extends ParamId>(
+  drawn: Partial<Record<Id, MotionDrawn>>,
+  allowed: readonly Id[],
+): Partial<Record<Id, MotionDrawn>> =>
+  besideLanes(drawn, allowed, (said) => ({ character: said.character, redraw: said.redraw }));
+
+/** The floor and the ceiling each lane is squeezed into. */
+const laneBoundsProjection = <Id extends ParamId>(
+  laneBounds: Partial<Record<Id, LaneBounds>>,
+  allowed: readonly Id[],
+): Partial<Record<Id, LaneBounds>> =>
+  besideLanes(laneBounds, allowed, (window) => ({ min: window.min, max: window.max }));
 
 /**
  * One rack entry, durable: its identity, what it is, its bypass, its values, lanes and bounds.
@@ -291,6 +312,7 @@ export const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
     }),
   ),
   drawn: drawnProjection(entry.drawn, effectAutomationParamIds(entry.effect)),
+  laneBounds: laneBoundsProjection(entry.laneBounds, effectAutomationParamIds(entry.effect)),
   bounds: boundsProjection(entry.bounds),
 });
 
@@ -308,6 +330,7 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
       }),
     ),
     drawn: drawnProjection(current.drawn, DECK_AUTOMATION_PARAM_IDS),
+    laneBounds: laneBoundsProjection(current.laneBounds, DECK_AUTOMATION_PARAM_IDS),
     // Order is the signal order, and each entry projects through the registry it names, so one
     // rack state has exactly one JSON — what history's comparison is written against (0021).
     effects: current.effects.map(effectSnapshot),
@@ -403,6 +426,33 @@ function validateDrawn(
 }
 
 /**
+ * The window each lane is squeezed into — `validateDrawn`'s neighbour, one field along and checked
+ * the same way: beside the lane it is about and only there, two finite ends inside that
+ * parameter's own declared range, and never running backwards (0393).
+ *
+ * It takes no list of allowed parameters because it needs none: `validateLanes` has already bound
+ * the lanes to the ones this owner declares, so a key with no lane beside it is refused by the
+ * rule below rather than checked against that list a second time (principle 1).
+ */
+function validateLaneBounds(value: unknown, lanes: unknown, at: string): void {
+  const laneBounds = objectAt(value, at);
+  const held = objectAt(lanes, at);
+  for (const [param, raw] of Object.entries(laneBounds)) {
+    if (!isAutomationParam(param)) {
+      throw new TypeError(`${at} has unsupported param: ${param}`);
+    }
+    if (held[param] === undefined) throw new TypeError(`${at}.${param} has no lane`);
+    const window = objectAt(raw, `${at}.${param}`);
+    exactKeys(window, ["min", "max"], `${at}.${param}`);
+    paramValue(window.min, param, `${at}.${param}.min`);
+    paramValue(window.max, param, `${at}.${param}.max`);
+    if (finite(window.min, `${at}.${param}.min`) > finite(window.max, `${at}.${param}.max`)) {
+      throw new RangeError(`${at}.${param} is not an increasing range`);
+    }
+  }
+}
+
+/**
  * The windows on what one instance's run may draw. Empty for every entry that draws nothing —
  * which is every entry that did not declare `grows` — because a bound on a run there is no run for
  * is a fact about nothing (0208). Each window names a parameter the pool actually draws, holds two
@@ -439,7 +489,7 @@ function validateRack(value: unknown, at: string): void {
     const entry = objectAt(raw, where);
     exactKeys(
       entry,
-      ["id", "effect", "bypassed", "params", "automation", "drawn", "bounds"],
+      ["id", "effect", "bypassed", "params", "automation", "drawn", "laneBounds", "bounds"],
       where,
     );
     assertEffectInstanceId(entry.id, `${where}.id`);
@@ -460,6 +510,7 @@ function validateRack(value: unknown, at: string): void {
       effectAutomationParamIds(entry.effect),
       `${where}.drawn`,
     );
+    validateLaneBounds(entry.laneBounds, entry.automation, `${where}.laneBounds`);
     validateBounds(entry.bounds, entry.effect, `${where}.bounds`);
   }
 }
@@ -475,6 +526,7 @@ function validateDeck(value: unknown, at: string): void {
       "params",
       "automation",
       "drawn",
+      "laneBounds",
       "effects",
       "source",
       "loop",
@@ -492,6 +544,7 @@ function validateDeck(value: unknown, at: string): void {
 
   validateLanes(stored.automation, DECK_AUTOMATION_PARAM_IDS, `${at}.automation`);
   validateDrawn(stored.drawn, stored.automation, DECK_AUTOMATION_PARAM_IDS, `${at}.drawn`);
+  validateLaneBounds(stored.laneBounds, stored.automation, `${at}.laneBounds`);
   validateRack(stored.effects, `${at}.effects`);
 
   if (stored.source !== null) assertSourceRef(stored.source, `${at}.source`);

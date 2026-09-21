@@ -82,6 +82,43 @@ export function rescaleLane(
 }
 
 /**
+ * A lane's own floor and ceiling, in the parameter's own units and inside its declared range. The
+ * same two numbers a window on a run is (`GrowthBound`, src/lib/effectGrowth.ts), because they say
+ * the same thing about the same parameter — but they are put on by different hands and live in
+ * different places, so this one is named for the lane it squeezes.
+ */
+export type LaneBounds = { min: number; max: number };
+
+/**
+ * The same gesture inside a narrower window: the parameter's whole range read onto the two ends
+ * given, so the shape is untouched and only how far the lane swings changes. A squeeze and never a
+ * clamp — a floor that flattened every point beneath it onto itself would answer a quieter
+ * gesture with a different one (principle 5, `rescaleLane`, which this is one call of.)
+ */
+export function squeezeLane(
+  lane: readonly AutomationPoint[],
+  range: AutomationRange,
+  bounds: LaneBounds,
+): AutomationLane {
+  return rescaleLane(lane, range, { ...range, min: bounds.min, max: bounds.max });
+}
+
+/**
+ * The lane as a host hears it: squeezed into the window a hand has put on it, and the gesture
+ * itself where no hand has (0393). Every road out of the session — the reducer, the re-base a
+ * knob move performs, and the arming a restore or a rebuilt rack does — reads a lane through
+ * this one call, because a window honoured on one of them and not the others is a picture and a
+ * sound that disagree.
+ */
+export function playedLane(
+  lane: readonly AutomationPoint[],
+  range: AutomationRange,
+  bounds: LaneBounds | undefined,
+): readonly AutomationPoint[] {
+  return bounds === undefined ? lane : squeezeLane(lane, range, bounds);
+}
+
+/**
  * Whether two lanes are the same gesture: the same values in the same order, whatever length they
  * are laid over. A lane re-based onto a new manual value and one stretched onto a new span are
  * both that gesture still going round, so both keep the anchor they were recorded on (0035, 0079);

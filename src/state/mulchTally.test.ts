@@ -17,6 +17,7 @@ const instance = (id: string, moving: string[] = []): SessionEffect => ({
   params: {},
   automation: Object.fromEntries(moving.map((param) => [param, [{ at: 0, value: 0.5 }]])),
   drawn: {},
+  laneBounds: {},
   bounds: {},
 });
 

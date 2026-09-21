@@ -118,6 +118,10 @@ const RACK_STAGES: readonly RackStage[] = [
     ),
   (rack, effects) =>
     effects.flatMap((entry) => drawnCommands(rack, entry.id, entry.effect, entry.drawn)),
+  // And the window each lane is squeezed into, last and after the lanes for the reason what drew
+  // them is there: an empty `automation.set` clears the sibling beside it (0027, 0393).
+  (rack, effects) =>
+    effects.flatMap((entry) => laneBoundsCommands(rack, entry.id, entry.effect, entry.laneBounds)),
 ];
 
 /**
@@ -162,6 +166,15 @@ const STAGES: readonly Stage[] = [
       return drawn === undefined ? [] : [{ t: "automation.drawn", deck, param, drawn }];
     }),
   (deck, preset, held) => RACK_STAGES[5]!(deck, preset.effects, held),
+  // And the deck's own windows, after its lanes for the reason its drawn states are (0393).
+  (deck, preset) =>
+    DECK_AUTOMATION_PARAM_IDS.flatMap((param) => {
+      const window = preset.laneBounds[param];
+      return window === undefined
+        ? []
+        : [{ t: "automation.bounds", deck, param, bounds: { min: window.min, max: window.max } }];
+    }),
+  (deck, preset, held) => RACK_STAGES[6]!(deck, preset.effects, held),
   (deck, preset) =>
     preset.loop === null
       ? []
@@ -210,6 +223,33 @@ export function drawnCommands(
   });
 }
 
+/**
+ * One instance's lane windows as the commands that put them there, in the plugin's own declared
+ * order: the one expansion, shared by the stage above and by the copy an `effect.duplicate` is,
+ * exactly as `drawnCommands` is. It goes after that instance's lanes wherever it is used (0393).
+ */
+export function laneBoundsCommands(
+  deck: RackId,
+  instance: EffectInstanceId,
+  effect: SessionEffect["effect"],
+  laneBounds: SessionEffect["laneBounds"],
+): GroupedEditCommand[] {
+  return effectAutomationParamIds(effect).flatMap((param): GroupedEditCommand[] => {
+    const window = laneBounds[param];
+    return window === undefined
+      ? []
+      : [
+          {
+            t: "automation.bounds",
+            deck,
+            instance,
+            param,
+            bounds: { min: window.min, max: window.max },
+          },
+        ];
+  });
+}
+
 export function boundsCommands(
   deck: RackId,
   instance: EffectInstanceId,
@@ -242,6 +282,9 @@ function clearedLanes(
     if (current.drawn[param] !== undefined && preset.drawn[param] === undefined) {
       commands.push({ t: "automation.drawn", deck, param, drawn: null });
     }
+    if (current.laneBounds[param] !== undefined && preset.laneBounds[param] === undefined) {
+      commands.push({ t: "automation.bounds", deck, param, bounds: null });
+    }
   }
   for (const entry of current.effects) {
     const kept = preset.effects.find((candidate) => candidate.id === entry.id);
@@ -252,6 +295,9 @@ function clearedLanes(
       }
       if (entry.drawn[param] !== undefined && kept.drawn[param] === undefined) {
         commands.push({ t: "automation.drawn", deck, instance: entry.id, param, drawn: null });
+      }
+      if (entry.laneBounds[param] !== undefined && kept.laneBounds[param] === undefined) {
+        commands.push({ t: "automation.bounds", deck, instance: entry.id, param, bounds: null });
       }
     }
     for (const param of BOUNDABLE_PARAM_IDS) {
@@ -394,6 +440,7 @@ const restoredRack = (effects: readonly SessionEffect[]): SessionEffect[] =>
     params: { ...entry.params },
     automation: structuredClone(entry.automation),
     drawn: structuredClone(entry.drawn),
+    laneBounds: structuredClone(entry.laneBounds),
     bounds: structuredClone(entry.bounds),
   }));
 
@@ -453,6 +500,7 @@ export function restoredSessionState(
         params: { ...stored.params },
         automation: structuredClone(stored.automation),
         drawn: structuredClone(stored.drawn),
+        laneBounds: structuredClone(stored.laneBounds),
         effects: restoredRack(stored.effects),
         source: stored.source === null ? null : { ...stored.source },
         duration: deckIn(durations, deck),

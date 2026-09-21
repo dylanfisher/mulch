@@ -41,6 +41,7 @@ const beatControls = (
       value: 0.25,
       lane: null,
       drawn: null,
+      laneBounds: null,
       playing: false,
       beat,
     });

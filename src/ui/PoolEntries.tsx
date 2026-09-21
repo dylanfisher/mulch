@@ -32,7 +32,7 @@ import {
   WEIGHT_LABEL,
 } from "@/lib/copyAuto";
 import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
-import { denormalize, normalize } from "@/lib/range";
+import { denormalize, normalize, wholeRange } from "@/lib/range";
 import type { EffectBound, EffectBounds } from "@/state/session";
 import type { RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -230,13 +230,12 @@ function BoundRow({
         deck,
         instance,
         param,
-        bounds:
-          low <= 0 && high >= 1
-            ? null
-            : {
-                min: denormalize(low, spec.min, spec.max, spec.curve),
-                max: denormalize(high, spec.min, spec.max, spec.curve),
-              },
+        bounds: wholeRange(low, high)
+          ? null
+          : {
+              min: denormalize(low, spec.min, spec.max, spec.curve),
+              max: denormalize(high, spec.min, spec.max, spec.curve),
+            },
       });
     },
     [instrument, deck, instance, param, spec],
@@ -247,7 +246,7 @@ function BoundRow({
       <div className="flex items-baseline justify-between gap-2">
         <span className="type-readout">{spec.label}</span>
         <span className="type-readout text-muted-foreground tabular-nums">
-          {range[0] !== undefined && range[1] !== undefined && range[0] <= 0 && range[1] >= 1
+          {range[0] !== undefined && range[1] !== undefined && wholeRange(range[0], range[1])
             ? BOUNDS_ANY
             : boundsLabel(
                 denormalize(range[0] ?? 0, spec.min, spec.max, spec.curve),

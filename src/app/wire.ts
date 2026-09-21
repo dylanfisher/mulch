@@ -50,6 +50,7 @@ const COMMAND_HISTORY = {
   "automation.set": "group",
   "automation.span": "group",
   "automation.drawn": "group",
+  "automation.bounds": "group",
   "effect.add": "group",
   "effect.bypass": "group",
   "effect.remove": "group",
@@ -138,6 +139,7 @@ const RACK_ADDRESSED = {
   "automation.set": true,
   "automation.span": true,
   "automation.drawn": true,
+  "automation.bounds": true,
   "effect.add": true,
   "effect.bypass": true,
   "effect.remove": true,
@@ -231,6 +233,23 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       // beside it. Anything else says both halves and nothing else, through the one assert the
       // stored session is checked by too (principle 5, 0314).
       if (raw.drawn !== null) assertMotionDrawn(raw.drawn, "automation.drawn drawn");
+      return;
+    case "automation.bounds":
+      if (!isAutomationParam(raw.param)) {
+        throw new TypeError(`param does not support automation: ${String(raw.param)}`);
+      }
+      if (raw.instance !== undefined)
+        assertEffectInstanceId(raw.instance, "automation.bounds instance");
+      // Null is a lane squeezed into nothing, which is the whole of "unbounded". Anything else
+      // says two finite ends and nothing else; which way round they are and how far they may
+      // reach is the reducer's, the way a parameter's value is clamped there (principle 5, 0393).
+      if (raw.bounds !== null) {
+        const window = raw.bounds;
+        if (!isRecord(window)) throw new TypeError("automation bounds is not an object or null");
+        // Clamped into the parameter's range downstream, the way `effect.bounds`' window is.
+        finite(window.min, "automation bounds min");
+        finite(window.max, "automation bounds max");
+      }
       return;
     case "automation.span":
       if (!isAutomationParam(raw.param)) {

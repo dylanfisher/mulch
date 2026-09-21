@@ -34,6 +34,7 @@ const instance = (id: string): DeckState["effects"][number] => ({
   params: Object.fromEntries(effectById("delay").params.map((param) => [param.id, param.default])),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
 });
 

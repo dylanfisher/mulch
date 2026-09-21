@@ -31,6 +31,7 @@ const instance = (
   params: effectParamDefaults(effect, id),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
   ...rest,
 });

@@ -569,3 +569,198 @@ describe("automation.span", () => {
     expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": points });
   });
 });
+
+// The floor and the ceiling a lane is read onto: one window per (instance, param), beside the
+// lane exactly as what drew it is, and honoured on the way to the host (0393).
+// oxlint-disable-next-line max-lines-per-function
+describe("automation.bounds", () => {
+  const points = [
+    { at: 0, value: 0 },
+    { at: 1, value: 1 },
+  ];
+  const window = { min: 0.25, max: 0.75 };
+
+  it("writes and clears the window of the lane it names, on the deck and on an instance", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.bounds", deck: "a", param: "deck.gain", bounds: window });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      points,
+    });
+    instrument.send({
+      t: "automation.bounds",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      bounds: { min: 0.5, max: 1 },
+    });
+
+    expect(instrument.probe().decks.a!.laneBounds).toEqual({ "deck.gain": window });
+    expect(instanceIn(instrument, "one").laneBounds).toEqual({
+      "delay.mix": { min: 0.5, max: 1 },
+    });
+    // Its own object, not the command's, the way what drew a lane is.
+    expect(instrument.probe().decks.a!.laneBounds["deck.gain"]).not.toBe(window);
+
+    instrument.send({ t: "automation.bounds", deck: "a", param: "deck.gain", bounds: null });
+    expect(instrument.probe().decks.a!.laneBounds).toEqual({});
+    expect(instrument.ring().filter(({ t }) => t === "automation.bounds")).toHaveLength(3);
+  });
+
+  it("hands the host the gesture squeezed into the window, and the session the gesture", () => {
+    const scheduled: unknown[][] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
+    // The whole of the gain's own range, so the window's two ends are what comes back out.
+    const swing = [
+      { at: 0, value: 0 },
+      { at: 1, value: 1.5 },
+    ];
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: swing });
+    instrument.send({ t: "automation.bounds", deck: "a", param: "deck.gain", bounds: window });
+
+    expect(scheduled.at(-1)).toEqual([
+      "a",
+      null,
+      "deck.gain",
+      [
+        { at: 0, value: 0.25 },
+        { at: 1, value: 0.75 },
+      ],
+      1,
+    ]);
+    // The shape a hand rode is what is stored: a squeeze is widened again by moving the window,
+    // never by re-performing the gesture (0393).
+    expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual(swing);
+
+    // And the re-base a knob move performs goes through the same window, rather than handing the
+    // host back the gesture the window had already narrowed.
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
+    expect(scheduled.at(-1)).toEqual([
+      "a",
+      null,
+      "deck.gain",
+      [
+        { at: 0, value: 0.25 },
+        { at: 1, value: 0.75 },
+      ],
+      0.5,
+    ]);
+  });
+
+  it("goes with an emptied lane, and refuses a window on a parameter holding none", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.bounds", deck: "a", param: "deck.gain", bounds: window });
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: [] });
+    expect(instrument.probe().decks.a!.laneBounds).toEqual({});
+
+    instrument.send({ t: "automation.bounds", deck: "a", param: "deck.gain", bounds: window });
+    expect(instrument.probe().decks.a!.laneBounds).toEqual({});
+    expect(instrument.ring().filter(({ t }) => t === "error")).toHaveLength(1);
+  });
+
+  it("puts the window's ends in order and holds them inside the parameter's own range", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({
+      t: "automation.bounds",
+      deck: "a",
+      param: "deck.gain",
+      bounds: { min: 9, max: -2 },
+    });
+    expect(instrument.probe().decks.a!.laneBounds).toEqual({ "deck.gain": { min: 0, max: 1.5 } });
+  });
+
+  /**
+   * A stepped parameter's window stands on that parameter's own grid. The squeeze counts its
+   * steps from the floor, so a floor half a semitone off the grid would put every value of the
+   * played lane half a semitone off it — on the one parameter whose step exists to keep it in
+   * whole semitones (src/audio/effects/shift.ts).
+   */
+  it("snaps a window on a stepped parameter onto that parameter's own grid", () => {
+    const scheduled: unknown[][] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
+    instrument.send({ t: "effect.add", deck: "a", id: "up", effect: "shift" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "up",
+      param: "shift.interval",
+      points: [
+        { at: 0, value: -24 },
+        { at: 1, value: 24 },
+      ],
+    });
+    instrument.send({
+      t: "automation.bounds",
+      deck: "a",
+      instance: "up",
+      param: "shift.interval",
+      bounds: { min: -11.52, max: 0.4 },
+    });
+
+    expect(instanceIn(instrument, "up").laneBounds).toEqual({
+      "shift.interval": { min: -12, max: 0 },
+    });
+    expect(scheduled.at(-1)?.[3]).toEqual([
+      { at: 0, value: -12 },
+      { at: 1, value: 0 },
+    ]);
+  });
+
+  it("is durable: it survives a snapshot, a restore, an undo and a duplicate", async () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      points,
+    });
+    instrument.send({
+      t: "automation.bounds",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      bounds: window,
+    });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+
+    const stored = sessionSnapshot(instrument.probe());
+    expect(stored.decks.a!.effects[0]!.laneBounds).toEqual({ "delay.mix": window });
+    expect(() => {
+      validateSession(structuredClone(stored));
+    }).not.toThrow();
+
+    const restored = createInstrument(manualClock());
+    for (const command of restorationCommands(stored)) restored.send(command);
+    await turns();
+    expect(instanceIn(restored, "one").laneBounds).toEqual({ "delay.mix": window });
+
+    // The copy is the original again, which is the whole reason to make one (0092).
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+    expect(instanceIn(instrument, "two").laneBounds).toEqual({ "delay.mix": window });
+
+    instrument.send({
+      t: "automation.bounds",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      bounds: null,
+    });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+    expect(instanceIn(instrument, "one").laneBounds).toEqual({});
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instanceIn(instrument, "one").laneBounds).toEqual({ "delay.mix": window });
+  });
+});

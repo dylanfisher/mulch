@@ -2,7 +2,7 @@
  * @role That the dot lands in the commit rather than a frame later — the halt rule the dial
  *   already keeps (0040), from the one surface that was reaching it a frame behind.
  */
-import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -45,35 +45,16 @@ vi.mock("@/ui/frame", () => ({
   },
 }));
 
-import type { AutomationPoint } from "@/lib/automation";
+import type { ParamSpec } from "@/audio/params";
+import { squeezeLane, type AutomationPoint, type LaneBounds } from "@/lib/automation";
 import { AutomationPreview } from "@/ui/AutomationPreview";
-import { Knob } from "@/ui/Knob";
-
-/** One pointer event, in the shape both the dial and the row it bubbles to read off it. */
-type DialEvent = {
-  pointerId: number;
-  button: number;
-  clientX: number;
-  clientY: number;
-  shiftKey: boolean;
-  buttons: number;
-  /** The dial captures on this, and the skeleton listens on it for the capture coming off. */
-  currentTarget: {
-    setPointerCapture: () => void;
-    hasPointerCapture: () => boolean;
-    releasePointerCapture: () => void;
-    addEventListener: () => void;
-    removeEventListener: () => void;
-  };
-};
-type PointerHandlers = {
-  onPointerDown: (event: DialEvent) => void;
-  onPointerMove?: (event: DialEvent) => void;
-  onPointerUp: (event: DialEvent) => void;
-  onPointerCancel: (event: DialEvent) => void;
-  onGotPointerCapture?: (event: DialEvent) => void;
-  onKeyDown?: (event: { key: string; preventDefault: () => void }) => void;
-};
+import {
+  countedStyle,
+  pathsIn,
+  press,
+  stretchOn,
+  type PointerHandlers,
+} from "@/ui/automationPreviewDouble";
 
 /** A one-second ramp: at half a cycle the dot sits half way across and half way up. */
 const lane: AutomationPoint[] = [
@@ -82,66 +63,32 @@ const lane: AutomationPoint[] = [
 ];
 
 /**
- * The stretch as a hand on it: the dial's own handlers, and the row's underneath them in the
- * order a real pointer reaches them — the dial captures, and the ending bubbles to the row. The
- * dial is built once per gesture, because its drag lives in refs of the render that made it.
- */
-function stretchOn(row: ReactElement<PointerHandlers & { children: ReactNode }>): PointerHandlers {
-  const [knob] = Children.toArray(row.props.children);
-  if (!isValidElement<Parameters<typeof Knob>[0]>(knob)) {
-    throw new Error("the span row rendered no dial.");
-  }
-  const dialRoot = Knob(knob.props);
-  if (!isValidElement<{ children: ReactNode }>(dialRoot)) {
-    throw new Error("the dial rendered no root.");
-  }
-  const [face] = Children.toArray(dialRoot.props.children);
-  if (!isValidElement<PointerHandlers>(face)) throw new Error("the dial rendered no face.");
-  const dial = face.props;
-  const both = (of: "onPointerMove" | "onPointerUp" | "onPointerCancel") => (event: DialEvent) => {
-    dial[of]?.(event);
-    row.props[of]?.(event);
-  };
-  return {
-    // The row is told a gesture started by the capture the dial takes, not by the press — so a
-    // press the dial refuses must not reach it here either.
-    onPointerDown: (event: DialEvent) => {
-      const grabbed: number[] = [];
-      event.currentTarget.setPointerCapture = () => {
-        grabbed.push(event.pointerId);
-      };
-      dial.onPointerDown(event);
-      if (grabbed.length > 0) row.props.onGotPointerCapture?.(event);
-    },
-    ...(dial.onKeyDown === undefined ? {} : { onKeyDown: dial.onKeyDown }),
-    onPointerMove: both("onPointerMove"),
-    onPointerUp: both("onPointerUp"),
-    onPointerCancel: both("onPointerCancel"),
-  };
-}
-
-/**
  * One render, with a stand-in element under the dot's ref — the style object is the assertion,
  * and every assignment to it is counted, because what a frame does not write is one of them.
  */
+const RANGE: ParamSpec = { label: "Gain", min: 0, max: 1, default: 1, precision: 2 };
+
 function renderPreview(
   phase: () => number | null,
   onSpan: (span: number) => void = () => {},
   points: AutomationPoint[] = lane,
   playing = true,
+  bounds: LaneBounds | null = null,
+  onBounds: (bounds: LaneBounds | null) => void = () => {},
 ) {
   frame = null;
   settle = null;
   teardowns.length = 0;
   const root = AutomationPreview({
     lane: points,
-    min: 0,
-    max: 1,
+    range: RANGE,
+    bounds,
     base: 0,
     title: "gain lane",
     phase,
     playing,
     onSpan,
+    onBounds,
   });
   if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("preview rendered no root.");
   const [row, picture] = Children.toArray(root.props.children);
@@ -155,35 +102,16 @@ function renderPreview(
   if (!isValidElement<{ ref: { current: unknown } }>(dot)) {
     throw new Error("preview rendered no dot.");
   }
-  const style: Record<string, string> = {};
-  let written = 0;
-  const counted = new Proxy(style, {
-    set: (target, key: string, value: string) => {
-      written += 1;
-      target[key] = value;
-      return true;
-    },
-  });
+  const { style, writes, counted } = countedStyle();
   dot.props.ref.current = { style: counted };
-  return { style, writes: () => written, stretch: () => stretchOn(row) };
+  return {
+    style,
+    writes,
+    stretch: () => stretchOn(row),
+    /** The window's rules where a window was given, and the gesture as a path last either way. */
+    paths: () => pathsIn(picture),
+  };
 }
-
-/** One pointer event at `clientY`, with the capture target a real drag would be given. */
-const press = (clientY: number, pointerId = 1): DialEvent => ({
-  pointerId,
-  button: 0,
-  clientX: 0,
-  clientY,
-  shiftKey: false,
-  buttons: 1,
-  currentTarget: {
-    setPointerCapture: () => {},
-    hasPointerCapture: () => false,
-    releasePointerCapture: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  },
-});
 
 describe("AutomationPreview", () => {
   it("paints the dot in the commit, without waiting for a frame", () => {
@@ -396,5 +324,66 @@ describe("AutomationPreview span dial", () => {
     });
 
     expect(spans).toEqual([2]);
+  });
+});
+
+// Its own block for the reason the one above is: the picture with a window on it is a different
+// subject from the dot that rides it.
+describe("AutomationPreview under a floor and a ceiling", () => {
+  const window = { min: 0.25, max: 0.75 };
+
+  it("draws the gesture squeezed into the window, and the window under it", () => {
+    const plain = renderPreview(() => null);
+    const squeezed = renderPreview(
+      () => null,
+      () => {},
+      lane,
+      true,
+      window,
+    );
+
+    // Exactly the squeeze and nothing else: the same picture the same gesture would draw if it
+    // had been recorded inside the window in the first place (0393).
+    const already = renderPreview(
+      () => null,
+      () => {},
+      squeezeLane(lane, RANGE, window),
+    );
+    expect(squeezed.paths().at(-1)).toBe(already.paths().at(-1));
+    expect(squeezed.paths().at(-1)).not.toBe(plain.paths().at(-1));
+
+    // And the window itself is said: two rules across the box, at the heights it holds the
+    // gesture between. A preview with no window draws the gesture alone.
+    expect(squeezed.paths()).toHaveLength(2);
+    expect(plain.paths()).toHaveLength(1);
+  });
+});
+
+describe("the dot under a floor and a ceiling", () => {
+  const window = { min: 0.25, max: 0.75 };
+
+  it("rides the squeezed gesture rather than the one recorded", () => {
+    const { style } = renderPreview(
+      () => 0.5,
+      () => {},
+      lane,
+      true,
+      window,
+    );
+    settle?.();
+    // Half way along a ramp squeezed into the middle half of the box: half way across, and half
+    // way up — the same height, because half of the window is half of the range.
+    expect(style).toEqual({ left: "50%", top: "50%", opacity: "1" });
+
+    const low = renderPreview(
+      () => 1,
+      () => {},
+      lane,
+      true,
+      window,
+    );
+    settle?.();
+    // The end of the ramp is the ceiling now, a quarter down from the top of the box.
+    expect(low.style.top).toBe("25%");
   });
 });

@@ -465,6 +465,7 @@ describe("ParameterKnob automation gestures", () => {
       value: 1_234.567_890_123,
       lane: null,
       drawn: null,
+      laneBounds: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -485,6 +486,7 @@ describe("ParameterKnob automation gestures", () => {
       value: 0,
       lane: null,
       drawn: null,
+      laneBounds: null,
       playing: false,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -508,6 +510,7 @@ describe("ParameterKnob automation gestures", () => {
         value: 1,
         lane: null,
         drawn: null,
+        laneBounds: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
@@ -534,6 +537,7 @@ describe("ParameterKnob automation gestures", () => {
       value: 1,
       lane: null,
       drawn: null,
+      laneBounds: null,
       playing: false,
     };
     dialOf(ParameterKnob({ ...props, round: (value) => value * 2 })).onChange(0.3);
@@ -569,6 +573,7 @@ describe("ParameterKnob automation gestures", () => {
       value: 1,
       lane: null,
       drawn: null,
+      laneBounds: null,
       playing: false,
     };
     expect(dialOf(ParameterKnob({ ...props, round: doubled })).land).toBe(doubled);

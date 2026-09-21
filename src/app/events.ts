@@ -9,7 +9,7 @@ import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { MotionDrawn } from "@/lib/motion";
-import type { AutomationPoint } from "@/lib/automation";
+import type { AutomationPoint, LaneBounds } from "@/lib/automation";
 import type { BlobId } from "@/lib/source";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId, RackId } from "@/state/store";
@@ -82,6 +82,18 @@ export type EventBody =
       instance?: EffectInstanceId;
       param: ParamId;
       drawn: MotionDrawn | null;
+    }
+  /**
+   * The window the lane at that pair is squeezed into, or null for one squeezed into nothing
+   * (0393). Said on the log rather than folded into `automation.changed`, for the reason what
+   * drew it is: the two are written independently.
+   */
+  | {
+      t: "automation.bounds";
+      deck: RackId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      bounds: LaneBounds | null;
     }
   // One instance copied into the slot immediately after the one it copies (0155). The
   // `effect.added`, the `effect.reordered` that put it there, the values and the bypass the copy

@@ -151,6 +151,8 @@ export type DeckState = {
   automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
   /** What drew each of those, for the ones a motion drew — the session records the same (0314). */
   drawn: SessionDeck["drawn"];
+  /** The window each of those is squeezed into — the session records the same (0393). */
+  laneBounds: SessionDeck["laneBounds"];
   /**
    * The rack in signal order: any number of instances of any registered effect, each with its
    * own id, values, lanes and bypass flag (0030).
@@ -231,6 +233,7 @@ const defaultDeck = (): DeckState => ({
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
   drawn: {},
+  laneBounds: {},
   effects: [],
   source: null,
   duration: 0,

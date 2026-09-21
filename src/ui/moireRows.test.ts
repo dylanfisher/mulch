@@ -171,6 +171,7 @@ const instance = (
     },
     automation: over.automation ?? {},
     drawn: {},
+    laneBounds: {},
     bounds: {},
   };
 };

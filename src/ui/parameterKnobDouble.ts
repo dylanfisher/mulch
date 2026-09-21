@@ -72,6 +72,7 @@ export function renderKnob(
       value: 1,
       lane: holding,
       drawn: said,
+      laneBounds: null,
       playing,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");

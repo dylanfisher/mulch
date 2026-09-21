@@ -28,6 +28,7 @@ const instance = (
   params: effectParamDefaults(effect, id),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
   ...rest,
 });
@@ -61,6 +62,7 @@ const STORED_RACK = [
       ],
     },
     drawn: {},
+    laneBounds: {},
     bounds: {},
   },
   {
@@ -70,6 +72,7 @@ const STORED_RACK = [
     params: { "delay.time": 0.25, "delay.feedback": 0.35, "delay.mix": 0.25 },
     automation: {},
     drawn: {},
+    laneBounds: {},
     bounds: {},
   },
 ];
@@ -78,6 +81,7 @@ const STORED_DECK = {
   params: STORED_PARAMS,
   automation: {},
   drawn: {},
+  laneBounds: {},
   effects: [],
   source: null,
   loop: null,
@@ -95,6 +99,7 @@ const STORED_CLIP = {
     params: STORED_PARAMS,
     automation: {},
     drawn: {},
+    laneBounds: {},
     effects: STORED_RACK,
     source: { blobId: "audio-9" },
     loop: { in: 0, out: 1 },

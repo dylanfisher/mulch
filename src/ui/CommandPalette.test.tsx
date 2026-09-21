@@ -137,6 +137,7 @@ const DECK_STATE: DeckState = {
   params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
   drawn: {},
+  laneBounds: {},
   effects: [],
   source: null,
   duration: 1,

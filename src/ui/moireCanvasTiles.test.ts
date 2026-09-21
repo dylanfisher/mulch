@@ -111,6 +111,7 @@ const RUNNING: SessionEffect[] = [
     params: effectParamDefaults("automator", "an automator"),
     automation: {},
     drawn: {},
+    laneBounds: {},
     bounds: {},
   },
 ];
@@ -319,6 +320,7 @@ describe("moireCanvas tiles", () => {
           params: effectParamDefaults("reverb", "one"),
           automation: {},
           drawn: {},
+          laneBounds: {},
           bounds: {},
         },
       ],

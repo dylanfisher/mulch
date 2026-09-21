@@ -65,6 +65,7 @@ const instance = (
     params: { ...effectParamDefaults(effect, id), ...over.params },
     automation: {},
     drawn: {},
+    laneBounds: {},
     bounds: {},
   };
 };

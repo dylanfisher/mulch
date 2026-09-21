@@ -7,16 +7,20 @@
  *   The lane's live phase comes from peek() on src/app/facade.ts, never from a clock of this
  *   component's own.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type PointerEvent } from "react";
 
+import type { ParamSpec } from "@/audio/params";
 import {
   automationValueAt,
   laneSpan,
   MAX_LANE_SPAN,
   MIN_LANE_SPAN,
+  squeezeLane,
   type AutomationPoint,
+  type LaneBounds,
 } from "@/lib/automation";
 import { Knob, secondsLabel, secondsValue } from "@/ui/Knob";
+import { LaneBoundsRow } from "@/ui/LaneBoundsRow";
 import { useOnFrame } from "@/ui/frame";
 
 /**
@@ -60,6 +64,15 @@ const previewPath = (
     })
     .join(" ");
 
+/** The window's two ends across the box: one dashed rule at the floor and one at the ceiling. */
+const boundsPath = (bounds: LaneBounds, min: number, max: number): string =>
+  [bounds.max, bounds.min]
+    .map((value) => {
+      const y = place({ at: 0, value }, min, max, 0).y * PREVIEW_HEIGHT;
+      return `M0 ${y} L${PREVIEW_WIDTH} ${y}`;
+    })
+    .join(" ");
+
 /**
  * `phase` is seconds into the lane's own cycle, or null when there is no lane to be in one — read
  * once a frame, and only while this is on screen. A halted deck answers with the phase it froze
@@ -72,17 +85,21 @@ const previewPath = (
 // oxlint-disable-next-line max-lines-per-function
 export function AutomationPreview({
   lane,
-  min,
-  max,
+  range,
+  bounds,
   base,
   title,
   phase,
   playing,
   onSpan,
+  onBounds,
 }: {
+  /** The gesture as it is held: what a window squeezes, never what a window already squeezed. */
   lane: readonly AutomationPoint[];
-  min: number;
-  max: number;
+  /** The parameter the gesture was recorded on — the range every value in it is read against. */
+  range: ParamSpec;
+  /** The floor and ceiling it is squeezed into, or null for one that swings the whole range. */
+  bounds: LaneBounds | null;
   base: number;
   /** What a reader and ./scripts/smoke find this by. */
   title: string;
@@ -94,7 +111,17 @@ export function AutomationPreview({
    * pointer event, which moves the dial above and nothing else (0065).
    */
   onSpan: (span: number) => void;
+  /** The one command a whole squeeze sends, at the end of the drag that decided it (0065, 0393). */
+  onBounds: (bounds: LaneBounds | null) => void;
 }) {
+  const { min, max } = range;
+  // What the picture is of: the gesture the host is actually hearing, which is the one squeezed
+  // into the window a hand put on it — the same squeeze `execute` hands the graph, through the
+  // same function, so the dot and the parameter cannot disagree (0035, 0393).
+  const shown = useMemo(
+    () => (bounds === null ? lane : squeezeLane(lane, range, bounds)),
+    [bounds, lane, range],
+  );
   const span = laneSpan(lane);
   const dot = useRef<HTMLDivElement>(null);
   /**
@@ -121,7 +148,7 @@ export function AutomationPreview({
       last.opacity = "0";
       return;
     }
-    const { x, y } = place({ at, value: automationValueAt(lane, at, base) }, min, max, span);
+    const { x, y } = place({ at, value: automationValueAt(shown, at, base) }, min, max, span);
     if (last.opacity === "1" && x === last.x && y === last.y) return;
     element.style.left = `${x * 100}%`;
     element.style.top = `${y * 100}%`;
@@ -129,7 +156,7 @@ export function AutomationPreview({
     last.x = x;
     last.y = y;
     last.opacity = "1";
-  }, [base, lane, max, min, phase, span]);
+  }, [base, shown, max, min, phase, span]);
 
   // Mounted only while the popover is open, which is one mark peeked at or latched (0154): a mark
   // that is neither costs a page nothing, and a rack of automated knobs runs one or two frame
@@ -264,8 +291,19 @@ export function AutomationPreview({
           aria-label={title}
         >
           <title>{title}</title>
+          {/* The window itself, where there is one: the floor and the ceiling the gesture above
+              is squeezed between, so a squeezed lane says what squeezed it (0393). */}
+          {bounds === null ? null : (
+            <path
+              d={boundsPath(bounds, min, max)}
+              data-slot="lane-bounds"
+              className="fill-none stroke-muted-foreground"
+              strokeDasharray="2 2"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
           <path
-            d={previewPath(lane, min, max, span)}
+            d={previewPath(shown, min, max, span)}
             className="fill-none stroke-primary"
             vectorEffect="non-scaling-stroke"
           />
@@ -279,6 +317,16 @@ export function AutomationPreview({
           className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0"
         />
       </div>
+      {/* Under the picture, because it is about the heights in it: the two ends the gesture is
+          read onto. Keyed by the window it is standing on, the way a pool entry's window is, so a
+          squeeze that arrives from an undo or a restore moves the thumbs (0393). */}
+      <LaneBoundsRow
+        key={bounds === null ? "" : `${bounds.min}:${bounds.max}`}
+        range={range}
+        bounds={bounds}
+        title={title}
+        onBounds={onBounds}
+      />
     </div>
   );
 }

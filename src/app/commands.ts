@@ -14,7 +14,7 @@ import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { BlobId, SourceRef } from "@/lib/source";
-import type { AutomationPoint } from "@/lib/automation";
+import type { AutomationPoint, LaneBounds } from "@/lib/automation";
 import type { MotionDrawn } from "@/lib/motion";
 import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId, RackId } from "@/state/store";
@@ -99,6 +99,19 @@ export type DurableEditCommand =
       instance?: EffectInstanceId;
       param: ParamId;
       drawn: MotionDrawn | null;
+    }
+  /**
+   * The floor and the ceiling the lane at that (instance, param) is squeezed into, or null for a
+   * lane that swings its parameter's whole declared range. One command per gesture, beside the
+   * lane rather than inside it exactly as `automation.drawn` is, and it dies with the lane in
+   * `automation.set`'s own reducer (0314, 0393).
+   */
+  | {
+      t: "automation.bounds";
+      deck: RackId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      bounds: LaneBounds | null;
     }
   // The length the lane it names repeats on, rewritten after the fact: the gesture's shape is
   // kept and every point's time is scaled onto this span, so a lane recorded once is sped up or

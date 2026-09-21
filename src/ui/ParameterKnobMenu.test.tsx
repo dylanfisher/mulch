@@ -232,6 +232,7 @@ describe("ParameterKnob span gesture", () => {
         value: 0.5,
         lane: points,
         drawn: null,
+        laneBounds: null,
         playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");

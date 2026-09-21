@@ -83,6 +83,7 @@ export const rackSet = (
       params: { ...effectParamDefaults(effect, id), ...params },
       automation: {},
       drawn: {},
+      laneBounds: {},
       bounds: {},
     })),
     0,

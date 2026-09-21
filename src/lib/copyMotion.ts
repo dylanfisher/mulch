@@ -36,6 +36,12 @@ export const MOTION_REDRAW_SAYS =
 export const redrawPassesLabel = (passes: number): string =>
   `${MOTION_REDRAW_OFFER} ${passes} ${passes === 1 ? "pass" : "passes"}`;
 
+/** The eyebrow over the two-ended slider: the window the lane is squeezed into (0393). */
+export const LANE_BOUNDS_LABEL = "Bounds";
+
+export const LANE_BOUNDS_SAYS =
+  "The floor and the ceiling this lane swings between. The gesture is kept whole and read onto the window, so narrowing it makes the same movement smaller rather than flattening its ends. Wide open is the parameter's own range.";
+
 /** The two presses under the rows: a motion taken off this knob, and the one carried put on it. */
 export const MOTION_COPY = "Copy";
 export const MOTION_PASTE = "Paste";

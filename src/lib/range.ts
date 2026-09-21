@@ -76,3 +76,12 @@ export function snapToStep(value: number, min: number, max: number, step: number
   const snapped = Math.round((value - min) / step) * step + min;
   return clamp(Number(snapped.toPrecision(12)), min, max);
 }
+
+/**
+ * Whether a two-ended window dragged in normalized space is no window at all — open to both ends
+ * of whatever it bounds. The one rule every window control reads: dragged this wide, a window is
+ * cleared rather than stored, so a parameter nobody has narrowed stores nothing (0208, 0393).
+ */
+export function wholeRange(low: number, high: number): boolean {
+  return low <= 0 && high >= 1;
+}

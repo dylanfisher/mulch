@@ -19,6 +19,7 @@ const instance = (
   params: effectParamDefaults(effect, id),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
   ...rest,
 });
@@ -77,6 +78,7 @@ const STORED_EQ = {
   params: effectParamDefaults("eq", "flt"),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
 };
 
@@ -89,6 +91,7 @@ const storedAuto = (bounds: unknown) => ({
   params: effectParamDefaults("automator", "auto"),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds,
 });
 
@@ -353,6 +356,7 @@ describe("automation session validation", () => {
     patchDeck(store, "a", {
       automation: {},
       drawn: {},
+      laneBounds: {},
       effects: [
         instance("flt", "eq", {
           drawn: { "eq.frequency": { character: "creep", redraw: 0 } },
@@ -362,6 +366,34 @@ describe("automation session validation", () => {
     expect(() => validateSession(sessionSnapshot(store.getState()))).toThrow(
       /eq\.frequency has no lane/u,
     );
+  });
+
+  it("rejects a lane window with no lane, one out of range, and one running backwards", () => {
+    const store = createSessionStore();
+    const points = [
+      { at: 0, value: 0.25 },
+      { at: 1, value: 0.75 },
+    ];
+    patchDeck(store, "a", {
+      automation: { "deck.gain": points },
+      laneBounds: { "deck.gain": { min: 0.25, max: 0.75 } },
+    });
+    const durable = sessionSnapshot(store.getState());
+    expect(validateSession(durable)).toEqual(durable);
+
+    const bent = (laneBounds: unknown, automation: unknown) => () => {
+      validateSession({
+        ...durable,
+        decks: { ...durable.decks, a: { ...durable.decks.a!, automation, laneBounds } },
+      });
+    };
+    expect(bent({ "deck.gain": { min: 0.25, max: 0.75 } }, {})).toThrow(/deck\.gain has no lane/u);
+    const lanes = { "deck.gain": points };
+    expect(bent({ "deck.gain": { min: 0.25, max: 9 } }, lanes)).toThrow(/outside \[0, 1.5\]/u);
+    expect(bent({ "deck.gain": { min: 0.75, max: 0.25 } }, lanes)).toThrow(
+      /not an increasing range/u,
+    );
+    expect(bent({ "deck.gain": { min: 0.25 } }, lanes)).toThrow(/deck\.gain/u);
   });
 
   it("carries an instance-owned lane through the projection and the current validator", () => {

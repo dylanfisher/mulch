@@ -8,7 +8,8 @@
  */
 import type { DeckVoice } from "@/audio/deckVoice";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { effectAutomationParamIds, paramIn } from "@/audio/params";
+import { effectAutomationParamIds, paramIn, PARAMS } from "@/audio/params";
+import { playedLane } from "@/lib/automation";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type SessionState } from "@/state/store";
 
@@ -34,9 +35,10 @@ export type SilencedRack = RackBuilder & Pick<DeckVoice, "setSync" | "setTempo">
 export type RackClocks = { sync: number | null; tempo: (deck: DeckId | null) => number };
 
 /**
- * Every lane one stored instance holds, armed against its own binding and its own manual value.
- * An instance's lanes are held beside its values and go with it, so there is nothing here that
- * could name a binding the rack does not have (0030).
+ * Every lane one stored instance holds, armed against its own binding and its own manual value —
+ * each of them read through the window the instance holds it inside, because the graph hears the
+ * squeezed gesture and never the stored one (0393). An instance's lanes are held beside its values
+ * and go with it, so there is nothing here that could name a binding the rack does not have (0030).
  */
 export function armInstanceLanes(
   voice: Pick<DeckVoice, "setAutomation">,
@@ -44,8 +46,10 @@ export function armInstanceLanes(
 ): void {
   for (const param of effectAutomationParamIds(entry.effect)) {
     const lane = entry.automation[param];
-    if (lane !== undefined)
-      voice.setAutomation(entry.id, param, lane, paramIn(entry.params, param));
+    if (lane !== undefined) {
+      const played = playedLane(lane, PARAMS[param], entry.laneBounds[param]);
+      voice.setAutomation(entry.id, param, played, paramIn(entry.params, param));
+    }
   }
 }
 

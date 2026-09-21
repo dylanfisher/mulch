@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0393. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0394. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -321,15 +321,30 @@ fold keep only their key, their parse and their default. The pins are fourteen c
 src/ui/rackFold.test.ts and five in the new src/ui/MasterRack.test.tsx, which had no suite of its
 own before this step.
 
-**Step 13 — an automation has a floor and a ceiling.** _Durable shape moved:_ a lane's bounds on
-the deck's and the instance's `automation` record, absent by default — discard, no migration
-(0026). "effect automations need ability to set min/max values for automations". A lane's values
-are read through its parameter's range (`AutomationRange`, src/lib/automation.ts); a lane may
+**Step 13 — an automation has a floor and a ceiling
+([0393](decisions/0393-a-lane-has-a-floor-and-a-ceiling.md), landed).** _Durable shape moved:_ a
+lane's bounds on the deck's and the instance's `automation` record, absent by default — discard, no
+migration (0026). "effect automations need ability to set min/max values for automations". A lane's
+values are read through its parameter's range (`AutomationRange`, src/lib/automation.ts); a lane may
 now carry its own sub-range, drawn on the preview (src/ui/AutomationPreview.tsx) and honoured by
 the one reading of a lane, so a recorded or drawn lane can be squeezed after the fact. **Tests
 that must fail first:** a lane with bounds normalises inside them; the bounds ride a snapshot, an
 undo and a duplicate; a render with bounds differs from one without exactly by the squeeze.
 **Refused:** a second reading of a lane.
+_Landed:_ `laneBounds` is the lane's own window, beside the lane and never inside it — `drawn`'s
+sibling in every respect 0314 set: one command (`automation.bounds`), one restoration stage after
+the lanes, carried by a duplicate, and cleared by the lane's own reducer (0393). The squeeze is
+`squeezeLane` in src/lib/automation.ts, which is one call of `rescaleLane` and so a squeeze rather
+than a clamp — a floor that flattened every point beneath it onto itself would answer a quieter
+gesture with a different one. It lands once, on the way to the host, at the three places a lane
+reaches it, so the session keeps the gesture and a window can be widened or taken off afterwards.
+The preview draws the squeezed gesture and the window's two rules under it, and the control is
+src/ui/LaneBoundsRow.tsx — a two-ended slider in the picture's own linear space, because a lane's
+values ignore the curve its dial is drawn on. src/app/execute.ts crossed the 800-line hard cap on
+the way, so the three lane commands and the address rule they share left for
+src/app/automationEdit.ts. The pins are sixteen cases: five in src/lib/automation.test.ts, five in
+src/app/automation.test.ts, two in src/ui/AutomationPreview.test.tsx, three in the new
+src/ui/LaneBoundsRow.test.tsx and one in src/state/session.test.ts.
 
 **Step 14 — the automator may throw between a few states.** _Durable shape moved:_ none if it is
 a knob on the automator's declaration (src/audio/effects/automatorParams.ts); say so. "effect
@@ -638,3 +653,50 @@ three times, which the Reuse lens is right about: it stays spelled three times b
 needs `vi.fn` spies for the calls src/ui/theme.test.ts asserts, no `*Double` module in this repo
 imports the test runner, and the three fixtures are not one shape — two hold a single key's value
 and the third is keyed by rack.
+
+**Step 13 squeezes where the lane leaves the session, not inside the one reading, and left the
+clipboard alone.** The step said the window is "honoured by the one reading of a lane" and refused
+a second reading. `automationValueAt` is that reading, but it is not the only road out: a
+scheduled lane is laid on an AudioParam by `scheduleAutomation` (src/audio/ramp.ts), which reads
+the points directly, so a squeeze applied inside the reading would move the picture and leave the
+sound where it was. What landed keeps the refusal by being one function — `squeezeLane` — called
+at the three places a lane reaches the host and once where the preview draws it, rather than a
+second interpolator; the reading itself is untouched. Three things were left out. A motion copied
+off a knob carries the lane, its range and what drew it (src/ui/motionClipboard.ts) and still
+does: a window is a fact about the knob it was put on, and 0067's paste already rescales onto the
+target's range, so carrying a window would be carrying a squeeze twice. The field is `laneBounds`
+rather than `bounds`, which on a rack entry already means the window a run draws inside (0208) —
+two windows on one entry that mean different things need two names. And the cost is paid in one
+place: src/app/execute.ts crossed the 800-line hard cap, so the three lane commands and the
+`targetOf` rule they share with `param.set` moved to src/app/automationEdit.ts, which is the
+second subject to leave that file (0007, 0045) and not a slice of it.
+
+**Step 13's review found the squeeze missing from every road to the graph that never sees a
+command, and declined four duplications.** Contract and Seam both landed on the same hole, from
+different ends: the reducer squeezed, and `prepareRestore` (src/app/engine.ts) and
+`armInstanceLanes` (src/app/rackRebuild.ts) armed the stored gesture — so an undo, a redo, a
+grouped-edit rollback, a `session.import` or a second Stop left the picture drawing a squeeze the
+sound had come out of, until the lane or the window was touched again. `drawn` had never forced
+anyone to think about those two, because nothing `drawn` holds reaches the graph (0314); a window
+does. The fix is `playedLane` in src/lib/automation.ts, read by all six roads, and the pin is
+src/app/rackRebuild.test.ts — the deck half lives inside `prepareRestore`, which needs a real
+AudioContext and is the browser lane's, exactly as src/app/restoreMaster.test.ts already says of
+it. Contract also found a window on a stepped parameter snapping off that parameter's own grid,
+because the squeeze counts its steps from the floor: `automation.bounds` now snaps both ends the
+way `param.set` snaps a value, pinned on `shift.interval`, whose step exists to keep it in whole
+semitones. One Contract finding is declined and carried as a cost in 0393: a squeeze re-phases a
+playing lane, because `deckLanes` keeps an anchor only where the points are the same gesture _by
+value_ and a squeeze moves every value — teaching it otherwise changes what "the same gesture"
+means for every writer of a lane. The Reuse lens found six duplications and was right about the
+count on each: two were collapsed — the three projections of a record kept beside the lanes are
+now one `besideLanes` in src/state/session.ts, and the "dragged wide open is no window" rule is
+`wholeRange` in src/lib/range.ts, read by both window controls instead of four spellings — and it
+also caught a tooltip constant with no reader, now wired. Four were declined. `laneBoundsCommands`
+is honestly the third restoration expansion, and it stays: the three build three different command
+types and the deck-side stages a fourth shape, so the collapse trades a typed command literal at
+each site for a builder callback, inside the one list whose order five steps of this block have
+depended on. `validateLaneBounds` beside `validateBounds`, `LaneBoundsRow` beside
+`PoolEntries.tsx`'s `BoundRow`, and the preview's own `bounds === null` conditional are each the
+_second_ occurrence, and principle 3 says the second is not a finding. `BOUNDS_STEP` is the second
+declaration of a slider step and stays local rather than importing a constant out of the pool
+menu's own component file.

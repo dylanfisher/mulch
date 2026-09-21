@@ -23,6 +23,7 @@ const instance = (
   params: Object.fromEntries(effectById(effect).params.map((param) => [param.id, param.default])),
   automation: {},
   drawn: {},
+  laneBounds: {},
   bounds: {},
   ...over,
 });
@@ -48,8 +49,12 @@ function fakeRack(standing: string[] = []) {
     setEffectBypass: (id: string, off: boolean) => {
       calls.push(`bypass:${id}:${String(off)}`);
     },
-    setAutomation: (id: string | null, param: string) => {
-      calls.push(`lane:${String(id)}:${param}`);
+    setAutomation: (
+      id: string | null,
+      param: string,
+      lane: readonly { at: number; value: number }[],
+    ) => {
+      calls.push(`lane:${String(id)}:${param}:${lane.map((point) => point.value).join(",")}`);
     },
     setSync: (sync: number | null) => {
       calls.push(`sync:${String(sync)}`);
@@ -87,7 +92,34 @@ describe("a rack emptied and built again", () => {
       [],
       [instance("one", "delay", { automation: { "delay.mix": [{ at: 0, value: 1 }] } })],
     );
-    expect(calls).toEqual(["add:one:delay", "bounds:one", "lane:one:delay.mix"]);
+    expect(calls).toEqual(["add:one:delay", "bounds:one", "lane:one:delay.mix:1"]);
+  });
+});
+
+/**
+ * A rebuild is one of the roads to the graph that never sees a command, so a squeeze honoured
+ * only in the reducer would come off the moment a Stop, an undo or an import stood a rack up
+ * again (0393). Its own block, for the reason every other one here has its own.
+ */
+describe("a rebuilt lane under its own floor and ceiling", () => {
+  it("is armed squeezed into the window its instance holds it inside", () => {
+    const { rack, calls } = fakeRack();
+    rebuildRack(
+      rack,
+      [],
+      [
+        instance("one", "delay", {
+          automation: {
+            "delay.mix": [
+              { at: 0, value: 0 },
+              { at: 1, value: 1 },
+            ],
+          },
+          laneBounds: { "delay.mix": { min: 0.25, max: 0.75 } },
+        }),
+      ],
+    );
+    expect(calls.at(-1)).toBe("lane:one:delay.mix:0.25,0.75");
   });
 });
 

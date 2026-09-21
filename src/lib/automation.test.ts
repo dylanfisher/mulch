@@ -7,6 +7,7 @@ import {
   MIN_LANE_SPAN,
   normalizeAutomationLane,
   rescaleLane,
+  squeezeLane,
   sameGesture,
   stretchLane,
 } from "./automation";
@@ -212,5 +213,69 @@ describe("rescaling a lane onto another range", () => {
 
   it("refuses a source range with no width, because there is no fraction to read", () => {
     expect(() => rescaleLane([{ at: 0, value: 1 }], { min: 1, max: 1 }, to)).toThrow(RangeError);
+  });
+});
+
+describe("squeezing a lane into its own floor and ceiling", () => {
+  const range = { min: 0, max: 1 };
+  const ramp = [
+    { at: 0, value: 0 },
+    { at: 0.5, value: 0.5 },
+    { at: 1, value: 1 },
+  ];
+
+  it("normalises every value inside the window, both ends included", () => {
+    expect(squeezeLane(ramp, range, { min: 0.25, max: 0.75 })).toEqual([
+      { at: 0, value: 0.25 },
+      { at: 0.5, value: 0.5 },
+      { at: 1, value: 0.75 },
+    ]);
+  });
+
+  it("squeezes rather than clamps: a point below the floor keeps its share of the window", () => {
+    // A clamp would put both of these on the floor and call them the same gesture; the squeeze
+    // keeps the distance between them, at a quarter of its old size (principle 5).
+    expect(
+      squeezeLane(
+        [
+          { at: 0, value: 0 },
+          { at: 1, value: 0.2 },
+        ],
+        range,
+        { min: 0.6, max: 0.8 },
+      ),
+    ).toEqual([
+      { at: 0, value: 0.6 },
+      { at: 1, value: 0.64 },
+    ]);
+  });
+
+  it("holds the squeezed values to the parameter's own step, and leaves the times alone", () => {
+    expect(
+      squeezeLane([{ at: 3, value: 2 }], { min: 0, max: 4, step: 1 }, { min: 0, max: 2 }),
+    ).toEqual([{ at: 3, value: 1 }]);
+  });
+});
+
+describe("a squeeze at the edges of what a window can be", () => {
+  const range = { min: 0, max: 1 };
+  const ramp = [
+    { at: 0, value: 0 },
+    { at: 0.5, value: 0.5 },
+    { at: 1, value: 1 },
+  ];
+
+  it("flattens onto one value for a window with no width, and leaves the lane it read alone", () => {
+    const before = structuredClone(ramp);
+    expect(squeezeLane(ramp, range, { min: 0.4, max: 0.4 })).toEqual([
+      { at: 0, value: 0.4 },
+      { at: 0.5, value: 0.4 },
+      { at: 1, value: 0.4 },
+    ]);
+    expect(ramp).toEqual(before);
+  });
+
+  it("is the gesture itself for a window that is the whole range", () => {
+    expect(squeezeLane(ramp, range, { min: 0, max: 1 })).toEqual(ramp);
   });
 });

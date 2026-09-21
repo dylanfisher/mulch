@@ -20,7 +20,12 @@ import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
 import { PARAM_RAMP_SECS, SAME_GESTURE_GAP_SECS } from "@/audio/ramp";
-import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
+import {
+  automationValueAt,
+  laneSpan,
+  type AutomationPoint,
+  type LaneBounds,
+} from "@/lib/automation";
 import {
   dealMotionSpan,
   drawMotionLane,
@@ -86,6 +91,12 @@ export type ParameterKnobProps = {
    * a duplicate, a reload and a pressed button are three readers of it (0314).
    */
   drawn: MotionDrawn | null;
+  /**
+   * The floor and ceiling that lane is squeezed into, or null for one that swings this parameter's
+   * whole range. The session's, like the lane and what drew it, and read here only to be drawn and
+   * handed back (0393).
+   */
+  laneBounds: LaneBounds | null;
   /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
   /**
@@ -112,6 +123,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   value,
   lane,
   drawn,
+  laneBounds,
   playing,
   round,
 }: ParameterKnobProps) {
@@ -494,6 +506,19 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
 
   /**
+   * The end of a squeeze: the whole drag on the preview's two-ended slider arrives here as one
+   * window, and leaves as one command — the rule the stretch above keeps (0065, 0393).
+   */
+  const onBounds = useCallback(
+    (bounds: LaneBounds | null) => {
+      const owner = instanceHalf(instance);
+      instrument.send({ t: "automation.bounds", deck, ...owner, param, bounds });
+      instrument.send({ t: "gesture.end" });
+    },
+    [instrument, deck, instance, param],
+  );
+
+  /**
    * Whether the preview is held open by a press, and whether the pointer rests on the marker. It is
    * drawn for either, and only the latch survives the pointer leaving — the marker's whole job as a
    * control, because the gesture it exists for starts by taking the pointer off it (0079, 0154).
@@ -609,13 +634,14 @@ export const ParameterKnob = memo(function ParameterKnob({
             {lane === null ? null : (
               <AutomationPreview
                 lane={lane}
-                min={spec.min}
-                max={spec.max}
+                range={spec}
+                bounds={laneBounds}
                 base={value}
                 title={`${where} ${spec.label} Lane, ${lane.length} points`}
                 phase={phase}
                 playing={playing}
                 onSpan={onSpan}
+                onBounds={onBounds}
               />
             )}
             <MotionMenu

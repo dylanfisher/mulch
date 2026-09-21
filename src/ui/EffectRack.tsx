@@ -354,6 +354,8 @@ function EffectCard({
               value: paramIn(entry.params, param.id),
               lane: (isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null,
               drawn: (isAutomationParam(param.id) ? entry.drawn[param.id] : undefined) ?? null,
+              laneBounds:
+                (isAutomationParam(param.id) ? entry.laneBounds[param.id] : undefined) ?? null,
               playing,
             };
             return spec.beat === undefined ? (

@@ -59,6 +59,7 @@ describe("the lattice the rack stands in", () => {
       params: effectParamDefaults("reverb", "fx"),
       automation: {},
       drawn: {},
+      laneBounds: {},
       bounds: {},
     };
     expect(

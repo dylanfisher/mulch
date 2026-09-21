@@ -95,6 +95,8 @@ function flattened(blobId: BlobId, secs: number, before: SessionDeck): SessionDe
     // And nothing drew any of them, for the same reason: a lane that is in the samples now is a
     // lane the yard no longer holds, so there is nothing left to redraw (0314).
     drawn: {},
+    // And no lane is squeezed into anything, because there is no lane to squeeze (0393).
+    laneBounds: {},
     effects: [],
     source: { blobId },
     loop: { in: 0, out: secs },

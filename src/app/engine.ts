@@ -21,7 +21,8 @@ import { createMasterBus } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckVoice } from "@/audio/deck";
 import type { EffectInstanceId, HoldEdge } from "@/audio/effects/contract";
-import { DECK_AUTOMATION_PARAM_IDS, DECK_PARAM_IDS, soundingBpm } from "@/audio/params";
+import { DECK_AUTOMATION_PARAM_IDS, DECK_PARAM_IDS, PARAMS, soundingBpm } from "@/audio/params";
+import { playedLane } from "@/lib/automation";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
 import { LOOP_REPORTER } from "@/audio/worklet";
@@ -660,7 +661,13 @@ export function createAudioEngine(
           const stored = deckIn(session.decks, deck);
           for (const param of DECK_AUTOMATION_PARAM_IDS) {
             const lane = stored.automation[param];
-            if (lane !== undefined) prepared.setAutomation(null, param, lane, stored.params[param]);
+            // Through the window the deck holds it inside, the way every other road to the graph
+            // reads a lane: an arming that handed down the stored gesture would play a squeeze
+            // the session says is on and the picture already draws (0393).
+            if (lane !== undefined) {
+              const played = playedLane(lane, PARAMS[param], stored.laneBounds[param]);
+              prepared.setAutomation(null, param, played, stored.params[param]);
+            }
           }
           for (const entry of stored.effects) armInstanceLanes(prepared, entry);
         }

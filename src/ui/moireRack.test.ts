@@ -23,6 +23,7 @@ const instance = (id: string, over: Partial<SessionEffect> = {}): SessionEffect 
     params: Object.fromEntries(effectById(effect).params.map((param) => [param.id, param.default])),
     automation: {},
     drawn: {},
+    laneBounds: {},
     bounds: {},
   };
 };
