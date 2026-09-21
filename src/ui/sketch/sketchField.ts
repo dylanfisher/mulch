@@ -104,7 +104,7 @@ export function terrace(value: number, steps: number, edge: number): number {
 /**
  * What a picture fed back into itself through a zoom settles to: the sum of its own copies, each
  * scaled about the centre by one more `zoom` and each `keep` as bright as the one before, over
- * `copies` frames — the closed form of what `feedFrame` (src/ui/moireCanvas.ts) accumulates one
+ * `copies` frames — the closed form of what `feedFrame` (src/ui/moireCanvasFeedback.ts) accumulates one
  * frame at a time. Normalised, so what is summed is a picture and not a glare.
  */
 export function tunnel(

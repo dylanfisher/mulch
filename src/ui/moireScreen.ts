@@ -179,6 +179,15 @@ const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 const drawn = { width: 0, height: 0 };
 
 /**
+ * The shop holds nothing for this canvas and its first tile is still baking. Told apart from a
+ * pattern the engine refused to make, because the two want opposite answers: an engine that will
+ * never build one has the flat ink, and a picture whose first screen is a bake away has nothing to
+ * show yet and says so by drawing nothing at all (0384). A symbol rather than an object, a painting
+ * allocating nothing (0070).
+ */
+const BAKING = Symbol("the screen's first tile, still baking");
+
+/**
  * The screen `canvas` is drawn through: the tile for what it is of, and this canvas's own pattern
  * over it. Nothing is built unless the colour, the height, the density or the tint has moved, so a
  * frame costs a `fillStyle` per strip of the gust and no bake (0070) — and the channel tokens are
@@ -193,8 +202,10 @@ const drawn = { width: 0, height: 0 };
  * because the width is those three numbers and a key that named both would say it twice. The passes
  * the rack declares over the cells go in stepped, and none of them adds nothing (`cellsKey`, 0349).
  *
- * A canvas whose engine hands back no tile context and no pattern is drawn in flat ink, which is
- * the picture this file's caller drew before the screen was over it.
+ * A canvas whose engine hands back no pattern for a tile the shop holds is drawn in flat ink,
+ * which is the picture this file's caller drew before the screen was over it. A canvas the shop
+ * holds no tile for at all — its first still baking, or an engine that would give the bake no
+ * context to land in — answers `BAKING` instead, which is not a picture yet (0384).
  */
 function screenOf(
   canvas: HTMLCanvasElement,
@@ -208,7 +219,7 @@ function screenOf(
   beat: number,
   alphabet: AlphabetName,
   armed: AlphabetName | null,
-): CanvasPattern | null {
+): CanvasPattern | null | typeof BAKING {
   const height = tilePx(canvas.height, rowPitch);
   const cell = pitch;
   const wide = screenTilePx(pitch, rowPitch, beat);
@@ -253,6 +264,8 @@ function screenOf(
     alphabet,
     armed,
   );
+  // The shop has nothing at all: this canvas has never stood on a tile, and the first is out.
+  if (made === null) return BAKING;
   return cutThrough(canvas, context, made, held?.key);
 }
 
@@ -264,10 +277,9 @@ function screenOf(
 function cutThrough(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
-  made: ScreenStanding | null,
+  made: ScreenStanding,
   held: string | undefined,
 ): CanvasPattern | null {
-  if (made === null) return null;
   drawn.width = made.width;
   drawn.height = made.height;
   const already = screens.get(canvas);
@@ -336,7 +348,7 @@ export function inkThrough(
   alphabet: AlphabetName,
   armed: AlphabetName | null,
   reversed: boolean,
-): void {
+): boolean {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
   const pitch = gridPitchPx(dpr);
@@ -367,12 +379,17 @@ export function inkThrough(
     alphabet,
     armed,
   );
-  // No screen is the flat ink over the whole canvas, laid here rather than left for the caller: the
-  // picture that engine draws is the one this file's caller drew before there was a screen behind
-  // it, and it is one fill whatever the wind says.
+  // A first screen still in the oven is no picture: the flat ink under it would be the whole
+  // canvas in one solid colour — the orange a popped-out picture used to open on — and the bake
+  // lands in a frame or two, which the shop's own listeners ask a painting for (0384). The caller
+  // is told nothing was laid so it draws none of the rest either.
+  if (pattern === BAKING) return false;
+  // No screen at all is the flat ink over the whole canvas, laid here rather than left for the
+  // caller: the picture that engine draws is the one this file's caller drew before there was a
+  // screen behind it, and it is one fill whatever the wind says.
   if (pattern === null) {
     context.fillRect(0, 0, canvas.width, canvas.height);
-    return;
+    return true;
   }
   // How far the yard's own adjective lets the field sway, on the two motions that are a sway: a
   // hushed yard breathes and leans a fraction of what a wild one does, and a still one all but
@@ -471,4 +488,5 @@ export function inkThrough(
     context.fillRect(edge, 0, next - edge, canvas.height);
     edge = next;
   }
+  return true;
 }

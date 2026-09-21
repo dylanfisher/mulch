@@ -3,7 +3,7 @@
  *   painter already lays back would settle to if every frame were laid a little larger. The
  *   argument: the one term that is free per frame is a transform, and this is a transform.
  * @instead The other seven directions → the files beside this one. The field itself →
- *   src/ui/sketch/sketchDrift.ts. Where it would land → `aimFeedback` in src/ui/moireCanvas.ts, which
+ *   src/ui/sketch/sketchDrift.ts. Where it would land → `aimFeedback` in src/ui/moireCanvasFeedback.ts, which
  *   already scales the ghost by three percent.
  */
 import { SketchDriftStage } from "@/ui/sketch/SketchDriftStage";

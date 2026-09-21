@@ -11,7 +11,7 @@
  *   here →
  *   src/lib/moireSound.ts. What is done with the share `runFeedback` asks for — the ghost, its aim
  *   and the ceiling it settles under → `feedbackAlpha` in src/lib/moire.ts and `feedFrame` in
- *   src/ui/moireCanvas.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
+ *   src/ui/moireCanvasFeedback.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
  *   src/audio/deckPeek.ts.
  */
 import { DRIFT_HUE_REACH, DRIFT_REST, DRIFT_STEPS } from "./moire.ts";
@@ -93,7 +93,7 @@ export const DRIFT_RUN_FEEDBACK = tunable("age.runFeedback", 0.5, { min: 0, max:
  * And how far the whole finished field is laid back into itself, for the run a rack is standing and
  * the age behind it. **This is the picture zooming into its own structure**, which is the thing a
  * fractal row on top of a field could not be: the ghost is the whole field turned and scaled about
- * its own centre (`feedFrame`, src/ui/moireCanvas.ts), so the structure the run cut is fed through
+ * its own centre (`feedFrame`, src/ui/moireCanvasFeedback.ts), so the structure the run cut is fed through
  * itself rather than laid beside itself.
  *
  * Exactly one parameter claims the dimension today (`delay.feedback`), so thirteen rows of a

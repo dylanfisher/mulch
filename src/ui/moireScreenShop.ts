@@ -276,7 +276,7 @@ export function screenTileOf(
 function askSlices(order: ScreenBake, slot: string): boolean {
   // **A canvas with nothing to fall back on takes the slot from one that has something.** The slot
   // is single and the paintings are in a fixed order, so a canvas whose key travels every painting
-  // would otherwise hold it forever and a canvas behind it would draw flat ink for the life of the
+  // would otherwise hold it forever and a canvas behind it would draw nothing for the life of the
   // page — which is worse than the stale tile 0144 allows, because it is no picture at all.
   if (slicing !== null) {
     if (standing.has(slot) || !standing.has(slicing.slot)) return false;
@@ -326,8 +326,8 @@ function stand(slot: string, key: string, baked: Baked): ScreenStanding {
  * The tile this canvas is drawn through in this painting, and what it is of — the one asked for
  * where the shop holds it; otherwise the one this canvas last stood on, with the bake put out to
  * the worker or to the slices. Null is a canvas that has never had a tile and whose first one is
- * still being baked: its caller draws flat ink, which is the picture it drew before there was a
- * screen behind it.
+ * still being baked: its caller draws nothing at all until the bake lands, a flat fill being one
+ * solid colour over the whole of it rather than a picture (0384).
  */
 export function screenTileFor(order: ScreenBake, slot: string): ScreenStanding | null {
   const held = screenStanding(order.key, slot);

@@ -34,7 +34,13 @@ import {
 } from "@/ui/moireLooks";
 import { carryLooks } from "@/ui/moireCarry";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
-import { painterOn, PRODUCT, WINDOW } from "@/ui/moireCanvasPainted";
+import {
+  forgetScreenTiles,
+  installHereScreenPort,
+  painterOn,
+  PRODUCT,
+  WINDOW,
+} from "@/ui/moireCanvasPainted";
 import { ARRIVED, keptAt, pitchOf, rackOf, rackRows, turnsIn } from "@/ui/moireCanvasReadings";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { SHAPE_SECS, shapeRest } from "@/ui/moireShape";
@@ -51,6 +57,9 @@ const passes = (count: number): MoireLook[] => rackOf("reverb", count).looks;
 afterEach(() => {
   vi.unstubAllGlobals();
   resetTuning();
+  // The shop is module state and a case may have given it a port of its own: every other case in
+  // this file paints through the one that bakes where it is asked (src/ui/moireScreenHere.ts).
+  installHereScreenPort();
 });
 // One flat list of the painter's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -112,6 +121,18 @@ describe("moireCanvas", () => {
     const { laid, cuts } = paintedOn(400, 128, [row({ period: 3 })], 1);
     expect(laid).toHaveLength(2 + STAMP_PICTURE_DRAWS);
     expect(cuts).toHaveLength(1);
+  });
+
+  it("lays nothing down while this canvas's first screen is still baking", () => {
+    // The picture a popped-out window opens on: a canvas the shop has never had a tile for asks
+    // for its first and is answered a bake later, and the flat ink meanwhile would be the whole
+    // window in one solid colour claiming to be a yard's drift (0384, principle 5).
+    vi.stubGlobal("devicePixelRatio", 2);
+    forgetScreenTiles(() => ({ bake: () => {}, listen: () => {}, listenFailure: () => {} }));
+    expect(paintedOn(400, 128, [row({ period: 3 })]).laid).toHaveLength(0);
+    // And a second painting before it lands draws no more than the first did: what arrives on the
+    // grid is a painting the bake itself asks for (0144).
+    expect(paintedOn(400, 128, [row({ period: 3 })]).laid).toHaveLength(0);
   });
 
   it("draws nothing for a picture with no rows in it, or no window to draw them across", () => {

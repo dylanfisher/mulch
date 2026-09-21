@@ -28,7 +28,7 @@ the bugs and the small asks that carry one design choice, and the ideas that wan
 their own. This block is the first two groups. Each step below is one of the human's entries or a
 few that share a home, quoted where the words matter, with what a read of the code found beside
 it. The order is bugs first, since they block current use, then the smallest edits, then the ones
-that carry a choice. Decision numbers from 0384. The ideas group stays in docs/TODO.md until a
+that carry a choice. Decision numbers from 0385. The ideas group stays in docs/TODO.md until a
 block is written for it; an entry is deleted from docs/TODO.md when its step lands.
 
 **Layout, before the first step.** No new directory. A new effect entry is one file under
@@ -97,12 +97,24 @@ rack again so the fresh run's own edges are not spent unapplied. The rest put sr
 cap, so the queue entry a step is and the two cursor reads over it moved whole into
 src/audio/playerCursor.ts, beside src/audio/playerWindow.ts and for its reason.
 
-**Step 4 — the popped-out picture opens on the grid.** _Durable shape moved:_ none. "when popping
+**Step 4 — the popped-out picture opens on the grid
+([0384](decisions/0384-a-picture-with-no-screen-yet-draws-nothing.md), landed).** _Durable shape
+moved:_ none. "when popping
 open visualizer there's a underlying solid color, like orange, before the grid fills in." The
 popup (src/ui/popupWindow.ts) wears the opener's sheets and renders one tree into its body; the
 flash is the window's own body colour, or a canvas shown before its first bake. **Tests that must
 fail first:** a headed run that opens the popup and reads its first painted frame; no new browser
 scenario in the gate (0012). **Refused:** a fade that hides the flash rather than removing it.
+_Landed:_ neither the body nor the sheets — the flash is the picture itself. A popped-out canvas
+is a slot the screen shop has never baked for, and `inkThrough` (src/ui/moireScreen.ts) filled a
+canvas with no screen behind it flat in the resolved `--primary`, which on a 720×480 window is
+the whole picture in one solid orange. A headed run reading the popup's first painted frame found
+it opaque `rgb(225,113,0)` at all five points for ~40ms, twice; with the fix it reads transparent
+at all five, twice, and the grid arrives at ~90ms. The shop having nothing at all is now told
+apart from an engine that will build no pattern (`BAKING`), and the first is the bail every late
+tile already takes (0144, 0384). The pin is a case in src/ui/moireCanvas.test.ts. The guard put
+src/ui/moireCanvas.ts past the 800-line hard cap, so the frame the picture lays back into itself
+moved whole into src/ui/moireCanvasFeedback.ts, beside the test file already named for it.
 
 **Step 5 — two small gestures: the knob's reset and the seed's dice.** _Durable shape moved:_
 none. "double clicking a automated knob should always reset it" — src/ui/Knob.tsx already commits
@@ -313,6 +325,19 @@ the structural rule — every heading inside the group it heads — and the thro
 `scripts/smoke.d/moveCard.js`, which the local gate alone runs (0380). The alternative was an
 error boundary around the menu, which the step refused: a guard there leaves a control that opens
 onto nothing.
+
+**Step 4's proof is a headed run outside the gate, and one fallback narrowed.** The flash is a
+frame, so nothing below a browser could read it: the reading is a one-off headed Playwright script
+in a scratchpad, sampling the popup's canvas at 8ms from the document's first tick, base and head
+interleaved twice each — and the gate keeps no browser scenario for it (0012). Nothing was running
+on 5173 or 4173 for it to drive, and worklet modules are fetched off the page's own route table,
+so interception could not serve a built `dist/`; the script stood up Vite's dev server in its own
+process and closed it in a `finally` rather than leaving one listening. What the fix costs is in
+0384: a canvas whose engine would never build a screen draws no picture where it used to draw a
+flat rectangle of ink. The two are told apart at the source, so only the never-baked canvas is
+affected, and a canvas that cannot make a pattern cannot draw the picture anyway. The guard also
+put src/ui/moireCanvas.ts past the hard cap, and the feedback pass moved out whole rather than the
+file being shaved.
 
 **Step 3's proof is the schedule, not a render.** The step named a render of a mulched yard under
 a lull held against the same render unmulched. Nothing below the browser can host one — a render

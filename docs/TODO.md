@@ -40,9 +40,6 @@
 
 - ability to live record session?
 
-- when popping open visualizer there's a underlying solid color, like orange, before the grid fills in. this should
-  be avoided.
-
 - add a way to completely disable visualizer for slow computers, free up space. interview me about other ways to
   add a low resource mode when e.g. many items are are automated over 7+ decks. ask if collapsing a deck frees
   up resources (e.g. we don't have to draw the knob moving.)
