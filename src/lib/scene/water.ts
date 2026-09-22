@@ -20,6 +20,7 @@ import {
   sceneRepeat,
   sceneSharp,
 } from "@/lib/moireScene";
+import { FILM_SHARE } from "@/lib/moireScreenFilm";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -125,6 +126,9 @@ const blade = (off: number, half: number): number =>
   clamp((half - off) / Math.max(half, 0.001), 0, 1);
 
 export const water: Scene = {
+  film: FILM_SHARE,
+  stands: true,
+  shared: false,
   ramp: [
     "--scene-water-black",
     "--scene-water-deep",

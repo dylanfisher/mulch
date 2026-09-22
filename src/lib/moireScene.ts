@@ -11,9 +11,10 @@
  *   src/lib/moireScreenFilm.ts. The shape this contract copies → src/lib/moireLook.ts.
  */
 import { cosTurn, wrap } from "./moire.ts";
+import type { Tunable } from "./moireTuning.ts";
 
 /** Every scene the picture has a ground for. One name per field a yard's plant stands in. */
-export const SCENE_NAMES = ["meadow", "bloom", "water", "canopy"] as const;
+export const SCENE_NAMES = ["meadow", "bloom", "water", "canopy", "plain"] as const;
 
 export type SceneName = (typeof SCENE_NAMES)[number];
 
@@ -200,6 +201,21 @@ export type Scene = {
    * flock stands in the light whatever is standing over the field (0335).
    */
   readonly specks: (x: number, y: number, terms: SceneTerms) => number;
+  /**
+   * How much of the picture the film spends over this field: `film.share` for a place, where the
+   * film is a shade over the ground, and the plain screen's own whole share, where it is the
+   * picture (0339, 0400). Named by every scene rather than defaulted, for principle 5's reason.
+   */
+  readonly film: Tunable;
+  /** Whether what a yard stands by casts its shade over this field: a place does, a screen not. */
+  readonly stands: boolean;
+  /**
+   * Whether every yard standing in this field shares one tile: the rack's ink, its cells and its
+   * second lattice are each yard's own, so a shared field bakes none of them and keys by none of
+   * them, and seven yards in it cost one bake rather than seven (0400). A place is not shared: a
+   * yard's rack colours its own field.
+   */
+  readonly shared: boolean;
 };
 
 /**

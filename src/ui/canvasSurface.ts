@@ -79,15 +79,16 @@ export function watchDisplay(
  * A size it is already at is left alone: writing `width` at all wipes the canvas, even to the value
  * it holds, and a surface that paints on a budget rather than on the spot (`everyMs` below) would
  * then show the blank for as long as a paint is standing — a flash of the page behind it on every
- * commit that only turned a knob.
+ * commit that only turned a knob. Says whether it wiped the canvas.
  */
-export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
+export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): boolean {
   const dpr = viewOf(canvas).devicePixelRatio;
   const width = Math.max(1, Math.round(root.clientWidth * dpr));
   const height = Math.max(1, Math.round(root.clientHeight * dpr));
-  if (canvas.width === width && canvas.height === height) return;
+  if (canvas.width === width && canvas.height === height) return false;
   canvas.width = width;
   canvas.height = height;
+  return true;
 }
 
 /**
@@ -116,9 +117,13 @@ export type CanvasSurface = {
  * makes forty commits inside one frame one paint — so the paint it takes is reached through a ref
  * rather than closed over, and the cadence is asked for on the budget's own timer rather than held
  * by it: a surface whose paintings have grown more expensive says so as it paints and never waits
- * for a commit to say it (`useDriftSurface`, src/ui/driftTiles.ts, 0284).
+ * for a commit to say it (`useDriftSurface`, src/ui/driftSurface.ts, 0284).
  */
-function usePacedPaint(paint: () => void, everyMs: () => number): () => void {
+function usePacedPaint(
+  paint: () => void,
+  everyMs: () => number,
+  may?: () => boolean,
+): { ask: () => void; askWiped: () => void } {
   const latest = useRef(paint);
   // oxlint-disable react/refs -- the latest-paint ref this whole hook is built on: the budget
   // outlives the renders, so the paint has to be reachable from a closure older than the commit
@@ -126,14 +131,18 @@ function usePacedPaint(paint: () => void, everyMs: () => number): () => void {
   latest.current = paint;
   const pace = useMemo(
     () =>
-      paced(everyMs, () => {
-        latest.current();
-      }),
-    [everyMs],
+      paced(
+        everyMs,
+        () => {
+          latest.current();
+        },
+        may,
+      ),
+    [everyMs, may],
   );
   // oxlint-enable react/refs
   useEffect(() => pace.stop, [pace]);
-  return pace.ask;
+  return pace;
 }
 
 /**
@@ -167,11 +176,19 @@ function useRebakeWhenDisplayed(
  * taken where it is asked for, which is what a cheap surface wants, and a gap is a *budget* on the
  * one loop — the paint falls behind the frame rate and the hand does not (0144). A commit asks like
  * anything else, so a drag that commits forty times inside one frame costs one paint and not forty.
+ * `may` is the share of a frame this surface waits for when it is due, which surfaces that come due
+ * together hold one of between them (`perFrame`, src/ui/frame.ts, 0399); left out, it is `paced`'s
+ * own, and the surface paints on any frame it is due.
  */
+// Two lines over, and those are the budget's two terms handed through: the cadence and the share
+// of a frame are one ask of the one budget, and splitting the hook would hand the paint a ref from a
+// scope that sizes nothing (0007, 0399).
+// oxlint-disable-next-line max-lines-per-function
 export function useCanvasSurface(
   paint: (canvas: HTMLCanvasElement, color: string) => void,
   animate: boolean,
   everyMs: () => number = AT_ONCE,
+  may?: () => boolean,
 ): CanvasSurface {
   const theme = useTheme();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -186,23 +203,28 @@ export function useCanvasSurface(
 
   // The canvas is resolved here rather than by the caller, so nothing outside needs a ref this
   // hook already holds — and a paint before the element exists is a no-op rather than a throw.
-  const repaint = usePacedPaint(
+  const { ask: repaint, askWiped } = usePacedPaint(
     useCallback(() => {
       const canvas = canvasRef.current;
       if (canvas !== null) paint(canvas, color.current);
     }, [paint]),
     everyMs,
+    may,
   );
 
-  /** Size the backing store to the element and the display, re-read the token, then ask to paint. */
+  /**
+   * Size the backing store to the element and the display, re-read the token, then ask to paint —
+   * past the frame's share when the sizing wiped the canvas, which would otherwise stand blank.
+   */
   const rebake = useCallback(() => {
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (root === null || canvas === null) return;
-    bakeCanvas(root, canvas);
+    const wiped = bakeCanvas(root, canvas);
     color.current = getComputedStyle(canvas).color;
-    repaint();
-  }, [repaint]);
+    if (wiped) askWiped();
+    else repaint();
+  }, [askWiped, repaint]);
 
   // Every commit, so a yard that never plays still carries its picture, and an explicit theme
   // choice — lands without a listener of its own. `paint` is the only thing here that changes per

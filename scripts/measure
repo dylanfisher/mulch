@@ -25,6 +25,8 @@
 //   --out DIR         where the per-run JSON lands (default the system temp directory)
 //   --bake            add the rebake phase
 //   --knob NAME       which knob the drag is on (default the panner's Position)
+//   --look LOOK       uniform or scenes, stored for both trees before the page loads (default
+//                     uniform, the app's own); a base older than the switch reads its own scenes
 //   --deadline SECS   move the deadline (default 900, 0 removes it)
 //
 // Three things this harness does not do, each of them a cost some checkpoint already paid:
@@ -101,10 +103,13 @@ const outOption = option("--out");
 const knob = option("--knob") ?? "Position";
 const yardsOption = option("--yards");
 const deadlineOption = option("--deadline");
+const look = option("--look") ?? "uniform";
 const unknown = args.find((argument) => argument.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
 if (args.length > 0) die(`unexpected argument: ${args[0]}`);
 if (baseOption === undefined) die("--base SHA is what this measures against; there is no default");
+// Set on both trees, so a reading across the switch compares one look with itself (0400).
+if (look !== "uniform" && look !== "scenes") die(`--look needs uniform or scenes: ${look}`);
 
 const RUNS = runsOption === undefined ? 3 : Number(runsOption);
 if (!(RUNS > 0)) die(`--runs needs a positive count: ${runsOption}`);
@@ -589,9 +594,12 @@ async function measureTree(tree, url, run) {
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: DENSITY });
     // The same flag scripts/drive sets, before any module runs: it is what attaches the
     // instrument and the measuring opening on a build where DEV code is stripped.
-    await context.addInitScript(() => {
+    await context.addInitScript((chosen) => {
       window.__MULCH_DRIVE__ = true;
-    });
+      // The key src/ui/driftLook.ts reads, written the way it writes it: absent is the one field.
+      if (chosen === "scenes") localStorage.setItem("mulch:drift-look", "scenes");
+      else localStorage.removeItem("mulch:drift-look");
+    }, look);
     const page = await context.newPage();
     page.on("pageerror", (error) => note(`${tree} page error: ${error.message}`));
     at(`loading ${url}`);
@@ -644,6 +652,7 @@ function phaseRows(runs, pick) {
     bakes: per((one) => one.costs?.screenBake?.calls ?? null),
     bakeMean: per((one) => one.costs?.screenBake?.meanMs ?? null),
     bakeWorst: per((one) => one.costs?.screenBake?.worstMs ?? null),
+    curved: per((one) => one.costs?.curvedBake?.calls ?? null),
     // The popped canvas is cleared once a painting (`paintMoire`), so this is the *picture's* own
     // count — the one denominator the draw rates may use, and the one both trees can give whatever
     // their source says. `paintings` below is every canvas the opener drew, the strips included.
@@ -678,6 +687,7 @@ function frameRows(one, other, extra = []) {
     row("bakes", "bakes", 0),
     row("bake mean, ms", "bakeMean", 1),
     row("bake worst, ms", "bakeWorst", 1),
+    row("curved tiles asked", "curved", 0),
     row("2D calls, the window", "calls", 0),
     row("2D calls a painting", "callsPer", 1),
     row("drawImage, the window", "drawImage", 0),
@@ -709,7 +719,7 @@ function perPainting(rows) {
 }
 
 async function main() {
-  note(`base ${BASE} against the working tree, ${RUNS} run${RUNS === 1 ? "" : "s"} of each`);
+  note(`base ${BASE} against the working tree, ${RUNS} run${RUNS === 1 ? "" : "s"} of each, look ${look}`);
   const baseUrl = await standBase();
   const headUrl = await serve(ROOT, HEAD_PORT, "head");
   const taken = { base: [], head: [] };

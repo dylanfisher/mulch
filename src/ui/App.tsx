@@ -40,6 +40,7 @@ import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
+import { DriftLookToggle } from "@/ui/DriftLookToggle";
 import { DriftToggle } from "@/ui/DriftToggle";
 import { SequencerToggle } from "@/ui/SequencerToggle";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -231,6 +232,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
           {/* And the drift beside both, for the same reason: whether the picture is drawn at all
               is one fact over every yard, so it is on the bar and not on any one of them (0397). */}
           <DriftToggle />
+          <DriftLookToggle />
           <ThemeToggle />
         </div>
       </header>

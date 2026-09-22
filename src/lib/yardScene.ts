@@ -98,6 +98,34 @@ export const YARD_SCENE_REST: YardScene = {
 };
 
 /**
+ * The picture every yard stands in while the drift is uniform, whatever its name says: the plain
+ * screen, under no air, in the stillest wind, at the reach that scales nothing, with the scene's own
+ * points (which the screen has none of). One field and not one per yard, so every yard's tile is
+ * keyed alike and the shop bakes it once for all of them (0400). The stand is the rest's and is
+ * read by nothing, the screen casting no shade. Its wind is the one the tile is baked in, and no
+ * yard's motion: a yard is handed this with its own wind laid over it (`yardSceneUniform`).
+ */
+export const YARD_SCENE_UNIFORM: YardScene = {
+  scene: "plain",
+  light: SCENE_LIGHTS[0],
+  wind: SCENE_WINDS[0],
+  reach: SCENE_REACHES[1],
+  stand: SCENE_STANDS[0],
+  spread: SCENE_SPREADS[0],
+  specks: SCENE_SPECKS[0],
+};
+
+/**
+ * What a yard's picture stands in while the drift is uniform: the one screen, swaying and gusting
+ * in the yard's own wind, because only what the field is changes under that look and the yard
+ * still moves as it did (0400). The wind is a term on the tile's transform, so it keys no bake.
+ */
+export const yardSceneUniform = (own: YardScene): YardScene => ({
+  ...YARD_SCENE_UNIFORM,
+  wind: own.wind,
+});
+
+/**
  * Which air the name carries, as the joined phrase the mint actually wrote (0324): the light its
  * noun names and the spread its joining word does, read together off the one phrase because that
  * is how the mint drew it — a word matched apart from a noun would read "through" out of a name

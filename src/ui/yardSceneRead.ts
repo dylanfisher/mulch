@@ -8,12 +8,14 @@
  *   into it (principle 1, and the cycle that would be).
  * @instead The reading itself → src/lib/yardScene.ts, and the words it is said in →
  *   src/lib/copyScene.ts. What the picture does with a reading → src/lib/moireScreenField.ts. The
- *   dropdown the choice is made on → src/ui/MoireTuning.tsx.
+ *   dropdown the choice is made on → src/ui/MoireTuning.tsx. Whether the picture reads it at all
+ *   or draws the one screen → src/ui/driftLook.ts, spent by `usePictureScene` below.
  */
 import { useMemo, useSyncExternalStore } from "react";
 
 import type { SceneName } from "@/lib/moireScene";
-import { type YardScene, yardScene } from "@/lib/yardScene";
+import { type YardScene, yardScene, yardSceneUniform } from "@/lib/yardScene";
+import { useDriftLook } from "@/ui/driftLook";
 
 /**
  * Which field each yard has been asked to stand in instead of the one its name reads as, by the
@@ -69,4 +71,15 @@ export function useYardScene(name: string): YardScene {
     const read = yardScene(name);
     return scene === null ? read : { ...read, scene };
   }, [name, scene]);
+}
+
+/**
+ * The field this yard's *picture* is drawn in: its own reading while the drift draws each yard's
+ * scene, and the one plain screen every yard shares while it is uniform, in its own wind (0400). The reading itself
+ * is taken either way, so a switch between the two looks is a re-render and never a hook added.
+ */
+export function usePictureScene(name: string): YardScene {
+  const look = useDriftLook();
+  const own = useYardScene(name);
+  return useMemo(() => (look === "uniform" ? yardSceneUniform(own) : own), [look, own]);
 }

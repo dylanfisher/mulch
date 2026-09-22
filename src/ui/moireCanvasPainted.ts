@@ -83,6 +83,12 @@ const RESOLVED: readonly (readonly [string, readonly [number, number, number, nu
   ["--scene-canopy-dark", [20, 60, 30, 255]],
   ["--scene-canopy-lit", [235, 220, 120, 255]],
   ["--scene-meadow-tan", [190, 150, 85, 255]],
+  // And the screen's five greys, the uniform look's ramp (0400).
+  ["--scene-plain-black", [30, 30, 30, 255]],
+  ["--scene-plain-deep", [80, 80, 80, 255]],
+  ["--scene-plain-mid", [140, 140, 140, 255]],
+  ["--scene-plain-lit", [195, 195, 195, 255]],
+  ["--scene-plain-white", [240, 240, 240, 255]],
   // And the lights an air puts a scene under, each one a mix toward something the day is not.
   ["--light-dusk", [130, 60, 40, 255]],
   ["--light-moon", [110, 120, 160, 255]],

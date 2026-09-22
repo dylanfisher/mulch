@@ -39,3 +39,10 @@ export const TINT_COST = cost("tintThrough");
  * frames as the budget takes and so not the same number.
  */
 export const BAKE_COST = cost("screenBake");
+
+/**
+ * One curved tile asked for, on either thread: counted where the worker is sent it (spent as nought,
+ * the worker's own loop being on no clock this side reads) and timed where this thread bakes it. A
+ * count that climbs with the yards standing is decks evicting each other's tiles (0399).
+ */
+export const CURVED_COST = cost("curvedBake");

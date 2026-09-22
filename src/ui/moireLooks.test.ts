@@ -39,7 +39,10 @@ import {
   looksTravelInto,
   looksWander,
   looksWarp,
+  LOOK_LOAD_HZ,
+  LOOK_STRIPS,
   rackLooks,
+  standingPaintMs,
   type MoireLook,
 } from "@/ui/moireLooks";
 import { moireRows, NO_MASTER, refillRows as filledRows } from "@/ui/moireRows";
@@ -618,5 +621,20 @@ describe("the looks a standing rack gives the picture", () => {
     // one line that joins a standing pop to the tile it is filmed through: the pass draws no
     // colour, and the ink is where the Sheen lands (`looksSaturate`, `inkTravelInto`, 0266, 0283).
     expect(read([])).toBe(0);
+  });
+});
+
+describe("the cadence a picture keeps beside others", () => {
+  it("keeps its own up to a few standing, slows past them, and never below the floor", () => {
+    // Seven yards at the whole rate spend seven picture-sized paintings on whichever frame they all
+    // came due on; past a few standing, each is painted in proportion less often (0399).
+    const base = 1000 / 24;
+    expect(standingPaintMs(base, 1)).toBe(base);
+    expect(standingPaintMs(base, LOOK_STRIPS.value)).toBe(base);
+    const six = standingPaintMs(base, LOOK_STRIPS.value * 2);
+    expect(six).toBeCloseTo(base * 2);
+    expect(standingPaintMs(base, 40)).toBe(1000 / LOOK_LOAD_HZ.value);
+    // And a picture a long chain has already slowed past the floor is never sped up by it.
+    expect(standingPaintMs(500, 40)).toBe(500);
   });
 });

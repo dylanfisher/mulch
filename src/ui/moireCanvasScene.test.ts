@@ -19,9 +19,9 @@ import {
   sceneRepeat,
 } from "@/lib/moireScene";
 import { resetTuning, setTuning } from "@/lib/moireTuning";
-import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
-import { painterOn, type StubGlobal } from "@/ui/moireCanvasPainted";
-import { ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
+import { yardScene, YARD_SCENE_REST, YARD_SCENE_UNIFORM, yardSceneUniform } from "@/lib/yardScene";
+import { arrivedInk, painterOn, type StubGlobal } from "@/ui/moireCanvasPainted";
+import { baked, ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
 import { STAMP_PICTURE_DRAWS } from "@/ui/moireCanvasMarks";
 import { termTurns } from "@/ui/moireScreen";
 import { beatPx, gridPitchPx, rowPitchPx } from "@/lib/moireScreenFilm";
@@ -96,7 +96,8 @@ describe("the picture is the field its name says", () => {
     const named = ["Heather", "Foxglove", "Reed", "Willow"].map((plant) =>
       yardScene(`Quiet ${plant} by the Shed`),
     );
-    expect(named.map((yard) => yard.scene)).toEqual([...SCENE_NAMES]);
+    // Every place: the plain screen is no plant's field and is drawn by the look, not a name (0400).
+    expect(named.map((yard) => yard.scene)).toEqual(SCENE_NAMES.filter((name) => name !== "plain"));
     // Every one against every other, and never one against the rest: two scenes that happened to
     // agree would hide inside a set comparison of four.
     const tiles = named.map((yard) => tileOf(paintingOf(yard)));
@@ -320,6 +321,29 @@ describe("the picture is the field its name says", () => {
       flock.filter(Boolean).length,
       "a flock stands on no more than one kept thing",
     ).toBeGreaterThan(kept.filter(Boolean).length);
+  });
+
+  it("bakes one screen for every yard on the uniform look, whatever each one's rack inks it", () => {
+    // Seven yards on the uniform look are seven racks and one field: the rack's fringe, its split and
+    // its saturation are each yard's own, so a shared field bakes none of them and every yard stands
+    // on the one tile — where a place, which a yard's rack colours, bakes one a rack (0400).
+    const rest = arrivedInk(ROWS);
+    const inks = [rest, { ...rest, fringe: 0.4 }, { ...rest, disperse: 0.5, saturate: 1 }];
+    const bakes = (yard: typeof YARD_SCENE_REST, level: number): number => {
+      // A number no earlier case baked under, so the shop holds nothing either count could reuse.
+      setTuning("plain.level", level);
+      vi.stubGlobal("devicePixelRatio", 2);
+      let total = 0;
+      for (const tint of inks) {
+        total += baked(paintedOn(200, 128, ROWS, 2, 20, { yard, tint }), beatPx(gridPitchPx(2)));
+      }
+      return total;
+    };
+    expect(bakes(YARD_SCENE_UNIFORM, 0.35)).toBe(1);
+    // And a yard's own wind moves the one screen without keying a tile of its own: a wild yard on
+    // the uniform look still gusts, over the tile a still one stands on (0400).
+    expect(bakes(yardSceneUniform({ ...YARD_SCENE_REST, wind: "wild" }), 0.35)).toBe(0);
+    expect(bakes(YARD_SCENE_REST, 0.4)).toBe(inks.length);
   });
 
   it("writes the ground on a rebuild and never on a frame", () => {

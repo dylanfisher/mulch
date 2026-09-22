@@ -31,6 +31,7 @@ import {
   SketchDriftBloom,
   SketchDriftCanopy,
   SketchDriftMeadow,
+  SketchDriftPlain,
   SketchDriftWater,
 } from "@/ui/sketch/drift/SketchDriftScenes";
 import { SketchDriftTerrace } from "@/ui/sketch/drift/SketchDriftTerrace";
@@ -260,6 +261,17 @@ export const SKETCH_DRIFTS: readonly SketchEntry[] = [
     built:
       "the ground in src/lib/scene/canopy.ts over streakTiled in src/lib/moireNoise.ts, read as a ramp position in the pixel loop of build, src/ui/moireScreenTile.ts. Bake-side, and the registry that refuses a scene with no file is src/lib/scene/scenes.ts.",
     Content: SketchDriftCanopy,
+  },
+  {
+    id: "plain",
+    label: "The Screen",
+    thesis:
+      "No field at all: one level of a grey ramp, so what the picture is, is the film over it — the column gaps, the scan lines, the beat they make and the rolling band — and the marks each yard's sound stamps through it. The one picture every yard shares while the drift is uniform, and a fifth field a hand may pick for one yard otherwise.",
+    trades:
+      "the place. Under this nothing says which yard is which but how each one moves, and the film runs at its whole share where every place rests it at 0.15, because with no field under it the film at 0.15 is a picture of nothing (0400).",
+    built:
+      "the ground in src/lib/scene/plain.ts, which declares its own film share and no stand, written bake-side like every scene; the look that hands it to every yard is src/ui/driftLook.ts, read by usePictureScene in src/ui/yardSceneRead.ts.",
+    Content: SketchDriftPlain,
   },
 ];
 

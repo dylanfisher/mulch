@@ -309,6 +309,26 @@ export function looksPaintMs(looks: readonly MoireLook[]): number {
 }
 
 /**
+ * How many pictures may be standing before each is painted more slowly, how slow that may make them,
+ * and how many are painted inside any one frame. Every painting is a handful of picture-sized
+ * passes, so seven yards at the whole rate spend seven of those on whichever frame they all came
+ * due on — the 69.6 ms p95 the Step 18 reading measured at seven yards against 24.9 at two (0399).
+ */
+export const LOOK_STRIPS = tunable("pace.strips", 3, { min: 1, max: 12, step: 1 });
+export const LOOK_LOAD_HZ = tunable("pace.loadHz", 8, { min: 2, max: 24, step: 1 });
+export const LOOK_PER_FRAME = tunable("pace.perFrame", 2, { min: 1, max: 8, step: 1 });
+
+/**
+ * The cadence a picture keeps with `standing` pictures animating beside it: its own up to
+ * `LOOK_STRIPS`, and stretched in proportion past that — never slower than `LOOK_LOAD_HZ`, and never
+ * faster than it already was. Counted and never timed, for `looksPaintMs`'s reason.
+ */
+export function standingPaintMs(baseMs: number, standing: number): number {
+  const stretched = baseMs * Math.max(1, standing / LOOK_STRIPS.value);
+  return Math.max(baseMs, Math.min(stretched, 1000 / LOOK_LOAD_HZ.value));
+}
+
+/**
  * The pairs the shatter's own reduction reads, kept rather than built: the reductions here are
  * spent once a painting on the frame path, and this is the only one whose maths takes a list (0070).
  * Filled and trimmed in place, and never held past the call below.

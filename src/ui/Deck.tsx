@@ -53,6 +53,7 @@ import { EffectRack } from "@/ui/EffectRack";
 import { useRackBeat } from "@/ui/ParameterBeat";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
+import { useDriftLook } from "@/ui/driftLook";
 import { useYardScene } from "@/ui/yardSceneRead";
 import { LoadField } from "@/ui/LoadField";
 import { MoireStrip } from "@/ui/MoireStrip";
@@ -112,6 +113,10 @@ const label = (source: DeckState["source"]): string | null => {
  */
 const Reading = ({ name }: { name: string }) => {
   const scene = useYardScene(name);
+  // Said only while the picture draws it: under the uniform look no yard is drawn as its name reads,
+  // and a word naming a field nobody sees is a claim about the picture that is false (0400).
+  const look = useDriftLook();
+  if (look === "uniform") return null;
   return (
     <Says what={sceneReading(scene)}>
       <button type="button" className="shrink-0 type-readout text-muted-foreground">

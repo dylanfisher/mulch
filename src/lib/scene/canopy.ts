@@ -11,6 +11,7 @@
  */
 import { speckTiled, streakTiled } from "@/lib/moireNoise";
 import { type Scene, sceneAxis, sceneFlockRare } from "@/lib/moireScene";
+import { FILM_SHARE } from "@/lib/moireScreenFilm";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -79,6 +80,9 @@ const SKY_TOP = 0.99;
 const SHADE = 0.01;
 
 export const canopy: Scene = {
+  film: FILM_SHARE,
+  stands: true,
+  shared: false,
   ramp: [
     "--scene-canopy-shade",
     "--scene-canopy-dark",

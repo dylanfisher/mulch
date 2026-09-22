@@ -465,6 +465,42 @@ constrains a future change. Landing it as a feature is the human's call, and wou
 own. The pins are three cases in the new src/ui/sketch/SketchPlaces.test.tsx, plus the bench's own
 registration list in src/ui/sketch/SketchPage.test.tsx.
 
+### Block: the drift is paid for, one screen by default
+
+The human, on 2026-09-22: the picture had become too slow; they wanted one deterministic look for
+every yard by default, with the per-yard scenes behind a switch, and some of the moiré back. From
+Step 18's candidates they chose (c), a slower cadence under load, and (d), tiles shared across
+yards. They refused (a) and (b). Of the old moiré ideas they chose the screen of 0126: the scan band
+and the column gaps. Decision numbers from 0399. The baseline is f11325a, measured at seven yards.
+
+**Step 1 — pictures share the frame and slow together
+([0399](decisions/0399-pictures-share-the-frame-and-slow-together.md), landed).** _Durable shape
+moved:_ none. _Landed:_ `perFrame` and a gate on `paced` (src/ui/frame.ts), with `standingPaintMs` at
+`pace.strips`, `pace.loadHz` and `pace.perFrame`. The drift's surface moved out of the tile shop into
+src/ui/driftSurface.ts. The shop gained a `curvedBake` span, and ./scripts/measure prints it.
+Seven yards went from 42 to 60 fps, the idle p95 from 77.8 ms to 22.9 ms, and there were no gaps
+over 50 ms.
+
+**Step 2 — the tile shops guard a round of paintings (0399, landed).** _Durable shape moved:_ none.
+_Landed:_ `wantedLately` now guards every painting started within 250 ms. The new counter read 381
+curved asks in an idle 8 s at seven yards, which fell to 242. The idle p95 went to 14.3 ms.
+
+**Step 3 — the look switch (0400, landed).** _Durable shape moved:_ none, being a view preference
+under `mulch:drift-look` (src/ui/driftLook.ts, src/ui/DriftLookToggle.tsx). ./scripts/measure
+takes `--look`.
+
+**Step 4 — the uniform look is the plain screen (0400, landed).** _Durable shape moved:_ none.
+_Landed:_ a fifth scene, src/lib/scene/plain.ts, with five neutral tokens. Every scene now declares
+`film`, `stands` and `shared`. `usePictureScene` hands every yard `YARD_SCENE_UNIFORM`, and the
+yard header's scene word and the place tuning groups are withheld under uniform. The screen's film
+rests at 0.8, the most that `SCREEN_FLOOR` admits.
+
+**Step 5 — one screen tile for every yard (0400, landed).** _Durable shape moved:_ none. _Landed:_
+a shared field keys and bakes no rack ink, cells or second lattice (`screenOf`). Measured at seven
+yards against f11325a on the uniform look, the idle window ran 116 fps with a 14.5 ms p95 and 0
+bakes, against 45 fps, 73.8 ms and 32 bakes. The drag ran 2 bakes against 221. The forced rebake
+averaged 1.9 ms against 19.2 ms. The scenes look keeps the pacing and reads 116 fps and 15.0 ms.
+
 ---
 
 ## 2. Rules for every feature

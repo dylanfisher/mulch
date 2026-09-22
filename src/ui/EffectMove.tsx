@@ -13,7 +13,8 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { ACTION_TOOLTIPS, MASTER_LABEL, MOVE_TO_LABEL, rackLabel, taggedLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, MASTER_LABEL, MOVE_TO_LABEL, rackLabel } from "@/lib/copy";
+import { taggedLabel } from "@/lib/copyTag";
 import { moveEffectCommand } from "@/ui/actions";
 import { deckIn, type DeckEntry, type RackId } from "@/state/store";
 import { Button } from "@/ui/components/button";

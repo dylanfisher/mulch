@@ -15,13 +15,14 @@ vi.mock("react", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
-import { TAG_LABEL } from "@/lib/copy";
+import { TAG_HINT, TAG_LABEL } from "@/lib/copyTag";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { DeckTag } from "@/ui/DeckTag";
 
 type Props = {
   id: string;
   label: string;
+  hint: string;
   "aria-label": string;
   maxLength: number;
   defaultValue: string;
@@ -52,6 +53,8 @@ describe("DeckTag", () => {
   it("is labelled, bounded at the stored shape's own bound, and reads back what the yard holds", () => {
     const { field } = rendered("low end");
     expect(field.label).toBe(TAG_LABEL);
+    // A one-word label explains itself by a hover, since it offers nothing else to.
+    expect(field.hint).toBe(TAG_HINT);
     expect(field["aria-label"]).toBe(`${TAG_LABEL} Yard A`);
     expect(field.id).toBe("a-tag");
     // Refused before it is typed rather than after, at the bound the validator uses.

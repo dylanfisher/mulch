@@ -10,7 +10,7 @@
  *   slider and stores nothing (0299, 0145).
  * @instead The registry itself, and which numbers are in it → src/lib/moireTuning.ts. The picture
  *   the panel is worn by, and where it is asked to paint again → src/ui/MoireStrip.tsx and
- *   `useDriftSurface` in src/ui/driftTiles.ts. The words → src/lib/copyDrift.ts, and the groups,
+ *   `useDriftSurface` in src/ui/driftSurface.ts. The words → src/lib/copyDrift.ts, and the groups,
  *   labels and hints → src/lib/copyDriftGroups.ts. The words a reading is said in →
  *   src/lib/copyScene.ts, and the card that says it and offers the field → src/ui/MoireSceneCard.tsx.
  */
@@ -43,6 +43,9 @@ import {
   type Tunable,
 } from "@/lib/moireTuning";
 import { clamp, snapToStep } from "@/lib/range";
+import { INK_ORBIT_SECS, INK_WANDER } from "@/lib/moireColour";
+import { SCENE_NAMES } from "@/lib/moireScene";
+import { SCENES } from "@/lib/scene/scenes";
 
 import { Button } from "@/ui/components/button";
 import { Card, CardContent, CardHeader } from "@/ui/components/card";
@@ -54,6 +57,7 @@ import {
   PopoverTrigger,
 } from "@/ui/components/popover";
 import { Slider } from "@/ui/components/slider";
+import { useDriftLook } from "@/ui/driftLook";
 import { MoireSceneCard } from "@/ui/MoireSceneCard";
 import { Says } from "@/ui/Says";
 import { toast } from "@/ui/components/toast";
@@ -84,6 +88,29 @@ export type TuningGroupOf = {
   readonly group: TuningGroup;
   readonly rows: readonly TuningRowOf[];
 };
+
+/**
+ * Whether a number moves a place, a field a yard's name reads or the shade what it stands by casts:
+ * those groups say nothing under the uniform look, where every yard draws the plain screen and no
+ * place at all, so the panel holds them back while it is on (0400).
+ */
+const ofPlace = (id: string): boolean => {
+  const group = id.split(".")[0];
+  return group === "stand" || SCENE_NAMES.some((scene) => scene === group && SCENES[scene].stands);
+};
+
+/**
+ * And the numbers the uniform look reads nowhere outside a place: the film a place spends, which the
+ * screen trades for its own, and the orbit of the ink's hue, which reaches the picture only as the
+ * hue a tile is baked in — and a shared field is baked in the one ink of an empty rack (0400).
+ */
+const UNREAD_UNIFORM: ReadonlySet<string> = new Set([
+  ...SCENE_NAMES.filter((scene) => !SCENES[scene].shared).map((scene) => SCENES[scene].film.id),
+  INK_ORBIT_SECS.id,
+  INK_WANDER.id,
+]);
+
+const readUniform = (id: string): boolean => !ofPlace(id) && !UNREAD_UNIFORM.has(id);
 
 /**
  * The panel's groups, in the copy's own order, each row joined to its handle. A tunable the copy
@@ -225,26 +252,33 @@ const onCopy = (): void => {
  */
 export function TuningFields({ debug, name }: { debug: boolean; name: string }) {
   useTuning();
+  const look = useDriftLook();
   const changed = Object.keys(tuningChanges()).length > 0;
   return (
     <>
       <div className="columns-[16rem] gap-3">
-        <MoireSceneCard name={name} />
-        {grouped(tunings()).map(({ group, rows }) => (
-          <Card key={group.title} size="sm" className="mb-3 break-inside-avoid">
-            <CardHeader>
-              <Says what={group.hint}>
-                <h3 className="type-eyebrow text-muted-foreground">{group.title}</h3>
-              </Says>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1.5">
-              <PushRow title={group.title} rows={rows} />
-              {rows.map((row) => (
-                <TuningRow key={row.handle.id} {...row} />
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+        {look === "scenes" && <MoireSceneCard name={name} />}
+        {grouped(tunings())
+          .map(({ group, rows }) => ({
+            group,
+            rows: look === "scenes" ? rows : rows.filter(({ handle }) => readUniform(handle.id)),
+          }))
+          .filter(({ rows }) => rows.length > 0)
+          .map(({ group, rows }) => (
+            <Card key={group.title} size="sm" className="mb-3 break-inside-avoid">
+              <CardHeader>
+                <Says what={group.hint}>
+                  <h3 className="type-eyebrow text-muted-foreground">{group.title}</h3>
+                </Says>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1.5">
+                <PushRow title={group.title} rows={rows} />
+                {rows.map((row) => (
+                  <TuningRow key={row.handle.id} {...row} />
+                ))}
+              </CardContent>
+            </Card>
+          ))}
       </div>
       <div className="flex justify-end gap-1 pt-3">
         <Button size="sm" variant="ghost" disabled={!changed} onClick={resetTuning}>

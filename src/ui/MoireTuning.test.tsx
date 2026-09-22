@@ -1,6 +1,6 @@
 /** @role Tests that the tuning panel lists every tunable under the copy's groups, with words on each, and offers the copy only to the author. */
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MOIRE_TUNE, MOIRE_TUNE_COPY, MOIRE_TUNE_RESET, tuningPrompt } from "@/lib/copyDrift";
 import { MOIRE_TUNE_GROUPS } from "@/lib/copyDriftGroups";
@@ -29,6 +29,11 @@ import {
 // The strip is what wears the panel, and loading it declares every tunable the panel lists.
 import "@/ui/MoireStrip";
 
+// The look, as a value a case may set: the panel holds the places back under the uniform one, and
+// every case but the one about that reads the panel as a hand choosing scenes sees it (0400).
+let look: "uniform" | "scenes" = "scenes";
+vi.mock("@/ui/driftLook", () => ({ useDriftLook: () => look }));
+
 /** A yard whose name reads as one of every bank, so the Scene card has all seven to say. */
 const YARD = "Windy Foxglove by the Gate in Falling Dusk with Moths";
 
@@ -54,7 +59,10 @@ const tuning = (id: string) => tunings().find((handle) => handle.id === id);
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("DriftTuning", () => {
-  afterEach(resetTuning);
+  afterEach(() => {
+    resetTuning();
+    look = "scenes";
+  });
 
   it("is the one button that opens it", () => {
     expect(renderToStaticMarkup(<DriftTuning name={YARD} />)).toContain(`>${MOIRE_TUNE}</button>`);
@@ -65,6 +73,32 @@ describe("DriftTuning", () => {
     expect(markup).toContain(`>${SCENE_READING_TITLE}</h3>`);
     for (const word of READING) expect(markup, word).toContain(word);
     expect(markup).toContain(`>${READING.join(", ")}</p>`);
+  });
+
+  it("holds the places back under the uniform look, and keeps the screen's own", () => {
+    // Every yard draws the plain screen while the look is uniform, so the field a name reads, the
+    // four places' numbers and the shade a stand casts all move a picture nobody is shown (0400).
+    look = "uniform";
+    const markup = renderToStaticMarkup(<TuningFields debug={false} name={YARD} />);
+    expect(markup).not.toContain(`>${SCENE_READING_TITLE}</h3>`);
+    for (const id of ["bloom.far", "meadow.fibre", "stand.wall"]) {
+      expect(markup, id).not.toContain(`aria-label="${id}"`);
+    }
+    expect(markup).toContain('aria-label="plain.film"');
+  });
+
+  it("holds back what the one screen never reads under the uniform look, and keeps what it does", () => {
+    // The screen spends its own film and not a place's, and is baked in the empty rack's one ink,
+    // so the hue's orbit never reaches it; the wash, the cells and the rows' lattice still do (0400).
+    look = "uniform";
+    const markup = renderToStaticMarkup(<TuningFields debug={false} name={YARD} />);
+    for (const id of ["film.share", "colour.orbitSecs", "colour.wander"]) {
+      expect(markup, id).not.toContain(`aria-label="${id}"`);
+    }
+    expect(markup).not.toContain(">Film</h3>");
+    for (const id of ["colour.wash", "cells.rows", "lattice.lean", "wind.secs"]) {
+      expect(markup, id).toContain(`aria-label="${id}"`);
+    }
   });
 
   it("renders one slider per tunable, under its group, and reads the value back", () => {

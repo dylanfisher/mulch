@@ -1,6 +1,6 @@
 /**
  * @role The words the drift's own controls say: the switch that decides whether the picture is
- *   drawn at all, the button that hands it a window of its own, and the tuning panel — what the
+ *   drawn at all, the one that decides whether it is one field or each yard's scene, the button that hands it a window of its own, and the tuning panel — what the
  *   button that opens it says, what the two under it say, and the sentence a copied tuning is
  *   handed to an agent with. Out of src/lib/copy.ts because that file is at the hard cap (0045),
  *   the way src/lib/copyKnobs.ts is — and the pop-out's two words came here when the switch's
@@ -19,6 +19,14 @@
 export const MOIRE_SWITCH_LABEL = "Switch Off The Drift";
 export const MOIRE_SWITCH_TOOLTIP =
   "Stop drawing the drift anywhere: no strip on a yard, nothing to open in full, and no picture being worked out behind the sound. For a machine that would rather spend everything it has on playing. Press again and the pictures come back.";
+
+/**
+ * The switch beside it, which decides what the picture is *of*: pressed, each yard draws the scene
+ * its name reads; released, every yard draws the one field, moved by its own sound (0400).
+ */
+export const MOIRE_LOOK_LABEL = "Draw Each Yard's Scene";
+export const MOIRE_LOOK_TOOLTIP =
+  "Draw each yard as the place its name describes, a meadow, a bloom, water or a canopy, instead of one field every yard shares. Every yard still moves to its own sound either way. Press again for the one field.";
 
 /** What the zoomed picture's own button for a window of its own says (0139). */
 export const MOIRE_POP_OUT = "Pop Out";

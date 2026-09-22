@@ -39,15 +39,17 @@ export function useFieldCommit(commit: (input: HTMLInputElement) => void) {
 type InlineFieldProps = ComponentProps<typeof Input> & {
   id: string;
   label: string;
+  /** What the field is for, worn as a `title` by the label and the input both. */
+  hint?: string;
 };
 
 /**
  * `h-7` is what `Button` and `Toggle` say `size="sm"` is (src/ui/components/*.tsx) — the one
  * height a row of them has, so a field beside them draws no second edge below theirs.
  */
-export function InlineField({ id, label, className, ...input }: InlineFieldProps) {
+export function InlineField({ id, label, hint, className, ...input }: InlineFieldProps) {
   return (
-    <Field orientation="horizontal" className="w-auto self-start">
+    <Field orientation="horizontal" className="w-auto self-start" title={hint}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input id={id} className={cn("h-7 w-20", className)} {...input} />
     </Field>

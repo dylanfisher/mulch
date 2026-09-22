@@ -9,18 +9,15 @@
  *   worker shell → src/workers/drift.ts. Drawing the tiles this hands back, and everything a
  *   straight row is drawn with → src/ui/moireCanvas.ts. The cadence a picture is asked at →
  *   DRIFT_PAINT_MS in src/lib/moire.ts, halved under a long chain by `looksPaintMs` in
- *   src/ui/moireLooks.ts (0284), and spent through `paced` in src/ui/frame.ts.
+ *   src/ui/moireLooks.ts (0284), and spent through `paced` in src/ui/frame.ts. The canvas that
+ *   draws again when a tile lands → src/ui/driftSurface.ts.
  */
-import { useEffect } from "react";
-
 import { type DriftGeometry } from "@/lib/moire";
 import { type DriftProfile } from "@/lib/moireProfiles";
 import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
-import { subscribeTuning } from "@/lib/moireTuning";
-import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { driftOffThread, driftWorkerPort, type DriftPort } from "@/app/drift";
 import { hold } from "@/lib/hold";
-import { onScreenBaked } from "@/ui/moireScreenShop";
+import { CURVED_COST, costEnd, costSpend, costStart } from "@/ui/moireCost";
 
 /** What a curved row is drawn with: a canvas this thread baked, or a bitmap the worker sent back. */
 export type DriftTileImage = HTMLCanvasElement | ImageBitmap;
@@ -99,7 +96,30 @@ let telling = false;
  * "miss on every lookup of every painting" this cap exists not to be.
  */
 const wantedLately = (when: Map<string, number>, key: string): boolean =>
-  (when.get(key) ?? -1) >= painting - 1;
+  (when.get(key) ?? -1) >= painting - guarded();
+
+/**
+ * **Nor is the painting before it, once more than one picture is drawing.** Every canvas's painting
+ * is a generation of this one shop, so seven yards take seven generations to come round to the first
+ * again, and a tile guarded for two of them is evicted by the others before its own picture asks for
+ * it again — rebaked every round with nothing touched (0399). So the guard is a round: two paintings
+ * of every picture animating, and never fewer than the two a lone picture needs. Counted by pictures
+ * and never by paintings or a clock — a guard that grew with the paint rate would let a fast picture
+ * hold a generation of whole-picture tiles past the cap for every painting it made.
+ */
+let animating = 0;
+const guarded = (): number => 2 * Math.max(1, animating);
+
+/** Count one more picture animating, until the returned sit-down is called (`useDriftSurface`). */
+export function standUp(): () => void {
+  animating += 1;
+  return () => {
+    animating -= 1;
+  };
+}
+
+/** How many pictures are animating on this page — the page's and not a yard's (0399). */
+export const picturesAnimating = (): number => animating;
 
 const curvedLately = (key: string): boolean => wantedLately(curvedAt, key);
 const standingLately = (key: string): boolean => wantedLately(standingAt, key);
@@ -123,8 +143,9 @@ export function heldStraight<Value>(
   straightAt.set(key, painting);
   hold(cache, key, value, cap, straightLately);
   // Two caches share this generation — the tiles and the patterns each surface cuts through them —
-  // so a stamp is dropped by its age rather than by either cache having let go of its key.
-  for (const [gone, when] of straightAt) if (when < painting - 1) straightAt.delete(gone);
+  // so a stamp is dropped by its age — past the round the guard holds to — rather than by either
+  // cache having let go of its key.
+  for (const gone of straightAt.keys()) if (!straightLately(gone)) straightAt.delete(gone);
   return value;
 }
 
@@ -160,36 +181,6 @@ export function onDriftBaked(listener: () => void): () => void {
   return () => {
     listeners.delete(listener);
   };
-}
-
-/**
- * A canvas for one drift picture: the surface every drawing surface shares, held to the picture's
- * own cadence — declared in one place and slower than the frame rate, because the drift may lag and
- * the hand may not (0144) — and asked to draw again whenever a tile lands after the painting that
- * wanted it, which is every tile a worker baked and every one a painting could not afford.
- *
- * `everyMs` is the gap between two paintings — the picture's own cadence, or half of it under a
- * chain longer than the whole rate holds (`looksPaintMs`, src/ui/moireLooks.ts, 0284). Asked for on
- * the budget's own timer and never handed in as a number: what a painting costs is what the rack it
- * is of asks for, that is read off the set the last painting walked, and a look still draining out
- * of the chain is still a pass being drawn long after the commit that let it go (`carryLooks`).
- */
-export function useDriftSurface(
-  paint: (canvas: HTMLCanvasElement, color: string) => void,
-  animate: boolean,
-  everyMs: () => number,
-): CanvasSurface {
-  const surface = useCanvasSurface(paint, animate, everyMs);
-  const { repaint } = surface;
-  useEffect(() => onDriftBaked(repaint), [repaint]);
-  // And whenever a screen tile lands: the same picture holds two shops now, and a tile baked off
-  // the frame after the painting that wanted it would otherwise never be drawn (0354).
-  useEffect(() => onScreenBaked(repaint), [repaint]);
-  // And whenever a tuning moves: a halted picture would otherwise hold the old number until
-  // something else asked it to paint (src/lib/moireTuning.ts, 0299). The same ask as above, and
-  // a no-op inside a budget already standing.
-  useEffect(() => subscribeTuning(repaint), [repaint]);
-  return surface;
 }
 
 /**
@@ -266,6 +257,7 @@ function askWorker(order: DriftOrder): boolean {
   if (asked === null) return false;
   if (flying.has(order.key)) return true;
   flying.add(order.key);
+  costSpend(CURVED_COST, 0);
   asked.bake({
     t: "bake",
     key: order.key,
@@ -286,6 +278,7 @@ function bakeHere(order: DriftOrder): DriftTileImage | null {
   made.height = order.height;
   const ink = made.getContext("2d");
   if (ink === null) return null;
+  const at = costStart();
   const field = ink.createImageData(order.width, order.height);
   curvedField(
     field.data,
@@ -297,6 +290,7 @@ function bakeHere(order: DriftOrder): DriftTileImage | null {
     order.ref,
   );
   ink.putImageData(field, 0, 0);
+  costEnd(CURVED_COST, at);
   return made;
 }
 

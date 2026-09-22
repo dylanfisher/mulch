@@ -77,6 +77,28 @@ export function onFrame(callback: () => void): () => void {
   };
 }
 
+const ALWAYS = (): boolean => true;
+
+/**
+ * A share of each frame for work many callers do: yes to the first `count()` asks inside one frame
+ * and no to the rest, which stand and ask again on the next. Handed to `paced` as its gate, it is
+ * what spreads eight pictures that come due together over the frames after it instead of spending
+ * all eight on one (0399). Keyed on `frameStamp`, so an ask between frames spends the last frame's.
+ */
+export function perFrame(count: () => number): () => boolean {
+  let at = -1;
+  let taken = 0;
+  return () => {
+    if (at !== stamp) {
+      at = stamp;
+      taken = 0;
+    }
+    if (taken >= count()) return false;
+    taken += 1;
+    return true;
+  };
+}
+
 /**
  * A budget on the one loop rather than a subscription of its own: `ask()` takes the work now if
  * `everyMs` has passed since it last ran, and otherwise leaves it standing until the frame it is
@@ -95,13 +117,20 @@ export function onFrame(callback: () => void): () => void {
  * the set the painting walks and not off the commit that built it (`looksPaintMs`,
  * src/ui/moireLooks.ts, 0284). A budget rebuilt to change its length would restart the gap it was
  * halfway through.
+ *
+ * `askWiped()` is the same ask for work that redraws something just wiped: it keeps the cadence but
+ * never waits on `may`, because a share refused there is a blank canvas and not a slower picture.
  */
 export function paced(
   everyMs: () => number,
   work: () => void,
-): { ask: () => void; stop: () => void } {
+  may: () => boolean = ALWAYS,
+): { ask: () => void; askWiped: () => void; stop: () => void } {
   let last = Number.NEGATIVE_INFINITY;
   let standing: (() => void) | null = null;
+  // A paint owed to a canvas that was just wiped: the ration spreads the animation's cadence, and a
+  // wiped canvas refused its share would stand blank until one came round (0399).
+  let wiped = false;
   const stop = (): void => {
     standing?.();
     standing = null;
@@ -109,18 +138,26 @@ export function paced(
   const take = (): void => {
     stop();
     last = performance.now();
+    wiped = false;
     work();
   };
-  const due = (): boolean => performance.now() - last >= everyMs();
+  // The gate is asked last, and only of work that is otherwise due: a ration spends a share on the
+  // ask it answers yes to, so asking it of work that would not have run spends a share for nothing.
+  const due = (): boolean => performance.now() - last >= everyMs() && (wiped || may());
+  const ask = (): void => {
+    if (due()) {
+      take();
+      return;
+    }
+    standing ??= onFrame(() => {
+      if (due()) take();
+    });
+  };
   return {
-    ask: () => {
-      if (due()) {
-        take();
-        return;
-      }
-      standing ??= onFrame(() => {
-        if (due()) take();
-      });
+    ask,
+    askWiped: () => {
+      wiped = true;
+      ask();
     },
     stop,
   };

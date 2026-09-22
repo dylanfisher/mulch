@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS } from "@/lib/moire";
-import { frameCostMs, frameStamp, measureFrameCost, onFrame, paced } from "@/ui/frame";
+import { frameCostMs, frameStamp, measureFrameCost, onFrame, paced, perFrame } from "@/ui/frame";
 
 /** A frame the loop has asked for and nobody has run yet, under the id it can cancel it by. */
 type Scheduled = { id: number; run: FrameRequestCallback };
@@ -211,6 +211,74 @@ describe("the one frame loop", () => {
     expect(stamps).toEqual([before + 1, before + 1]);
     raise();
     expect(stamps).toEqual([before + 1, before + 1, before + 2, before + 2]);
+  });
+
+  it("spreads work that comes due together over the frames after it, a share at a time", () => {
+    // Eight pictures on one cadence all come due on one frame; a share of two a frame paints two
+    // there and the rest on the frames after, rather than all eight on the one (0399). A painted
+    // one is not due again for its cadence, which is what hands the next frame to the others — so
+    // the cadence is the one eight standing are slowed to, whose paintings fit the frames' shares
+    // (`standingPaintMs`); at the whole rate they would not, and the first asked would win.
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const share = perFrame(() => 2);
+    let painted: number[] = [];
+    const paces = Array.from({ length: 8 }, (_, at) =>
+      paced(
+        () => 100,
+        () => {
+          painted.push(at);
+        },
+        share,
+      ),
+    );
+    for (const pace of paces) offs.push(pace.stop);
+    subscribe(() => {
+      for (const pace of paces) pace.ask();
+    });
+    const perFrameSeen: number[] = [];
+    for (let at = 0; at < 60; at++) {
+      now = at * (1000 / 60);
+      const before = painted.length;
+      raise();
+      perFrameSeen.push(painted.length - before);
+      if (at === 3) {
+        expect(new Set(painted).size).toBe(8);
+        painted = [];
+      }
+    }
+    expect(Math.max(...perFrameSeen)).toBe(2);
+    // And over the second after, nobody starves: every one of the eight was painted in it.
+    expect(new Set(painted).size).toBe(8);
+  });
+
+  it("never refuses a share to a paint owed to a canvas just wiped between frames", () => {
+    // A resize wipes every strip's backing store between frames, after the last frame spent its
+    // shares; a plain ask then stands, and a wiped one would stand blank with it (0399).
+    const share = perFrame(() => 1);
+    const painted: string[] = [];
+    const plain = paced(
+      () => 0,
+      () => {
+        painted.push("plain");
+      },
+      share,
+    );
+    const wiped = paced(
+      () => 0,
+      () => {
+        painted.push("wiped");
+      },
+      share,
+    );
+    offs.push(plain.stop, wiped.stop);
+    subscribe(() => {
+      share();
+    });
+    raise();
+    plain.ask();
+    wiped.askWiped();
+    expect(painted).toEqual(["wiped"]);
   });
 
   it("reports what the last measured frame cost, and clears it when measuring stops", () => {

@@ -4,7 +4,7 @@
  *   five stops, or a ramp whose caller's-ink stop has moved are all refused here rather than drawn
  *   wrong (0329). The shape `LOOKS` takes in src/lib/moireLook.ts, one tier up because a scene
  *   names tokens and a token is the interface's (docs/boundaries.md).
- * @instead The grounds themselves → the four files beside this one. What a scene is, and the lights
+ * @instead The grounds themselves → the five files beside this one. What a scene is, and the lights
  *   and winds a name puts one under → src/lib/moireScene.ts. The reading of a name →
  *   src/lib/yardScene.ts. The tile a scene is written into → src/ui/moireScreenTile.ts.
  */
@@ -12,10 +12,11 @@ import { type Scene, type SceneName, SCENE_NAMES, SCENE_RAMP_STOPS } from "@/lib
 import { bloom } from "@/lib/scene/bloom";
 import { canopy } from "@/lib/scene/canopy";
 import { meadow } from "@/lib/scene/meadow";
+import { plain } from "@/lib/scene/plain";
 import { water } from "@/lib/scene/water";
 
 /** Every scene, by the name a yard's plant reads as. One entry per file and one file per entry. */
-export const SCENES: Readonly<Record<SceneName, Scene>> = { meadow, bloom, water, canopy };
+export const SCENES: Readonly<Record<SceneName, Scene>> = { meadow, bloom, water, canopy, plain };
 
 /**
  * The registry as a lookup: the same four entries, reached by a string. A map and not the record

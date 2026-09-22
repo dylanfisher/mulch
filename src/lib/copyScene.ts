@@ -44,6 +44,7 @@ export const SCENE_FIELD_WORDS: Readonly<Record<SceneName, string>> = {
   bloom: "poppies",
   water: "black water",
   canopy: "a canopy",
+  plain: "a screen",
 };
 
 /**

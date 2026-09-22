@@ -17,7 +17,8 @@
 // (src/lib/copyKnobs.ts, P123) — and the effect name pools, which grow by twenty-four words every
 // time the registry grows an entry (src/lib/copyNames.ts, P142) — and the drift pop-out's two
 // words, which went to the file the drift's other controls already spoke from when the picture's
-// switch put this one over the hard cap (src/lib/copyDrift.ts, 0397). What is left is the
+// switch put this one over the hard cap (src/lib/copyDrift.ts, 0397) — and the tag's three words,
+// which went to src/lib/copyTag.ts when the field's hint put it over again. What is left is the
 // instrument's vocabulary, and it stays in one file because splitting *that* is how a noun ends up
 // declared twice (principle 1). Read and
 // judged, far under the hard cap docs/map.md sets — see
@@ -31,7 +32,7 @@
 import type { PlayerCharacter } from "@/lib/playerCast";
 import { growthLeft } from "./copyAuto.ts";
 import { PLAYER_TAP_TOOLTIP } from "./copyCard.ts";
-import { MOIRE_SWITCH_TOOLTIP } from "./copyDrift.ts";
+import { MOIRE_LOOK_TOOLTIP, MOIRE_SWITCH_TOOLTIP } from "./copyDrift.ts";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
 import type { SongPartId } from "@/lib/playerSong";
@@ -158,21 +159,6 @@ export const MASTER_LABEL = "Master";
 
 /** The word the item that carries an instance to another rack wears. Titlecase (0059). */
 export const MOVE_TO_LABEL = "Move To";
-
-/**
- * What the word a hand writes on a yard is called, where the field that holds it is labelled.
- * Titlecase per 0059, and no vocabulary behind it: "low end" and "tops" are the hand's words, so
- * the instrument offers a field and never a list (0386).
- */
-export const TAG_LABEL = "Tag";
-
-/**
- * Anything a yard is named by, wearing the word a hand wrote on that yard — and exactly itself
- * where nobody has written one. One composition rather than one per list, so the menu that
- * carries an effect to a yard and anything else that comes to name one read the same (0386).
- */
-export const taggedLabel = (label: string, tag: string): string =>
-  tag === "" ? label : `${label} (${tag})`;
 
 /**
  * Which rack a control belongs to, said out loud: a yard by its name, and the one that is no
@@ -340,6 +326,7 @@ export const ACTION_TOOLTIPS = {
   // and written beside the drift's other words, because this file stands at the hard cap
   // (src/lib/copyDrift.ts, 0045).
   drift: MOIRE_SWITCH_TOOLTIP,
+  scenes: MOIRE_LOOK_TOOLTIP,
   sequencer:
     "Draw every yard folded, with its sequence in place of its source: fades in and out and rests over minutes, on top of the yard's own gain. Off draws the yards whole again; the sequences play either way.",
   apply: "Put this clip's settings onto a yard.",

@@ -16,4 +16,13 @@ describe("InlineField", () => {
     expect(markup).toMatch(/<input[^>]*class="[^"]*\bh-7\b/u);
     expect(markup).toMatch(/data-slot="field"[^>]*class="[^"]*\bself-start\b/u);
   });
+
+  it("wears its hint as a title on the whole field, so the label and the input both say it", () => {
+    const hinted = renderToStaticMarkup(
+      <InlineField id="hz" label="Freq" hint="Cycles a second" type="number" />,
+    );
+    expect(hinted).toMatch(/data-slot="field"[^>]*title="Cycles a second"/u);
+    // And nothing at all where there is no hint: an empty title is a blank popup.
+    expect(markup).not.toContain("title=");
+  });
 });

@@ -48,7 +48,6 @@ import {
   channelFringe,
   channelMix,
   columnKeep,
-  FILM_SHARE,
   filmStand,
   GLYPH_FLAT,
   rowKeep,
@@ -205,7 +204,8 @@ function bodyRows(
 ): void {
   const { height, pitch, rowPitch, width } = order;
   const flock = order.yard.specks === "flock";
-  const kept = order.yard.specks === "kept";
+  // A field that is not a place casts no shade, so no point stands at its foot either.
+  const kept = scene.stands && order.yard.specks === "kept";
   for (let y = from; y < to; y++) {
     const down = rowKeep(y, rowPitch) * bandKeep(y, height);
     for (let x = 0; x < width; x++) {
@@ -221,7 +221,7 @@ function bodyRows(
       // the field's own darkest ink and never as an object (0335); and then by the film's own
       // share of what its four terms take here, which is a shade over the field and no longer a
       // window cut in it (0340).
-      body[at + 1] = (1 - standShade(x, y, terms)) * filmStand(keep, share);
+      body[at + 1] = (scene.stands ? 1 - standShade(x, y, terms) : 1) * filmStand(keep, share);
       // And whatever bright points the name ends on — a flock of the scene's own or the one kept
       // thing at the foot of the shade.
       body[at + 2] = kept ? standSpeck(x, y, terms) : flock ? scene.specks(x, y, terms) : 0;
@@ -282,8 +282,8 @@ export function* bands(order: ScreenBake, pixels: Uint8ClampedArray): Generator<
   const terms = bakeTerms(order);
   // Read once a tile and not once a pixel: the share is baked into the body's key, `tuneStamp()`
   // keys the tile, and a handle read in the pixel loop would be a property read three hundred
-  // thousand times (0070).
-  const share = FILM_SHARE.value;
+  // thousand times (0070). The scene's own, since the plain screen spends the whole film (0400).
+  const share = scene.film.value;
   // How far a light that falls through the field slides the read up the scene's own ramp, and
   // nought where the air is a wash or the name says no air at all.
   const falling = order.yard.spread === "fall" ? SCENE_LIGHT_TERMS[order.yard.light].amount : 0;

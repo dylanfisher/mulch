@@ -12,6 +12,7 @@
  */
 import { hash2, noiseCell, speckTiled, streakTiled } from "@/lib/moireNoise";
 import { type Scene, sceneAxis, sceneCells, sceneFlockRare, sceneRepeat } from "@/lib/moireScene";
+import { FILM_SHARE } from "@/lib/moireScreenFilm";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -97,6 +98,9 @@ const SPARK_TOP = 0.97;
 const SPAN = 0.16;
 
 export const meadow: Scene = {
+  film: FILM_SHARE,
+  stands: true,
+  shared: false,
   ramp: [
     "--scene-canopy-dark",
     "--drift-hot",

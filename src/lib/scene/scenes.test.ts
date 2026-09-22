@@ -50,6 +50,9 @@ const LEANS_AND_REACHES: readonly (readonly [number, number])[] = [0, 0.25, 0.5,
   (lean) => SCENE_REACHES.map((reach) => [lean, SCENE_REACH_TERMS[reach]] as const),
 );
 
+/** The scenes that are somewhere: every one a yard's shade falls over, which is all but the screen. */
+const PLACES = SCENE_NAMES.filter((name) => SCENES[name].stands);
+
 // One flat list of the registry's cases, all read off the one set of terms above (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("the scene registry", () => {
@@ -130,8 +133,9 @@ describe("the scene registry", () => {
     // The two readings the detail has that the ground does not carry: a flock is a scattering of
     // the scene's own points over the whole tile, and a kept thing is one object at the foot of
     // whatever the yard stands by. Both are read at the top of the ramp, so what says they are
-    // different pictures is how much of the tile each stands on.
-    for (const name of SCENE_NAMES) {
+    // different pictures is how much of the tile each stands on. Places only: the plain screen is
+    // no place, and holds no points of its own (0400).
+    for (const name of PLACES) {
       const { specks } = SCENES[name];
       let flock = 0;
       let kept = 0;
@@ -303,10 +307,11 @@ describe("the scene registry", () => {
       }
       return seen.map((at) => at.toFixed(4)).join(",");
     };
-    const grounds = SCENE_NAMES.map((name) => read(name, 0.5));
-    expect(new Set(grounds).size).toBe(SCENE_NAMES.length);
+    // Every place: the plain screen is one level under the film, and leans nothing (0400).
+    const grounds = PLACES.map((name) => read(name, 0.5));
+    expect(new Set(grounds).size).toBe(PLACES.length);
     // And the wind reaches every one of them: a scene the lean did nothing to would be a field
     // whose adjective said nothing.
-    for (const name of SCENE_NAMES) expect(read(name, 0), name).not.toBe(read(name, 1));
+    for (const name of PLACES) expect(read(name, 0), name).not.toBe(read(name, 1));
   });
 });

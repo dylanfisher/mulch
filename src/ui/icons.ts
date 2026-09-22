@@ -27,6 +27,7 @@ import { DiceFiveIcon } from "@phosphor-icons/react/DiceFive";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
+import { FlowerTulipIcon } from "@phosphor-icons/react/FlowerTulip";
 import { HandTapIcon } from "@phosphor-icons/react/HandTap";
 import { HeadphonesIcon } from "@phosphor-icons/react/Headphones";
 import { MagicWandIcon } from "@phosphor-icons/react/MagicWand";
@@ -113,6 +114,9 @@ export const ACTION_ICONS = {
   // whether the picture is drawn at all, and it is the picture that has to be recognisable on it
   // (0055).
   drift: WavesIcon,
+  // A flower, since that is what a yard's scene most often is: pressed, each yard draws the place
+  // its name reads rather than the one field, and the waves beside it are the picture itself (0400).
+  scenes: FlowerTulipIcon,
   // Drawing a new seed, which is not copying anything: the copy icon said a second one was being
   // made, and what happens is that one pattern becomes a different pattern (0089, P74).
   reseed: ShuffleIcon,

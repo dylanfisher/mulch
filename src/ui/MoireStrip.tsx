@@ -51,7 +51,7 @@ import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftShown } from "@/ui/driftShown";
 import { useDriftGesture, useZoomedDrift } from "@/ui/driftZoom";
-import { useDriftSurface } from "@/ui/driftTiles";
+import { useDriftSurface } from "@/ui/driftSurface";
 import { loopJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
@@ -88,7 +88,7 @@ import { DRIFT_WIND_SECS, windTravelInto } from "@/ui/moireWind";
 import { type GrownRun, NO_GROWN, grownNothing, grownStanding } from "@/ui/moireGrown";
 import type { MoireRowSet } from "@/ui/moireRowsField";
 import { DriftTuning } from "@/ui/MoireTuning";
-import { useYardScene } from "@/ui/yardSceneRead";
+import { usePictureScene } from "@/ui/yardSceneRead";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
@@ -413,7 +413,7 @@ function useMoirePicture(
   animating: boolean,
 ): { rows: MoireRow[]; recurrence: string } & CanvasSurface {
   const { rows, recurrence, refill } = useMoireRows(instrument, deck, state);
-  const yard = useYardScene(name);
+  const yard = usePictureScene(name);
   const said = useRecurrence(recurrence);
   // The set the read has just filled and not the session's own: a run holding six is six rows the
   // session cannot account for, and the window they are drawn across is theirs too (`moireRows`).

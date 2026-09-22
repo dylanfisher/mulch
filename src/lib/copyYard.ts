@@ -69,6 +69,8 @@ export const YARD_PLANTS_BY_SCENE: Readonly<Record<SceneName, readonly string[]>
   ),
   water: words("Rush Reed Sedge"),
   canopy: words("Thicket Willow Bramble Cedar Hedgerow Alder Ivy Laurel Birch Rowan Hazel Aspen"),
+  // No plant grows on a screen: no name reads as it, and a hand picks it or the uniform look draws it (0400).
+  plain: [],
 };
 
 export const YARD_PLANTS = banked(SCENE_NAMES.map((scene) => YARD_PLANTS_BY_SCENE[scene]));

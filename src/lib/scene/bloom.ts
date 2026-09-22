@@ -19,6 +19,7 @@ import {
   sceneRepeat,
   sceneSlope,
 } from "@/lib/moireScene";
+import { FILM_SHARE } from "@/lib/moireScreenFilm";
 import { tunable } from "@/lib/moireTuning";
 import { clamp } from "@/lib/range";
 
@@ -118,6 +119,9 @@ function nearestHead(
 }
 
 export const bloom: Scene = {
+  film: FILM_SHARE,
+  stands: true,
+  shared: false,
   ramp: [
     "--scene-canopy-dark",
     "--screen-green",

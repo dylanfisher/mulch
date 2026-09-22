@@ -44,7 +44,7 @@ vi.mock("@/ui/theme", () => ({ useTheme: () => "system" }));
 // stands — src/ui/frame.test.ts is where the cadence itself is held to its rate.
 vi.mock("@/ui/frame", () => ({
   useOnFrame: () => {},
-  paced: (_everyMs: number, work: () => void) => ({ ask: work, stop: () => {} }),
+  paced: (_everyMs: number, work: () => void) => ({ ask: work, askWiped: work, stop: () => {} }),
 }));
 
 import { useCanvasSurface } from "@/ui/canvasSurface";

@@ -230,3 +230,20 @@ describe("where a pop stands the three channels", () => {
     expect(ghosts, "a saturated tile stands no ghost").toBeGreaterThan(0);
   });
 });
+
+// What a field that is not a place casts: nothing from the thing a yard stands by (0400).
+describe("the bright point a stand keeps", () => {
+  afterEach(() => {
+    resetTuning();
+    forgetScreenField();
+  });
+
+  const tile = (scene: ScreenBake["yard"]["scene"], specks: ScreenBake["yard"]["specks"]) =>
+    splitTile(0, { yard: { ...YARD_SCENE_REST, scene, specks } });
+
+  it("keeps no point on the plain screen, which casts no shade for it to stand at the foot of", () => {
+    // The case is worth reading only if a kept point is drawn somewhere: on a field that is a place.
+    expect(tile("meadow", "kept"), "a meadow keeps no point").not.toEqual(tile("meadow", "own"));
+    expect(tile("plain", "kept")).toEqual(tile("plain", "own"));
+  });
+});

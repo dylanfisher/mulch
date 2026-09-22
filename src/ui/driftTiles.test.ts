@@ -9,7 +9,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fractalRest } from "@/lib/moireFractal";
 import { DRIFT_PAINT_MS } from "@/lib/moire";
 import type { DriftPort, DriftBakeRequest, DriftBakeResult } from "@/app/drift";
-import { curvedTileFor, endPainting, forgetDriftTiles, startPainting } from "@/ui/driftTiles";
+import {
+  curvedTileFor,
+  endPainting,
+  forgetDriftTiles,
+  heldStraight,
+  standUp,
+  startPainting,
+} from "@/ui/driftTiles";
 import { paced } from "@/ui/frame";
 import type { DriftOrder } from "@/ui/driftTiles";
 
@@ -198,6 +205,78 @@ describe("the curved rows' tile shop", () => {
       for (const one of held) expect(one).not.toBeNull();
     }
     expect(minted).toHaveLength(settled);
+  });
+
+  it("keeps each picture's tiles while the others paint, round after round", () => {
+    // Seven yards and a popped window are eight pictures, each painting in turn, and each painting
+    // is a generation of this one shop. A tile guarded only for this painting and the one before is
+    // evicted by the other seven before its own picture comes round again (0399).
+    stubDocument();
+    forgetDriftTiles();
+    const pictures = Array.from({ length: 8 }, (_, at) => [
+      orderAt(at * 2 + 1, `picture ${at}, row 0`),
+      orderAt(at * 2 + 2, `picture ${at}, row 1`),
+    ]);
+    const round = (): void => {
+      for (const rows of pictures) {
+        startPainting();
+        for (const one of rows) curvedTileFor(one);
+        endPainting();
+      }
+    };
+    const sitDowns = pictures.map(() => standUp());
+    // Two rounds are enough for every row to have had its one bake a painting.
+    round();
+    round();
+    const settled = minted.length;
+    round();
+    round();
+    for (const sitDown of sitDowns) sitDown();
+    expect(minted).toHaveLength(settled);
+  });
+
+  it("keeps each picture's straight tiles while the others paint, round after round", () => {
+    // The painter's straight cache holds against the same round: a stamp pruned after one painting
+    // is gone before its own picture comes round again, and the cap evicts it (0399).
+    forgetDriftTiles();
+    const tiles = new Map<string, number>();
+    let made = 0;
+    const pictures = Array.from({ length: 8 }, (_, at) => [`picture ${at}, a`, `picture ${at}, b`]);
+    const round = (): void => {
+      for (const keys of pictures) {
+        startPainting();
+        for (const key of keys) heldStraight(tiles, key, tiles.get(key) ?? (made += 1), 4);
+        endPainting();
+      }
+    };
+    const sitDowns = pictures.map(() => standUp());
+    round();
+    const settled = made;
+    round();
+    round();
+    for (const sitDown of sitDowns) sitDown();
+    expect(made).toBe(settled);
+  });
+
+  it("guards a round of pictures and not of paintings, however fast one picture paints", () => {
+    // The guard is what lets the cache run over its cap, and a curved tile is a whole picture. One
+    // picture painting at the frame rate, a knob stepping its row every painting, must hold the cap
+    // and two paintings of itself — not every tile it baked in the last quarter second (0399).
+    stubDocument();
+    forgetDriftTiles();
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const sitDown = standUp();
+    const paintAt = (rings: number): void => {
+      now += 1000 / 60;
+      paintOne(orderAt(rings));
+    };
+    for (let rings = 1; rings <= 12; rings++) paintAt(rings);
+    const settled = minted.length;
+    // Eleven paintings ago is past the cap of eight and the two guarded, so it has been let go.
+    paintAt(1);
+    sitDown();
+    expect(minted).toHaveLength(settled + 1);
   });
 
   it("puts the worker down when it refuses a bake, and bakes here instead", () => {

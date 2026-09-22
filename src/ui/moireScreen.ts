@@ -43,8 +43,9 @@ import {
 } from "@/lib/moire";
 import type { MoireCells } from "@/lib/moireCells";
 import { SCENE_WIND_TERMS } from "@/lib/moireScene";
+import { sceneOf } from "@/lib/scene/scenes";
 import { tunable } from "@/lib/moireTuning";
-import type { YardScene } from "@/lib/yardScene";
+import { type YardScene, YARD_SCENE_UNIFORM } from "@/lib/yardScene";
 import { cellsKey, rackCells } from "@/ui/moireCells";
 import type { MoireLook } from "@/ui/moireLooks";
 import { screenInkRest, SCREEN_SATURATE_REACH, stepped, steppedHue } from "@/ui/moireScreenInk";
@@ -192,6 +193,16 @@ const drawn = { width: 0, height: 0 };
  */
 const BAKING = Symbol("the screen's first tile, still baking");
 
+/** What a shared field's tile is baked in: the ink of a rack with nothing in it, and no cells (0400). */
+const SHARED_INK = screenInkRest();
+const NO_CELLS: readonly MoireCells[] = [];
+/**
+ * And the reading a shared field is baked under: the yard's own, with the one wind the uniform look
+ * bakes in, because each yard sways and gusts by its own wind on the transform and the lean that
+ * wind would bake is the field's (0400). One object refilled, for `tinted`'s reason (0070).
+ */
+const sharedYard: { -readonly [T in keyof YardScene]: YardScene[T] } = { ...YARD_SCENE_UNIFORM };
+
 /**
  * The screen `canvas` is drawn through: the tile for what it is of, and this canvas's own pattern
  * over it. Nothing is built unless the colour, the height, the density or the tint has moved, so a
@@ -229,9 +240,21 @@ function screenOf(
   alphabet: AlphabetName,
   armed: AlphabetName | null,
 ): CanvasPattern | null | typeof BAKING {
+  // A shared field is one tile for every yard standing in it: the rack's ink, its cells and its
+  // second lattice are each yard's own, so they stay out of what is baked and what it is keyed by,
+  // and seven yards on the uniform look cost one bake and not seven (0400).
+  const shared = sceneOf(yard.scene).shared;
+  const ink = shared ? SHARED_INK : tint;
+  const split = shared ? NO_CELLS : cells;
+  const lattice = shared ? 0 : beat;
+  if (shared) {
+    Object.assign(sharedYard, yard);
+    sharedYard.wind = YARD_SCENE_UNIFORM.wind;
+  }
+  const field = shared ? sharedYard : yard;
   const height = tilePx(canvas.height, rowPitch);
   const cell = pitch;
-  const wide = screenTilePx(pitch, rowPitch, beat);
+  const wide = screenTilePx(pitch, rowPitch, lattice);
   // The hue itself and no longer where it lands on a scene's ramp: since 0332 the read is a
   // per-pixel offset on the ground rather than one position for the whole tile, so there is no
   // single read to key through and every step of the travel is its own tile.
@@ -254,7 +277,7 @@ function screenOf(
   // The canvas's own height stands beside the tile's, because two canvases whose heights snap to
   // one tile are two pictures now: what a stand's shade is placed against is what is shown of the
   // tile and not the whole of it (`seen`, src/lib/moireScene.ts, 0335).
-  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}|${channelMix(tint.saturate)}|${yard.scene}|${yard.light}|${yard.wind}|${yard.reach}|${yard.stand}|${yard.spread}|${yard.specks}|${cell}|${beat}|${alphabet}|${armed}|${tuneStamp()}${cellsKey(cells)}`;
+  const key = `${color}|${height}|${canvas.height}|${pitch}|${rowPitch}|${ink.fringe}|${ink.disperse}|${ink.hue}|${channelMix(ink.saturate)}|${field.scene}|${field.light}|${field.wind}|${field.reach}|${field.stand}|${field.spread}|${field.specks}|${cell}|${lattice}|${alphabet}|${armed}|${tuneStamp()}${cellsKey(split)}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const made = screenTile(
@@ -265,11 +288,11 @@ function screenOf(
     color,
     pitch,
     rowPitch,
-    tint,
-    yard,
+    ink,
+    field,
     cell,
-    cells,
-    beat,
+    split,
+    lattice,
     alphabet,
     armed,
   );

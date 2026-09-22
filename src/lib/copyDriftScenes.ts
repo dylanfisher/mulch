@@ -147,6 +147,24 @@ export const MOIRE_SCENE_TUNE_GROUPS: readonly TuningGroup[] = [
     ],
   },
   {
+    title: "Plain",
+    hint: "The one picture every yard shares while the drift is uniform: no field under it, so the film's gratings, beat and rolling band are the picture, over the marks each yard's sound stamps.",
+    entries: [
+      {
+        id: "plain.level",
+        wild: "max",
+        label: "Level",
+        hint: "Where on its grey ramp the screen rests before the film shades it.",
+      },
+      {
+        id: "plain.film",
+        wild: "max",
+        label: "Film",
+        hint: "How much of the screen the film spends: at the whole of it the scan lines and the band are the picture, at nothing the screen is one grey.",
+      },
+    ],
+  },
+  {
     title: "Stand",
     hint: "The one large thing a yard's place noun names, drawn as the shade it casts on whichever field it stands in: a wall is a band of shade, steps cut the tile into terraces, a grille is a coarse open lattice and a mass is a column of shade to one side.",
     entries: [

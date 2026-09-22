@@ -24,11 +24,10 @@ import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
 import { painterOn, resolvedInk, type StubGlobal } from "@/ui/moireCanvasPainted";
 import { ROWS, screenTileOf as tileOf, yardPainterOn } from "@/ui/moireCanvasReadings";
 import { screenInkRest } from "@/ui/moireScreenInk";
-import { sceneOf } from "@/lib/scene/scenes";
+import { SCENES, sceneOf } from "@/lib/scene/scenes";
 import {
   beatPx,
   filmStand,
-  FILM_SHARE,
   gridPitchPx,
   rowPitchPx,
   screenKeep,
@@ -302,8 +301,10 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
       resetTuning();
       // The film off outright and not merely at rest: `resetTuning` puts the share back to 0.15,
       // and a yardstick that already carries the shipped shade divides that shade out of both
-      // sides and hides a term deep enough to grille the field at the setting the app ships.
-      setTuning("film.share", 0);
+      // sides and hides a term deep enough to grille the field at the setting the app ships. The
+      // scene's own share, since the plain screen spends its own and not `film.share` (0400).
+      const film = SCENES[scene].film;
+      setTuning(film.id, 0);
       // And in the scene's own stops, `resetTuning` having put the picture back to its rest (0366).
       setTuning("glyph.flat", 0);
       const whole = meanOf(tileOf(paintingOf(yard)));
@@ -314,7 +315,7 @@ describe("the screen shades the field and no longer cuts a window in it", () => 
           setTuning(id, end === "min" ? handle.min : handle.max);
         }
       }
-      setTuning("film.share", FILM_SHARE.max);
+      setTuning(film.id, film.max);
       const stood = meanOf(tileOf(paintingOf(yard)));
       expect(stood / whole, `${scene} is under the floor`).toBeGreaterThan(SCREEN_FLOOR);
       // And under it and not beside it: a screen whose terms reached the alpha and not the read

@@ -33,6 +33,11 @@ const SCENE_CHIPS: Readonly<Record<string, string>> = {
   "--scene-canopy-lit": "bg-(--scene-canopy-lit)",
   "--scene-canopy-shade": "bg-(--scene-canopy-shade)",
   "--scene-meadow-tan": "bg-(--scene-meadow-tan)",
+  "--scene-plain-black": "bg-(--scene-plain-black)",
+  "--scene-plain-deep": "bg-(--scene-plain-deep)",
+  "--scene-plain-mid": "bg-(--scene-plain-mid)",
+  "--scene-plain-lit": "bg-(--scene-plain-lit)",
+  "--scene-plain-white": "bg-(--scene-plain-white)",
 };
 
 /**
@@ -62,6 +67,7 @@ const SCENE_STOPS: Readonly<Record<SceneName, readonly SketchStop[]>> = {
   bloom: stopsOf("bloom"),
   water: stopsOf("water"),
   canopy: stopsOf("canopy"),
+  plain: stopsOf("plain"),
 };
 
 /** What the dial stands at, in the picture's own words. One sentence for all four: it is one dial. */
@@ -100,4 +106,8 @@ export function SketchDriftWater() {
 
 export function SketchDriftCanopy() {
   return <SceneStage name="canopy" label="The Canopy" />;
+}
+
+export function SketchDriftPlain() {
+  return <SceneStage name="plain" label="The Screen" />;
 }

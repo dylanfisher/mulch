@@ -8,7 +8,8 @@
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { TAG_LABEL, yardLabel } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
+import { TAG_HINT, TAG_LABEL } from "@/lib/copyTag";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { DeckId } from "@/state/store";
 import { InlineField, useFieldCommit } from "@/ui/InlineField";
@@ -45,6 +46,7 @@ export function DeckTag({
       key={tag}
       id={`${deck}-tag`}
       label={TAG_LABEL}
+      hint={TAG_HINT}
       aria-label={`${TAG_LABEL} ${yardLabel(deck)}`}
       className="type-readout"
       // The bound the stored shape is validated at, said at the field too, so a word that would

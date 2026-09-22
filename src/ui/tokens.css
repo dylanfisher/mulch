@@ -113,6 +113,15 @@
   --scene-canopy-shade: light-dark(oklch(0.22 0.05 152), oklch(0.16 0.045 155));
   --scene-meadow-tan: light-dark(oklch(0.72 0.09 72), oklch(0.68 0.1 70));
 
+  /* And the screen's own five (0400): no hue at all, from near black to near white, so the one
+     picture every yard shares while the drift is uniform is the film and the marks and never a
+     place. Lighter in the dark scheme for the two inks' reason. */
+  --scene-plain-black: light-dark(oklch(0.18 0 0), oklch(0.14 0 0));
+  --scene-plain-deep: light-dark(oklch(0.38 0 0), oklch(0.34 0 0));
+  --scene-plain-mid: light-dark(oklch(0.58 0 0), oklch(0.58 0 0));
+  --scene-plain-lit: light-dark(oklch(0.78 0 0), oklch(0.8 0 0));
+  --scene-plain-white: light-dark(oklch(0.94 0 0), oklch(0.95 0 0));
+
   /* And the light a yard's air puts its scene under: one token each, mixed into every stop of
      whichever ramp is being read, so a frost cools a meadow and a canopy the same way. The day is
      not here and cannot be — a name with no air is drawn in its scene's own ramp, which is a token
@@ -206,6 +215,36 @@
 }
 
 @property --scene-meadow-tan {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-plain-black {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-plain-deep {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-plain-mid {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-plain-lit {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0 0);
+}
+
+@property --scene-plain-white {
   syntax: "<color>";
   inherits: true;
   initial-value: oklch(0.5 0 0);

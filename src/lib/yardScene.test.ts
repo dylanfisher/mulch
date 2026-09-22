@@ -24,6 +24,7 @@ import {
   YARD_PLANTS,
   YARD_PLANTS_BY_SCENE,
 } from "@/lib/copyYard";
+import { SCENES } from "@/lib/scene/scenes";
 import {
   SCENE_LIGHTS,
   SCENE_NAMES,
@@ -33,7 +34,7 @@ import {
   SCENE_STANDS,
   SCENE_WINDS,
 } from "@/lib/moireScene";
-import { yardScene, YARD_SCENE_REST } from "@/lib/yardScene";
+import { yardScene, YARD_SCENE_REST, YARD_SCENE_UNIFORM, yardSceneUniform } from "@/lib/yardScene";
 
 // One case per bank the reading keys on, and each walks every entry of its bank through the public
 // reading, so the suite's length is the banks' and grows with them. See
@@ -105,10 +106,11 @@ describe("yardScene reads the whole of every bank it keys on", () => {
 
   it("uses every scene, every wind and every light but the one no air names", () => {
     // The other direction: a reading nothing in the banks reaches is a picture nobody can be given.
-    // The day is the exception and is the one the reading rests at — a name with no air.
+    // The day is the exception and is the one the reading rests at — a name with no air. And the
+    // plain screen, which is no place and which no plant reads as (0400).
     expect(
       new Set(YARD_PLANTS.map((plant) => yardScene(`Quiet ${plant} by the Shed`).scene)),
-    ).toEqual(new Set(SCENE_NAMES));
+    ).toEqual(new Set(SCENE_NAMES.filter((name) => SCENES[name].stands)));
     expect(
       new Set(YARD_ADJECTIVES.map((word) => yardScene(`${word} Fern by the Shed`).wind)),
     ).toEqual(new Set(SCENE_WINDS));
@@ -204,5 +206,14 @@ describe("yardScene reads the air's spread and the detail's specks", () => {
     expect(yardScene("Windy Reed past the Water Butt through Frost with Bees").specks).toBe(
       "flock",
     );
+  });
+});
+
+describe("yardSceneUniform shares the field and not the motion", () => {
+  it("hands every yard the one screen in its own wind, so a wild yard still gusts (0400)", () => {
+    for (const wind of SCENE_WINDS) {
+      const own = { ...YARD_SCENE_REST, scene: SCENE_NAMES[1], wind };
+      expect(yardSceneUniform(own)).toEqual({ ...YARD_SCENE_UNIFORM, wind });
+    }
   });
 });
