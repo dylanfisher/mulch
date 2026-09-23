@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { MasterEffects } from "@/audio/masterEffects";
 import { effectById } from "@/audio/effects/registry";
 import type { SessionEffect } from "@/state/session";
-import { restoreMaster } from "./engine";
+import { restoreMaster } from "./rackRebuild";
 
 /**
  * What the rack's input is here: nothing, because a rebuild never touches it. Asserted at one site

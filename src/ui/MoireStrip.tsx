@@ -30,7 +30,14 @@
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
@@ -47,6 +54,7 @@ import {
 } from "@/lib/recurrence";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftShown } from "@/ui/driftShown";
@@ -205,7 +213,12 @@ function useMoireRows(
   // under all the yards is a new row in every open picture (`masterInto`, 0320).
   const readMaster = useCallback(() => instrument.state.getState().master.effects, [instrument]);
   const standing = useSyncExternalStore(instrument.state.subscribe, readMaster, readMaster);
-  const { session, grow } = useSessionRows(state, rate, period, sync, standing);
+  // Both one transition behind, as the deck handed in is (0307): a subscription renders
+  // urgently, so a master dial or the sync dial would otherwise rebuild every open picture's rows
+  // inside each pointer move. The picture may fall behind the hand (0144).
+  const syncShown = useDeferredValue(sync);
+  const standingShown = useDeferredValue(standing);
+  const { session, grow } = useSessionRows(state, rate, period, syncShown, standingShown);
   /** The set a frame paints, and the one it was grown from — the same object until a run moves. */
   const painted = useRef(session);
   const from = useRef(session);
@@ -233,7 +246,7 @@ function useMoireRows(
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
   const refill = useCallback(() => {
-    const peek = instrument.peek(deck);
+    const peek = deckHeard(instrument, deck);
     // Back to the session's own set whenever anything durable has moved, so a run's rows are grown
     // onto this build's picture and never onto the last one's.
     if (from.current !== session) {

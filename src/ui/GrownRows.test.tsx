@@ -17,7 +17,7 @@ import {
   markupOf,
   POOL,
 } from "@/ui/effectRackDouble";
-import { pourSand } from "@/ui/GrownRows";
+import { pourSand, wearRow } from "@/ui/GrownRows";
 import { ROW_LEFT } from "@/ui/playerLit";
 
 // One case per thing a row is made of, which is what the suite is: a `describe` is not a function
@@ -197,5 +197,45 @@ describe("the hourglass", () => {
     expect(wrote).toEqual(["opacity: 0.68", "rotate: 0deg", "opacity: 0.51"]);
     pourSand(sand, 0, poured);
     expect(wrote.slice(3)).toEqual(["opacity: 0.35", "rotate: 180deg"]);
+  });
+});
+
+/**
+ * A row's bar, strength and dials, painted per frame off the place it holds: written only where
+ * they moved, for the hourglass's reason (0070) — a place standing still across two frames costs
+ * no style write at all.
+ */
+describe("a row's styles", () => {
+  it("writes its bar, strength and dials once over two frames that moved nothing", () => {
+    const wrote: string[] = [];
+    const element = (name: string): HTMLElement => {
+      const style = new Proxy<Record<string, string>>(
+        {},
+        {
+          set(target, key, value: string) {
+            wrote.push(`${name}.${String(key)}: ${value}`);
+            target[String(key)] = value;
+            return true;
+          },
+        },
+      );
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      return { style, hidden: false } as unknown as HTMLElement;
+    };
+    const each = {
+      bar: element("bar"),
+      row: element("row"),
+      values: [element("tick")],
+      fills: [element("fill")],
+    };
+    const held = { life: 4, remain: 2, presence: 1, values: [0.5] };
+    const worn = { scale: "", opacity: "", rotates: [] };
+    wearRow(each, held, worn);
+    expect(wrote).toHaveLength(3);
+    wearRow(each, held, worn);
+    expect(wrote).toHaveLength(3);
+    // Half as much left drains the bar and nothing else.
+    wearRow(each, { ...held, remain: 1 }, worn);
+    expect(wrote.slice(3)).toEqual(["bar.scale: 0.250 1"]);
   });
 });

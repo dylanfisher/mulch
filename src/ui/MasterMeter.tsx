@@ -119,7 +119,7 @@ function light(indicator: HTMLSpanElement | null, clipped: boolean): void {
  * runs zero frames. `playing` is written by the graph's own report, never on intent, so this
  * follows what is actually making noise.
  */
-function useAnyDeckPlaying(instrument: Instrument): boolean {
+export function useAnyDeckPlaying(instrument: Instrument): boolean {
   // A loop over the keys rather than `Object.values(...).some(...)`: this runs on every store
   // notification, and the values array is an allocation each time for a yes-or-no (0070).
   const read = useCallback(() => {

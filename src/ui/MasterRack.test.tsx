@@ -2,6 +2,7 @@
  * @role How the master's rack mounts: shut over nothing, open over anything, and whatever a hand
  *   last left it as before either (0392).
  */
+import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +37,7 @@ const open = (rack: string): boolean => rack.includes('data-slot="rack-landing"'
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.doUnmock("react");
   vi.resetModules();
 });
 
@@ -59,5 +61,33 @@ describe("the master's rack", () => {
 
   it("mounts the way it was last left, over a rack holding nothing", async () => {
     expect(open(await markup(0, "open"))).toBe(true);
+  });
+
+  /**
+   * A master dial sends on every pointer move, and the rack re-rendered inside each move is what a
+   * hand feels as a stuttering dial — so the cards draw what a transition has, one commit behind,
+   * as a yard's rack does (0307). Held back by hand: the deferred rack has the delay's Mix where
+   * the hand left it a move ago.
+   */
+  it("draws its cards one transition behind the store", async () => {
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    instrument.send({ t: "effect.add", deck: null, id: "dly", effect: "delay" });
+    instrument.send({
+      t: "param.set",
+      deck: null,
+      instance: "dly",
+      param: "delay.mix",
+      value: 0.7,
+    });
+    const behind = structuredClone(instrument.state.getState().master.effects);
+    for (const entry of behind) entry.params["delay.mix"] = 0.2;
+    vi.resetModules();
+    vi.doMock("react", async (importOriginal) => ({
+      ...(await importOriginal<typeof ReactTypes>()),
+      useDeferredValue: () => behind,
+    }));
+    const { MasterRack } = await import("@/ui/MasterRack");
+    const rack = renderToStaticMarkup(<MasterRack instrument={instrument} />);
+    expect(rack).toMatch(/aria-label="Mix"[^>]*aria-valuenow="0.2"/u);
   });
 });

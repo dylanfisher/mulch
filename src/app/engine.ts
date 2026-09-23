@@ -30,7 +30,6 @@ import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
 import { encodeWav } from "@/lib/wav";
 import { isGenSource } from "@/lib/source";
-import { effectSnapshot, type SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
   deckIn,
@@ -41,10 +40,9 @@ import {
   type RackId,
   type SessionStore,
 } from "@/state/store";
-import type { MasterEffects } from "@/audio/masterEffects";
 import { PEAK_COLUMNS, type AudioEngine, type DecodedSource, type Emit } from "./audioEngine";
 import type { Analyzer } from "./analysis";
-import { armInstanceLanes, rebuildRack, silenceRacks } from "./rackRebuild";
+import { armInstanceLanes, restoreMaster, silenceRacks } from "./rackRebuild";
 // oxlint-enable import/max-dependencies
 
 // Re-exported because this file used to declare them and every caller reaches them through it:
@@ -106,36 +104,6 @@ function makeVoice(
       emit({ t: "xrun", detail: `deck ${deck}: ${detail}` });
     },
   });
-}
-
-/**
- * Whether two racks are the same rack, through the one durable projection: a rack state has
- * exactly one JSON, which is what history's own comparison rests on (0021).
- */
-const sameRack = (held: readonly SessionEffect[], wanted: readonly SessionEffect[]): boolean =>
-  JSON.stringify(held.map((entry) => effectSnapshot(entry))) ===
-  JSON.stringify(wanted.map((entry) => effectSnapshot(entry)));
-
-/**
- * The master rack emptied and rebuilt to be exactly what a restored session holds, in the order
- * restoration already uses: the instances, their windows, their bypass, then their lanes — each
- * naming an instance the rack must already hold (0023, 0027, 0030, 0208).
- *
- * **Nothing happens where the rack is already that rack**, which is most restores: a checkpoint is
- * the whole session, so an undo of a knob on one yard would otherwise tear down and rebuild every
- * master instance's nodes — cutting a master reverb's tail on an edit that was nothing to do with
- * it. A voice does not have this problem because it is prepared beside the live one and crossfaded;
- * there is one master bus, so the comparison is what stands in for that (0321).
- */
-// Exported because the one caller is inside `prepareRestore`'s commit, which needs a real
-// AudioContext to reach — and what is worth pinning is the comparison above, not the context.
-export function restoreMaster(
-  master: MasterEffects,
-  held: readonly SessionEffect[],
-  effects: readonly SessionEffect[],
-): void {
-  if (sameRack(held, effects)) return;
-  rebuildRack(master, master.held(), effects);
 }
 
 /**
@@ -755,8 +723,12 @@ export function createAudioEngine(
           // any other; a deck restored to nothing was already forgotten by the commit (0025).
           for (const { id: deck } of session.deckList) {
             const measured = nextChannels.get(deck);
+            // And told to the rack when it lands, as a load's is: a restored voice counts its
+            // beat on nought until then (0371).
             if (measured !== undefined)
-              analyzer?.request(deck, measured.channels, measured.sampleRate);
+              analyzer?.request(deck, measured.channels, measured.sampleRate, () => {
+                refreshTempo(deck);
+              });
           }
           nextChannels.clear();
         },

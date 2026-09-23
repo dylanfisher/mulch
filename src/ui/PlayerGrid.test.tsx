@@ -24,6 +24,29 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
+/** The frame callbacks the grid registered, and how often it worked out what comes next. */
+const frames = vi.hoisted(() => ({ follow: [] as (() => void)[], nexts: 0 }));
+
+// The frame loop, held rather than run: a case steps the grid's own callback by hand.
+vi.mock("@/ui/frame", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useOnFrame: (callback: () => void) => {
+    frames.follow.push(callback);
+  },
+}));
+
+// The real answer, counted: it is the costliest thing a frame of the grid builds.
+vi.mock("@/lib/playerNext", async (importOriginal) => {
+  const real = await importOriginal<typeof PlayerNext>();
+  return {
+    ...real,
+    songsAfter: (...args: Parameters<typeof real.songsAfter>) => {
+      frames.nexts += 1;
+      return real.songsAfter(...args);
+    },
+  };
+});
+
 // Over the dependency cap by the fixture: a grid is drawn off a whole spec, and a case reads the
 // words and the bounds of both tiers to say what it drew. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -39,6 +62,8 @@ import { tierName } from "@/lib/copyNames";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import type { PlayerSong } from "@/lib/playerSongs";
+import type * as PlayerNext from "@/lib/playerNext";
+import { playerSequence, type PlayerStep } from "@/lib/playerWalk";
 import { PlayerGrid } from "@/ui/PlayerGrid";
 import type { GridPick } from "@/ui/PlayerGridCell";
 // oxlint-enable import/max-dependencies
@@ -312,5 +337,31 @@ describe("the launch grid", () => {
     const { markup } = grid([song([part()])], null, 2);
     expect(markup).toContain(PLAYER_SONG_DRAWN);
     expect(markup).not.toContain("data-part=");
+  });
+
+  // A walk hands out a fresh step at every landing and the same one between: a frame on the same
+  // step has nothing to say the last did not, so it builds none of it (0070, 0180).
+  it("works out what it lights only on a frame whose step moved", () => {
+    const songs = [song([part(), part()])];
+    const steps = playerSequence({ seed: 3, ...PLAYER_DEFAULTS, songs, arrange: 0 }, 2);
+    const standing: { step: PlayerStep | null } = { step: steps[0] ?? null };
+    const live = createInstrument(manualClock(), () =>
+      silentEngine({
+        peek: (_deck, out) => {
+          out.player.step = standing.step;
+        },
+      }),
+    );
+    frames.follow.length = 0;
+    grid(songs, null, 0, live);
+    const follow = frames.follow.at(-1);
+    if (follow === undefined) throw new Error("the grid registered no frame");
+    frames.nexts = 0;
+    follow();
+    follow();
+    expect(frames.nexts).toBe(1);
+    standing.step = steps[1] ?? null;
+    follow();
+    expect(frames.nexts).toBe(2);
   });
 });

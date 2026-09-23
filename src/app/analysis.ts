@@ -77,13 +77,33 @@ export function createAnalyzer(
   const live = new Map<DeckId, number>();
   /** What each deck's caller asked to hear when its answer lands, if anything. */
   const settled = new Map<DeckId, () => void>();
+  /**
+   * Every answer already had, by the samples it was about: analysis is a pure function of them,
+   * and an undo, a redo or an import restores a deck onto the very buffer the decode cache already
+   * holds — so the same answer lands again without the whole source cloned to the worker a
+   * second time. Keyed weakly on the first channel's own array, which a buffer hands back as the
+   * same object every read, so it goes when the buffer does and is never stored (0025).
+   */
+  const known = new WeakMap<Float32Array, { sampleRate: number; analysis: BeatAnalysis }>();
+  /** Which samples each request in flight is about, so its answer can be remembered. */
+  const about = new Map<number, { samples: Float32Array; sampleRate: number }>();
   let issued = 0;
+
+  /** The deck holds its answer, the log says so, and whoever asked hears it. */
+  const land = (deck: DeckId, analysis: BeatAnalysis, analyzed: (() => void) | undefined): void => {
+    patchDeck(store, deck, { analysis });
+    // The candidates themselves stay on probe(); the log carries the tempo and how many (0025).
+    emit({ t: "deck.analyzed", deck, bpm: analysis.bpm, onsets: analysis.onsets.length });
+    // After the deck holds it, so what the caller reads back is the answer and not the wait.
+    analyzed?.();
+  };
 
   const drop = (deck: DeckId): void => {
     const previous = live.get(deck);
     if (previous === undefined) return;
     live.delete(deck);
     owner.delete(previous);
+    about.delete(previous);
     settled.delete(deck);
     // Correctness is the identity check below; this only saves the work.
     port.post({ t: "cancel", requestId: previous });
@@ -96,6 +116,8 @@ export function createAnalyzer(
     if (deck === undefined) return;
     owner.delete(result.requestId);
     live.delete(deck);
+    const asked = about.get(result.requestId);
+    about.delete(result.requestId);
     if (result.t === "failed") {
       emit({ t: "error", detail: `deck ${deck} analysis: ${result.detail}` });
       return;
@@ -105,13 +127,10 @@ export function createAnalyzer(
       onsets: result.onsets,
       crest: result.crest,
     };
-    patchDeck(store, deck, { analysis });
-    // The candidates themselves stay on probe(); the log carries the tempo and how many (0025).
-    emit({ t: "deck.analyzed", deck, bpm: analysis.bpm, onsets: analysis.onsets.length });
-    // After the deck holds it, so what the caller reads back is the answer and not the wait.
+    if (asked !== undefined) known.set(asked.samples, { sampleRate: asked.sampleRate, analysis });
     const analyzed = settled.get(deck);
     settled.delete(deck);
-    analyzed?.();
+    land(deck, analysis, analyzed);
   });
 
   port.listenFailure((detail) => {
@@ -119,13 +138,21 @@ export function createAnalyzer(
     // no reply will ever carry, and say so once rather than leaving decks quietly unmeasured.
     owner.clear();
     live.clear();
+    about.clear();
     emit({ t: "error", detail: `analysis worker: ${detail}` });
   });
 
   return {
     request: (deck, channels, sampleRate, analyzed) => {
       drop(deck);
+      const samples = channels[0];
+      const had = samples === undefined ? undefined : known.get(samples);
+      if (had !== undefined && had.sampleRate === sampleRate) {
+        land(deck, had.analysis, analyzed);
+        return;
+      }
       const requestId = ++issued;
+      if (samples !== undefined) about.set(requestId, { samples, sampleRate });
       owner.set(requestId, deck);
       live.set(deck, requestId);
       if (analyzed !== undefined) settled.set(deck, analyzed);

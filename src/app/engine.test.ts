@@ -18,6 +18,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionRepository } from "@/state/repository";
+import { patchDeck, type SessionStore } from "@/state/store";
+import type { Analyzer } from "./analysis";
 import { manualClock } from "./clock";
 import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
@@ -132,7 +134,8 @@ function fakeContext(): BaseAudioContext {
 
 /** The worklet the transport reports over, stubbed as the global constructor the engine calls. */
 type Reporter = {
-  plans: { id: number }[];
+  /** Each plan posted, and the instant a rest stops it at, where one does. */
+  plans: { id: number; until?: number }[];
   deliver: (message: unknown) => void;
 };
 
@@ -159,7 +162,7 @@ function stubReporter(): void {
           },
           removeEventListener: () => {},
           start: () => {},
-          postMessage: (message: { id: number } | null) => {
+          postMessage: (message: { id: number; until?: number } | null) => {
             if (message !== null) reporter.plans.push(message);
           },
           close: () => {},
@@ -183,8 +186,8 @@ type Fixture = {
   blobs: Map<string, Blob>;
 };
 
-/** One deck, loaded, on the real engine over the fake graph. */
-function fixture(): Fixture {
+/** One deck, loaded, on the real engine over the fake graph — measured by `analyzer`, if given. */
+function fixture(analyzer?: (store: SessionStore) => Analyzer): Fixture {
   stubReporter();
   const blobs = new Map<string, Blob>();
   const repository: SessionRepository = {
@@ -206,7 +209,7 @@ function fixture(): Fixture {
   const instrument = createInstrument(
     manualClock(),
     (store, emit) => {
-      const built = createAudioEngine(fakeContext(), store, emit, null);
+      const built = createAudioEngine(fakeContext(), store, emit, null, analyzer?.(store));
       engines.push(built);
       return built;
     },
@@ -486,5 +489,44 @@ describe("a yard that comes back muted", () => {
     await settle();
     expect(instrument.probe().decks.a?.muted).toBe(true);
     expect(silenced()).toBe(heard + 1);
+  });
+});
+
+/** An analyzer that knows every source at once: 120bpm, landed before the request returns. */
+const measuresAtOnce = (store: SessionStore): Analyzer => ({
+  request: (deck, _channels, _sampleRate, analyzed) => {
+    patchDeck(store, deck, { analysis: { bpm: 120, onsets: [], crest: 1 } });
+    analyzed?.();
+  },
+  forget: () => {},
+  inFlight: () => 0,
+});
+
+// A restored voice is a new rack, and a rack counts its beat on nought until it is told one: the
+// answer a restore's measurement lands has to reach it, the way a load's does (0371).
+describe("a yard's beat after a restore", () => {
+  it("is told to the rebuilt rack, so a lull on the grid still rests", async () => {
+    const { instrument, engine } = fixture(measuresAtOnce);
+    instrument.send({ t: "effect.add", deck: "a", id: "l1", effect: "lull" });
+    for (const [param, value] of [
+      ["lull.chance", 1],
+      ["lull.rest", 1],
+      ["lull.every", 1],
+      ["lull.grid", 1],
+    ] as const) {
+      instrument.send({ t: "param.set", deck: "a", instance: "l1", param, value });
+    }
+    engine.endGesture();
+    instrument.send({
+      t: "history.group",
+      commands: [{ t: "deck.mute", deck: "a", muted: true }],
+    });
+    instrument.send({ t: "history.undo" });
+    await settle();
+
+    instrument.send({ t: "deck.play", deck: "a" });
+    engine.armAutomation();
+    // A rest laid is a plan that stops somewhere; on a beat of nought the lull lays none.
+    expect(reporters.at(-1)?.plans.some((plan) => plan.until !== undefined)).toBe(true);
   });
 });

@@ -19,7 +19,7 @@ import { XIcon } from "@phosphor-icons/react/X";
 import { useCallback, useMemo, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
-import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnParamIds } from "@/audio/effects/automator";
 import {
   POOL,
@@ -41,6 +41,7 @@ import {
   holdLeft,
 } from "@/lib/copyAuto";
 import type { RackId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
 import { START, SWEEP } from "@/ui/Knob";
@@ -104,6 +105,9 @@ export function pourSand(sand: HTMLElement, run: number, poured: Poured): void {
   }
 }
 
+/** What one row's styles last wore — its bar, its strength and each dial's fill (0070). */
+type Worn = { scale: string; opacity: string; rotates: string[] };
+
 /** What one row is made of, found once off the box and kept — a query per frame is a query too many. */
 type Row = {
   row: HTMLElement;
@@ -118,6 +122,47 @@ type Row = {
   values: HTMLElement[];
   fills: HTMLElement[];
 };
+
+/**
+ * One row's bar, strength and dials at what the place it holds stands at, written only where they
+ * moved: a style write replaces the property whether or not the string matches (0070). Outside the
+ * component for `pourSand`'s reason — a frame of it can be run against a stand-in.
+ */
+export function wearRow(
+  each: Pick<Row, "bar" | "row" | "values" | "fills">,
+  held: Pick<GrownEffect, "life" | "remain" | "presence" | "values">,
+  was: Worn,
+): void {
+  // The bar drains over the whole life rather than riding the fade: what a row is watched for
+  // is when the thing goes, and the fade is already legible as the row's own strength.
+  // `scale`, not `transform`: the utility below sets the standalone scale property, and a
+  // transform written here would compose with it rather than replace it — leaving the bar at
+  // nothing however far in the effect actually is.
+  const left = held.life > 0 ? held.remain / held.life : 0;
+  const scale = `${Math.min(Math.max(left, 0), 1).toFixed(3)} 1`;
+  if (was.scale !== scale) {
+    each.bar.style.scale = scale;
+    was.scale = scale;
+  }
+  const opacity = Math.max(held.presence, 0).toFixed(2);
+  if (was.opacity !== opacity) {
+    each.row.style.opacity = opacity;
+    was.opacity = opacity;
+  }
+  for (const [which, tick] of each.values.entries()) {
+    const value = held.values[which];
+    const empty = value === undefined;
+    if (tick.hidden !== empty) tick.hidden = empty;
+    const fill = each.fills[which];
+    if (value === undefined || fill === undefined) continue;
+    const at01 = Math.min(Math.max(value, 0), 1);
+    const rotate = `${(START + at01 * SWEEP).toFixed(1)}deg`;
+    if (was.rotates[which] !== rotate) {
+      fill.style.rotate = rotate;
+      was.rotates[which] = rotate;
+    }
+  }
+}
 
 /**
  * Which parameter each of a row's dials is, in the order the arrival drew them — which is the
@@ -225,6 +270,10 @@ export function GrownRows({
   const told = useRef<string[]>([]);
   /** And for which entry's knobs its dials are naming, which changes only when the row's does. */
   const drew = useRef<string[]>([]);
+  /** Which place each row is named for, so a frame on the same place builds no name to compare. */
+  const whose = useRef<(string | null)[]>([]);
+  /** What each row's bar, strength and dials last wore, so a frame that moved none writes none. */
+  const worn = useRef<Worn[]>([]);
 
   /**
    * The wait the knob is set to. Read off the durable values rather than the peek: how much of it
@@ -287,7 +336,7 @@ export function GrownRows({
           : [{ row, name, bar, left, go, values, fills, icons }];
       },
     );
-    const read = instrument.peek(deck);
+    const read = deckHeard(instrument, deck);
     const grown = read.grown.get(instance);
     // The hourglass: the sand runs out over the hold the knob asked for, and when there is none
     // left the glass turns over. A hold with no end never empties, and one nobody asked for is
@@ -317,6 +366,7 @@ export function GrownRows({
         // that has already left. The row is invisible either way, which takes the button out of
         // the tab order — but a control naming something gone is one a script could still read
         // (principle 5).
+        whose.current[at] = null;
         if (said.current[at] !== "") {
           each.go.ariaLabel = dismissLabel(null);
           // And it wears no picture, for the same reason: a row is wound back to what it says
@@ -326,10 +376,15 @@ export function GrownRows({
         }
         continue;
       }
-      // The name is a fold of the instance's own id, so it is the same word every reload (0076).
-      const label = isEffectId(held.effect)
-        ? `${effectById(held.effect).label} · ${effectName(held.effect, held.instance)}`
-        : held.effect;
+      // The name is a fold of the instance's own id, so it is the same word every reload (0076) —
+      // and so it is built only when the place is another, not folded again every frame.
+      const named = drew.current[at] === held.effect && whose.current[at] === held.instance;
+      whose.current[at] = held.instance;
+      const label = named
+        ? (said.current[at] ?? "")
+        : isEffectId(held.effect)
+          ? `${effectById(held.effect).label} · ${effectName(held.effect, held.instance)}`
+          : held.effect;
       if (said.current[at] !== label) {
         each.name.textContent = label;
         // The control says which place it lets go of, so a keyboard reaching it out of order
@@ -339,14 +394,6 @@ export function GrownRows({
         wearIcon(each.icons, held.effect);
         said.current[at] = label;
       }
-      // The bar drains over the whole life rather than riding the fade: what a row is watched for
-      // is when the thing goes, and the fade is already legible as the row's own strength.
-      // `scale`, not `transform`: the utility below sets the standalone scale property, and a
-      // transform written here would compose with it rather than replace it — leaving the bar at
-      // nothing however far in the effect actually is.
-      const left = held.life > 0 ? held.remain / held.life : 0;
-      each.bar.style.scale = `${Math.min(Math.max(left, 0), 1).toFixed(3)} 1`;
-      each.row.style.opacity = Math.max(held.presence, 0).toFixed(2);
       // The knobs the automator drew for this one, each at where it stands in its own range: the
       // row says what was done to the effect and not only that something was (P48).
       //
@@ -365,15 +412,7 @@ export function GrownRows({
         }
         drew.current[at] = held.effect;
       }
-      for (const [which, tick] of each.values.entries()) {
-        const value = held.values[which];
-        const empty = value === undefined;
-        if (tick.hidden !== empty) tick.hidden = empty;
-        const fill = each.fills[which];
-        if (value === undefined || fill === undefined) continue;
-        const at01 = Math.min(Math.max(value, 0), 1);
-        fill.style.rotate = `${(START + at01 * SWEEP).toFixed(1)}deg`;
-      }
+      wearRow(each, held, (worn.current[at] ??= { scale: "", opacity: "", rotates: [] }));
       const clock = growthLeft(held.remain);
       if (told.current[at] !== clock) {
         each.left.textContent = clock;

@@ -647,4 +647,30 @@ describe("the lull in the rack", () => {
     expect([...through.connections]).toEqual([]);
     expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
   });
+
+  it("keeps its run on the grid when told the tempo and the clock it already counts on", () => {
+    const { context, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("l1", effectById("lull"), {
+      ...effectParamDefaults("lull", "l1"),
+      "lull.chance": 1,
+      "lull.grid": 1,
+    });
+    rack.setTempo(120);
+    rack.setSync(null);
+    const asks: HoldEdge[] = [];
+    rack.holds(4, asks);
+
+    // Every deck knob re-tells the tempo: a gain move on the yard is not a new beat, so nothing
+    // laid is dropped and the run is not redrawn from the move.
+    rack.setTempo(120);
+    rack.setSync(null);
+    const told = asks.slice(0, rack.holds(8, asks));
+    expect(told.some((edge) => edge.t === "clear")).toBe(false);
+
+    // A tempo that did move still redraws.
+    rack.setTempo(90);
+    expect(rack.holds(8, asks)).toBeGreaterThan(0);
+    expect(asks[0]).toEqual({ t: "clear" });
+  });
 });

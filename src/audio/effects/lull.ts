@@ -285,12 +285,16 @@ export const lullEffect = defineEffect({
         cursor.reset(at);
       },
       // The clocks a beat is counted on reach the run through the same redraw a knob does, and
-      // only on the grid that reads them: off it, a tempo landing on the yard moves nothing.
+      // only on the grid that reads them: off it, a tempo landing on the yard moves nothing. A
+      // clock told what it already was moves nothing either — every deck knob re-tells the tempo,
+      // and a redraw for a gain move would drop every rest laid ahead and restart the pass.
       setSync: (next) => {
+        if (next === sync) return;
         sync = next;
         if (onBeat()) redraw();
       },
       setTempo: (next) => {
+        if (next === bpm) return;
         bpm = next;
         if (onBeat()) redraw();
       },

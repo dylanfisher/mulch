@@ -40,6 +40,7 @@ import {
 } from "@/lib/motion";
 import { mintSeed } from "@/lib/random";
 import type { RackId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import type { PopoverOpenChange } from "@/ui/components/popover";
@@ -191,7 +192,7 @@ export const ParameterKnob = memo(function ParameterKnob({
    */
   const phase = useCallback((): number | null => {
     if (lane === null || recording.current !== null) return null;
-    return instrument.peek(deck).automation.get(key) ?? null;
+    return deckHeard(instrument, deck).automation.get(key) ?? null;
   }, [deck, instrument, key, lane]);
 
   const live = useCallback((): number | null => {

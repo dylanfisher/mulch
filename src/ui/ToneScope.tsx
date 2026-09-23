@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import type { Instrument } from "@/app/facade";
 import { toneSample, TONE_REF_HZ } from "@/lib/waveform";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { hairlinePx } from "@/ui/canvasSurface";
 
@@ -103,7 +104,7 @@ export function ToneScope({
       // it is the per-frame read and never anything else (0070). Halted, no frame runs at all, so
       // the store's own hold is both what to draw and — being a dependency — what tells the commit
       // that a seek or a stop has moved it.
-      paintTone(canvas, color, resting ?? instrument.peek(deck).position);
+      paintTone(canvas, color, resting ?? deckHeard(instrument, deck).position);
     },
     [instrument, deck, resting],
   );

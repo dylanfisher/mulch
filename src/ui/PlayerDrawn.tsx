@@ -21,6 +21,7 @@ import {
 } from "@/lib/copy";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { useOnFrame } from "@/ui/frame";
 
 /**
@@ -71,7 +72,7 @@ export function PlayerDrawn({
     (force = false) => {
       // Both off the one step the clock is inside: the part standing and the run it was walked
       // in are fields of it, and the peek hands the step over rather than copying them out (0180).
-      const step = instrument.peek(deck).player.step;
+      const step = deckHeard(instrument, deck).player.step;
       const standing = step?.part ?? null;
       const song = step?.song ?? null;
       const list = listRef.current;

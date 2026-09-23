@@ -14,6 +14,7 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import { PLAYER_STANDING_LABEL } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { useOnFrame } from "@/ui/frame";
 
 export function PlayerStanding({
@@ -36,7 +37,7 @@ export function PlayerStanding({
     // The arrangement off the same read as the part standing in it, rather than off a list handed
     // down: a drawn song is a run nothing holds, so the peek is the only place either can be read
     // and both come from the step the clock is inside (0158).
-    const step = instrument.peek(deck).player.step;
+    const step = deckHeard(instrument, deck).player.step;
     const part =
       step === null || step.part === null || step.song === null
         ? undefined

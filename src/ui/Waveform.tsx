@@ -45,6 +45,7 @@ import {
   spanLoop,
 } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
@@ -432,7 +433,7 @@ export function Waveform({
 
   const paintFrame = useCallback(() => {
     paintTransport(
-      instrument.peek(deck),
+      deckHeard(instrument, deck),
       state.duration,
       state.loop,
       state.player?.zone ?? null,

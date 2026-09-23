@@ -19,6 +19,7 @@
 // oxlint-disable max-lines
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as MoireTypes from "@/lib/moire";
+import type * as MoireRowsTypes from "@/ui/moireRows";
 import { describe, expect, it, vi } from "vitest";
 
 /** Whether Option is down, for the one reveal the strip makes — the same stand-in the knob's own
@@ -29,9 +30,13 @@ let held = false;
 const seen = vi.hoisted(() => ({
   effects: [] as (() => (() => void) | void)[],
   cycles: [] as number[],
+  /** The session's clock each set of rows was built with, last last. */
+  clocks: [] as (number | null)[],
   /** How many times a render asked the tile shop for a surface — which is the canvas it mounts and
    *  every bake behind it, since nothing here paints without one. */
   surfaces: 0,
+  /** What `useDeferredValue` hands back for a value, when a case holds the transition behind. */
+  behind: null as ((value: unknown) => unknown) | null,
 }));
 
 // Held rather than run, the way src/ui/AutomationPreview.test.tsx holds its unmount: what the
@@ -44,6 +49,7 @@ vi.mock("react", async (importOriginal) => {
     useEffect: (effect: () => (() => void) | void) => {
       seen.effects.push(effect);
     },
+    useDeferredValue: (value: unknown) => (seen.behind === null ? value : seen.behind(value)),
   };
 });
 
@@ -89,6 +95,18 @@ vi.mock("@/lib/moire", async (importOriginal) => {
     moireWindowSecs: (reference: number, periods: readonly number[], cycles: number) => {
       seen.cycles.push(cycles);
       return moire.moireWindowSecs(reference, periods, cycles);
+    },
+  };
+});
+
+// The real rows, and a note of the session's clock each set was built with.
+vi.mock("@/ui/moireRows", async (importOriginal) => {
+  const real = await importOriginal<typeof MoireRowsTypes>();
+  return {
+    ...real,
+    moireRows: (...args: Parameters<typeof real.moireRows>) => {
+      seen.clocks.push(args[6]);
+      return real.moireRows(...args);
     },
   };
 });
@@ -146,11 +164,37 @@ const instance = (id: string): SessionEffect => ({
   bounds: {},
 });
 
+/** A yard running one rack entry and nothing else, hoisted for the reason `looped` is. */
+const racked: DeckState = { ...emptyDeck(), effects: [instance("fx1")] };
+
 // One flat list of the strip's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("MoireStrip", () => {
   it("draws nothing at all for a yard running nothing", () => {
     expect(render(emptyDeck())).toBe("");
+  });
+
+  // A master dial and the sync dial send on every pointer move, and each open picture rebuilding
+  // its rows inside the move is what a hand feels as a stuttering dial: so the session-wide reads
+  // follow one transition behind, as the yard's own deck does (0307). Held back by hand here: the
+  // session's clock is set, and the transition still has it off — so its row is not yet drawn.
+  it("draws the session's clock one transition behind the store", () => {
+    const clocked = instrument();
+    clocked.send({ t: "session.sync", sync: 3 });
+    const clock = (): number | null | undefined => {
+      seen.clocks.length = 0;
+      renderToStaticMarkup(
+        <MoireStrip instrument={clocked} deck="a" state={racked} name={NAMED} />,
+      );
+      return seen.clocks.at(-1);
+    };
+    expect(clock()).toBe(3);
+    seen.behind = (value) => (typeof value === "number" ? null : value);
+    try {
+      expect(clock()).toBeNull();
+    } finally {
+      seen.behind = null;
+    }
   });
 
   it("draws a yard whose rack is the only thing drifting in it", () => {

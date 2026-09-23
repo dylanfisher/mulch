@@ -192,4 +192,26 @@ describe("what a caller hears back from the analysis host", () => {
     host.reply(analyzed(host.requestId(2)));
     expect(heard).toEqual([120, 120]);
   });
+
+  // An undo, a redo or an import restores a deck onto the buffer the decode cache already holds:
+  // the answer is a function of the samples alone, so it lands again at once and the whole source
+  // is not cloned to the worker a second time.
+  it("answers samples it has already measured without asking the worker again", () => {
+    const host = harness();
+    const same = samples();
+    host.analyzer.request("a", same, 48_000);
+    host.reply(analyzed(host.requestId(0)));
+    const heard: (number | undefined)[] = [];
+    host.analyzer.request("b", same, 48_000, () => {
+      heard.push(host.analysis("b")?.bpm);
+    });
+    expect(host.posted.filter((message) => message.t === "analyze")).toHaveLength(1);
+    expect(host.analysis("b")).toEqual({ bpm: 120, onsets: [0, 0.5], crest: 2 });
+    expect(heard).toEqual([120]);
+    expect(host.events.at(-1)).toEqual({ t: "deck.analyzed", deck: "b", bpm: 120, onsets: 2 });
+    // Other samples, or the same ones read at another rate, are another measurement.
+    host.analyzer.request("a", samples(), 48_000);
+    host.analyzer.request("b", same, 44_100);
+    expect(host.posted.filter((message) => message.t === "analyze")).toHaveLength(3);
+  });
 });

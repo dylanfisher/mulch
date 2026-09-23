@@ -10,7 +10,8 @@ import type { DeckVoice } from "@/audio/deckVoice";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { effectAutomationParamIds, paramIn, PARAMS } from "@/audio/params";
 import { playedLane } from "@/lib/automation";
-import type { SessionEffect } from "@/state/session";
+import type { MasterEffects } from "@/audio/masterEffects";
+import { effectSnapshot, type SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type SessionState } from "@/state/store";
 
 /**
@@ -107,4 +108,34 @@ export function silenceRacks(
   }
   rebuildRack(master, master.held(), state.master.effects);
   stand(master, null);
+}
+
+/**
+ * Whether two racks are the same rack, through the one durable projection: a rack state has
+ * exactly one JSON, which is what history's own comparison rests on (0021).
+ */
+const sameRack = (held: readonly SessionEffect[], wanted: readonly SessionEffect[]): boolean =>
+  JSON.stringify(held.map((entry) => effectSnapshot(entry))) ===
+  JSON.stringify(wanted.map((entry) => effectSnapshot(entry)));
+
+/**
+ * The master rack emptied and rebuilt to be exactly what a restored session holds, in the order
+ * restoration already uses: the instances, their windows, their bypass, then their lanes — each
+ * naming an instance the rack must already hold (0023, 0027, 0030, 0208).
+ *
+ * **Nothing happens where the rack is already that rack**, which is most restores: a checkpoint is
+ * the whole session, so an undo of a knob on one yard would otherwise tear down and rebuild every
+ * master instance's nodes — cutting a master reverb's tail on an edit that was nothing to do with
+ * it. A voice does not have this problem because it is prepared beside the live one and crossfaded;
+ * there is one master bus, so the comparison is what stands in for that (0321).
+ */
+// Its own export rather than inside src/app/engine.ts's `prepareRestore` commit, which needs a real
+// AudioContext to reach — and what is worth pinning is the comparison above, not the context.
+export function restoreMaster(
+  master: MasterEffects,
+  held: readonly SessionEffect[],
+  effects: readonly SessionEffect[],
+): void {
+  if (sameRack(held, effects)) return;
+  rebuildRack(master, master.held(), effects);
 }

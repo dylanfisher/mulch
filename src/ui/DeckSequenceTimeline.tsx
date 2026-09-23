@@ -20,6 +20,7 @@ import {
   sequenceSpanSecs,
 } from "@/lib/deckSequence";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { useOnFrame } from "@/ui/frame";
 
 /** The line's viewBox. Small on purpose: it says the shape of the run, not its every second. */
@@ -92,7 +93,7 @@ export function DeckSequenceTimeline({
       last.opacity = "0";
       return;
     }
-    const at = sequencePhaseSecs(steps, instrument.peek(deck).sequenceAt);
+    const at = sequencePhaseSecs(steps, deckHeard(instrument, deck).sequenceAt);
     const x = at / span;
     if (last.opacity === "1" && x === last.x) return;
     element.style.left = `${x * 100}%`;

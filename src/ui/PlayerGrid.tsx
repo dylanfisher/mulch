@@ -13,6 +13,10 @@
 // Over the dependency cap by the words and the two tiers' bounds a section of two tiers reads. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// Over the soft line cap by the frame's guard on the step it last read: the painting it keeps off
+// the frames where nothing moved is this section's own, and a helper holding its refs would have
+// one caller. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { useCallback, useLayoutEffect, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -46,7 +50,9 @@ import {
   type PlayerSong,
 } from "@/lib/playerSongs";
 import type { SongPartId } from "@/lib/playerSong";
+import type { PlayerStep } from "@/lib/playerWalk";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { mintPlayerRunId, mintSongPartId } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
@@ -205,6 +211,10 @@ export function PlayerGrid({
    *  wear one of the two tiers' attributes, and one selector over the section reaches them all. */
   const sectionRef = useRef<HTMLElement>(null);
   const lit = useRef<Lit>(NOTHING_LIT);
+  /** The step and the armed part the last frame read, by identity: a walk hands out a fresh step
+   *  at every landing and the same one between, so a frame on the same one has nothing to say that
+   *  the last did not — and builds none of it (0070, 0180). `songs` and `slotSecs` are a new paint. */
+  const read = useRef<{ step: PlayerStep | null; armed: SongPartId | null } | null>(null);
   /**
    * What the last frame lit. The whole of the per-frame state this section keeps: the DOM is
    * walked only on a frame one of these answers actually moved, which is what keeps a playing run
@@ -213,10 +223,13 @@ export function PlayerGrid({
    */
   const paint = useCallback(
     (force = false) => {
-      const peek = instrument.peek(deck).player;
+      const peek = deckHeard(instrument, deck).player;
       const step = peek.step;
-      const standing = standingIn(step, slotSecs);
       const queued = peek.armed;
+      const last = read.current;
+      if (!force && last !== null && last.step === step && last.armed === queued) return;
+      read.current = { step, armed: queued };
+      const standing = standingIn(step, slotSecs);
       const coming = queued ?? songsAfter(songs, step)?.part ?? null;
       const foot =
         step === null || step.place === null || standing.part === null

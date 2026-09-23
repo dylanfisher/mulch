@@ -56,6 +56,7 @@ import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { loopPeriodSecs } from "@/lib/recurrence";
 import type { DeckState } from "@/state/store";
 import type { DeckId } from "@/state/store";
+import { deckHeard } from "@/ui/deckHeard";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { Explains } from "@/ui/Explains";
 import {
@@ -173,7 +174,7 @@ function useScopeWindow(
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
   return useCallback(() => {
-    const peek = instrument.peek(deck).player;
+    const peek = deckHeard(instrument, deck).player;
     const at = peek.at ?? 0;
     const sheet = scopeSheet(at);
     const cache = walked.current;
@@ -485,7 +486,7 @@ export function PlayerScope({
   const light = useCallback(() => {
     // No seconds: a lane says which row is standing and never how long it has left, so the tiers'
     // own clocks are asked for once, in the section that has somewhere to write them (0159).
-    const standing = standingIn(instrument.peek(deck).player.step, null);
+    const standing = standingIn(deckHeard(instrument, deck).player.step, null);
     const held = lit.current;
     if (sameRow(standing, held.standing) && lanes === held.lanes) return;
     lit.current = { standing, lanes };

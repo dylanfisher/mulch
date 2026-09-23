@@ -17,6 +17,8 @@ vi.mock("@/ui/frame", () => ({
   useOnFrame: (callback: () => void, enabled: boolean) => {
     frame = enabled ? callback : null;
   },
+  // A frame stepped by hand is not the loop's, so the knob's per-frame read asks afresh each time.
+  inFrame: () => false,
 }));
 
 import { manualClock } from "@/app/clock";

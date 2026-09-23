@@ -49,6 +49,18 @@ export function frameStamp(): number {
   return stamp;
 }
 
+/** Whether the loop's callbacks are running right now. */
+let ticking = false;
+
+/**
+ * Whether the caller is inside a frame — the one place a read keyed on `frameStamp` is honest. A
+ * reader many frame callbacks share, but that a commit reaches as well, reuses this frame's answer
+ * in here and asks afresh out there (src/ui/deckHeard.ts).
+ */
+export function inFrame(): boolean {
+  return ticking;
+}
+
 function tick(): void {
   // Cleared before the callbacks run: this id has already fired, so a subscribe during the
   // loop below must see an honest "nothing scheduled" — otherwise an unsubscribe-then-
@@ -57,7 +69,12 @@ function tick(): void {
   frame = null;
   stamp += 1;
   const started = measuring ? performance.now() : 0;
-  for (const callback of callbacks) callback();
+  ticking = true;
+  try {
+    for (const callback of callbacks) callback();
+  } finally {
+    ticking = false;
+  }
   // The console's own paint is one of those callbacks, deliberately: what it reports is what
   // this frame actually cost, including the cost of reporting it.
   if (measuring) costMs = performance.now() - started;

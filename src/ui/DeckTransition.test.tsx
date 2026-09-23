@@ -14,7 +14,12 @@ vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
     ...react,
-    useDeferredValue: (value: unknown) => view.deferred ?? value,
+    // The deck alone: the strip also holds the session's clock and the master's rack behind, and
+    // those are not what this case holds back.
+    useDeferredValue: (value: unknown) =>
+      typeof value === "object" && value !== null && "params" in value
+        ? (view.deferred ?? value)
+        : value,
     // A server render reads the store the way React would there (src/ui/Deck.test.tsx).
     useSyncExternalStore: (_subscribe: unknown, read: () => unknown, readServer?: () => unknown) =>
       (readServer ?? read)(),
