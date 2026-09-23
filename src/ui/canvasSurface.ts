@@ -13,7 +13,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObjec
 import { devicePx } from "@/lib/range";
 
 import { paced, useOnFrame } from "@/ui/frame";
-import { useTheme } from "@/ui/theme";
+import { useTheme, type Theme } from "@/ui/theme";
 
 /** The three things a canvas asks of the display it is on, and the whole of what `viewOf` answers. */
 type Display = {
@@ -251,6 +251,15 @@ export function useCanvasSurface(
   );
 
   /**
+   * The theme the size and colour were last measured under. Both reads force a layout, and a drag
+   * commits a new `paint` on nearly every pointer move, so a commit that changed only the picture
+   * repaints with what is held: what moves the measurements is watched where it happens — the size
+   * by the observer, the density and the scheme by the display — and an explicit theme choice,
+   * which lands through a render and no listener, is this.
+   */
+  const measuredIn = useRef<Theme | null>(null);
+
+  /**
    * Size the backing store to the element and the display, re-read the token, then ask to paint —
    * past the frame's share when the sizing wiped the canvas, which would otherwise stand blank.
    */
@@ -260,17 +269,19 @@ export function useCanvasSurface(
     if (root === null || canvas === null) return;
     const wiped = bakeCanvas(root, canvas);
     color.current = getComputedStyle(canvas).color;
+    measuredIn.current = theme;
     if (wiped) askWiped();
     else repaint();
-  }, [askWiped, repaint]);
+  }, [askWiped, repaint, theme]);
 
-  // Every commit, so a yard that never plays still carries its picture, and an explicit theme
-  // choice — lands without a listener of its own. `paint` is the only thing here that changes per
-  // commit, so dropping it as the rule below reads it — extra — would bake once and never again.
+  // Every commit, so a yard that never plays still carries its picture. `paint` is the only thing
+  // here that changes per commit, so dropping it as the rule below reads it — extra — would paint
+  // once and never again.
   useLayoutEffect(() => {
-    rebake();
+    if (measuredIn.current === theme) repaint();
+    else rebake();
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [paint, rebake, theme]);
+  }, [paint, rebake, repaint, theme]);
 
   useRebakeWhenDisplayed(rootRef, canvasRef, rebake);
 

@@ -6,6 +6,10 @@
  */
 // oxlint-disable react/globals -- these module-level slots are the hand-rolled React the file
 // mocks with; nothing here is a component, so there is no render for them to be a side effect of.
+// A few lines over the 400-line cap, and what is over it is cases: every block stands on the one
+// hand-rolled React above, and a second file would need a second copy of it. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import type * as ReactTypes from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +22,12 @@ let settleDeps: unknown[] = [];
 let effects: (() => (() => void) | void)[] = [];
 /** What those effects registered, run together by `unmount()`. */
 let teardowns: (() => void)[] = [];
+/** The refs, one per `useRef` in call order, kept across renders the way React keeps them. */
+let slots: { current: unknown }[] = [];
+/** Which of those the render in progress is at — back to the first at the start of each. */
+let slot = 0;
+/** The theme choice the next render reads. */
+let theme = "system";
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -25,7 +35,12 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (make: () => unknown) => make(),
-    useRef: (initial: unknown) => ({ current: initial }),
+    useRef: (initial: unknown) => {
+      const at = slot;
+      slot += 1;
+      slots[at] ??= { current: initial };
+      return slots[at];
+    },
     useLayoutEffect: (effect: () => void, deps: unknown[]) => {
       settle = effect;
       settleDeps = deps;
@@ -36,9 +51,9 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
-// An explicit choice re-renders and lands through the layout effect below; this file is about the
-// half that arrives with no React signal at all.
-vi.mock("@/ui/theme", () => ({ useTheme: () => "system" }));
+// An explicit choice re-renders and lands through the layout effect below; most of this file is
+// about the half that arrives with no React signal at all.
+vi.mock("@/ui/theme", () => ({ useTheme: () => theme }));
 // The one loop, and the budget a surface with a cadence of its own spends on it. This file is
 // about what a surface paints and not about when, so the budget here takes every ask where it
 // stands — src/ui/frame.test.ts is where the cadence itself is held to its rate.
@@ -110,6 +125,7 @@ const useSurface = (paint: (canvas: HTMLCanvasElement, color: string) => void, v
   const owner = view === undefined ? {} : { ownerDocument: { defaultView: view } };
   const canvas = { width: 0, height: 0, ...owner };
   const root = { clientWidth: 0, clientHeight: 0, ...owner };
+  slot = 0;
   const held = useCanvasSurface(paint, false);
   // An element is, to this hook, the two sizes it reads and the backing store it writes — set
   // the way src/ui/listDrag.test.ts sets its own stand-in list, and set before the effects run,
@@ -130,6 +146,16 @@ const useSurface = (paint: (canvas: HTMLCanvasElement, color: string) => void, v
   };
 };
 
+/**
+ * Render again with `next`, as a commit that changed the picture does. The passive effects it
+ * registers are dropped: the watchers they would hold are the first render's, still live.
+ */
+const useSurfaceAgain = (next: (canvas: HTMLCanvasElement, color: string) => void) => {
+  slot = 0;
+  useCanvasSurface(next, false);
+  effects = [];
+};
+
 beforeEach(() => {
   settle = null;
   settleDeps = [];
@@ -137,6 +163,9 @@ beforeEach(() => {
   teardowns = [];
   queries = [];
   observer = null;
+  slots = [];
+  slot = 0;
+  theme = "system";
   vi.stubGlobal("devicePixelRatio", 2);
   vi.stubGlobal("getComputedStyle", () => ({ color: RESOLVED }));
   vi.stubGlobal("ResizeObserver", Watcher);
@@ -177,7 +206,7 @@ describe("a canvas kept in step with its element", () => {
     expect(paint.mock.calls[0]?.[1]).toBe(RESOLVED);
   });
 
-  it("leaves a backing store already at its size alone, so a commit does not wipe the picture", () => {
+  it("leaves a backing store already at its size alone, so a rebake does not wipe the picture", () => {
     const paint = vi.fn((_canvas: HTMLCanvasElement, _color: string) => {});
     const held = useSurface(paint);
     held.root.clientWidth = 200;
@@ -203,9 +232,45 @@ describe("a canvas kept in step with its element", () => {
       });
     }
 
-    held.commit();
+    watchingSize().rebake();
     expect(wipes).toBe(0);
     expect(paint).toHaveBeenCalledTimes(2);
+  });
+
+  it("measures on mount and on a theme choice, never on a commit that only changed the picture", () => {
+    // Both reads force a layout, and a drag commits a new paint on nearly every pointer move.
+    let styles = 0;
+    vi.stubGlobal("getComputedStyle", () => {
+      styles += 1;
+      return { color: RESOLVED };
+    });
+    const first = vi.fn((_canvas: HTMLCanvasElement, _color: string) => {});
+    const held = useSurface(first);
+    let widths = 0;
+    Object.defineProperty(held.root, "clientWidth", {
+      get: () => {
+        widths += 1;
+        return 200;
+      },
+    });
+    held.commit();
+    expect({ styles, widths }).toEqual({ styles: 1, widths: 1 });
+
+    const next = vi.fn((_canvas: HTMLCanvasElement, _color: string) => {});
+    useSurfaceAgain(next);
+    held.commit();
+    held.commit();
+    expect({ styles, widths }).toEqual({ styles: 1, widths: 1 });
+    // And painted all the same, in the colour it already holds.
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(next.mock.calls[1]?.[1]).toBe(RESOLVED);
+
+    // An explicit theme choice moves the token with no listener of its own, so it is measured.
+    theme = "dark";
+    useSurfaceAgain(next);
+    held.commit();
+    expect({ styles, widths }).toEqual({ styles: 2, widths: 2 });
+    expect(next).toHaveBeenCalledTimes(3);
   });
 
   it("watches what it paints, so a commit that changed the picture bakes again", () => {
