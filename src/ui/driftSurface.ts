@@ -1,15 +1,16 @@
 /**
  * @role The drift's canvas: the one surface every picture is drawn on, held to the picture's own
  *   cadence, slowed with the pictures animating beside it, given a share of each frame, and asked
- *   to draw again whenever a tile it wanted lands or a tuning moves (0144, 0284, 0399).
+ *   to draw again whenever a tile it wanted lands or a tuning moves — and none of it while the
+ *   canvas is scrolled off screen (0144, 0284, 0399, 0403).
  * @instead The tile shops it redraws for → src/ui/driftTiles.ts and src/ui/moireScreenShop.ts.
  *   Sizing, theme and the paced paint every canvas shares → src/ui/canvasSurface.ts. The cadence's
  *   own numbers → `looksPaintMs` and `standingPaintMs` in src/ui/moireLooks.ts.
  */
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { subscribeTuning } from "@/lib/moireTuning";
-import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
+import { observeShown, useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { onDriftBaked, picturesAnimating, standUp } from "@/ui/driftTiles";
 import { perFrame } from "@/ui/frame";
 import { LOOK_PER_FRAME, standingPaintMs } from "@/ui/moireLooks";
@@ -41,19 +42,40 @@ export function useDriftSurface(
   animate: boolean,
   everyMs: () => number,
 ): CanvasSurface {
+  // Whether the canvas is on screen. One scrolled off it is not animated and not counted, so it
+  // neither paints for nobody nor slows the pictures that are seen; its phases are read off the
+  // deck's position and its travels arrive at a reading across any gap, so it comes back where it
+  // would have been (`refill`, src/ui/MoireStrip.tsx, 0403). A discrete fact, so React state.
+  const [shown, setShown] = useState(true);
+  const moving = animate && shown;
   // Counted while this picture animates, and never while it holds a frame: a paused yard costs no
   // painting, so it slows nobody else's (0399).
-  useEffect(() => (animate ? standUp() : undefined), [animate]);
+  useEffect(() => (moving ? standUp() : undefined), [moving]);
   const loaded = useCallback(() => standingPaintMs(everyMs(), picturesAnimating()), [everyMs]);
-  const surface = useCanvasSurface(paint, animate, loaded, drawsThisFrame);
-  const { repaint } = surface;
-  useEffect(() => onDriftBaked(repaint), [repaint]);
+  const surface = useCanvasSurface(paint, moving, loaded, drawsThisFrame);
+  const { rootRef, repaint, repaintStale } = surface;
+  // And painted the moment it comes back, past the frame's share: what it holds is the picture it
+  // was left at, and a share refused would show that one on screen (0403).
+  useEffect(
+    () =>
+      observeShown(rootRef.current, (now) => {
+        setShown(now);
+        if (now) repaintStale();
+      }),
+    [repaintStale, rootRef],
+  );
+  // The asks below paint for whoever is looking, so a canvas nobody can see lets them pass: a
+  // shared tile landing would otherwise paint every yard off screen with the one on it (0400).
+  const asked = useCallback(() => {
+    if (shown) repaint();
+  }, [repaint, shown]);
+  useEffect(() => onDriftBaked(asked), [asked]);
   // And whenever a screen tile lands: the same picture holds two shops now, and a tile baked off
   // the frame after the painting that wanted it would otherwise never be drawn (0354).
-  useEffect(() => onScreenBaked(repaint), [repaint]);
+  useEffect(() => onScreenBaked(asked), [asked]);
   // And whenever a tuning moves: a halted picture would otherwise hold the old number until
   // something else asked it to paint (src/lib/moireTuning.ts, 0299). The same ask as above, and
   // a no-op inside a budget already standing.
-  useEffect(() => subscribeTuning(repaint), [repaint]);
+  useEffect(() => subscribeTuning(asked), [asked]);
   return surface;
 }

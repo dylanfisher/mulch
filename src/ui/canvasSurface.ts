@@ -20,6 +20,7 @@ type Display = {
   devicePixelRatio: number;
   matchMedia: (query: string) => MediaQueryList;
   ResizeObserver: typeof ResizeObserver;
+  IntersectionObserver: typeof IntersectionObserver;
 };
 
 /**
@@ -34,6 +35,37 @@ export const viewOf = (node: Node | null): Display =>
 /** Watch an element's size until the returned unsubscribe is called. Null observes nothing. */
 export function observeSize(root: HTMLElement | null, on: () => void): () => void {
   const observer = new (viewOf(root).ResizeObserver)(on);
+  if (root !== null) observer.observe(root);
+  return () => {
+    observer.disconnect();
+  };
+}
+
+/**
+ * How far past the viewport's edge an element counts as on screen: the observer reports a frame
+ * after the scroll that moved it, so a canvas told only as it crosses the edge would show a frame
+ * of the picture it was left at before it painted the one it has come back to.
+ */
+const SHOWN_MARGIN = "25%";
+
+/**
+ * Watch whether an element is on screen, until the returned unsubscribe is called — told only when
+ * that changes, and taken to be on screen until told otherwise, which is what it was mounted as.
+ * Asked of the window the element is in, whose viewport is the one it scrolls through (0138).
+ * Null observes nothing.
+ */
+export function observeShown(root: HTMLElement | null, on: (shown: boolean) => void): () => void {
+  let shown = true;
+  const observer = new (viewOf(root).IntersectionObserver)(
+    (entries) => {
+      // A batch is every crossing since the last report, oldest first: the last is where it is now.
+      const now = entries.at(-1)?.isIntersecting ?? shown;
+      if (now === shown) return;
+      shown = now;
+      on(now);
+    },
+    { rootMargin: SHOWN_MARGIN },
+  );
   if (root !== null) observer.observe(root);
   return () => {
     observer.disconnect();
@@ -109,6 +141,12 @@ export type CanvasSurface = {
    * between one commit and the next.
    */
   repaint: () => void;
+  /**
+   * Ask for a paint of a canvas whose picture is stale — one coming back on screen after it was
+   * left standing. At the surface's own cadence, but never waiting on a share of the frame: a share
+   * refused there is an old picture on screen and not a slower one (0403).
+   */
+  repaintStale: () => void;
 };
 
 /**
@@ -238,5 +276,5 @@ export function useCanvasSurface(
 
   useOnFrame(repaint, animate);
 
-  return { rootRef, canvasRef, repaint };
+  return { rootRef, canvasRef, repaint, repaintStale: askWiped };
 }

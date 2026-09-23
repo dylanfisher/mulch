@@ -47,7 +47,7 @@ vi.mock("@/ui/frame", () => ({
   paced: (_everyMs: number, work: () => void) => ({ ask: work, askWiped: work, stop: () => {} }),
 }));
 
-import { useCanvasSurface } from "@/ui/canvasSurface";
+import { observeShown, useCanvasSurface } from "@/ui/canvasSurface";
 
 /** Not a colour: whatever the token resolved to, so a paint that invented one is visible here. */
 const RESOLVED = "whatever the token resolved to";
@@ -301,5 +301,47 @@ describe("a canvas kept in step with its element", () => {
     expect(queries).toEqual([]);
     // The element is still watched — through the second window's own observer, not this one's.
     expect(watchingSize().observing).toEqual([held.root]);
+  });
+});
+
+describe("whether a canvas is on screen", () => {
+  it("is told only when that changes, taking the last crossing of a batch, and never at mount", () => {
+    let report: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
+    const observing: unknown[] = [];
+    vi.stubGlobal(
+      "IntersectionObserver",
+      // A mock is constructible, so the stand-in is one without being the file's second class.
+      vi.fn(function seen(on: (entries: { isIntersecting: boolean }[]) => void) {
+        report = on;
+        return {
+          observe: (target: unknown) => {
+            observing.push(target);
+          },
+          disconnect: () => {
+            report = null;
+          },
+        };
+      }),
+    );
+    const told: boolean[] = [];
+    // The observer is handed the element and reads nothing off it; this one is only its identity.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const root = {} as unknown as HTMLElement;
+    const off = observeShown(root, (shown) => {
+      told.push(shown);
+    });
+    const cross = (...shown: boolean[]): void => {
+      if (report === null) throw new Error("nothing is watching whether the element is shown.");
+      report(shown.map((isIntersecting) => ({ isIntersecting })));
+    };
+    expect(observing).toEqual([root]);
+    // The first report of all is where it was mounted, which is on screen: nothing to tell.
+    cross(true);
+    cross(true, false);
+    cross(false);
+    cross(false, true);
+    expect(told).toEqual([false, true]);
+    off();
+    expect(report).toBeNull();
   });
 });
