@@ -9,6 +9,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { createAnalyzer, workerAnalysisPort } from "@/app/analysis";
+import { openLiveHost } from "@/app/boot";
 import { contextClock } from "@/app/clock";
 import { createAudioEngine } from "@/app/engine";
 import {
@@ -20,9 +21,7 @@ import {
 import { createInstrument, type Instrument } from "@/app/facade";
 import { type DrivenResult, renderOffline, type RenderSpec } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
-import { loadWorklets } from "@/audio/worklet";
 import { measureOpening, type MeasureOpening } from "@/lib/measure";
-import { createIndexedDbRepository } from "@/state/repository";
 import { App } from "@/ui/App";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 
@@ -70,8 +69,8 @@ const root = requireRoot();
 
 /**
  * Worklet modules are fetched before the instrument exists, so nothing can construct a node for
- * a processor that is not registered yet. It costs one request before first paint and removes a
- * whole class of race: by the time `window.mulch` is attached, the transport is fully wired, so
+ * a processor that is not registered yet. It costs one request before first paint — the database
+ * opens beside it rather than after (src/app/boot.ts) — and removes a whole class of race: by the time `window.mulch` is attached, the transport is fully wired, so
  * ./scripts/drive waiting for that attach is also waiting for the audio thread to be ready.
  */
 // The composition root's one function: a flat sequence of constructions with no branching, whose
@@ -79,7 +78,7 @@ const root = requireRoot();
 // oxlint-disable-next-line max-lines-per-function
 async function boot(): Promise<void> {
   const ctx = createLiveContext();
-  await loadWorklets(ctx);
+  const repository = await openLiveHost(ctx);
 
   const instrument = createInstrument(
     contextClock(ctx),
@@ -93,7 +92,7 @@ async function boot(): Promise<void> {
         // The live host is the only one with a worker: an offline render measures nothing.
         createAnalyzer(workerAnalysisPort(), store, emit),
       ),
-    createIndexedDbRepository(),
+    repository,
     // The harness itself, handed to the reducer that keeps what it renders (0112). Here rather
     // than inside the facade, which render.ts already imports.
     renderOffline,

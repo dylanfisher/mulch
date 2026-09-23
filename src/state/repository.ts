@@ -99,11 +99,12 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
 // The returned repository is one closure over one database connection; each member is one
 // transaction. A one-line extraction would split transaction setup from the requests it owns.
 // oxlint-disable-next-line max-lines-per-function
-export function createIndexedDbRepository(factory: IDBFactory = indexedDB): SessionRepository {
-  const database = open(factory);
+export async function openIndexedDbRepository(
+  factory: IDBFactory = indexedDB,
+): Promise<SessionRepository> {
+  const db = await open(factory);
   return {
     load: async () => {
-      const db = await database;
       const transaction = db.transaction(SESSIONS, "readonly");
       const done = complete(transaction);
       const value = await request<unknown>(transaction.objectStore(SESSIONS).get(CURRENT_SESSION));
@@ -111,7 +112,6 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       return value;
     },
     save: async (session, retained = new Set()) => {
-      const db = await database;
       const transaction = db.transaction([SESSIONS, BLOBS], "readwrite");
       const done = complete(transaction);
       transaction.objectStore(SESSIONS).put(session, CURRENT_SESSION);
@@ -131,7 +131,6 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       await done;
     },
     ingest: async (bytes, id = mintedBlobId(bytes)) => {
-      const db = await database;
       const transaction = db.transaction(BLOBS, "readwrite");
       const done = complete(transaction);
       // `add`, not `put`: a second write under one id would silently replace a source a deck, a
@@ -141,7 +140,6 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       return id;
     },
     blob: async (id) => {
-      const db = await database;
       const transaction = db.transaction(BLOBS, "readonly");
       const done = complete(transaction);
       const stored = await request<unknown>(transaction.objectStore(BLOBS).get(id));
@@ -151,7 +149,6 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       return stored;
     },
     blobs: async (ids) => {
-      const db = await database;
       const transaction = db.transaction(BLOBS, "readonly");
       const done = complete(transaction);
       const store = transaction.objectStore(BLOBS);
@@ -175,7 +172,6 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       if (expected.size !== imported.size || [...expected].some((id) => !imported.has(id))) {
         throw new TypeError("replacement blobs do not exactly match the session");
       }
-      const db = await database;
       const transaction = db.transaction([SESSIONS, BLOBS], "readwrite");
       const done = complete(transaction);
       transaction.objectStore(SESSIONS).put(session, CURRENT_SESSION);

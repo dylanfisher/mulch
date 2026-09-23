@@ -5,7 +5,7 @@
 // a repository double, so these transactions run nowhere else.
 import { describe, expect, it } from "vitest";
 import { importedFileName } from "@/lib/source";
-import { createIndexedDbRepository } from "./repository";
+import { openIndexedDbRepository } from "./repository";
 import { sessionSnapshot } from "./session";
 import { createSessionStore, INITIAL_DECK_ID, patchDeck } from "./store";
 
@@ -188,7 +188,7 @@ const sessionWith = (id: string) => {
 // oxlint-disable-next-line max-lines-per-function
 describe("the IndexedDB repository", () => {
   it("stores the session, keeps what is retained, and collects the rest", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     await repository.ingest(new Blob(["kept"]), "kept");
     await repository.ingest(new Blob(["held"]), "held");
     await repository.ingest(new Blob(["stray"]), "stray");
@@ -204,7 +204,7 @@ describe("the IndexedDB repository", () => {
   });
 
   it("refuses to store a session whose bytes are not there, and keeps the last one", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     await repository.ingest(new Blob(["kept"]), "kept");
     await repository.save(sessionWith("kept"));
 
@@ -216,7 +216,7 @@ describe("the IndexedDB repository", () => {
   });
 
   it("refuses a second ingest under an id already taken (0047)", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     await repository.ingest(new Blob(["first"]), "take");
 
     // The reason is the failed request's, not the transaction's own: a browser's ConstraintError
@@ -229,7 +229,7 @@ describe("the IndexedDB repository", () => {
   });
 
   it("mints an imported file's own name into the id it stores it under (P91)", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     const id = await repository.ingest(new File([Uint8Array.of(1, 2, 3)], "birds.wav"));
     // The id is what an export reads a file's name back out of; nothing else durable carries it.
     expect(importedFileName(id)).toBe("birds.wav");
@@ -241,7 +241,7 @@ describe("the IndexedDB repository", () => {
   });
 
   it("reads exactly the bytes a portable projection asks for, or refuses", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     await repository.ingest(new Blob(["one"]), "one");
     await repository.ingest(new Blob(["twotwo"]), "two");
 
@@ -257,20 +257,20 @@ describe("the IndexedDB repository", () => {
 
   it("keeps what an earlier open stored when the database is opened again", async () => {
     const factory = fakeFactory();
-    const first = createIndexedDbRepository(factory);
+    const first = await openIndexedDbRepository(factory);
     await first.ingest(new Blob(["kept"]), "kept");
     await first.save(sessionWith("kept"));
 
     // The fake runs every open as an upgrade, which is the case the repository's
     // `objectStoreNames.contains` guards are written for: a store that is already there is not
     // created again, because creating it again is an empty one.
-    const second = createIndexedDbRepository(factory);
+    const second = await openIndexedDbRepository(factory);
     expect(await second.load()).toEqual(sessionWith("kept"));
     expect((await second.blob("kept"))?.size).toBe(4);
   });
 
   it("refuses a replacement whose bytes are not exactly the session's", async () => {
-    const repository = createIndexedDbRepository(fakeFactory());
+    const repository = await openIndexedDbRepository(fakeFactory());
     const stray = new Map([["two", new Uint8Array([1])]]);
     await expect(repository.replace(sessionWith("one"), new Map())).rejects.toThrow(
       /do not exactly match/u,

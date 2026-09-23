@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type * as ShortcutsModule from "@/ui/shortcuts";
 import type * as ToastModule from "@/ui/components/toast";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -14,6 +15,21 @@ vi.mock("@/ui/components/toast", async (importOriginal) => ({
       {children}
     </div>
   ),
+}));
+
+/**
+ * Whether the palette's module has been evaluated yet, and the open flag a static render reads.
+ * The real hook answers closed on a server render, so the one way to render the shell with the
+ * palette open without a DOM is to hand it the flag; everything else in both modules is real.
+ */
+const palette = vi.hoisted(() => ({ loaded: false, open: false }));
+vi.mock("@/ui/CommandPalette", (importOriginal) => {
+  palette.loaded = true;
+  return importOriginal();
+});
+vi.mock("@/ui/shortcuts", async (importOriginal) => ({
+  ...(await importOriginal<typeof ShortcutsModule>()),
+  usePaletteOpen: () => palette.open,
 }));
 
 import { manualClock } from "@/app/clock";
@@ -146,5 +162,25 @@ describe("App", () => {
     const markup = renderToStaticMarkup(<App instrument={instrument} />);
     expect(markup).not.toContain('aria-label="Yard A');
     expect(markup).toContain("Add Yard");
+  });
+
+  /**
+   * The palette is a chunk of its own, fetched by the first press that opens it: a shell rendered
+   * with it closed has not so much as evaluated its module, and one rendered open asks for it.
+   */
+  it("loads the palette's module on its first opening, not at startup", async () => {
+    const instrument = createInstrument(manualClock());
+    renderToStaticMarkup(<App instrument={instrument} />);
+    expect(palette.loaded).toBe(false);
+
+    palette.open = true;
+    try {
+      renderToStaticMarkup(<App instrument={instrument} />);
+      await vi.waitFor(() => {
+        expect(palette.loaded).toBe(true);
+      });
+    } finally {
+      palette.open = false;
+    }
   });
 });

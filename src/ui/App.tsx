@@ -3,7 +3,7 @@
 // how many things the instrument has rather than how much this file decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
@@ -22,7 +22,8 @@ import {
 import { Toaster } from "@/ui/components/toast";
 import { TooltipProvider } from "@/ui/components/tooltip";
 import { ClipRack } from "@/ui/ClipRack";
-import { CommandPalette } from "@/ui/CommandPalette";
+// Its props alone, erased from the build: the component itself is the lazy chunk below.
+import type { PaletteProps } from "@/ui/CommandPalette";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
@@ -37,7 +38,12 @@ import { MasterRack } from "@/ui/MasterRack";
 import { MulchTally } from "@/ui/MulchTally";
 import { DEV_ROUTE, SKETCH_ROUTE, STRUCTURE_ROUTE, useRoute } from "@/ui/routes";
 import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
-import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
+import {
+  setPaletteOpen,
+  useDebugConsoleOpen,
+  useKeyboardShortcuts,
+  usePaletteOpen,
+} from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
 import { DriftLookToggle } from "@/ui/DriftLookToggle";
@@ -60,6 +66,40 @@ const SketchPage = lazy(async () => ({
 const StructurePage = lazy(async () => ({
   default: (await import("@/ui/sketch/StructurePage")).StructurePage,
 }));
+
+// And the palette — its combobox, and every surface it collects an entry from — which a session
+// may never open: the chunk is fetched by the first ⌘K rather than at startup.
+const CommandPalette = lazy(async () => ({
+  default: (await import("@/ui/CommandPalette")).CommandPalette,
+}));
+
+/**
+ * The palette, mounted by the first press that opens it and kept mounted after. The press is not
+ * lost while its chunk is in flight: the open flag lives in src/ui/shortcuts.ts, so the palette
+ * mounts already open and the dialog's first frame is the open one.
+ */
+function PaletteOnDemand(props: PaletteProps) {
+  const open = usePaletteOpen();
+  const [wanted, setWanted] = useState(open);
+  if (open && !wanted) setWanted(true);
+
+  useEffect(
+    () => () => {
+      // The flag outlives this component, and the key that clears it is bound on the instrument
+      // route alone. A hashchange to #/dev under an open palette — or under one whose chunk is
+      // still on its way — would otherwise strand it open, and coming back would reopen it with
+      // nothing pressed. Here rather than in the palette, which may not be mounted yet.
+      setPaletteOpen(false);
+    },
+    [],
+  );
+
+  return wanted ? (
+    <Suspense fallback={null}>
+      <CommandPalette {...props} />
+    </Suspense>
+  ) : null;
+}
 
 function useActiveDeck(instrument: Instrument): DeckId | null {
   const read = useCallback(() => instrument.state.getState().activeDeck, [instrument]);
@@ -262,7 +302,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
           open={exportingAudio}
           onOpenChange={setExportingAudio}
         />
-        <CommandPalette instrument={instrument} onExportAudio={onExportAudio} />
+        <PaletteOnDemand instrument={instrument} onExportAudio={onExportAudio} />
       </main>
     </div>
   );

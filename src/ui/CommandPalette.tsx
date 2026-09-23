@@ -9,7 +9,7 @@
 // file: the count tracks how many gestures it collects, not how much it decides.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 
 import type { Instrument } from "@/app/facade";
@@ -220,7 +220,7 @@ function PaletteItem({ entry }: { entry: PaletteEntry }) {
   );
 }
 
-type PaletteProps = {
+export type PaletteProps = {
   instrument: Instrument;
   onExportAudio: () => void;
 };
@@ -286,17 +286,6 @@ function PaletteBody({ instrument, onExportAudio }: PaletteProps) {
  */
 export function CommandPalette(props: PaletteProps) {
   const open = usePaletteOpen();
-
-  useEffect(
-    () => () => {
-      // The flag lives in src/ui/shortcuts.ts, where every key does, so it outlives this
-      // component — and the key that clears it is bound on the instrument route alone. A
-      // hashchange to #/dev under an open palette would otherwise strand it open, and coming
-      // back would reopen it with nothing pressed.
-      setPaletteOpen(false);
-    },
-    [],
-  );
 
   return (
     <Dialog open={open} onOpenChange={setPaletteOpen}>
