@@ -129,7 +129,13 @@ function onMaster(instance: EffectInstanceId | null, at: string): EffectInstance
  */
 type RackHost = Pick<
   DeckVoice,
-  "setEffectBypass" | "setEffectBounds" | "dismissGrown" | "removeEffect" | "reorderEffects"
+  | "addEffect"
+  | "setSync"
+  | "setEffectBypass"
+  | "setEffectBounds"
+  | "dismissGrown"
+  | "removeEffect"
+  | "reorderEffects"
 >;
 
 /**
@@ -513,10 +519,15 @@ export function createAudioEngine(
       }
       voice(deck).setAutomation(instance, param, lane, base);
     },
-    addEffect: (deck, instance, effect, values) =>
-      deck === null
-        ? master.effects.addEffect(instance, effect, values)
-        : voice(deck).addEffect(instance, effect, values),
+    addEffect: (deck, instance, effect, values) => {
+      const at = rackAt(deck).addEffect(instance, effect, values);
+      // A rack fans its clocks out over the instances standing when told, so a fresh one is told
+      // them now rather than at the next deck knob: a lull on the grid lays nothing on nought.
+      if (deck === null) master.effects.setTempo(masterTempo(sync));
+      else refreshTempo(deck);
+      rackAt(deck).setSync(sync);
+      return at;
+    },
     setEffectBypass: (deck, instance, bypassed) => {
       rackAt(deck).setEffectBypass(instance, bypassed);
       if (deck === null) releaseUnasked();

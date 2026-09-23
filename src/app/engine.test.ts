@@ -548,6 +548,30 @@ describe("a yard's beat after a restore", () => {
   });
 });
 
+// A rack fans the clocks out over the instances it holds when told them, and a fresh one is built
+// from its values alone: one added to a yard already sounding its beat has to be told that beat
+// at once, not at the next deck knob moved (0371).
+describe("a lull added to a yard", () => {
+  it("is told the yard's beat on arrival, so on the grid it rests with no deck knob moved", async () => {
+    const { instrument, engine } = fixture(measuresAtOnce);
+    await instrument.ready;
+    instrument.send({ t: "effect.add", deck: "a", id: "l1", effect: "lull" });
+    for (const [param, value] of [
+      ["lull.chance", 1],
+      ["lull.rest", 1],
+      ["lull.every", 1],
+      ["lull.grid", 1],
+    ] as const) {
+      instrument.send({ t: "param.set", deck: "a", instance: "l1", param, value });
+    }
+
+    instrument.send({ t: "deck.play", deck: "a" });
+    engine.armAutomation();
+    // A rest laid is a plan that stops somewhere; on a beat of nought the lull lays none.
+    expect(reporters.at(-1)?.plans.some((plan) => plan.until !== undefined)).toBe(true);
+  });
+});
+
 /** Stored bytes the fake context decodes into a buffer of that many frames. */
 const stored = (frames: number): Blob => new Blob([new Uint8Array(frames)]);
 
