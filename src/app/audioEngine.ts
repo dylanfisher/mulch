@@ -206,12 +206,19 @@ export type Engine = {
    * memory, and there is no parameter that means "forget what you are holding" (0390).
    */
   silence(): void;
-  /** Build and validate a complete replacement graph without touching the live one. */
-  prepareRestore(
-    session: Session,
-    blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
-  ): Promise<PreparedRestore>;
+  /**
+   * Build and validate a complete replacement graph without touching the live one. `read` is
+   * asked only for a source the host has not already decoded, so an undo over audio the host is
+   * holding reads nothing from storage.
+   */
+  prepareRestore(session: Session, read: BlobReader): Promise<PreparedRestore>;
 };
+
+/**
+ * One stored source's bytes, fresh for this caller — a decode detaches what it is handed — or
+ * null when there are none under that id.
+ */
+export type BlobReader = (id: BlobId) => Promise<ArrayBuffer | null>;
 
 export type PreparedRestore = {
   durations: Record<DeckId, number>;

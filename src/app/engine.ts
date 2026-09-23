@@ -47,7 +47,14 @@ import { armInstanceLanes, restoreMaster, silenceRacks } from "./rackRebuild";
 
 // Re-exported because this file used to declare them and every caller reaches them through it:
 // the contract moved out for the hard cap's sake, and its home is src/app/audioEngine.ts.
-export type { AudioEngine, DecodedSource, Emit, Engine, SourceShape } from "./audioEngine";
+export type {
+  AudioEngine,
+  BlobReader,
+  DecodedSource,
+  Emit,
+  Engine,
+  SourceShape,
+} from "./audioEngine";
 export { PEAK_COLUMNS } from "./audioEngine";
 
 /** The commit default: a restore nobody is carrying a transport across restarts no deck. */
@@ -560,7 +567,7 @@ export function createAudioEngine(
     // Preparation is one transaction-like state machine: every constructed voice is either
     // committed together or released together. See 0007 and 0020.
     // oxlint-disable-next-line max-lines-per-function
-    prepareRestore: async (session, blobs) => {
+    prepareRestore: async (session, read) => {
       const nextVoices = new Map<DeckId, DeckVoice>();
       const nextPeaks = new Map<DeckId, Peaks>();
       /** What the committed decks will be measured from — analysis is re-derived, never stored. */
@@ -588,14 +595,17 @@ export function createAudioEngine(
           if (isGenSource(source)) decoded = reduce(renderSourceBuffer(ctx, source));
           else {
             const blobId = source.blobId;
-            const bytes = blobs.get(blobId);
-            if (bytes === undefined) throw new Error(`missing blob: ${blobId}`);
             // Through the cache, so a rebuild of a session whose sources are already decoded —
-            // every grouped edit's rollback, and every clip pre-flight — pays for none of them
-            // again. Decoding is serial inside the cache too, which is what limits peak memory
-            // while both the live and prepared graphs hold their audio.
+            // every undo, every grouped edit's rollback, and every clip pre-flight — decodes none
+            // of them again, and `read` is asked only on a miss. Decoding is serial inside
+            // the cache too, which is what limits peak memory while both the live and prepared
+            // graphs hold their audio.
             // oxlint-disable-next-line no-await-in-loop
-            decoded = await decodes.get(blobId, () => Promise.resolve(bytes.slice().buffer));
+            decoded = await decodes.get(blobId, async () => {
+              const bytes = await read(blobId);
+              if (bytes === null) throw new Error(`missing blob: ${blobId}`);
+              return bytes;
+            });
           }
           const buffer = decoded.buffer;
           const channels = channelsOf(buffer);

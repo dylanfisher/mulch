@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { BeatAnalysis } from "@/lib/analysis";
-import type { BlobId } from "@/lib/source";
+import { isBlobSource, type BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
@@ -74,16 +74,23 @@ const engineDouble = (
   silentEngine({
     loadBlob,
     setLoop: (_deck, from, to) => (to > from ? { in: from, out: to } : null),
-    prepareRestore: (session, blobs) => {
-      restores.push({ source: session.decks.a!.source, blobs: [...blobs.keys()] });
-      return Promise.resolve({
+    prepareRestore: async (session, read) => {
+      // What a host holding nothing decoded reads: every stored source the session names.
+      const source = session.decks.a!.source;
+      const ids = source !== null && isBlobSource(source) ? [source.blobId] : [];
+      for (const id of ids) {
+        // oxlint-disable-next-line no-await-in-loop
+        if ((await read(id)) === null) throw new Error(`missing blob: ${id}`);
+      }
+      restores.push({ source, blobs: ids });
+      return {
         durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
           deckIn(session.decks, deck).source === null ? 0 : 3,
         ),
         commit: () => {},
         measure: measureInto(store, session),
         discard: () => {},
-      });
+      };
     },
   });
 

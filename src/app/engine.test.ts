@@ -25,6 +25,7 @@ import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 import { GEN_SECS } from "@/lib/waveform";
+import { DECODE_CACHE_LIMIT } from "@/audio/decodeCache";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
 import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -184,23 +185,35 @@ type Fixture = {
   engine: AudioEngine;
   /** What the repository will hand back, by id — the bytes an import decodes. */
   blobs: Map<string, Blob>;
+  /** Every id the repository was asked for, in order, by either of its reads. */
+  reads: string[];
 };
 
 /** One deck, loaded, on the real engine over the fake graph — measured by `analyzer`, if given. */
 function fixture(analyzer?: (store: SessionStore) => Analyzer): Fixture {
   stubReporter();
   const blobs = new Map<string, Blob>();
+  const reads: string[] = [];
   const repository: SessionRepository = {
     load: () => Promise.resolve(),
     save: () => Promise.resolve(),
     ingest: () => Promise.reject(new Error("this fixture stores nothing")),
-    blob: (id) => Promise.resolve(blobs.get(id) ?? null),
-    // Nothing is stored, so the only read this fixture can answer is the empty one an undo of a
-    // session whose sources are all generated asks for.
-    blobs: (ids) =>
-      ids.size === 0
-        ? Promise.resolve(new Map())
-        : Promise.reject(new Error("this fixture stores nothing")),
+    blob: (id) => {
+      reads.push(id);
+      return Promise.resolve(blobs.get(id) ?? null);
+    },
+    blobs: async (ids) => {
+      reads.push(...ids);
+      return new Map(
+        await Promise.all(
+          [...ids].map(async (id) => {
+            const blob = blobs.get(id);
+            if (blob === undefined) throw new Error(`missing blob: ${id}`);
+            return [id, new Uint8Array(await blob.arrayBuffer())] as const;
+          }),
+        ),
+      );
+    },
     replace: () => Promise.resolve(),
   };
   // Collected the way the reporters above are, rather than assigned to a captured `let`: the
@@ -230,7 +243,7 @@ function fixture(analyzer?: (store: SessionStore) => Analyzer): Fixture {
     if (plan === undefined) throw new Error("no plan to confirm");
     reporter.deliver({ t: "started", id: plan.id, at: 0, offset: 0 });
   };
-  return { instrument, events, confirmStart, engine, blobs };
+  return { instrument, events, confirmStart, engine, blobs, reads };
 }
 
 /** Enough microtask turns for a blob read, its decode and the event that follows them. */
@@ -468,6 +481,9 @@ const silenced = (): number => gainAims.filter((aims) => aims.at(-1) === 0).leng
 describe("a yard that comes back muted", () => {
   it("is silenced by the graph the restore builds, not only by the session it puts back", async () => {
     const { instrument } = fixture();
+    // Hydrated first: a group runs the moment it is sent, and a history reset landing behind it
+    // would take the entry this case undoes.
+    await instrument.ready;
     // Sent as its own group, which closes the entry the moment it lands: an open gesture spent
     // after the restore has rewound the store is a ledger question and not this case's (0067).
     instrument.send({
@@ -507,6 +523,7 @@ const measuresAtOnce = (store: SessionStore): Analyzer => ({
 describe("a yard's beat after a restore", () => {
   it("is told to the rebuilt rack, so a lull on the grid still rests", async () => {
     const { instrument, engine } = fixture(measuresAtOnce);
+    await instrument.ready;
     instrument.send({ t: "effect.add", deck: "a", id: "l1", effect: "lull" });
     for (const [param, value] of [
       ["lull.chance", 1],
@@ -528,5 +545,95 @@ describe("a yard's beat after a restore", () => {
     engine.armAutomation();
     // A rest laid is a plan that stops somewhere; on a beat of nought the lull lays none.
     expect(reporters.at(-1)?.plans.some((plan) => plan.until !== undefined)).toBe(true);
+  });
+});
+
+/** Stored bytes the fake context decodes into a buffer of that many frames. */
+const stored = (frames: number): Blob => new Blob([new Uint8Array(frames)]);
+
+// An undo swaps a whole prepared graph in, and what that graph plays is audio the host has almost
+// always just been playing: the decode cache already holds it, so storage is asked only for what
+// the cache does not.
+describe("an undo over audio the host has decoded", () => {
+  it("reads nothing from storage", async () => {
+    const { instrument, blobs, reads } = fixture();
+    await instrument.ready;
+    blobs.set("held", stored(64));
+    instrument.send({ t: "deck.load", deck: "a", source: { blobId: "held" } });
+    await settle();
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
+    reads.length = 0;
+
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.a).toMatchObject({
+      source: { blobId: "held" },
+      params: { "deck.gain": 1 },
+    });
+    expect(reads).toEqual([]);
+  });
+
+  it("reads the one source the cache has let go of, and no other", async () => {
+    const { instrument, blobs, reads } = fixture();
+    await instrument.ready;
+    const ids = Array.from({ length: DECODE_CACHE_LIMIT + 1 }, (_, at) => `take-${at}`);
+    for (const [at, id] of ids.entries()) {
+      blobs.set(id, stored(64 + at));
+      instrument.send({ t: "deck.load", deck: "a", source: { blobId: id } });
+      // oxlint-disable-next-line no-await-in-loop
+      await settle();
+    }
+    reads.length = 0;
+
+    for (let remaining = DECODE_CACHE_LIMIT; remaining > 0; remaining--) {
+      instrument.send({ t: "history.undo" });
+      // oxlint-disable-next-line no-await-in-loop
+      await settle();
+    }
+    expect(instrument.probe().decks.a?.source).toEqual({ blobId: ids[0] });
+    expect(reads).toEqual([ids[0]]);
+  });
+});
+
+// The first move of a drag over an automated knob is a group — the lane cleared and the value
+// that replaced it — and a group that commits never needed a way back. Each voice is built with
+// one reporter, so the reporters are the count of graphs this host has built.
+describe("a grouped edit", () => {
+  it("builds no graph when it commits", async () => {
+    const { instrument } = fixture();
+    await instrument.ready;
+    const built = reporters.length;
+
+    instrument.send({
+      t: "history.group",
+      commands: [
+        { t: "automation.set", deck: "a", param: "deck.gain", points: [] },
+        { t: "param.set", deck: "a", param: "deck.gain", value: 0.6 },
+      ],
+    });
+    await settle();
+    expect(instrument.probe().decks.a?.params["deck.gain"]).toBe(0.6);
+    expect(reporters.length).toBe(built);
+  });
+
+  it("builds the graph it rolls back to only when it fails", async () => {
+    const { instrument } = fixture();
+    await instrument.ready;
+    instrument.send({ t: "effect.add", deck: "a", id: "l1", effect: "lull" });
+    const built = reporters.length;
+
+    instrument.send({
+      t: "history.group",
+      commands: [
+        { t: "param.set", deck: "a", param: "deck.gain", value: 0.5 },
+        { t: "effect.add", deck: "a", id: "l1", effect: "lull" },
+      ],
+    });
+    await settle();
+    expect(instrument.probe().decks.a).toMatchObject({
+      params: { "deck.gain": 1 },
+      effects: [{ id: "l1", effect: "lull" }],
+    });
+    expect(reporters.length).toBe(built + 1);
   });
 });

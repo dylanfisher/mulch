@@ -33,7 +33,7 @@ import { EventBus } from "./bus";
 import { BYTES_PER_MB, HEAP_READ_INTERVAL_MS, heapMb, type Stats } from "./stats";
 import type { Clock } from "./clock";
 import type { Command, Envelope, GroupedEditCommand, SessionArchiveHandle } from "./commands";
-import type { Emit, Engine, SourceShape } from "./engine";
+import type { BlobReader, Emit, Engine, SourceShape } from "./engine";
 import type { Event, EventBody } from "./events";
 import { execute, type RenderHost } from "./execute";
 import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
@@ -64,6 +64,15 @@ export type Probe = { at: number } & SessionState;
 export const XRUN_LATE_SECS = LOOKAHEAD_SECS;
 /** Durable changes trail by this long; transient state never starts this timer. */
 export const AUTOSAVE_DELAY_MS = 500;
+
+/**
+ * Bytes already read, handed to the graph one source at a time. Copied per read, because a decode
+ * detaches what it is handed and these bytes go on to be stored or checked by whoever read them.
+ */
+const readFrom =
+  (blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>): BlobReader =>
+  (id) =>
+    Promise.resolve(blobs.get(id)?.slice().buffer ?? null);
 
 export type Instrument = {
   /** The only way to change anything. A bare command is an envelope meaning now. */
@@ -198,6 +207,12 @@ export function createInstrument(
   // is what says so. The single statement of that, for every restore path here.
   const blobsFor = (session: Session): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>> =>
     repository === null ? Promise.resolve(new Map()) : repository.blobs(sessionBlobIds(session));
+  // The same bytes one at a time, for the graph to ask for only what it has not decoded: an undo
+  // over the audio already playing reads nothing from IndexedDB.
+  const readStored: BlobReader = async (id) => {
+    const blob = repository === null ? null : await repository.blob(id);
+    return blob === null ? null : blob.arrayBuffer();
+  };
 
   const waitForLoads = async (): Promise<void> => {
     while (pendingLoads.size > 0) {
@@ -329,7 +344,7 @@ export function createInstrument(
       await ready;
       await Promise.all(earlierLoads.map((load) => load.catch(() => {})));
       if (token !== historyIntent) return;
-      const prepared = await engine.prepareRestore(staged.session, staged.blobs);
+      const prepared = await engine.prepareRestore(staged.session, readFrom(staged.blobs));
       try {
         if (token !== historyIntent) {
           prepared.discard();
@@ -368,7 +383,6 @@ export function createInstrument(
     const earlier = saveTail;
     const operation = earlier.then(async () => {
       await ready;
-      const blobs = await blobsFor(target);
       if (engine === null) {
         if (token !== historyIntent) return false;
         replaceSession(
@@ -380,7 +394,7 @@ export function createInstrument(
         );
         return true;
       }
-      const prepared = await engine.prepareRestore(target, blobs);
+      const prepared = await engine.prepareRestore(target, readStored);
       if (token !== historyIntent) {
         prepared.discard();
         return false;
@@ -438,14 +452,7 @@ export function createInstrument(
     // entry by definition and never joins the one before it, whichever way it ends.
     history.endGesture();
     const before = sessionSnapshot(store.getState());
-    const token = invalidateLoads();
-    const rollbackBlobs = await blobsFor(before);
-    if (token !== historyIntent) return;
-    const rollback = engine === null ? null : await engine.prepareRestore(before, rollbackBlobs);
-    if (token !== historyIntent) {
-      rollback?.discard();
-      return;
-    }
+    invalidateLoads();
     const buffered: Array<{ body: EventBody; at: number }> = [];
     const groupBus = {
       emit: (body: EventBody, at: number = clock.now()) => {
@@ -467,7 +474,9 @@ export function createInstrument(
     } catch (error) {
       invalidateLoads();
       try {
-        if (rollback === null) {
+        // Built only now, when it is needed: a group that commits — every first move of a drag
+        // over an automated knob — never pays for a graph it throws away (0405).
+        if (engine === null) {
           replaceSession(
             store,
             restoredSessionState(
@@ -476,6 +485,7 @@ export function createInstrument(
             ),
           );
         } else {
+          const rollback = await engine.prepareRestore(before, readStored);
           rollback.commit();
           replaceSession(store, restoredSessionState(before, rollback.durations));
           rollback.measure();
@@ -492,7 +502,6 @@ export function createInstrument(
       // the durable observer treats a set flag as "a group is still running".
       grouping = false;
     }
-    rollback?.discard();
     // A group about a single value opens a gesture the rest of that drag's plain sets then join.
     history.record(() => sessionSnapshot(store.getState()), groupGesture(commands));
     observeDurable();
@@ -511,7 +520,7 @@ export function createInstrument(
     // Built and released in one breath: this proves the graph could exist, and the live one
     // never learns it happened. A missing blob failed in the read above; a corrupt one, a
     // rack that will not build, or a loop outside its decoded source fails here (0027).
-    const prepared = await engine.prepareRestore(target, blobs);
+    const prepared = await engine.prepareRestore(target, readFrom(blobs));
     prepared.discard();
   };
   // Every coordinator the executor is handed is a hoisted const above; this is the assembly of
